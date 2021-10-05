@@ -109,17 +109,18 @@ static const DeviceAssignmentRule g_aGenericRules[] =
 #endif
 
     /* Network controllers */
-    /* the first network card gets the PCI ID 3, the next 3 gets 8..10,
-     * next 4 get 16..19. In "VMWare compatibility" mode the IDs 3 and 17
-     * swap places, i.e. the first card goes to ID 17=0x11. */
+    /* the first network card gets the PCI ID 3, the next 3 gets 8..10 */
+
     {"nic",           0,  3,  0, 1},
     {"nic",           0,  8,  0, 1},
     {"nic",           0,  9,  0, 1},
     {"nic",           0, 10,  0, 1},
-    {"nic",           0, 16,  0, 1},
-    {"nic",           0, 17,  0, 1},
-    {"nic",           0, 18,  0, 1},
-    {"nic",           0, 19,  0, 1},
+
+    /* Vfio Devices */
+    {"vfio",           0, 16,  0, 1},
+    {"vfio",           0, 17,  0, 1},
+    {"vfio",           0, 18,  0, 1},
+    {"vfio",           0, 19,  0, 1},
 
     /* ISA/LPC controller */
     {"lpc",           0, 31,  0, 0},

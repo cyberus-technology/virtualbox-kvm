@@ -364,6 +364,8 @@ public:
         typedef std::list<ComObjPtr<PCIDeviceAttachment> > PCIDeviceAssignmentList;
         PCIDeviceAssignmentList mPCIDeviceAssignments;
 
+        std::vector<Utf8Str> mVFIODeviceAssignments;
+
         settings::Debugging mDebugging;
         settings::Autostart mAutostart;
 
@@ -1017,6 +1019,7 @@ private:
     HRESULT getIOCacheSize(ULONG *aIOCacheSize);
     HRESULT setIOCacheSize(ULONG aIOCacheSize);
     HRESULT getPCIDeviceAssignments(std::vector<ComPtr<IPCIDeviceAttachment> > &aPCIDeviceAssignments);
+    HRESULT getVFIODeviceAssignments(std::vector<com::Utf8Str> &aVFIODeviceAssignments);
     HRESULT getBandwidthControl(ComPtr<IBandwidthControl> &aBandwidthControl);
     HRESULT getTracingEnabled(BOOL *aTracingEnabled);
     HRESULT setTracingEnabled(BOOL aTracingEnabled);
@@ -1114,6 +1117,8 @@ private:
                                 LONG aDesiredGuestAddress,
                                 BOOL aTryToUnbind);
     HRESULT detachHostPCIDevice(LONG aHostAddress);
+    HRESULT attachVFIODevice(const com::Utf8Str &aDevicePath);
+    HRESULT detachVFIODevice(const com::Utf8Str &aDevicePath);
     HRESULT getNetworkAdapter(ULONG aSlot,
                               ComPtr<INetworkAdapter> &aAdapter);
     HRESULT addStorageController(const com::Utf8Str &aName,

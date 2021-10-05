@@ -187,6 +187,8 @@ if !defined(VBOX_ONLY_EXTPACKS) && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SU
  	Input/UsbMouse.cpp \
  	Bus/DevPCI.cpp \
  	Bus/DevPciIch9.cpp \
+	Bus/DevVfio.cpp \
+	Bus/VfioDevice.cpp \
  	Bus/MsiCommon.cpp \
  	Bus/MsixCommon.cpp \
  	$(if $(VBOX_WITH_IOMMU_AMD),Bus/DevIommuAmd.cpp,) \
@@ -252,6 +254,10 @@ if !defined(VBOX_ONLY_EXTPACKS) && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SU
   VBoxDD_SOURCES += Storage/DrvHostFloppy.cpp
  endif
 
+ # VFIO
+ VBoxDD_LIBS.linux += $(LIB_VMM)
+ Bus/DevVfio.cpp_CXXFLAGS.linux += $(CYBERUS_CXX_FLAGS)
+ Bus/VfioDevice.cpp_CXXFLAGS.linux += $(CYBERUS_CXX_FLAGS)
 
  ifn1of ($(KBUILD_TARGET), darwin)
   VBoxDD_SOURCES += Storage/HBDMgmt-generic.cpp

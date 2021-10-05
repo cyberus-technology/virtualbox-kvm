@@ -107,6 +107,7 @@ extern const PDMDEVREG g_DeviceEFI;
 #ifdef VBOX_WITH_PCI_PASSTHROUGH_IMPL
 extern const PDMDEVREG g_DevicePciRaw;
 #endif
+extern const PDMDEVREG g_DeviceVfioDev;
 extern const PDMDEVREG g_DeviceGIMDev;
 extern const PDMDEVREG g_DeviceLPC;
 #ifdef VBOX_WITH_VIRTUALKD

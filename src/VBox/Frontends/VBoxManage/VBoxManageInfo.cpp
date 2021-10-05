@@ -2685,6 +2685,30 @@ HRESULT showVMInfo(ComPtr<IVirtualBox> pVirtualBox,
     /* Host PCI passthrough devices */
 #endif
 
+    SafeArray<BSTR> vfioDevices;
+    hrc = machine->COMGETTER(VFIODeviceAssignments)(ComSafeArrayAsOutParam(vfioDevices));
+    if (SUCCEEDED(hrc))
+    {
+        if (vfioDevices.size() > 0 && (details != VMINFO_MACHINEREADABLE))
+        {
+            RTPrintf("\n Attached VFIO Devices: \n\n");
+        }
+
+        for (size_t i {0}; i < vfioDevices.size(); ++i)
+        {
+            Utf8Str devicePath {vfioDevices[i]};
+
+            if (details == VMINFO_MACHINEREADABLE)
+            {
+                RTPrintf("AttachedVFIO%d=%s\n", i, devicePath.c_str());
+            }
+            else
+            {
+                RTPrintf("   VFIO Device %s is attached\n", devicePath.c_str());
+            }
+        }
+    }
+
     /*
      * Bandwidth groups
      */

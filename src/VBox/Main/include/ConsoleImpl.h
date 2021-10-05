@@ -807,6 +807,7 @@ private:
                                                      bool fForce);
 
     HRESULT i_attachRawPCIDevices(PUVM pUVM, BusAssignmentManager *BusMgr, PCFGMNODE pDevices);
+    HRESULT i_attachVfioDevices(BusAssignmentManager *BusMgr, PCFGMNODE pDevices, PCVMMR3VTABLE pVMM);
     struct LEDSET;
     typedef struct LEDSET *PLEDSET;
     PPDMLED volatile *i_getLedSet(uint32_t iLedSet);

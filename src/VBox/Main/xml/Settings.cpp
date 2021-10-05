@@ -3902,6 +3902,21 @@ bool HostPCIDeviceAttachment::operator==(const HostPCIDeviceAttachment &a) const
             && strDeviceName  == a.strDeviceName);
 }
 
+/**
+ * VFIODeviceAttachment Constructor.
+ */
+VFIODeviceAttachment::VFIODeviceAttachment() {}
+
+/**
+ * Comparison operator. This gets called from MachineConfigFile::operator==,
+ * which in turn gets called from Machine::saveSettings to figure out whether
+ * machine settings have really changed and thus need to be written out to disk.
+ */
+bool VFIODeviceAttachment::operator==(const VFIODeviceAttachment &a) const
+{
+    return (this == &a)
+        || (strDevicePath == a.strDevicePath);
+}
 
 /**
  * Constructor. Needs to set sane defaults which stand the test of time.
@@ -4089,6 +4104,7 @@ bool Hardware::operator==(const Hardware& h) const
             && llGuestProperties              == h.llGuestProperties
             && ioSettings                     == h.ioSettings
             && pciAttachments                 == h.pciAttachments
+            && vfioAttachments                == h.vfioAttachments
             && strDefaultFrontend             == h.strDefaultFrontend);
 }
 
@@ -5839,6 +5855,26 @@ void MachineConfigFile::readHardware(const xml::ElementNode &elmHardware,
                     pelmDevice->getAttributeValue("name", hpda.strDeviceName);
 
                     hw.pciAttachments.push_back(hpda);
+                }
+            }
+        }
+        else if (pelmHwChild->nameEquals("Vfio"))
+        {
+            const xml::ElementNode *pelmDevices;
+            if ((pelmDevices = pelmHwChild->findChildElement("Devices")))
+            {
+                xml::NodesLoop nl2(*pelmDevices, "Device");
+                const xml::ElementNode *pelmDevice;
+                while ((pelmDevice = nl2.forAllNodes()))
+                {
+                    VFIODeviceAttachment vfioda;
+
+                    if (!pelmDevice->getAttributeValue("devicePath", vfioda.strDevicePath))
+                    {
+                        throw ConfigFileError(this, pelmDevice, N_("Missing Device/@devicePath attribute"));
+                    }
+
+                    hw.vfioAttachments.push_back(vfioda);
                 }
             }
         }
@@ -7927,6 +7963,20 @@ void MachineConfigFile::buildHardwareXML(xml::ElementNode &elmParent,
         }
     }
 
+    if (   m->sv >= SettingsVersion_v1_17
+        && hw.vfioAttachments.size())
+    {
+        xml::ElementNode *pelmVFIO = pelmHardware->createChild("Vfio");
+        xml::ElementNode *pelmVFIODevices = pelmVFIO->createChild("Devices");
+
+        for (auto deviceAssignment : hw.vfioAttachments)
+        {
+            xml::ElementNode *pelmThis = pelmVFIODevices->createChild("Device");
+
+            pelmThis->setAttribute("devicePath",  deviceAssignment.strDevicePath);
+        }
+    }
+
     if (   m->sv >= SettingsVersion_v1_12
         && hw.fEmulatedUSBCardReader)
     {
@@ -9142,6 +9192,12 @@ void MachineConfigFile::bumpSettingsVersionIfNeeded()
                 m->sv = SettingsVersion_v1_17;
                 return;
             }
+        }
+
+        if (hardwareMachine.vfioAttachments.size() > 0)
+        {
+            m->sv = SettingsVersion_v1_17;
+            return;
         }
     }
 

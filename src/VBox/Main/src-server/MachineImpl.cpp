@@ -7064,6 +7064,80 @@ HRESULT Machine::getPCIDeviceAssignments(std::vector<ComPtr<IPCIDeviceAttachment
     return S_OK;
 }
 
+HRESULT Machine::attachVFIODevice(const com::Utf8Str &aDevicePath)
+{
+    AutoWriteLock alock(this COMMA_LOCKVAL_SRC_POS);
+
+    HRESULT hrc = i_checkStateDependency(MutableStateDep);
+
+    if (not SUCCEEDED(hrc))
+    {
+        return hrc;
+    }
+
+    auto search_fn = [&aDevicePath] (const com::Utf8Str& path)
+    {
+        return aDevicePath == path;
+    };
+
+    auto it {std::find_if(mHWData->mVFIODeviceAssignments.begin(), mHWData->mVFIODeviceAssignments.end(), search_fn)};
+
+    if (it != mHWData->mVFIODeviceAssignments.end())
+    {
+        return setError(E_INVALIDARG, tr("The VFIO device %s is already attached"), aDevicePath);
+    }
+
+    hrc = mHWData.backupEx();
+    if (not SUCCEEDED(hrc)) {
+        return hrc;
+    }
+
+    mHWData->mVFIODeviceAssignments.emplace_back(aDevicePath);
+    return S_OK;
+}
+
+HRESULT Machine::detachVFIODevice(const com::Utf8Str &aDevicePath)
+{
+    AutoWriteLock alock(this COMMA_LOCKVAL_SRC_POS);
+
+    HRESULT hrc = i_checkStateDependency(MutableStateDep);
+
+    if (not SUCCEEDED(hrc))
+    {
+        return hrc;
+    }
+
+    auto search_fn = [&aDevicePath] (const com::Utf8Str& path)
+    {
+        return aDevicePath == path;
+    };
+
+    hrc = mHWData.backupEx();
+
+    if (not SUCCEEDED(hrc)) {
+        return hrc;
+    }
+
+    auto it {std::find_if(mHWData->mVFIODeviceAssignments.begin(), mHWData->mVFIODeviceAssignments.end(), search_fn)};
+
+    if (it == mHWData->mVFIODeviceAssignments.end())
+    {
+        return setError(VBOX_E_OBJECT_NOT_FOUND, tr("No VFIO device %s attached"), aDevicePath);
+    }
+
+    mHWData->mVFIODeviceAssignments.erase(it);
+
+    return S_OK;
+}
+
+HRESULT Machine::getVFIODeviceAssignments(std::vector<com::Utf8Str>& aVFIODeviceAssignments)
+{
+    AutoReadLock alock(this COMMA_LOCKVAL_SRC_POS);
+
+    std::copy(mHWData->mVFIODeviceAssignments.begin(), mHWData->mVFIODeviceAssignments.end(), std::back_inserter(aVFIODeviceAssignments));
+    return S_OK;
+}
+
 HRESULT Machine::getBandwidthControl(ComPtr<IBandwidthControl> &aBandwidthControl)
 {
     mBandwidthControl.queryInterfaceTo(aBandwidthControl.asOutParam());
@@ -9474,6 +9548,12 @@ HRESULT Machine::i_loadHardware(const Guid *puuidRegistry,
             mHWData->mPCIDeviceAssignments.push_back(pda);
         }
 
+        // VFIO Devices
+        for (auto deviceAssignment : data.vfioAttachments)
+        {
+            mHWData->mVFIODeviceAssignments.push_back(deviceAssignment.strDevicePath);
+        }
+
         /*
          * (The following isn't really real hardware, but it lives in HWData
          * for reasons of convenience.)
@@ -10885,6 +10965,17 @@ HRESULT Machine::i_saveHardware(settings::Hardware &data, settings::Debugging *p
             if (FAILED(hrc)) throw hrc;
 
             data.pciAttachments.push_back(hpda);
+        }
+
+        /* VFIO Devices */
+        data.vfioAttachments.clear();
+        for (auto devStr : mHWData->mVFIODeviceAssignments)
+        {
+            settings::VFIODeviceAttachment vfioda;
+
+            vfioda.strDevicePath = devStr;
+
+            data.vfioAttachments.push_back(vfioda);
         }
 
         // guest properties

@@ -631,6 +631,8 @@ typedef enum PCIADDRTYPE
 #define VBOX_PCI_ROM_SLOT    6
 /** Max number of I/O regions. */
 #define VBOX_PCI_NUM_REGIONS 7
+/** Max Number of PCI BARs */
+#define VBOX_PCI_MAX_BARS 6
 
 #define PCI_ROM_SLOT         VBOX_PCI_ROM_SLOT    /**< deprecated */
 #define PCI_NUM_REGIONS      VBOX_PCI_NUM_REGIONS /**< deprecated */

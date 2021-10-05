@@ -234,6 +234,8 @@ enum
     MODIFYVM_ATTACH_PCI,
     MODIFYVM_DETACH_PCI,
 #endif
+    MODIFYVM_ATTACH_VFIO,
+    MODIFYVM_DETACH_VFIO,
 #ifdef VBOX_WITH_USB_CARDREADER
     MODIFYVM_USBCARDREADER,
 #endif
@@ -470,6 +472,8 @@ static const RTGETOPTDEF g_aModifyVMOptions[] =
     OPT2("--pci-attach",                    "--pciattach",              MODIFYVM_ATTACH_PCI,                RTGETOPT_REQ_STRING),
     OPT2("--pci-detach",                    "--pcidetach",              MODIFYVM_DETACH_PCI,                RTGETOPT_REQ_STRING),
 #endif
+    { "--attachvfio",               MODIFYVM_ATTACH_VFIO,               RTGETOPT_REQ_STRING },
+    { "--detachvfio",               MODIFYVM_DETACH_VFIO,               RTGETOPT_REQ_STRING },
 #ifdef VBOX_WITH_USB_CARDREADER
     OPT2("--usb-card-reader",               "--usbcardreader",          MODIFYVM_USBCARDREADER,             RTGETOPT_REQ_BOOL_ONOFF),
 #endif
@@ -3500,6 +3504,17 @@ RTEXITCODE handleModifyVM(HandlerArg *a)
                 break;
             }
 #endif
+            case MODIFYVM_ATTACH_VFIO:
+            {
+                CHECK_ERROR(sessionMachine, AttachVFIODevice(Bstr(ValueUnion.psz).raw()));
+                break;
+            }
+
+            case MODIFYVM_DETACH_VFIO:
+            {
+                CHECK_ERROR(sessionMachine, DetachVFIODevice(Bstr(ValueUnion.psz).raw()));
+                break;
+            }
 
 #ifdef VBOX_WITH_USB_CARDREADER
             case MODIFYVM_USBCARDREADER:

@@ -674,6 +674,66 @@ HRESULT Console::i_attachRawPCIDevices(PUVM pUVM, BusAssignmentManager *pBusMgr,
 #endif
 
 
+HRESULT Console::i_attachVfioDevices(BusAssignmentManager *pBusMgr, PCFGMNODE pDevices, PCVMMR3VTABLE pVMM)
+{
+    HRESULT hrc {S_OK};
+    PCFGMNODE pInst{NULL};
+    PCFGMNODE pCfg{NULL};
+    PCFGMNODE pVfioDevs {NULL};
+
+    ComPtr<IMachine> aMachine {i_machine()};
+
+    SafeArray<BSTR> vfioDevices;
+    hrc = aMachine->COMGETTER(VFIODeviceAssignments)(ComSafeArrayAsOutParam(vfioDevices));
+
+    if (hrc != S_OK || vfioDevices.size() == 0)
+    {
+        return hrc;
+    }
+
+    if (vfioDevices.size() > 0)
+    {
+        InsertConfigNode(pDevices, "VfioDev", &pVfioDevs);
+
+        /*
+         * As an IOMMU is needed for VFIO devices we need to force RAM preallocation
+         */
+
+        //PCFGMNODE pRoot = pVMM->pfnCFGMR3GetParent(pDevices); Assert(pRoot);
+        //pVMM->pfnCFGMR3RemoveValue(pRoot, "RamPreAlloc");
+        //InsertConfigInteger(pRoot, "RamPreAlloc", 1);
+    }
+
+    for (size_t iDev{0}; iDev < vfioDevices.size(); ++iDev)
+    {
+        Utf8Str devicePath {vfioDevices[iDev]};
+
+        InsertConfigNode(pVfioDevs, Utf8StrFmt("%d", iDev).c_str(), &pInst);
+        InsertConfigInteger(pInst, "Trusted", 1);
+        InsertConfigNode(pInst, "Config", &pCfg);
+        InsertConfigString(pCfg, "sysfsPath", devicePath);
+
+        PCIBusAddress guestAddress;
+        bool fGuestAddressRequired{false};
+        /*
+         * The fGuestAddressRequired flag of the assignPCIDevice call can ask for a certain BDF in the guest.
+         * If a guestAddress is required for a certain device guestAddress has to be set to the certain BDF.
+         * The call will fail, if the address is already in use.
+         */
+        hrc = pBusMgr->assignPCIDevice("vfio", pInst, guestAddress, fGuestAddressRequired);
+        if (hrc != S_OK)
+        {
+            return hrc;
+        }
+
+        InsertConfigInteger(pCfg,      "GuestPCIBusNo",      guestAddress.miBus);
+        InsertConfigInteger(pCfg,      "GuestPCIDeviceNo",   guestAddress.miDevice);
+        InsertConfigInteger(pCfg,      "GuestPCIFunctionNo", guestAddress.miFn);
+    }
+
+    return hrc;
+}
+
 /**
  * Updates the device type for a LED.
  *
@@ -1733,6 +1793,8 @@ int Console::i_configConstructorInner(PUVM pUVM, PVM pVM, PCVMMR3VTABLE pVMM, Au
                 hrc = pBusMgr->assignPCIDevice("sb-ioapic", NULL /* pCfg */, PCIAddr, true /*fGuestAddressRequired*/);  H();
             }
         }
+
+        hrc = i_attachVfioDevices(pBusMgr, pDevices, pVMM);                                       H();
 
         /*
          * Enable the following devices: HPET, SMC and LPC on MacOS X guests or on ICH9 chipset

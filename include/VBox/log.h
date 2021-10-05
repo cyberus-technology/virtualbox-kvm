@@ -178,6 +178,8 @@ typedef enum VBOXLOGGROUP
     LOG_GROUP_DEV_SMC,
     /** Trusted Platform Module Device group. */
     LOG_GROUP_DEV_TPM,
+    /** Vfio Device group. */
+    LOG_GROUP_DEV_VFIO,
     /** VGA Device group. */
     LOG_GROUP_DEV_VGA,
     /** Virtio PCI Device group. */
@@ -908,6 +910,7 @@ typedef enum VBOXLOGGROUP
     "DEV_SERIAL", \
     "DEV_SMC", \
     "DEV_TPM", \
+    "DEV_VFIO", \
     "DEV_VGA", \
     "DEV_VIRTIO", \
     "DEV_VIRTIO_NET", \

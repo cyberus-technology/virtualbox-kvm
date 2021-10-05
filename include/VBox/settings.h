@@ -1117,6 +1117,22 @@ struct HostPCIDeviceAttachment
 typedef std::list<HostPCIDeviceAttachment> HostPCIDeviceAttachmentList;
 
 /**
+ * NOTE: If you add any fields in here, you must update a) the constructor and b)
+ * the operator== which is used by MachineConfigFile::operator==(), or otherwise
+ * your settings might never get saved.
+ */
+struct VFIODeviceAttachment
+{
+    VFIODeviceAttachment();
+
+    bool operator==(const VFIODeviceAttachment &a) const;
+
+    com::Utf8Str strDevicePath;
+};
+
+typedef std::vector<VFIODeviceAttachment> VFIODeviceAttachmentList;
+
+/**
  * A device attached to a storage controller. This can either be a
  * hard disk or a DVD drive or a floppy drive and also specifies
  * which medium is "in" the drive; as a result, this is a combination
@@ -1313,6 +1329,8 @@ struct Hardware
 
     IOSettings          ioSettings;             // requires settings version 1.10 (VirtualBox 3.2)
     HostPCIDeviceAttachmentList pciAttachments; // requires settings version 1.12 (VirtualBox 4.1)
+    VFIODeviceAttachmentList vfioAttachments;  // requires settings version 1.17 (VirtualBox 6.0)
+
 
     com::Utf8Str        strDefaultFrontend;     // requires settings version 1.14 (VirtualBox 4.3)
 };
