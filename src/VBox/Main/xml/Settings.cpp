@@ -5433,6 +5433,10 @@ void MachineConfigFile::readHardware(const xml::ElementNode &elmHardware,
                     type = GraphicsControllerType_VMSVGA;
                 else if (strGraphicsControllerType == "VBOXSVGA")
                     type = GraphicsControllerType_VBoxSVGA;
+                else if (strGraphicsControllerType == "VGAWITHVIRTIOGPU")
+                    type = GraphicsControllerType_VGAWithVirtioGpu;
+                else if (strGraphicsControllerType == "VIRTIOGPU")
+                    type = GraphicsControllerType_VirtioGpu;
                 else if (strGraphicsControllerType == "NONE")
                     type = GraphicsControllerType_Null;
                 else
@@ -7174,6 +7178,8 @@ void MachineConfigFile::buildHardwareXML(xml::ElementNode &elmParent,
                 case GraphicsControllerType_VBoxVGA:            pcszGraphics = "VBoxVGA"; break;
                 case GraphicsControllerType_VMSVGA:             pcszGraphics = "VMSVGA"; break;
                 case GraphicsControllerType_VBoxSVGA:           pcszGraphics = "VBoxSVGA"; break;
+                case GraphicsControllerType_VGAWithVirtioGpu:   pcszGraphics = "VGAWithVirtioGPU"; break;
+                case GraphicsControllerType_VirtioGpu:   pcszGraphics = "VirtioGPU"; break;
                 default: /*case GraphicsControllerType_Null:*/  pcszGraphics = "None"; break;
             }
             pelmDisplay->setAttribute("controller", pcszGraphics);

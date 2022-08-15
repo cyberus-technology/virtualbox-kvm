@@ -111,6 +111,11 @@
 #define PDM_TACH_FLAGS_NO_CALLBACKS     RT_BIT_32(1)
 /** @} */
 
+/** This flag is used in the pfnAttach call for the vga device and indicates
+ * that only a dummy driver should be attached. This is used to "disable" the
+ * vga device.
+ */
+#define PDM_ATTACH_DUMMY_DRIVER RT_BIT_32(31)
 
 /**
  * Is asynchronous handling of suspend or power off notification completed?

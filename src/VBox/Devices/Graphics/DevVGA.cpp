@@ -6213,6 +6213,49 @@ static DECLCALLBACK(void) vgaR3Relocate(PPDMDEVINS pDevIns, RTGCINTPTR offDelta)
 # endif
 }
 
+template <typename CLASS, typename... ARGS>
+auto generateDummy(int (*CLASS::*)(ARGS...))
+{
+    return [](ARGS...) -> int { return VERR_NOT_IMPLEMENTED; };
+}
+
+template <typename CLASS, typename... ARGS>
+auto generateDummy(void (*CLASS::*)(ARGS...))
+{
+    return [](ARGS...) -> void {};
+}
+
+#define DUMMY_MEMBER(x) dummyConnector.x = generateDummy(&PDMIDISPLAYCONNECTOR::x)
+
+/**
+ * Get a dummy display connector which either does nothing or returns an error
+ * code.
+ */
+static PPDMIDISPLAYCONNECTOR getDummyDisplayConnector()
+{
+    static PDMIDISPLAYCONNECTOR dummyConnector;
+
+    DUMMY_MEMBER(pfnResize);
+    DUMMY_MEMBER(pfnUpdateRect);
+    DUMMY_MEMBER(pfnRefresh);
+    DUMMY_MEMBER(pfnReset);
+    DUMMY_MEMBER(pfnLFBModeChange);
+    DUMMY_MEMBER(pfnProcessAdapterData);
+    DUMMY_MEMBER(pfnProcessDisplayData);
+    DUMMY_MEMBER(pfnVHWACommandProcess);
+    DUMMY_MEMBER(pfnVBVAEnable);
+    DUMMY_MEMBER(pfnVBVADisable);
+    DUMMY_MEMBER(pfnVBVAUpdateBegin);
+    DUMMY_MEMBER(pfnVBVAUpdateProcess);
+    DUMMY_MEMBER(pfnVBVAUpdateEnd);
+    DUMMY_MEMBER(pfnVBVAResize);
+    DUMMY_MEMBER(pfnVBVAMousePointerShape);
+    DUMMY_MEMBER(pfnVBVAGuestCapabilityUpdate);
+    DUMMY_MEMBER(pfnVBVAInputMappingUpdate);
+    DUMMY_MEMBER(pfnVBVAReportCursorPosition);
+
+    return &dummyConnector;
+}
 
 /**
  * @interface_method_impl{PDMDEVREG,pfnAttach}
@@ -6225,6 +6268,11 @@ static DECLCALLBACK(int)  vgaAttach(PPDMDEVINS pDevIns, unsigned iLUN, uint32_t 
     PVGASTATECC     pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PVGASTATECC);
 
     RT_NOREF(pThis);
+
+    if (fFlags & PDM_ATTACH_DUMMY_DRIVER) {
+        pThisCC->pDrv = getDummyDisplayConnector();
+        return VINF_SUCCESS;
+    }
 
     AssertMsgReturn(fFlags & PDM_TACH_FLAGS_NOT_HOT_PLUG,
                     ("VGA device does not support hotplugging\n"),

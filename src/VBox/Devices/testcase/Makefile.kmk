@@ -70,12 +70,18 @@ ifeq ($(KBUILD_TARGET),$(KBUILD_HOST))
  ifeq ($(filter-out x86.x86 amd64.amd64 x86.amd64, $(KBUILD_TARGET_ARCH).$(KBUILD_HOST_ARCH)),)
   OTHERS += \
   	$(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+  if defined(VBOX_WITH_SUPERNOVA_UNITTESTS)
+	OTHERS += $(VBOX_DEVICES_TEST_OUT_DIR)/tstVirtioGpuCmdHandling.run
+  endif
  endif
 endif
 
 # The normal testing pass.
-TESTING += \
-	$(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+TESTING += $(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+
+if defined(VBOX_WITH_SUPERNOVA_UNITTESTS)
+	TESTING += $(VBOX_DEVICES_TEST_OUT_DIR)/tstVirtioGpuCmdHandling.run
+endif
 
 ifdef VBOX_WITH_RAW_MODE
  #
@@ -128,6 +134,27 @@ ifdef VBOX_WITH_RAW_MODE
 endif
 tstDeviceStructSize_INCS      += $(VBOX_PATH_VMM_DEVICES_SRC)
 
+if defined(VBOX_WITH_SUPERNOVA_UNITTESTS)
+PROGRAMS += tstVirtioGpuCmdHandling
+endif
+
+tstVirtioGpuCmdHandling_TEMPLATE = VBOXR3AUTOTST
+tstVirtioGpuCmdHandling_DEFS     = $(VBOX_DEVICES_TESTS_FEATURES)
+tstVirtioGpuCmdHandling_INCS     = \
+	$(VBOX_PATH_DEVICES_SRC)/build \
+	$(VBOX_PATH_DEVICES_SRC)/Bus \
+	$(VBOX_DEVICES_TEST_OUT_DIR) \
+	$(VBOX_GRAPHICS_INCS) \
+	$(VBoxDD_INCS)
+tstVirtioGpuCmdHandling_SOURCES  = \
+	../Graphics/DevVirtioGpuCmdHandler.cpp \
+	tstVirtioGpuCmdHandling.cpp
+tstVirtioGpuCmdHandling_LIBS    = \
+	$(VBOX_LIB_RUNTIME_STATIC)
+tstVirtioGpuCmdHandling_CLEAN    = \
+	$(VBOX_DEVICES_TEST_OUT_DIR)/tstVirtioGpuCmdHandling.run
+tstVirtioGpuCmdHandling_INCS     += $(VBOX_PATH_VMM_DEVICES_SRC)
+
 #
 # Run rule for tstDeviceStructSize.
 #
@@ -149,8 +176,14 @@ $(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run: $$(tstDeviceStructSize_1_S
 	$^
 	$(QUIET)$(APPEND) "$@" "done"
 
+$(VBOX_DEVICES_TEST_OUT_DIR)/tstVirtioGpuCmdHandling.run: $$(tstVirtioGpuCmdHandling_1_STAGE_TARGET) | $$(dir $$@)
+	$(QUIET)$(RM) -f $@
+	$^
+	$(QUIET)$(APPEND) "$@" "done"
+
 # alias for the struct test.
 run-struct-tests: $(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+run-supernova-tests: $(VBOX_DEVICES_TEST_OUT_DIR)/tstVirtioGpuCmdHandling.run
 
 
 include $(FILE_KBUILD_SUB_FOOTER)

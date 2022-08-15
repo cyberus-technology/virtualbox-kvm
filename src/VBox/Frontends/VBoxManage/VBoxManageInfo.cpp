@@ -1457,6 +1457,18 @@ HRESULT showVMInfo(ComPtr<IVirtualBox> pVirtualBox,
                 else
                     pszCtrl = "VBoxSVGA";
                 break;
+            case GraphicsControllerType_VGAWithVirtioGpu:
+                if (details == VMINFO_MACHINEREADABLE)
+                    pszCtrl = "vga-virtiogpu";
+                else
+                    pszCtrl = "VGAWithVirtioGPU";
+                break;
+            case GraphicsControllerType_VirtioGpu:
+                if (details == VMINFO_MACHINEREADABLE)
+                    pszCtrl = "virtiogpu";
+                else
+                    pszCtrl = "VirtioGPU";
+                break;
             default:
                 if (details == VMINFO_MACHINEREADABLE)
                     pszCtrl = "unknown";

@@ -239,7 +239,8 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
         int rc2 = CFGMR3ValidateConfig(pCfgHv, "/HyperV/",
                                   "VendorID"
                                   "|VSInterface"
-                                  "|HypercallDebugInterface",
+                                  "|HypercallDebugInterface"
+                                  "|VirtioGPU",
                                   "" /* pszValidNodes */, "GIM/HyperV" /* pszWho */, 0 /* uInstance */);
         if (RT_FAILURE(rc2))
             return rc2;
@@ -367,6 +368,17 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
                          | GIM_HV_HINT_X2APIC_MSRS
                          ;
 #endif
+
+        bool withVirtioGPU {false};
+        rc = CFGMR3QueryBoolDef(pCfgHv, "VirtioGPU", &withVirtioGPU, false);
+
+        if (RT_SUCCESS(rc) and withVirtioGPU and pVM->cCpus > 8) {
+            LogRel(("Disabling the GIM_HV_HINT_X2APIC_MSRS HyperV hint because there are %d virtual CPUs and " \
+                    "the VirtioGPU is used as a graphics controller. More than 8 vCPUs are known to result in "
+                    "Windows10 not booting if the DVServerKMD driver is installed in the guest if the specific "
+                    "HyperV hint is set.\n", pVM->cCpus));
+            pHv->uHyperHints &= ~GIM_HV_HINT_X2APIC_MSRS;
+        }
 
         /* Partition features. */
 #ifdef VBOX_WITH_KVM

@@ -1272,7 +1272,7 @@ static int virtioNudgeGuest(PPDMDEVINS pDevIns, PVIRTIOCORE pVirtio, uint8_t uCa
 
     if (!pVirtio->fMsiSupport)
     {
-        pVirtio->uISR |= uCause;
+        pVirtio->uISR = (VIRTIO_ISR_DEVICE_CONFIG == uCause) ? 0x3 : uCause;
         PDMDevHlpPCISetIrq(pDevIns, 0, PDM_IRQ_LEVEL_HIGH);
     }
     else if (uMsixVector != VIRTIO_MSI_NO_VECTOR)

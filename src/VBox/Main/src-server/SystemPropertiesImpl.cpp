@@ -1687,6 +1687,8 @@ HRESULT SystemProperties::getSupportedGraphicsControllerTypes(std::vector<Graphi
         GraphicsControllerType_VBoxVGA,
         GraphicsControllerType_VMSVGA,
         GraphicsControllerType_VBoxSVGA,
+        GraphicsControllerType_VGAWithVirtioGpu,
+        GraphicsControllerType_VirtioGpu,
         GraphicsControllerType_Null,
     };
     aSupportedGraphicsControllerTypes.assign(aGraphicsControllerTypes,

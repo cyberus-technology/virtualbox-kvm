@@ -42,6 +42,9 @@
 #include <iprt/sg.h>
 #include <VBox/types.h>
 
+// For VMMDevDisplayDef
+#include <VBox/VMMDev.h>
+
 
 RT_C_DECLS_BEGIN
 
@@ -552,6 +555,14 @@ typedef struct PDMIKEYBOARDCONNECTOR
 #define PDMIKEYBOARDCONNECTOR_IID               "db3f7bd5-953e-436f-9f8e-077905a92d82"
 
 
+typedef struct PDMIVIRTIOGPUPORT
+{
+    DECLR3CALLBACKMEMBER(void, pfnDisplayChanged, (PPDMDEVINS pDevIns, uint32_t numDisplays, VMMDevDisplayDef* displayDefs));
+} PDMIVIRTIOGPUPORT;
+
+typedef struct PDMIVIRTIOGPUPORT *PPDMIVIRTIOGPUPORT;
+
+# define PDMIVIRTIOGPUPORT_IID               "db3f7bd5-baba-436f-9f8e-077905a92d82"
 
 /** Pointer to a display port interface. */
 typedef struct PDMIDISPLAYPORT *PPDMIDISPLAYPORT;

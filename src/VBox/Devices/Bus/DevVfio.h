@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <svp/pci.h>
+#include <cyberus/pci.h>
 
 #include <VBox/err.h>
 #include <VBox/pci.h>

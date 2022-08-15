@@ -109,6 +109,7 @@ extern const PDMDEVREG g_DevicePciRaw;
 #endif
 extern const PDMDEVREG g_DeviceVfioDev;
 extern const PDMDEVREG g_DeviceGIMDev;
+extern const PDMDEVREG g_DeviceVirtioGpuDev;
 extern const PDMDEVREG g_DeviceLPC;
 #ifdef VBOX_WITH_VIRTUALKD
 extern const PDMDEVREG g_DeviceVirtualKD;

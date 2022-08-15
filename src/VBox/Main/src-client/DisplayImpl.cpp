@@ -65,6 +65,9 @@
 # include <VBox/vmm/pdmaudioifs.h>
 #endif
 
+#include <VBox/vmm/pdmdev.h>
+#include <VBox/com/errorprint.h>
+
 /**
  * Display driver instance data.
  *
@@ -2330,7 +2333,12 @@ HRESULT Display::drawToScreen(ULONG aScreenId, BYTE *aAddress, ULONG aX, ULONG a
 
         if (   !pFBInfo->fVBVAEnabled
             && uScreenId == VBOX_VIDEO_PRIMARY_SCREEN)
+        {
+            if (not pDisplay->mpDrv) {
+                return VINF_SUCCESS;
+            }
             pDisplay->mpDrv->pUpPort->pfnUpdateDisplayAll(pDisplay->mpDrv->pUpPort, /* fFailOnResize = */ true);
+        }
         else
         {
             if (!pFBInfo->fDisabled)
@@ -2662,6 +2670,39 @@ HRESULT Display::setScreenLayout(ScreenLayoutMode_T aScreenLayoutMode,
                         p->fDisplayFlags |= VMMDEV_DISPLAY_ORIGIN;
                     if (primary)
                         p->fDisplayFlags |= VMMDEV_DISPLAY_PRIMARY;
+                }
+
+                auto virtioGpuEnabled = [this]() -> bool {
+                    ComPtr<IGraphicsAdapter> pGraphicsAdapter;
+                    HRESULT hrc = mParent->i_machine()->COMGETTER(GraphicsAdapter)(pGraphicsAdapter.asOutParam());
+                    AssertComRCReturnRC(hrc);
+
+                    GraphicsControllerType_T adapterType;
+                    CHECK_ERROR(pGraphicsAdapter, COMGETTER(GraphicsControllerType)(&adapterType));
+                    return (adapterType == GraphicsControllerType_VGAWithVirtioGpu) or
+                           (adapterType == GraphicsControllerType_VirtioGpu);
+                };
+
+                if (virtioGpuEnabled()) {
+                    AutoReadLock alock2(this COMMA_LOCKVAL_SRC_POS);
+                    Console::SafeVMPtr ptrVM(mParent);
+                    if (!ptrVM.isOk()) {
+                        LogRelFunc(("VMPtr is not okay.\n"));
+                        return ptrVM.hrc();
+                    }
+                    alock2.release();
+
+                    PPDMIBASE pBase;
+                    int rc = ptrVM.vtable()->pfnPDMR3QueryDevice(ptrVM.rawUVM(), "virtio-gpu", 0, &pBase);
+                    AssertReleaseMsg(RT_SUCCESS(rc), ("query device failed"));
+
+                    PPDMIVIRTIOGPUPORT pPort {PDMIBASE_QUERY_INTERFACE(pBase, PDMIVIRTIOGPUPORT)};
+                    AssertMsg(pPort, ("Query interface failed.\n"));
+                    AssertMsg(pPort->pfnDisplayChanged, ("No resize handler available.\n"));
+                    PPDMDEVINS pDevIns = PDMIBASE_2_PDMDEV(pBase);
+                    if (pPort->pfnDisplayChanged) {
+                        pPort->pfnDisplayChanged(pDevIns, cDisplays, paDisplayDefs);
+                    }
                 }
 
                 bool const fForce =    aScreenLayoutMode == ScreenLayoutMode_Reset

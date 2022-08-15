@@ -729,7 +729,8 @@ private:
                                    const ComPtr<IMachine> &ptrMachine,
                                    const ComPtr<IGraphicsAdapter> &ptrGraphicsAdapter,
                                    const ComPtr<IBIOSSettings> &ptrBiosSettings,
-                                   bool fHMEnabled);
+                                   bool fHMEnabled,
+                                   bool fHideMultipleMonitors = false);
     int i_checkMediumLocation(IMedium *pMedium, bool *pfUseHostIOCache);
     int i_unmountMediumFromGuest(PUVM pUVM, PCVMMR3VTABLE pVMM, StorageBus_T enmBus, DeviceType_T enmDevType,
                                  const char *pcszDevice, unsigned uInstance, unsigned uLUN,
@@ -808,6 +809,10 @@ private:
 
     HRESULT i_attachRawPCIDevices(PUVM pUVM, BusAssignmentManager *BusMgr, PCFGMNODE pDevices);
     HRESULT i_attachVfioDevices(BusAssignmentManager *BusMgr, PCFGMNODE pDevices, PCVMMR3VTABLE pVMM);
+    HRESULT i_attachVirtioGpuDevice(BusAssignmentManager *BusMgr,
+                                    PCFGMNODE pDevices,
+                                    const ComPtr<IGraphicsAdapter> &ptrGraphicsAdapter,
+                                    bool secondaryController);
     struct LEDSET;
     typedef struct LEDSET *PLEDSET;
     PPDMLED volatile *i_getLedSet(uint32_t iLedSet);

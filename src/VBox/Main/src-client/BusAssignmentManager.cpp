@@ -120,7 +120,9 @@ static const DeviceAssignmentRule g_aGenericRules[] =
     {"vfio",           0, 16,  0, 1},
     {"vfio",           0, 17,  0, 1},
     {"vfio",           0, 18,  0, 1},
-    {"vfio",           0, 19,  0, 1},
+
+    /* Virtio-Gpu */
+    {"virtio-gpu",     0, 19,  0, 1},
 
     /* ISA/LPC controller */
     {"lpc",           0, 31,  0, 0},

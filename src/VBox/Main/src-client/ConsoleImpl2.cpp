@@ -674,7 +674,7 @@ HRESULT Console::i_attachRawPCIDevices(PUVM pUVM, BusAssignmentManager *pBusMgr,
 #endif
 
 
-HRESULT Console::i_attachVfioDevices(BusAssignmentManager *pBusMgr, PCFGMNODE pDevices, PCVMMR3VTABLE pVMM)
+HRESULT Console::i_attachVfioDevices(BusAssignmentManager *pBusMgr, PCFGMNODE pDevices, PCVMMR3VTABLE /*pVMM*/)
 {
     HRESULT hrc {S_OK};
     PCFGMNODE pInst{NULL};
@@ -732,6 +732,39 @@ HRESULT Console::i_attachVfioDevices(BusAssignmentManager *pBusMgr, PCFGMNODE pD
     }
 
     return hrc;
+}
+
+HRESULT Console::i_attachVirtioGpuDevice(BusAssignmentManager *pBusMgr,
+                                         PCFGMNODE pDevices,
+                                         const ComPtr<IGraphicsAdapter> &ptrGraphicsAdapter,
+                                         bool secondaryController)
+{
+    PCFGMNODE pInst {NULL};
+    PCFGMNODE pVirtioGpuDev {NULL};
+
+    InsertConfigNode(pDevices, "virtio-gpu", &pVirtioGpuDev);
+    InsertConfigNode(pVirtioGpuDev, "0", &pInst);
+    InsertConfigInteger(pInst, "Trusted", 1);
+
+    PCFGMNODE pCfg {NULL};
+    PCFGMNODE pLunL0 {NULL};
+
+    InsertConfigNode(pInst,    "Config", &pCfg);
+    InsertConfigInteger(pCfg, "secondaryController", secondaryController);
+
+    unsigned cMonitorCount {0};
+    auto hrc = ptrGraphicsAdapter->COMGETTER(MonitorCount)(&cMonitorCount); H();
+    InsertConfigInteger(pCfg, "MonitorCount", cMonitorCount);
+
+    unsigned cVRamMBs;
+    hrc = ptrGraphicsAdapter->COMGETTER(VRAMSize)(&cVRamMBs);               H();
+    InsertConfigInteger(pCfg,  "VRamSize", cVRamMBs * _1M);
+
+    InsertConfigNode(pInst, "LUN#0", &pLunL0);
+    InsertConfigString(pLunL0, "Driver", "MainDisplay");
+    InsertConfigNode(pLunL0, "Config", &pCfg);
+
+    return pBusMgr->assignPCIDevice("virtio-gpu", pInst);
 }
 
 /**
@@ -1482,6 +1515,26 @@ int Console::i_configConstructorInner(PUVM pUVM, PVM pVM, PCVMMR3VTABLE pVMM, Au
         bool         fGimDebug          = false;
         com::Utf8Str strGimDebugAddress = "127.0.0.1";
         uint32_t     uGimDebugPort      = 50000;
+
+        PCFGMNODE pHvNode;
+        InsertConfigNode(pParavirtNode, "HyperV", &pHvNode);
+
+        {
+            ComPtr<IGraphicsAdapter> pGraphicsAdapter;
+            hrc = pMachine->COMGETTER(GraphicsAdapter)(pGraphicsAdapter.asOutParam());           H();
+            GraphicsControllerType_T enmGraphicsController;
+            hrc = pGraphicsAdapter->COMGETTER(GraphicsControllerType)(&enmGraphicsController);          H();
+
+            switch (enmGraphicsController) {
+            case GraphicsControllerType_VirtioGpu:
+            case GraphicsControllerType_VGAWithVirtioGpu:
+                InsertConfigInteger(pHvNode, "VirtioGPU", true);
+                break;
+            default:
+                break;
+            }
+        }
+
         if (strParavirtDebug.isNotEmpty())
         {
             /* Hyper-V debug options. */
@@ -1534,8 +1587,6 @@ int Console::i_configConstructorInner(PUVM pUVM, PVM pVM, PCVMMR3VTABLE pVMM, Au
                 /* Update HyperV CFGM node with active debug options. */
                 if (fGimHvDebug)
                 {
-                    PCFGMNODE pHvNode;
-                    InsertConfigNode(pParavirtNode, "HyperV", &pHvNode);
                     InsertConfigString(pHvNode,  "VendorID", strGimHvVendor);
                     InsertConfigInteger(pHvNode, "VSInterface", fGimHvVsIf ? 1 : 0);
                     InsertConfigInteger(pHvNode, "HypercallDebugInterface", fGimHvHypercallIf ? 1 : 0);
@@ -1983,6 +2034,23 @@ int Console::i_configConstructorInner(PUVM pUVM, PVM pVM, PCVMMR3VTABLE pVMM, Au
                                                  RT_BOOL(fHMEnabled));
                 if (FAILED(vrc))
                     return vrc;
+                break;
+            case GraphicsControllerType_VGAWithVirtioGpu:
+                hrc = i_attachVirtioGpuDevice(pBusMgr, pDevices, pGraphicsAdapter, true);
+                if (FAILED(hrc)) {
+                    return hrc;
+                }
+                // See case GraphicsControllerType_VGAWithIntelGVT
+                hrc = i_configGraphicsController(pDevices, GraphicsControllerType_VBoxSVGA, pBusMgr, pMachine, pGraphicsAdapter, biosSettings,
+                                                RT_BOOL(fHMEnabled), true);
+                if (FAILED(hrc))
+                    return hrc;
+                break;
+            case GraphicsControllerType_VirtioGpu:
+                hrc = i_attachVirtioGpuDevice(pBusMgr, pDevices, pGraphicsAdapter, false);
+                if (FAILED(hrc)) {
+                    return hrc;
+                }
                 break;
             default:
                 AssertMsgFailed(("Invalid graphicsController=%d\n", enmGraphicsController));
@@ -4374,7 +4442,8 @@ int Console::i_configGraphicsController(PCFGMNODE pDevices,
                                         const ComPtr<IMachine> &ptrMachine,
                                         const ComPtr<IGraphicsAdapter> &ptrGraphicsAdapter,
                                         const ComPtr<IBIOSSettings> &ptrBiosSettings,
-                                        bool fHMEnabled)
+                                        bool fHMEnabled,
+                                        bool fHideMultipleMonitors)
 {
     // InsertConfig* throws
     try
@@ -4391,11 +4460,24 @@ int Console::i_configGraphicsController(PCFGMNODE pDevices,
 
         hrc = pBusMgr->assignPCIDevice(pcszDevice, pInst);                                  H();
         InsertConfigNode(pInst,    "Config", &pCfg);
-        ULONG cVRamMBs;
-        hrc = ptrGraphicsAdapter->COMGETTER(VRAMSize)(&cVRamMBs);                           H();
-        InsertConfigInteger(pCfg,  "VRamSize",             cVRamMBs * _1M);
+        ULONG cVRam;
+        hrc = ptrGraphicsAdapter->COMGETTER(VRAMSize)(&cVRam);                              H();
+        InsertConfigInteger(pCfg,  "VRamSize",             cVRam * _1M);
         ULONG cMonitorCount;
-        hrc = ptrGraphicsAdapter->COMGETTER(MonitorCount)(&cMonitorCount);                  H();
+
+        /**
+         * If the Virtio GPU is used with multiple monitors we hide additional
+         * monitors for the VirtualBox VGA adapter that is used for the legacy
+         * output, as the legacy output does not require multiple monitors.
+         * This leads to the multiple monitors appearing when we switch to the
+         * Virtio GPU.
+         */
+        if (not fHideMultipleMonitors)
+        {
+            hrc = ptrGraphicsAdapter->COMGETTER(MonitorCount)(&cMonitorCount);              H();
+        } else {
+            cMonitorCount = 1;
+        }
         InsertConfigInteger(pCfg,  "MonitorCount",         cMonitorCount);
 #ifdef VBOX_WITH_2X_4GB_ADDR_SPACE
         InsertConfigInteger(pCfg,  "R0Enabled",            fHMEnabled);

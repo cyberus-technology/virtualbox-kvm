@@ -1005,6 +1005,12 @@ RTEXITCODE handleModifyVM(HandlerArg *a)
                          || !RTStrICmp(ValueUnion.psz, "svga"))
                     CHECK_ERROR(pGraphicsAdapter, COMSETTER(GraphicsControllerType)(GraphicsControllerType_VBoxSVGA));
 #endif
+                else if (   !RTStrICmp(ValueUnion.psz, "vga-virtiogpu")) {
+                    CHECK_ERROR(pGraphicsAdapter, COMSETTER(GraphicsControllerType)(GraphicsControllerType_VGAWithVirtioGpu));
+                }
+                else if (   !RTStrICmp(ValueUnion.psz, "virtiogpu")) {
+                    CHECK_ERROR(pGraphicsAdapter, COMSETTER(GraphicsControllerType)(GraphicsControllerType_VirtioGpu));
+                }
                 else
                 {
                     errorArgument(ModifyVM::tr("Invalid --graphicscontroller argument '%s'"), ValueUnion.psz);

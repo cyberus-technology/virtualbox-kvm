@@ -316,6 +316,8 @@ template<> QString toString(const KGraphicsControllerType &type)
         case KGraphicsControllerType_VBoxVGA:  return QApplication::translate("UICommon", "VBoxVGA",  "GraphicsControllerType");
         case KGraphicsControllerType_VMSVGA:   return QApplication::translate("UICommon", "VMSVGA",   "GraphicsControllerType");
         case KGraphicsControllerType_VBoxSVGA: return QApplication::translate("UICommon", "VBoxSVGA", "GraphicsControllerType");
+        case KGraphicsControllerType_VGAWithVirtioGpu: return QApplication::translate("UICommon", "VGAWithVirtioGPU", "GraphicsControllerType");
+        case KGraphicsControllerType_VirtioGpu: return QApplication::translate("UICommon", "VirtioGPU", "GraphicsControllerType");
         default: AssertMsgFailed(("No text for %d", type)); break;
     }
     return QString();
@@ -329,6 +331,8 @@ template<> KGraphicsControllerType fromString<KGraphicsControllerType>(const QSt
     list.insert(QApplication::translate("UICommon", "VBoxVGA",  "GraphicsControllerType"), KGraphicsControllerType_VBoxVGA);
     list.insert(QApplication::translate("UICommon", "VMSVGA",   "GraphicsControllerType"), KGraphicsControllerType_VMSVGA);
     list.insert(QApplication::translate("UICommon", "VBoxSVGA", "GraphicsControllerType"), KGraphicsControllerType_VBoxSVGA);
+    list.insert(QApplication::translate("UICommon", "VGAWithVirtioGPU", "GraphicsControllerType"), KGraphicsControllerType_VGAWithVirtioGpu);
+    list.insert(QApplication::translate("UICommon", "VirtioGPU", "GraphicsControllerType"), KGraphicsControllerType_VirtioGpu);
     if (!list.contains(strType))
     {
         AssertMsgFailed(("No value for '%s'", strType.toUtf8().constData()));
