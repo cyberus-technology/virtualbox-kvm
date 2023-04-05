@@ -366,6 +366,16 @@ static DECLCALLBACK(void) picSetIrq(PPDMDEVINS pDevIns, int iIrq, int iLevel, ui
 {
     PDEVPIC     pThis   = PDMDEVINS_2_DATA(pDevIns, PDEVPIC);
     PDEVPICCC   pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PDEVPICCC);
+
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+    pThisCC->pPicHlp->pfnKvmSetIrqLine(pDevIns, iIrq, iLevel & PDM_IRQ_LEVEL_HIGH);
+
+    if ((iLevel & PDM_IRQ_LEVEL_FLIP_FLOP) == PDM_IRQ_LEVEL_FLIP_FLOP) {
+        pThisCC->pPicHlp->pfnKvmSetIrqLine(pDevIns, iIrq, PDM_IRQ_LEVEL_LOW);
+    }
+
+    return;
+#else
     AssertMsgReturnVoid(iIrq < 16, ("iIrq=%d\n", iIrq));
 
     Log(("picSetIrq %d %d\n", iIrq, iLevel));
@@ -383,6 +393,7 @@ static DECLCALLBACK(void) picSetIrq(PPDMDEVINS pDevIns, int iIrq, int iLevel, ui
     }
     pic_set_irq1(&RT_SAFE_SUBSCRIPT(pThis->aPics, iIrq >> 3), iIrq & 7, iLevel & PDM_IRQ_LEVEL_HIGH, uTagSrc);
     pic_update_irq(pDevIns, pThis, pThisCC);
+#endif
 }
 
 
@@ -830,6 +841,33 @@ static DECLCALLBACK(int) picR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
     PDEVPIC         pThis = PDMDEVINS_2_DATA(pDevIns, PDEVPIC);
     PCPDMDEVHLPR3   pHlp  = pDevIns->pHlpR3;
 
+#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
+    PDEVPICCC   pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PDEVPICCC);
+    KVMPICSTATE kvm_pic_state;
+
+    for (unsigned pic = 0; pic < 2; ++pic) {
+        int rc = pThisCC->pPicHlp->pfnKvmGetPicState(pDevIns, pic == 0 ? KVMIRQCHIP::PIC_MASTER : KVMIRQCHIP::PIC_SLAVE, &kvm_pic_state);
+        AssertLogRelMsg(RT_SUCCESS(rc), ("Unable to retrieve PIC state from KVM"));
+
+        pThis->aPics[pic].last_irr = kvm_pic_state.last_irr;
+        pThis->aPics[pic].irr = kvm_pic_state.irr;
+        pThis->aPics[pic].imr = kvm_pic_state.imr;
+        pThis->aPics[pic].isr = kvm_pic_state.isr;
+        pThis->aPics[pic].priority_add = kvm_pic_state.priority_add;
+        pThis->aPics[pic].irq_base = kvm_pic_state.irq_base;
+        pThis->aPics[pic].read_reg_select = kvm_pic_state.read_reg_select;
+        pThis->aPics[pic].poll = kvm_pic_state.poll;
+        pThis->aPics[pic].special_mask = kvm_pic_state.special_mask;
+        pThis->aPics[pic].init_state = kvm_pic_state.init_state;
+        pThis->aPics[pic].auto_eoi = kvm_pic_state.auto_eoi;
+        pThis->aPics[pic].rotate_on_auto_eoi = kvm_pic_state.rotate_on_auto_eoi;
+        pThis->aPics[pic].special_fully_nested_mode = kvm_pic_state.special_fully_nested_mode;
+        pThis->aPics[pic].init4 = kvm_pic_state.init4;
+        pThis->aPics[pic].elcr = kvm_pic_state.elcr;
+        pThis->aPics[pic].elcr_mask = kvm_pic_state.elcr_mask;
+    }
+#endif
+
     for (unsigned i = 0; i < RT_ELEMENTS(pThis->aPics); i++)
     {
         pHlp->pfnSSMPutU8(pSSM, pThis->aPics[i].last_irr);
@@ -882,6 +920,33 @@ static DECLCALLBACK(int) picR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uint
         pHlp->pfnSSMGetU8(pSSM, &pThis->aPics[i].init4);
         pHlp->pfnSSMGetU8(pSSM, &pThis->aPics[i].elcr);
     }
+
+#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
+    PDEVPICCC   pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PDEVPICCC);
+    KVMPICSTATE kvm_pic_state;
+
+    for (unsigned pic = 0; pic < 2; ++pic) {
+        kvm_pic_state.last_irr = pThis->aPics[pic].last_irr;
+        kvm_pic_state.irr = pThis->aPics[pic].irr;
+        kvm_pic_state.imr = pThis->aPics[pic].imr;
+        kvm_pic_state.isr = pThis->aPics[pic].isr;
+        kvm_pic_state.priority_add = pThis->aPics[pic].priority_add;
+        kvm_pic_state.irq_base = pThis->aPics[pic].irq_base;
+        kvm_pic_state.read_reg_select = pThis->aPics[pic].read_reg_select;
+        kvm_pic_state.poll = pThis->aPics[pic].poll;
+        kvm_pic_state.special_mask = pThis->aPics[pic].special_mask;
+        kvm_pic_state.init_state = pThis->aPics[pic].init_state;
+        kvm_pic_state.auto_eoi = pThis->aPics[pic].auto_eoi;
+        kvm_pic_state.rotate_on_auto_eoi = pThis->aPics[pic].rotate_on_auto_eoi;
+        kvm_pic_state.special_fully_nested_mode = pThis->aPics[pic].special_fully_nested_mode;
+        kvm_pic_state.init4 = pThis->aPics[pic].init4;
+        kvm_pic_state.elcr = pThis->aPics[pic].elcr;
+        kvm_pic_state.elcr_mask = pThis->aPics[pic].elcr_mask;
+
+        int rc = pThisCC->pPicHlp->pfnKvmSetPicState(pDevIns, pic == 0 ? KVMIRQCHIP::PIC_MASTER : KVMIRQCHIP::PIC_SLAVE, &kvm_pic_state);
+        AssertLogRelMsg(RT_SUCCESS(rc), ("Unable to push PIC state to KVM"));
+    }
+#endif
 
     /* Note! PDM will restore the VMCPU_FF_INTERRUPT_PIC state. */
     return VINF_SUCCESS;

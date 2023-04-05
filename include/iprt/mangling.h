@@ -2555,6 +2555,7 @@
 # define RTThreadIsSelfKnown                            RT_MANGLER(RTThreadIsSelfKnown)
 # define RTThreadNativeSelf                             RT_MANGLER(RTThreadNativeSelf)
 # define RTThreadControlPokeSignal                      RT_MANGLER(RTThreadControlPokeSignal) /* not-win not-os2 */
+# define RTThreadPokeSignal                             RT_MANGLER(RTThreadPokeSignal) /* not-win not-os2 */
 # define RTThreadPoke                                   RT_MANGLER(RTThreadPoke) /* not-win not-os2 */
 # define RTThreadPreemptDisable                         RT_MANGLER(RTThreadPreemptDisable)     /* r0drv */
 # define RTThreadPreemptIsEnabled                       RT_MANGLER(RTThreadPreemptIsEnabled)   /* r0drv */

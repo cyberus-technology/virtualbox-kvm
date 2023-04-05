@@ -255,6 +255,10 @@ DECLHIDDEN(int) suplibOsPageAlloc(PSUPLIBDATA pThis, size_t cPages, uint32_t fFl
         fMmap |= MAP_HUGETLB;
 #endif
 
+#ifdef VBOX_WITH_PREALLOC_RAM_BY_DEFAULT
+    fMmap |= MAP_POPULATE;
+#endif
+
     size_t cbMmap = cPages << PAGE_SHIFT;
     if (   !pThis->fSysMadviseWorks
         && (fFlags & (SUP_PAGE_ALLOC_F_FOR_LOCKING | SUP_PAGE_ALLOC_F_LARGE_PAGES)) == SUP_PAGE_ALLOC_F_FOR_LOCKING)

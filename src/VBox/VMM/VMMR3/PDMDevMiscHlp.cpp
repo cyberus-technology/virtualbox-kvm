@@ -34,6 +34,7 @@
 #include <VBox/vmm/pdm.h>
 #include <VBox/vmm/pgm.h>
 #include <VBox/vmm/hm.h>
+#include <VBox/vmm/nem.h>
 #include <VBox/vmm/apic.h>
 #include <VBox/vmm/vm.h>
 #include <VBox/vmm/vmm.h>
@@ -98,6 +99,34 @@ static DECLCALLBACK(void) pdmR3PicHlp_Unlock(PPDMDEVINS pDevIns)
     pdmUnlock(pDevIns->Internal.s.pVMR3);
 }
 
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+/** @interface_method_impl{PDMPICHLP,pfnKvmSetIrqLine} */
+static DECLCALLBACK(int) pdmR3PicHlp_KvmSetIrqLine(PPDMDEVINS pDevIns, uint16_t u16Gsi, int iLevel)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
+
+    return NEMR3KvmSetIrqLine(pVM, u16Gsi, iLevel);
+}
+
+/** @interface_method_impl{PDMPICHLP,pfnKvmGetPicState} */
+static DECLCALLBACK(int) pdmR3PicHlp_KvmGetPicState(PPDMDEVINS pDevIns, KVMIRQCHIP irqchip, KVMPICSTATE* state)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
+
+    return NEMR3KvmGetPicState(pVM, irqchip, state);
+}
+
+/** @interface_method_impl{PDMPICHLP,pfnKvmSetPicState} */
+static DECLCALLBACK(int) pdmR3PicHlp_KvmSetPicState(PPDMDEVINS pDevIns, KVMIRQCHIP irqchip, KVMPICSTATE* state)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
+
+    return NEMR3KvmSetPicState(pVM, irqchip, state);
+}
+#endif
 
 /**
  * PIC Device Helpers.
@@ -109,6 +138,11 @@ const PDMPICHLP g_pdmR3DevPicHlp =
     pdmR3PicHlp_ClearInterruptFF,
     pdmR3PicHlp_Lock,
     pdmR3PicHlp_Unlock,
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+    pdmR3PicHlp_KvmSetIrqLine,
+    pdmR3PicHlp_KvmGetPicState,
+    pdmR3PicHlp_KvmSetPicState,
+#endif
     PDM_PICHLP_VERSION /* the end */
 };
 
@@ -175,7 +209,64 @@ static DECLCALLBACK(int) pdmR3IoApicHlp_IommuMsiRemap(PPDMDEVINS pDevIns, uint16
     return VERR_IOMMU_NOT_PRESENT;
 }
 
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
+/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSetIrqLine} */
+static DECLCALLBACK(int) pdmR3IoApicHlp_KvmSetIrqLine(PPDMDEVINS pDevIns, uint16_t u16Gsi, int iLevel) {
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
 
+    return NEMR3KvmSetIrqLine(pVM, u16Gsi, iLevel);
+}
+
+/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSplitIrqchipDeliverMsi} */
+static DECLCALLBACK(int) pdmR3IoApicHlp_KvmSplitIrqchipDeliverMsi(PPDMDEVINS pDevIns, PCMSIMSG pMsi)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
+
+    return NEMR3KvmSplitIrqchipDeliverMsi(pVM, pMsi);
+}
+
+
+/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSplitIrqchipAddUpdateRTE} */
+static DECLCALLBACK(int) pdmR3IoApicHlp_KvmSplitIrqchipAddUpdateRTE(PPDMDEVINS pDevIns, uint16_t gsi, PCMSIMSG pMsi)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
+
+    return NEMR3KvmSplitIrqchipAddUpdateRTE(pVM, gsi, pMsi);
+}
+
+
+/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSplitIrqchipRemoveRTE} */
+static DECLCALLBACK(int) pdmR3IoApicHlp_KvmSplitIrqchipRemoveRTE(PPDMDEVINS pDevIns, uint16_t gsi)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
+
+    return NEMR3KvmSplitIrqchipRemoveRTE(pVM, gsi);
+}
+#endif
+
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+/** @interface_method_impl{PDMIOAPICHLP,pfnKvmGetIoApicState} */
+static DECLCALLBACK(int) pdmR3IoApicHlp_pfnKvmGetIoApicState(PPDMDEVINS pDevIns, KVMIOAPICSTATE* state)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
+
+    return NEMR3KvmGetIoApicState(pVM, state);
+}
+
+/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSetIoApicState} */
+static DECLCALLBACK(int) pdmR3IoApicHlp_pfnKvmSetIoApicState(PPDMDEVINS pDevIns, KVMIOAPICSTATE* state)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PVM pVM = pDevIns->Internal.s.pVMR3;
+
+    return NEMR3KvmSetIoApicState(pVM, state);
+}
+#endif
 /**
  * I/O APIC Device Helpers.
  */
@@ -187,6 +278,17 @@ const PDMIOAPICHLP g_pdmR3DevIoApicHlp =
     pdmR3IoApicHlp_Unlock,
     pdmR3IoApicHlp_LockIsOwner,
     pdmR3IoApicHlp_IommuMsiRemap,
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
+    pdmR3IoApicHlp_KvmSetIrqLine,
+    pdmR3IoApicHlp_KvmSplitIrqchipDeliverMsi,
+    pdmR3IoApicHlp_KvmSplitIrqchipAddUpdateRTE,
+    pdmR3IoApicHlp_KvmSplitIrqchipRemoveRTE,
+#endif
+
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+    pdmR3IoApicHlp_pfnKvmGetIoApicState,
+    pdmR3IoApicHlp_pfnKvmSetIoApicState,
+#endif
     PDM_IOAPICHLP_VERSION /* the end */
 };
 

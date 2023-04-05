@@ -35,13 +35,24 @@
 #include <VBox/types.h>
 #include <VBox/vmm/nem.h>
 #include <VBox/vmm/cpum.h> /* For CPUMCPUVENDOR. */
+#ifdef VBOX_WITH_KVM
+#include <VBox/vmm/pdmdev.h> /* For KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS */
+#endif
 #include <VBox/vmm/stam.h>
 #include <VBox/vmm/vmapi.h>
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
+#include <array>
+#include <memory>
+#include <optional>
+#include <VBox/msi.h>
+#endif
 #ifdef RT_OS_WINDOWS
 #include <iprt/nt/hyperv.h>
 #include <iprt/critsect.h>
 #elif defined(RT_OS_DARWIN)
 # include "VMXInternal.h"
+#elif defined(RT_OS_LINUX)
+# include <time.h>
 #endif
 
 RT_C_DECLS_BEGIN
@@ -207,6 +218,9 @@ typedef struct NEM
     uint16_t                    idPrevSlot;
     /** Memory slot ID allocation bitmap. */
     uint64_t                    bmSlotIds[_32K / 8 / sizeof(uint64_t)];
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
+    std::unique_ptr<std::array<std::optional<MSIMSG>, KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS>> pARedirectionTable;
+#endif
 
 #elif defined(RT_OS_WINDOWS)
     /** Set if we've created the EMTs. */
@@ -354,11 +368,22 @@ typedef struct NEMCPU
     bool                        fGCMTrapXcptDE : 1;
 
 #if defined(RT_OS_LINUX)
-    uint8_t                     abPadding[3];
+    uint8_t                     abPadding[2];
+    /** Whether processor bug mitigations have already been applied. */
+    bool                        fMitigationsApplied;
     /** The KVM VCpu file descriptor. */
     int32_t                     fdVCpu;
     /** Pointer to the KVM_RUN data exchange region. */
     R3PTRTYPE(struct kvm_run *) pRun;
+
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
+    /** The vCPU timer. */
+    timer_t                     pTimer;
+
+    /** The the next timeout (absolute). */
+    uint64_t                    nsAbsNextTimerEvt;
+#endif
+
     /** The MSR_IA32_APICBASE value known to KVM. */
     uint64_t                    uKvmApicBase;
 
@@ -666,4 +691,3 @@ int     nemHCNativeNotifyPhysPageAllocated(PVMCC pVM, RTGCPHYS GCPhys, RTHCPHYS 
 RT_C_DECLS_END
 
 #endif /* !VMM_INCLUDED_SRC_include_NEMInternal_h */
-

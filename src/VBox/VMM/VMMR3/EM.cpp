@@ -219,7 +219,11 @@ VMMR3_INT_DECL(int) EMR3Init(PVM pVM)
     {
         PVMCPU pVCpu = pVM->apCpusR3[idCpu];
 
+#ifdef VBOX_WITH_KVM
+        pVCpu->em.s.enmState            = EMSTATE_NONE;
+#else
         pVCpu->em.s.enmState            = idCpu == 0 ? EMSTATE_NONE : EMSTATE_WAIT_SIPI;
+#endif
         pVCpu->em.s.enmPrevState        = EMSTATE_NONE;
         pVCpu->em.s.u64TimeSliceStart   = 0; /* paranoia */
         pVCpu->em.s.idxContinueExitRec  = UINT16_MAX;
@@ -2353,7 +2357,14 @@ VMMR3_INT_DECL(int) EMR3ExecuteVM(PVM pVM, PVMCPU pVCpu)
                     else
                     {
                         /* All other VCPUs go into the wait for SIPI state. */
+#ifdef VBOX_WITH_KVM
+                        /* In case the KVM split irq chip is used, KVM manages
+                         * the wait for SIPI state for us and we need to stay in
+                         * the NEM state. */
+                        pVCpu->em.s.enmState = EMSTATE_NEM;
+#else
                         pVCpu->em.s.enmState = EMSTATE_WAIT_SIPI;
+#endif
                     }
                     break;
                 }

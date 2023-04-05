@@ -202,6 +202,8 @@
 #define GIM_HV_HINT_INT_FOR_MBEC_SYSCALLS                   RT_BIT(13)
 /** Recommend using enlightened VMCS interfacea and nested enlightenments. */
 #define GIM_HV_HINT_NESTED_ENLIGHTENED_VMCS_INTERFACE       RT_BIT(14)
+/** Indicates that core-sharing is not possible. */
+#define GIM_HV_HINT_NO_NONARCH_CORESHARING                  RT_BIT(18)
 /** @}  */
 
 

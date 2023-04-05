@@ -727,6 +727,10 @@ RTDECL(int) RTThreadControlPokeSignal(RTTHREAD hThread, bool fEnable)
     return rc;
 }
 
+RTDECL(int) RTThreadPokeSignal(void)
+{
+    return g_iSigPokeThread;
+}
 
 #endif
 

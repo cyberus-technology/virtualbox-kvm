@@ -812,7 +812,11 @@ struct ACPITBLISO
     uint16_t            u16Flags;               /**< MPS INTI flags Global */
 };
 AssertCompileSize(ACPITBLISO, 10);
-#define NUMBER_OF_IRQ_SOURCE_OVERRIDES 2
+#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
+#define NUMBER_OF_IRQ_SOURCE_OVERRIDES (10)
+#else
+#define NUMBER_OF_IRQ_SOURCE_OVERRIDES (2)
+#endif
 
 /** HPET Descriptor Structure */
 struct ACPITBLHPET
@@ -3295,8 +3299,73 @@ static void acpiR3SetupMadt(PPDMDEVINS pDevIns, PACPISTATE pThis, RTGCPHYS32 add
     isos[1].u8Bus      = 0; /* Must be 0 */
     isos[1].u8Source   = 9; /* IRQ9 */
     isos[1].u32GSI     = 9; /* connected to pin 9 */
+#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
+    isos[1].u16Flags   = 0xd; /* active high, level triggered */
+#else
     isos[1].u16Flags   = 0xf; /* active low, level triggered */
+#endif
+
+#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
+    isos[2].u8Type     = 2;
+    isos[2].u8Length   = sizeof(ACPITBLISO);
+    isos[2].u8Bus      = 0; /* Must be 0 */
+    isos[2].u8Source   = 16; /* IRQ16 */
+    isos[2].u32GSI     = 16; /* connected to pin 16 */
+    isos[2].u16Flags   = 0xd; /* active high, level triggered */
+
+    isos[3].u8Type     = 2;
+    isos[3].u8Length   = sizeof(ACPITBLISO);
+    isos[3].u8Bus      = 0; /* Must be 0 */
+    isos[3].u8Source   = 17; /* IRQ17 */
+    isos[3].u32GSI     = 17; /* connected to pin 17 */
+    isos[3].u16Flags   = 0xd; /* active high, level triggered */
+
+    isos[4].u8Type     = 2;
+    isos[4].u8Length   = sizeof(ACPITBLISO);
+    isos[4].u8Bus      = 0; /* Must be 0 */
+    isos[4].u8Source   = 18; /* IRQ18 */
+    isos[4].u32GSI     = 18; /* connected to pin 18 */
+    isos[4].u16Flags   = 0xd; /* active high, level triggered */
+
+    isos[5].u8Type     = 2;
+    isos[5].u8Length   = sizeof(ACPITBLISO);
+    isos[5].u8Bus      = 0; /* Must be 0 */
+    isos[5].u8Source   = 19; /* IRQ19 */
+    isos[5].u32GSI     = 19; /* connected to pin 19 */
+    isos[5].u16Flags   = 0xd; /* active high, level triggered */
+
+    isos[6].u8Type     = 2;
+    isos[6].u8Length   = sizeof(ACPITBLISO);
+    isos[6].u8Bus      = 0; /* Must be 0 */
+    isos[6].u8Source   = 20; /* IRQ20 */
+    isos[6].u32GSI     = 20; /* connected to pin 20 */
+    isos[6].u16Flags   = 0xd; /* active high, level triggered */
+
+    isos[7].u8Type     = 2;
+    isos[7].u8Length   = sizeof(ACPITBLISO);
+    isos[7].u8Bus      = 0; /* Must be 0 */
+    isos[7].u8Source   = 21; /* IRQ21 */
+    isos[7].u32GSI     = 21; /* connected to pin 21 */
+    isos[7].u16Flags   = 0xd; /* active high, level triggered */
+
+    isos[8].u8Type     = 2;
+    isos[8].u8Length   = sizeof(ACPITBLISO);
+    isos[8].u8Bus      = 0; /* Must be 0 */
+    isos[8].u8Source   = 22; /* IRQ22 */
+    isos[8].u32GSI     = 22; /* connected to pin 22 */
+    isos[8].u16Flags   = 0xd; /* active high, level triggered */
+
+    isos[9].u8Type     = 2;
+    isos[9].u8Length   = sizeof(ACPITBLISO);
+    isos[9].u8Bus      = 0; /* Must be 0 */
+    isos[9].u8Source   = 23; /* IRQ23 */
+    isos[9].u32GSI     = 23; /* connected to pin 23 */
+    isos[9].u16Flags   = 0xd; /* active high, level triggered */
+
+    Assert(NUMBER_OF_IRQ_SOURCE_OVERRIDES == 10);
+#else
     Assert(NUMBER_OF_IRQ_SOURCE_OVERRIDES == 2);
+#endif
 
     madt.header_addr()->u8Checksum = acpiR3Checksum(madt.data(), madt.size());
     acpiR3PhysCopy(pDevIns, addr, madt.data(), madt.size());

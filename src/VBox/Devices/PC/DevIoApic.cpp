@@ -32,6 +32,14 @@
 #define LOG_GROUP LOG_GROUP_DEV_IOAPIC
 #include <VBox/log.h>
 #include <VBox/vmm/hm.h>
+
+#ifdef VBOX_WITH_KVM
+#include <VBox/vmm/nem.h>
+#ifdef IN_RING3
+#include <vector>
+#endif
+#endif
+
 #include <VBox/msi.h>
 #include <VBox/pci.h>
 #include <VBox/vmm/pdmdev.h>
@@ -39,7 +47,6 @@
 #include "VBoxDD.h"
 #include <iprt/x86.h>
 #include <iprt/string.h>
-
 
 /*********************************************************************************************************************************
 *   Defined Constants And Macros                                                                                                 *
@@ -68,6 +75,10 @@ Controller" */
 
 /** The number of interrupt input pins. */
 #define IOAPIC_NUM_INTR_PINS                    24
+
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
+AssertCompile(IOAPIC_NUM_INTR_PINS == KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS);
+#endif
 /** Maximum redirection entires. */
 #define IOAPIC_MAX_RTE_INDEX                    (IOAPIC_NUM_INTR_PINS - 1)
 /** Reduced RTEs used by SIO.A (82379AB). */
@@ -340,6 +351,19 @@ typedef struct IOAPIC
 #endif
     /** Per-vector stats. */
     STAMCOUNTER             aStatVectors[256];
+
+#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
+    /** Handle to the timer that is used for delayed IRQ injection */
+    TMTIMERHANDLE           hIoapicDelayedInjectionHandler;
+
+    /** List of PINs that need delayed injection handling, protected by IOAPIC_LOCK */
+    std::vector<uint8_t> delayed_interrupt_list;
+
+    /** A per-GSI counter that is increased whenever a level triggered interrupt is
+        instantly pending following an EOI. The counter is reset to zero when no
+        interrupt is pending following an EOI. */
+    uint64_t gsi_counter[IOAPIC_NUM_INTR_PINS] {};
+#endif
 } IOAPIC;
 AssertCompileMemberAlignment(IOAPIC, au64RedirTable, 8);
 /** Pointer to shared IOAPIC data. */
@@ -572,6 +596,35 @@ DECLINLINE(void) ioapicGetMsiFromRte(uint64_t u64Rte, IOAPICTYPE enmType, PMSIMS
 #endif
 
 
+static bool handlePossibleInterruptStorm(PPDMDEVINS pDevIns, PIOAPIC pThis, unsigned idxRte)
+{
+#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
+
+    /** There are buggy drivers that do not clear all interrupt conditions before sending an EOI to the IOAPIC.
+        On real HW, such drivers make slow foward progress because the IOAPIC needs a few cycles the next interrupt
+        is injected after an EOI. If we detect this situation, delay the interrupt and give the guest driver the
+        opportunity to fix this mess. */
+
+    static constexpr uint64_t NUM_EXCESSIVE_INTERRUPTS {10000};
+    if (++pThis->gsi_counter[idxRte] == NUM_EXCESSIVE_INTERRUPTS) {
+        LogRel(("Interrupt storm on GSI %d, delaying injection\n", idxRte));
+
+        // Reset our counter so the next injection of this GSI succeeds.
+        pThis->gsi_counter[idxRte] = 0;
+
+        // Remember which GSI we have to raise after our delay.
+        pThis->delayed_interrupt_list.push_back(idxRte);
+
+        // Arm the delayed injection handler.
+        PDMDevHlpTimerSetMillies(pDevIns, pThis->hIoapicDelayedInjectionHandler, 100 /* ms */);
+        return true;
+    }
+#else
+    NOREF(pDevIns); NOREF(pThis); NOREF(idxRte);
+#endif
+
+    return false;
+}
 /**
  * Signals the next pending interrupt for the specified Redirection Table Entry
  * (RTE).
@@ -606,6 +659,10 @@ static void ioapicSignalIntrForRte(PPDMDEVINS pDevIns, PIOAPIC pThis, PIOAPICCC 
         if (u8RemoteIrr)
         {
             STAM_COUNTER_INC(&pThis->StatSuppressedLevelIntr);
+            return;
+        }
+
+        if (handlePossibleInterruptStorm(pDevIns, pThis, idxRte)) {
             return;
         }
     }
@@ -655,6 +712,11 @@ static void ioapicSignalIntrForRte(PPDMDEVINS pDevIns, PIOAPIC pThis, PIOAPICCC 
     }
 #endif
 
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+    AssertReleaseMsg(rcRemap == VERR_IOMMU_NOT_PRESENT || rcRemap == VERR_IOMMU_CANNOT_CALL_SELF,
+                     ("Interrupt remapping not supported yet."));
+    int rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipDeliverMsi(pDevIns, &MsiIn);
+#else
     uint32_t const u32TagSrc = pThis->au32TagSrc[idxRte];
     Log2(("IOAPIC: Signaling %s-triggered interrupt. Dest=%#x DestMode=%s Vector=%#x (%u)\n",
           ApicIntr.u8TriggerMode == IOAPIC_RTE_TRIGGER_MODE_EDGE ? "edge" : "level", ApicIntr.u8Dest,
@@ -672,6 +734,7 @@ static void ioapicSignalIntrForRte(PPDMDEVINS pDevIns, PIOAPIC pThis, PIOAPICCC 
                                                     ApicIntr.u8Polarity,
                                                     ApicIntr.u8TriggerMode,
                                                     u32TagSrc);
+#endif
     /* Can't reschedule to R3. */
     Assert(rc == VINF_SUCCESS || rc == VERR_APIC_INTR_DISCARDED);
 #ifdef DEBUG_ramshankar
@@ -781,6 +844,16 @@ static VBOXSTRICTRC ioapicSetRedirTableEntry(PPDMDEVINS pDevIns, PIOAPIC pThis, 
 
         LogFlow(("IOAPIC: ioapicSetRedirTableEntry: uIndex=%#RX32 idxRte=%u uValue=%#RX32\n", uIndex, idxRte, uValue));
 
+#if defined(VBOX_WITH_KVM) && defined(IN_RING3) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+        const uint64_t u64RteNew { pThis->au64RedirTable[idxRte] };
+        if (not IOAPIC_RTE_IS_MASKED(u64RteNew)) {
+            MSIMSG msi;
+            RT_ZERO(msi);
+            ioapicGetMsiFromRte(u64RteNew, pThis->enmType, &msi);
+            rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipAddUpdateRTE(pDevIns, idxRte, &msi);
+        }
+#endif
+
         /*
          * Signal the next pending interrupt for this RTE.
          */
@@ -790,7 +863,6 @@ static VBOXSTRICTRC ioapicSetRedirTableEntry(PPDMDEVINS pDevIns, PIOAPIC pThis, 
             LogFlow(("IOAPIC: ioapicSetRedirTableEntry: Signalling pending interrupt. idxRte=%u\n", idxRte));
             ioapicSignalIntrForRte(pDevIns, pThis, pThisCC, idxRte);
         }
-
         IOAPIC_UNLOCK(pDevIns, pThis, pThisCC);
     }
     else
@@ -940,6 +1012,15 @@ static DECLCALLBACK(void) ioapicSetIrq(PPDMDEVINS pDevIns, PCIBDF uBusDevFn, int
     PIOAPIC   pThis   = PDMDEVINS_2_DATA(pDevIns, PIOAPIC);
     PIOAPICCC pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
     LogFlow(("IOAPIC: ioapicSetIrq: iIrq=%d iLevel=%d uTagSrc=%#x\n", iIrq, iLevel, uTagSrc));
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+    pThisCC->pIoApicHlp->pfnKvmSetIrqLine(pDevIns, iIrq, iLevel & PDM_IRQ_LEVEL_HIGH);
+
+    if ((iLevel & PDM_IRQ_LEVEL_FLIP_FLOP) == PDM_IRQ_LEVEL_FLIP_FLOP) {
+        pThisCC->pIoApicHlp->pfnKvmSetIrqLine(pDevIns, iIrq, PDM_IRQ_LEVEL_LOW);
+    }
+
+    return;
+#endif
 
     STAM_COUNTER_INC(&pThis->CTX_SUFF_Z(StatSetIrq));
 
@@ -962,6 +1043,9 @@ static DECLCALLBACK(void) ioapicSetIrq(PPDMDEVINS pDevIns, PCIBDF uBusDevFn, int
 #endif
         if (!fActive)
         {
+#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
+            pThis->gsi_counter[idxRte] = 0;
+#endif
             pThis->uIrr &= ~uPinMask;
             pThis->au32TagSrc[idxRte] = 0;
             IOAPIC_UNLOCK(pDevIns, pThis, pThisCC);
@@ -1080,7 +1164,11 @@ static DECLCALLBACK(void) ioapicSendMsi(PPDMDEVINS pDevIns, PCIBDF uBusDevFn, PC
 #else
     NOREF(uBusDevFn);
 #endif
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
+    int rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipDeliverMsi(pDevIns, pMsi);
 
+    AssertReleaseMsg(rc == VINF_SUCCESS || rc == VERR_APIC_INTR_DISCARDED, ("ioapicSendMsi: Could not deliver MSI! error %d\n", rc));
+#else
     ioapicGetApicIntrFromMsi(pMsi, &ApicIntr);
 
     /*
@@ -1098,6 +1186,7 @@ static DECLCALLBACK(void) ioapicSendMsi(PPDMDEVINS pDevIns, PCIBDF uBusDevFn, PC
                                                     uTagSrc);
     /* Can't reschedule to R3. */
     Assert(rc == VINF_SUCCESS || rc == VERR_APIC_INTR_DISCARDED); NOREF(rc);
+#endif
 }
 
 
@@ -1444,9 +1533,32 @@ static DECLCALLBACK(void) ioapicR3DbgInfo(PPDMDEVINS pDevIns, PCDBGFINFOHLP pHlp
  */
 static DECLCALLBACK(int) ioapicR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
 {
-    PCIOAPIC        pThis = PDMDEVINS_2_DATA(pDevIns, PCIOAPIC);
+    PIOAPIC         pThis = PDMDEVINS_2_DATA(pDevIns, PIOAPIC);
     PCPDMDEVHLPR3   pHlp  = pDevIns->pHlpR3;
     LogFlow(("IOAPIC: ioapicR3SaveExec\n"));
+
+#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
+    PIOAPICCC pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
+    KVMIOAPICSTATE kvm_ioapic_state;
+
+    for (unsigned pic = 0; pic < 2; ++pic) {
+        int rc = pThisCC->pIoApicHlp->pfnKvmGetIoApicState(pDevIns, &kvm_ioapic_state);
+        AssertLogRelMsg(RT_SUCCESS(rc), ("Unable to retrieve IOPIC state from KVM"));
+
+        /**
+         * There's no need to look at kvm_ioapic_state.base_address because
+         * VBox does not support IOAPIC relocation, thus, it will always be
+         * at IOAPIC_MMIO_BASE_PHYSADDR.
+         */
+        pThis->uIrr = kvm_ioapic_state.irr;
+        pThis->u8Id = kvm_ioapic_state.id;
+        pThis->u8Index = kvm_ioapic_state.ioregsel;
+
+        for (uint8_t idxRte = 0; idxRte < RT_ELEMENTS(pThis->au64RedirTable); idxRte++) {
+            pThis->au64RedirTable[idxRte] = kvm_ioapic_state.redirtbl[idxRte];
+        }
+    }
+#endif
 
     pHlp->pfnSSMPutU32(pSSM, pThis->uIrr);
     pHlp->pfnSSMPutU8(pSSM,  pThis->u8Id);
@@ -1490,6 +1602,39 @@ static DECLCALLBACK(int) ioapicR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, u
     for (uint8_t idxRte = 0; idxRte < RT_ELEMENTS(pThis->au64RedirTable); idxRte++)
         pHlp->pfnSSMGetU64(pSSM, &pThis->au64RedirTable[idxRte]);
 
+#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+    PIOAPICCC pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
+    for (uint8_t idxRte = 0; idxRte < RT_ELEMENTS(pThis->au64RedirTable); idxRte++) {
+        const uint64_t u64RteNew { pThis->au64RedirTable[idxRte] };
+        if (not IOAPIC_RTE_IS_MASKED(u64RteNew) and (IOAPIC_RTE_GET_TRIGGER_MODE(u64RteNew) != IOAPIC_RTE_TRIGGER_MODE_EDGE)) {
+            MSIMSG msi;
+            RT_ZERO(msi);
+            ioapicGetMsiFromRte(u64RteNew, pThis->enmType, &msi);
+            int rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipAddUpdateRTE(pDevIns, idxRte, &msi);
+            AssertLogRelMsg(RT_SUCCESS(rc), ("Adding redirection table entry failed."));
+        }
+    }
+#endif
+
+#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
+    PIOAPICCC pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
+    KVMIOAPICSTATE kvm_ioapic_state;
+
+    for (unsigned pic = 0; pic < 2; ++pic) {
+        kvm_ioapic_state.base_address = IOAPIC_MMIO_BASE_PHYSADDR;
+        kvm_ioapic_state.irr = pThis->uIrr;
+        kvm_ioapic_state.id = pThis->u8Id;
+        kvm_ioapic_state.ioregsel = pThis->u8Index;
+
+        for (uint8_t idxRte = 0; idxRte < RT_ELEMENTS(pThis->au64RedirTable); idxRte++) {
+            kvm_ioapic_state.redirtbl[idxRte] = pThis->au64RedirTable[idxRte];
+        }
+
+        int rc = pThisCC->pIoApicHlp->pfnKvmSetIoApicState(pDevIns, &kvm_ioapic_state);
+        AssertLogRelMsg(RT_SUCCESS(rc), ("Unable to retrieve IOPIC state from KVM"));
+    }
+#endif
+
     if (uVersion > IOAPIC_SAVED_STATE_VERSION_NO_FLIPFLOP_MAP)
         for (uint8_t idx = 0; idx < RT_ELEMENTS(pThis->bmFlipFlop); idx++)
             pHlp->pfnSSMGetU64(pSSM, &pThis->bmFlipFlop[idx]);
@@ -1518,6 +1663,10 @@ static DECLCALLBACK(void) ioapicR3Reset(PPDMDEVINS pDevIns)
     {
         pThis->au64RedirTable[idxRte] = IOAPIC_RTE_MASK;
         pThis->au32TagSrc[idxRte] = 0;
+#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+        int rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipRemoveRTE(pDevIns, idxRte);
+        AssertLogRelMsg(RT_SUCCESS(rc), ("Removing redirection table entry failed."));
+#endif
     }
 
     IOAPIC_UNLOCK(pDevIns, pThis, pThisCC);
@@ -1545,6 +1694,10 @@ static DECLCALLBACK(int) ioapicR3Destruct(PPDMDEVINS pDevIns)
     PIOAPIC pThis = PDMDEVINS_2_DATA(pDevIns, PIOAPIC);
     LogFlow(("IOAPIC: ioapicR3Destruct: pThis=%p\n", pThis));
 
+#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
+    PDMDevHlpTimerDestroy(pDevIns, pThis->hIoapicDelayedInjectionHandler);
+#endif
+
 # ifndef IOAPIC_WITH_PDM_CRITSECT
     /*
      * Destroy the RTE critical section.
@@ -1558,6 +1711,26 @@ static DECLCALLBACK(int) ioapicR3Destruct(PPDMDEVINS pDevIns)
     return VINF_SUCCESS;
 }
 
+static DECLCALLBACK(void) ioapicDelayedInjectionHandler(PPDMDEVINS pDevIns, TMTIMERHANDLE hTimer, void *pvUser)
+{
+    NOREF(hTimer); NOREF(pvUser);
+#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
+    PIOAPIC         pThis   = PDMDEVINS_2_DATA(pDevIns, PIOAPIC);
+    PIOAPICCC       pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
+
+    IOAPIC_LOCK(pDevIns, pThis, pThisCC, VERR_IGNORED);
+
+    for(auto iPin : pThis->delayed_interrupt_list) {
+        ioapicSignalIntrForRte(pDevIns, pThis, pThisCC, iPin);
+    }
+
+    pThis->delayed_interrupt_list.clear();
+
+    IOAPIC_UNLOCK(pDevIns, pThis, pThisCC);
+#else
+    NOREF(pDevIns);
+#endif
+}
 
 /**
  * @interface_method_impl{PDMDEVREG,pfnConstruct}
@@ -1570,6 +1743,12 @@ static DECLCALLBACK(int) ioapicR3Construct(PPDMDEVINS pDevIns, int iInstance, PC
     PCPDMDEVHLPR3   pHlp    = pDevIns->pHlpR3;
     LogFlow(("IOAPIC: ioapicR3Construct: pThis=%p iInstance=%d\n", pThis, iInstance));
     Assert(iInstance == 0); RT_NOREF(iInstance);
+
+#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
+    int rc_timer = PDMDevHlpTimerCreate(pDevIns, TMCLOCK_VIRTUAL, ioapicDelayedInjectionHandler, pThis,
+            TMTIMER_FLAGS_NO_CRIT_SECT | TMTIMER_FLAGS_NO_RING0, "IOAPIC Delayed IRQ", &pThis->hIoapicDelayedInjectionHandler);
+    AssertRCReturn(rc_timer, rc_timer);
+#endif
 
     /*
      * Validate and read the configuration.

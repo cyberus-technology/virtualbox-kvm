@@ -208,7 +208,10 @@ VMMDECL(void) TMNotifyEndOfExecution(PVMCC pVM, PVMCPUCC pVCpu, uint64_t uTsc)
     uint64_t       cTicks = uTsc - pVCpu->tm.s.uTscStartExecuting - SUPGetTscDeltaByCpuSetIndex(pVCpu->iHostCpuSet);
     uint64_t const uCpuHz = SUPGetCpuHzFromGipBySetIndex(g_pSUPGlobalInfoPage, pVCpu->iHostCpuSet);
 # endif
-    AssertStmt(cTicks <= uCpuHz << 2, cTicks = uCpuHz << 2); /* max 4 sec */
+    /* Execute for at most 4s. */
+    AssertMsgStmt(cTicks <= uCpuHz << 2,
+                  ("TM/%u: execution took longer than 4s: cTicks=%llu uCpuHz=%llu\n", pVCpu->idCpu, cTicks, uCpuHz),
+                  cTicks = uCpuHz << 2);
 
     uint64_t cNsExecutingDelta;
     if (uCpuHz < _4G)

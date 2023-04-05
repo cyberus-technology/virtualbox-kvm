@@ -5046,7 +5046,10 @@ PGM_BTH_DECL(int, MapCR3)(PVMCPUCC pVCpu, RTGCPHYS GCPhysCR3)
  || PGM_GST_TYPE == PGM_TYPE_AMD64
 
     LogFlow(("MapCR3: %RGp\n", GCPhysCR3));
+
+#ifndef VBOX_WITH_KVM_IRQCHIP_FULL
     PGM_A20_ASSERT_MASKED(pVCpu, GCPhysCR3);
+#endif
 
 # if PGM_GST_TYPE == PGM_TYPE_PAE
     if (   !pVCpu->pgm.s.CTX_SUFF(fPaePdpesAndCr3Mapped)

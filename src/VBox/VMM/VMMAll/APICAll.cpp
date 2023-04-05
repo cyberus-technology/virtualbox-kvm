@@ -2726,6 +2726,16 @@ VMM_INT_DECL(VBOXSTRICTRC) APICLocalInterrupt(PVMCPUCC pVCpu, uint8_t u8Pin, uin
     AssertReturn(u8Level <= 1, VERR_INVALID_PARAMETER);
 
     VBOXSTRICTRC rcStrict = VINF_SUCCESS;
+#ifdef VBOX_WITH_KVM
+    /* TODO: Fix the local interrupt handling. See vbox-engineering#430. */
+    if (u8Level) {
+        apicSetInterruptFF(pVCpu, PDMAPICIRQ_EXTINT);
+    } else {
+        apicClearInterruptFF(pVCpu, PDMAPICIRQ_EXTINT);
+    }
+
+    return VINF_SUCCESS;
+#endif
 
     /* If the APIC is enabled, the interrupt is subject to LVT programming. */
     if (APICIsEnabled(pVCpu))

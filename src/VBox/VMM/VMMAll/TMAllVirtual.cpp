@@ -952,7 +952,11 @@ VMM_INT_DECL(uint64_t) TMVirtualSyncGetWithDeadlineNoCheck(PVMCC pVM, uint64_t *
 VMMDECL(uint64_t) TMVirtualSyncGetNsToDeadline(PVMCC pVM, uint64_t *puDeadlineVersion, uint64_t *puTscNow)
 {
     uint64_t cNsToDeadline;
+#ifdef VBOX_WITH_KVM
+    tmVirtualSyncGetEx(pVM, true /*fCheckTimers*/, &cNsToDeadline, puDeadlineVersion, puTscNow);
+#else
     tmVirtualSyncGetEx(pVM, false /*fCheckTimers*/, &cNsToDeadline, puDeadlineVersion, puTscNow);
+#endif
     return cNsToDeadline;
 }
 

@@ -1092,6 +1092,11 @@ static DECLCALLBACK(int) vmmR3Load(PVM pVM, PSSMHANDLE pSSM, uint32_t uVersion, 
         AssertMsgFailed(("u32=%#x\n", u32));
         return VERR_SSM_DATA_UNIT_FORMAT_CHANGED;
     }
+
+#ifdef VBOX_WITH_KVM
+    NEMR3LoadExec(pVM);
+#endif
+
     return VINF_SUCCESS;
 }
 

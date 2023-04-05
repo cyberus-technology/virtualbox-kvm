@@ -36,6 +36,7 @@
 #include <VBox/vmm/cpum.h>
 #include <VBox/vmm/hm.h>
 #include <VBox/vmm/mm.h>
+#include <VBox/vmm/nem.h>
 #include <VBox/vmm/pdmdev.h>
 #include <VBox/vmm/ssm.h>
 #include <VBox/vmm/vm.h>
@@ -346,6 +347,10 @@ static DECLCALLBACK(void) apicR3Info(PVM pVM, PCDBGFINFOHLP pHlp, const char *ps
     PCAPICCPU    pApicCpu    = VMCPU_TO_APICCPU(pVCpu);
     PCXAPICPAGE  pXApicPage  = VMCPU_TO_CXAPICPAGE(pVCpu);
     PCX2APICPAGE pX2ApicPage = VMCPU_TO_CX2APICPAGE(pVCpu);
+
+#ifdef VBOX_WITH_KVM
+    NEMR3KvmGetLapicState(pVCpu, VMCPU_TO_XAPICPAGE(pVCpu));
+#endif
 
     uint64_t const uBaseMsr  = pApicCpu->uApicBaseMsr;
     APICMODE const enmMode   = apicGetMode(uBaseMsr);
@@ -975,6 +980,10 @@ static DECLCALLBACK(int) apicR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
         PVMCPU pVCpu = pVM->apCpusR3[idCpu];
         PCAPICCPU pApicCpu = VMCPU_TO_APICCPU(pVCpu);
 
+#ifdef VBOX_WITH_KVM
+        NEMR3KvmGetLapicState(pVCpu, pApicCpu->pvApicPageR3);
+#endif
+
         /* Update interrupts from the pending-interrupts bitmaps to the IRR. */
         APICUpdatePendingInterrupts(pVCpu);
 
@@ -1067,6 +1076,10 @@ static DECLCALLBACK(int) apicR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uin
                 pHlp->pfnSSMGetStruct(pSSM, pApicCpu->pvApicPageR3, &g_aX2ApicPageFields[0]);
             else
                 pHlp->pfnSSMGetStruct(pSSM, pApicCpu->pvApicPageR3, &g_aXApicPageFields[0]);
+
+#ifdef VBOX_WITH_KVM
+            NEMR3KvmSetLapicState(pVCpu, pApicCpu->pvApicPageR3);
+#endif
 
             /* Load the timer. */
             rc = pHlp->pfnSSMGetU64(pSSM, &pApicCpu->u64TimerInitial);     AssertRCReturn(rc, rc);
@@ -1196,6 +1209,11 @@ DECLCALLBACK(void) apicR3Reset(PPDMDEVINS pDevIns)
 
         /* Clear the interrupt pending force flag. */
         apicClearInterruptFF(pVCpuDest, PDMAPICIRQ_HARDWARE);
+
+#ifdef VBOX_WITH_KVM
+        PXAPICPAGE  pXApicPage  = VMCPU_TO_XAPICPAGE(pVCpuDest);
+        NEMR3KvmSetLapicState(pVCpuDest, pXApicPage);
+#endif
     }
 }
 
@@ -1547,6 +1565,9 @@ DECLCALLBACK(int) apicR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFGMNODE p
     {
         PVMCPU   pVCpu     = pVM->apCpusR3[idCpu];
         PAPICCPU pApicCpu  = VMCPU_TO_APICCPU(pVCpu);
+#ifdef VBOX_WITH_KVM
+        NEMR3KvmSetLapicState(pVCpu, pApicCpu->pvApicPageR3);
+#endif
 
         APIC_REG_COUNTER(&pApicCpu->StatPostIntrCnt,   "%u",  "APIC/VCPU stats / number of apicPostInterrupt calls.");
         for (size_t i = 0; i < RT_ELEMENTS(pApicCpu->aStatVectors); i++)

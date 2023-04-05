@@ -64,6 +64,49 @@
 #include <iprt/stdarg.h>
 #include <iprt/list.h>
 
+#ifdef VBOX_WITH_KVM
+#define KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS 24
+#define KVM_IRQCHIP_NUM_PIC_INTR_PINS 16
+#endif
+
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+struct KVMPICSTATE
+{
+    uint8_t         last_irr;
+    uint8_t         irr;
+    uint8_t         imr;
+    uint8_t         isr;
+    uint8_t         priority_add;
+    uint8_t         irq_base;
+    uint8_t         read_reg_select;
+    uint8_t         poll;
+    uint8_t         special_mask;
+    uint8_t         init_state;
+    uint8_t         auto_eoi;
+    uint8_t         rotate_on_auto_eoi;
+    uint8_t         special_fully_nested_mode;
+    uint8_t         init4;
+    uint8_t         elcr;
+    uint8_t         elcr_mask;
+};
+
+enum class KVMIRQCHIP
+{
+    PIC_MASTER = 0,
+    PIC_SLAVE = 1,
+};
+
+struct KVMIOAPICSTATE
+{
+    uint64_t base_address;
+    uint32_t ioregsel;
+    uint32_t id;
+    uint32_t irr;
+
+    uint64_t redirtbl[KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS];
+};
+#endif
+
 
 RT_C_DECLS_BEGIN
 
@@ -1747,6 +1790,35 @@ typedef struct PDMPICHLP
      */
     DECLCALLBACKMEMBER(void, pfnUnlock,(PPDMDEVINS pDevIns));
 
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+    /**
+     * Asserts a PIC INTR Line.
+     * @param   pDevIns The PIC device instance.
+     * @param   u16Gsu  The GSI of the line to assert.
+     * @param   iLevel  Either PDM_IRQ_LEVEL_HIGH, PDM_IRQ_LEVEL_LOW or PDM_IRQ_LEVEL_FLIP_FLOP.
+     * @return  Vbox status code.
+     */
+    DECLCALLBACKMEMBER(int, pfnKvmSetIrqLine,(PPDMDEVINS pDevIns, uint16_t u16Gsi, int iLevel));
+
+    /**
+     * Retrieves the PIC state from the in-kernel irqchip.
+     * @param   pDevIns The PIC device instance.
+     * @param   irqchip Whether to retrieve the state from the master or slave pic
+     * @param   state   Buffer to store the PIC state in.
+     * @returns VBox status code
+     */
+    DECLCALLBACKMEMBER(int, pfnKvmGetPicState,(PPDMDEVINS pDevIns, KVMIRQCHIP irqchip, KVMPICSTATE* state));
+
+    /**
+     * Configures the PIC state of the in-kernel irqchip.
+     * @param   pDevIns The PIC device instance.
+     * @param   irqchip Whether to set the state of the master or slave pic.
+     * @param   state   Pointer to the memory containing PIC state.
+     * @returns VBox status code
+     */
+    DECLCALLBACKMEMBER(int, pfnKvmSetPicState,(PPDMDEVINS pDevIns, KVMIRQCHIP irqchip, KVMPICSTATE* state));
+#endif
+
     /** Just a safety precaution. */
     uint32_t                u32TheEnd;
 } PDMPICHLP;
@@ -1973,6 +2045,55 @@ typedef struct PDMIOAPICHLP
      *                      VINF_SUCCESS is returned).
      */
     DECLCALLBACKMEMBER(int, pfnIommuMsiRemap,(PPDMDEVINS pDevIns, uint16_t idDevice, PCMSIMSG pMsiIn, PMSIMSG pMsiOut));
+
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
+    DECLCALLBACKMEMBER(int, pfnKvmSetIrqLine,(PPDMDEVINS pDevIns, uint16_t u16Gsi, int iLevel));
+    /**
+     * Private interface between IOAPIC and KVM Split Irq Chip
+     *
+     * @returns status code.
+     * @param pDevIns Device instance of the IOAPIC.
+     * @param pMsi The MSI to deliver to the KVM Split Irq Chip
+     */
+    DECLCALLBACKMEMBER(int, pfnKvmSplitIrqchipDeliverMsi,(PPDMDEVINS pDevIns, PCMSIMSG pMsi));
+
+    /**
+     * Add or Update Redirection Table Entry for the desired GSI
+     *
+     * @returns status code.
+     * @param pDevIns Device instance of the IOAPIC
+     * @param u16Gsi The GSI number to change the redirection table entry for.
+     * @param pMsi The MSI that should be sent when GSI is triggered
+     */
+    DECLCALLBACKMEMBER(int, pfnKvmSplitIrqchipAddUpdateRTE, (PPDMDEVINS pDevIns, uint16_t u16Gsi, PCMSIMSG pMsi));
+
+    /**
+     * Remove the entry from the Redirection Table indicated by the GSI number.
+     *
+     * @retruns status code.
+     * @param pDevIns Device instance of the IOAPIC
+     * @param u16Gsi The GSI number to remove from the Redirection Table
+     */
+    DECLCALLBACKMEMBER(int, pfnKvmSplitIrqchipRemoveRTE, (PPDMDEVINS pDevIns, uint16_t u16Gsi));
+#endif
+
+#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
+    /**
+     * Retrieves the I/O APIC state from the in-kernel irqchip.
+     * @param   pDevIns The I/O APIC device instance.
+     * @param   state   Buffer to store the I/O APIC state in.
+     * @returns VBox status code
+     */
+    DECLCALLBACKMEMBER(int, pfnKvmGetIoApicState,(PPDMDEVINS pDevIns, KVMIOAPICSTATE* state));
+
+    /**
+     * Configures the I/O APIC state of the in-kernel irqchip.
+     * @param   pDevIns The I/O APIC device instance.
+     * @param   state Pointer to the memory containing I/O APIC state.
+     * @returns VBox status code
+     */
+    DECLCALLBACKMEMBER(int, pfnKvmSetIoApicState,(PPDMDEVINS pDevIns, KVMIOAPICSTATE* state));
+#endif
 
     /** Just a safety precaution. */
     uint32_t                u32TheEnd;

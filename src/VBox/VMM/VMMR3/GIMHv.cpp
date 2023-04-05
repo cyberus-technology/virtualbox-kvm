@@ -34,6 +34,9 @@
 #include <VBox/vmm/gim.h>
 #include <VBox/vmm/cpum.h>
 #include <VBox/vmm/mm.h>
+#if defined(VBOX_WITH_KVM)
+#include <VBox/vmm/nem.h>
+#endif
 #include <VBox/vmm/ssm.h>
 #include <VBox/vmm/hm.h>
 #include <VBox/vmm/pdmapi.h>
@@ -270,6 +273,51 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
     rc = CFGMR3QueryBoolDef(pCfgHv, "HypercallDebugInterface", &pHv->fDbgHypercallInterface, false);
     AssertLogRelRCReturn(rc, rc);
 
+#ifdef VBOX_WITH_KVM
+    uint32_t uKvmBaseFeat = 0;
+    uint32_t uKvmPartFlags = 0;
+    uint32_t uKvmPowMgmtFeat = 0;
+    uint32_t uKvmMiscFeat = 0;
+    uint32_t uKvmHyperHints = 0;
+
+    {
+        PCPUMCPUIDLEAF pKvmCpuidLeaves = nullptr;
+        size_t cKvmCpuidLeaves = 0;
+
+        rc = NEMR3KvmGetHvCpuIdLeaves(pVM, &pKvmCpuidLeaves, &cKvmCpuidLeaves);
+        AssertLogRelRCReturn(rc, rc);
+
+        for (size_t uLeaf = 0; uLeaf < cKvmCpuidLeaves; uLeaf++) {
+            LogRel(("GIM: KVM CPUID[%08x] eax=%08x ebx=%08x ecx=%08x edx=%08x\n",
+                    pKvmCpuidLeaves[uLeaf].uLeaf,
+                    pKvmCpuidLeaves[uLeaf].uEax, pKvmCpuidLeaves[uLeaf].uEbx,
+                    pKvmCpuidLeaves[uLeaf].uEcx, pKvmCpuidLeaves[uLeaf].uEdx));
+
+            /*
+              See this documentation for an overview of Hyper-V CPUID flags:
+              https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/tlfs/feature-discovery
+             */
+
+            switch (pKvmCpuidLeaves[uLeaf].uLeaf) {
+            case 0x40000003: /* Features */
+                uKvmBaseFeat = pKvmCpuidLeaves[uLeaf].uEax;
+                uKvmPartFlags = pKvmCpuidLeaves[uLeaf].uEbx;
+                uKvmPowMgmtFeat = pKvmCpuidLeaves[uLeaf].uEcx;
+                uKvmMiscFeat = pKvmCpuidLeaves[uLeaf].uEdx;
+                break;
+            case 0x40000004: /* Implementation Recommendations */
+                uKvmHyperHints = pKvmCpuidLeaves[uLeaf].uEax;
+                break;
+            default:
+                // Ignore
+                break;
+            }
+        }
+
+        RTMemFree(pKvmCpuidLeaves);
+    }
+#endif
+
     /*
      * Determine interface capabilities based on the version.
      */
@@ -277,7 +325,11 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
     {
         /* Basic features. */
         pHv->uBaseFeat = 0
+#ifdef VBOX_WITH_KVM
+                       | GIM_HV_BASE_FEAT_VP_RUNTIME_MSR
+#else
                      //| GIM_HV_BASE_FEAT_VP_RUNTIME_MSR
+#endif
                        | GIM_HV_BASE_FEAT_PART_TIME_REF_COUNT_MSR
                      //| GIM_HV_BASE_FEAT_BASIC_SYNIC_MSRS          // Both required for synethetic timers
                      //| GIM_HV_BASE_FEAT_STIMER_MSRS               // Both required for synethetic timers
@@ -300,15 +352,29 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
                          | GIM_HV_MISC_FEAT_GUEST_CRASH_MSRS
                        //| GIM_HV_MISC_FEAT_DEBUG_MSRS
                          ;
-
+#ifdef VBOX_WITH_KVM
+        /* Hypervisor recommendations to the guest. */
+        pHv->uHyperHints = GIM_HV_HINT_RELAX_TIME_CHECKS
+                         /* Causes assertion failures in interrupt injection. */
+                       //| GIM_HV_HINT_MSR_FOR_APIC_ACCESS
+                         /* Inform the guest whether the host has hyperthreading disabled. */
+                         | (GIM_HV_HINT_NO_NONARCH_CORESHARING & uKvmHyperHints)
+                         ;
+#else
         /* Hypervisor recommendations to the guest. */
         pHv->uHyperHints = GIM_HV_HINT_MSR_FOR_SYS_RESET
                          | GIM_HV_HINT_RELAX_TIME_CHECKS
                          | GIM_HV_HINT_X2APIC_MSRS
                          ;
+#endif
 
         /* Partition features. */
+#ifdef VBOX_WITH_KVM
+        /* Extended hypercalls require KVM_EXIT_HYPER_HCALL exits to be forwarded gimHvHypercall.
+           So we don't expose them for now. */
+#else
         pHv->uPartFlags |= GIM_HV_PART_FLAGS_EXTENDED_HYPERCALLS;
+#endif
 
         /* Expose more if we're posing as Microsoft. We can, if needed, force MSR-based Hv
            debugging by not exposing these bits while exposing the VS interface. The better
@@ -320,6 +386,15 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
 
             pHv->uPartFlags |= GIM_HV_PART_FLAGS_DEBUGGING;
         }
+
+#ifdef VBOX_WITH_KVM
+        // We should not enable features and hints that KVM doesn't know about.
+        Assert((pHv->uHyperHints & ~uKvmHyperHints) == 0);
+        Assert((pHv->uBaseFeat & ~uKvmBaseFeat) == 0);
+        Assert((pHv->uMiscFeat & ~uKvmMiscFeat) == 0);
+        Assert((pHv->uPartFlags & ~uKvmPartFlags) == 0);
+        Assert((pHv->uPowMgmtFeat & ~uKvmPowMgmtFeat) == 0);
+#endif
     }
 
     /*

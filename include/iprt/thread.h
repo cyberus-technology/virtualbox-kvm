@@ -555,6 +555,12 @@ RTDECL(int) RTThreadPoke(RTTHREAD hThread);
  */
 RTDECL(int) RTThreadControlPokeSignal(RTTHREAD hThread, bool fEnable);
 
+/**
+ * Returns the signal that is used to poke threads.
+ *
+ * @returns a signal number or -1.
+ */
+RTDECL(int) RTThreadPokeSignal(void);
 
 # ifdef IN_RING0
 
