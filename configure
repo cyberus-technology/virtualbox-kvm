@@ -86,6 +86,7 @@ SETUP_WINE=
 ONLY_ADDITIONS=0
 TARGET_MACHINE=""
 TARGET_CPU=""
+WITH_KVM=0
 WITH_XPCOM=1
 WITH_PYTHON=1
 WITH_JAVA=1
@@ -2529,6 +2530,7 @@ cat << EOF
   --build-libssl           build openssl from sources
   --build-libtpms          build libtpms from sources
   --build-liblzma          build liblzma from sources
+  --with-kvm               build with kvm backend
 EOF
 [ $OSE -eq 0 ] && cat << EOF
   --build-libcurl          build libcurl from sources
@@ -2687,6 +2689,9 @@ for option in "$@"; do
       ;;
     --with-linux=*)
       LINUX=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-kvm)
+      WITH_KVM=1
       ;;
     --with-makeself=*)
       MAKESELF=`echo $option | cut -d'=' -f2`
@@ -2969,6 +2974,7 @@ fi
 [ $WITH_JAVA      -eq 0 ] && cnf_append "VBOX_WITH_JWS" ""
 [ $WITH_HARDENING -eq 0 ] && cnf_append "VBOX_WITHOUT_HARDENING" "1"
 [ $WITH_HARDENING -eq 2 ] && cnf_append "VBOX_WITH_HARDENING" "2"
+[ $WITH_KVM       -eq 1 ] && cnf_append "VBOX_WITH_KVM" "1"
 [ $WITH_VMMRAW    -eq 0 ] && cnf_append "VBOX_WITH_RAW_MODE" ""
 [ $WITH_LIBTPMS   -eq 0 ] && cnf_append "VBOX_WITH_LIBTPMS" ""
 [ $WITH_LIBLZMA   -eq 0 ] && cnf_append "VBOX_WITH_LIBLZMA" ""
