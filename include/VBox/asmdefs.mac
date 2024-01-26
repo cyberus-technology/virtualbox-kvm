@@ -1,0 +1,785 @@
+;; @file
+; VirtualBox YASM/NASM macros, structs, etc.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___VBox_asmdefs_mac
+%define ___VBox_asmdefs_mac
+
+;; @def VBOX_WITH_STATISTICS
+; When defined all statistics will be included in the build.
+; This is enabled by default in all debug builds.
+%ifndef VBOX_WITH_STATISTICS
+ %ifdef DEBUG
+  %define VBOX_WITH_STATISTICS
+ %endif
+%endif
+
+%include "iprt/asmdefs.mac"
+
+;; @def VBOX_STRICT
+; Enables strict checks in the VBox code.
+; This is enabled by default in all debug builds and when RT_STRICT is enabled.
+%ifndef VBOX_STRICT
+ %ifdef DEBUG
+  %define VBOX_STRICT
+ %endif
+ %ifdef RT_STRICT
+  %define VBOX_STRICT
+ %endif
+%endif
+
+
+%ifndef VBOX_UART_BASE
+ %ifndef IPRT_UART_BASE
+  %define VBOX_UART_BASE    3f8h         ; COM1 (see src/VBox/Runtime/common/log/logcom.cpp)
+ %else
+  %define VBOX_UART_BASE    IPRT_UART_BASE
+ %endif
+%endif
+%ifndef VBOX_UART_RATE
+ %define VBOX_UART_RATE     12           ; 9600 bps
+%endif
+%ifndef VBOX_UART_PARAMS
+ %define VBOX_UART_PARAMS   00000011b    ; 8n1
+%endif
+
+
+;;
+; Initializes the com port to 9600 baud 8n1.
+; al and dx are wasted.
+; @todo comport init doesn't quite work - therefore we no longer use this! :-/
+; @todo test again, it might work now...
+%macro COM_INIT 0
+        push    eax
+        push    edx
+
+        mov     dx, VBOX_UART_BASE + 2
+        mov     al, 0
+        out     dx, al                  ; Disable the fifos (old software relies on it)
+
+        mov     dx, VBOX_UART_BASE + 3
+        mov     al, 80h
+        out     dx, al                  ; make DL register accessible
+
+        mov     dx, VBOX_UART_BASE
+        mov     ax, VBOX_UART_RATE
+        out     dx, al                  ; write low bps rate divisor
+
+        mov     dx, VBOX_UART_BASE+1
+        xchg    al, ah
+        out     dx, al                  ; write high bps rate divisor
+
+        mov     dx, VBOX_UART_BASE + 3
+        mov     al, VBOX_UART_PARAMS
+        out     dx, al                  ; write parameters & lock divisor
+
+        mov     dx, VBOX_UART_BASE + 4  ; disconnect the UART from the int line
+        mov     al, 0
+        out     dx, al
+
+        mov     dx, VBOX_UART_BASE + 1  ; disable UART ints
+        out     dx, al
+
+        mov     dx, VBOX_UART_BASE
+        in      al, dx                  ; clear receiver
+        mov     dx, VBOX_UART_BASE + 5
+        in      al, dx                  ; clear line status
+        inc     dx
+        in      al, dx                  ; clear modem status
+        mov     dx, VBOX_UART_BASE + 2
+        in      al, dx                  ; clear interrupts (IIR)
+
+        pop     edx
+        pop     eax
+%endmacro
+
+
+;;
+; writes string to comport
+; trashes nothing (uses stack though)
+
+%macro COM32_S_PRINT 1+
+    push    esi
+    push    ecx
+    push    eax
+    mov     ecx, edx
+    shl     ecx, 16
+
+    call    %%stringend
+%%string:   db %1
+%%stringend:
+    pop     esi
+    mov     cx, %%stringend - %%string
+%%status:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status
+
+    mov     al, [esi]
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+    inc     esi
+    dec     cx
+    jnz short %%status
+
+%%status2:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status2
+
+    shr     ecx, 16
+    mov     dx, cx
+    pop     eax
+    pop     ecx
+    pop     esi
+%endmacro
+
+%macro COM64_S_PRINT 1+
+    push    rsi
+    push    rdx
+    push    rcx
+    push    rax
+
+    jmp  %%stringend
+%%string:   db %1
+%%stringend:
+    lea     rsi, [%%string wrt rip]
+    mov     cx, %%stringend - %%string
+%%status:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status
+
+    mov     al, [rsi]
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+    inc     rsi
+    dec     cx
+    jnz short %%status
+
+%%status2:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status2
+
+    pop     rax
+    pop     rcx
+    pop     rdx
+    pop     rsi
+%endmacro
+
+%macro COM_S_PRINT 1+
+%ifdef RT_ARCH_AMD64
+    COM64_S_PRINT %1
+%else
+    COM32_S_PRINT %1
+%endif
+%endmacro
+
+
+;; Write char.
+; trashes esi
+%macro COM_CHAR 1
+    mov     esi, eax
+    shl     esi, 16
+    mov     si, dx
+
+%%status:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status
+
+    mov     al, %1
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status2:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status2
+
+    mov     dx, si
+    shr     esi, 16
+    mov     ax, si
+%endmacro
+
+
+;; Write char.
+; trashes nothing (uses stack though)
+
+%macro COM32_S_CHAR 1
+    push    eax
+    push    edx
+
+%%status:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status
+
+    mov     al, %1
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status2:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status2
+
+    pop     edx
+    pop     eax
+%endmacro
+
+%macro COM64_S_CHAR 1
+    push    rax
+    push    rdx
+
+%%status:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status
+
+    mov     al, %1
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status2:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status2
+
+    pop     rdx
+    pop     rax
+%endmacro
+
+%macro COM_S_CHAR 1
+%ifdef RT_ARCH_AMD64
+    COM64_S_CHAR %1
+%else
+    COM32_S_CHAR %1
+%endif
+%endmacro
+
+
+;; Writes newline
+; trashes esi
+%macro COM_NEWLINE 0
+    mov     esi, eax
+    shl     esi, 16
+    mov     si, dx
+
+%%status1:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status1
+
+    mov     al, 13
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status2:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status2
+
+    mov     al, 10
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status3:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status3
+
+    mov     dx, si
+    shr     esi, 16
+    mov     ax, si
+%endmacro
+
+
+;; Writes newline
+; trashes nothing (uses stack though)
+
+%macro COM32_S_NEWLINE 0
+    push    edx
+    push    eax
+
+%%status1:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status1
+
+    mov     al, 13
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status2:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status2
+
+    mov     al, 10
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status3:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status3
+
+    pop     eax
+    pop     edx
+%endmacro
+
+%macro COM64_S_NEWLINE 0
+    push    rdx
+    push    rax
+
+%%status1:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status1
+
+    mov     al, 13
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status2:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status2
+
+    mov     al, 10
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+%%status3:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status3
+
+    pop     rax
+    pop     rdx
+%endmacro
+
+%macro COM_S_NEWLINE 0
+%ifdef RT_ARCH_AMD64
+    COM64_S_NEWLINE
+%else
+    COM32_S_NEWLINE
+%endif
+%endmacro
+
+
+;; Writes a dword from register to com port.
+; trashes esi, edi
+; edi cannot be used as input register
+%macro COM_DWORD_REG 1
+    mov     edi, ebx                    ; save ebx
+    mov     ebx, %1                     ; get value we're supposed to print
+    mov     esi, eax                    ; save ax
+    shl     esi, 16                     ; save dx
+    mov     si, dx
+
+    mov     ah, 8                       ; loop counter.
+%%daloop:
+    rol     ebx, 4                      ; shift next digit to the front
+
+%%status0:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status0
+
+    mov     al, bl                      ; get next char
+    and     al, 0fh
+    cmp     al, 10
+    jae short %%hex                     ; yasm BUG! It sometimes generate a near jump here. YASMCHECK!
+    add     al, '0'
+    jmp short %%print
+%%hex:
+    add     al, 'a' - 10
+%%print:
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+    dec     ah
+    jnz short %%daloop                  ; loop
+
+    mov     dx, si                      ; restore dx
+    shr     esi, 16
+    mov     ax, si                      ; restore ax
+    mov     ebx, edi                    ; restore ebx
+%endmacro
+
+
+;; Writes a dword from register to com port.
+; trashes nothing (uses stack though)
+
+%macro COM32_S_DWORD_REG 1
+    push    edx
+    push    eax
+    push    ebx
+
+    mov     ebx, %1                     ; get value we're supposed to print
+
+    mov     ah, 8                       ; loop counter.
+%%daloop:
+    rol     ebx, 4                      ; shift next digit to the front
+
+%%status0:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status0
+
+    mov     al, bl                      ; get next char
+    and     al, 0fh
+    cmp     al, 10
+    jae short %%hex                     ; yasm BUG! It sometimes generate a near jump here. YASMCHECK!
+    add     al, '0'
+    jmp short %%print
+%%hex:
+    add     al, 'a' - 10
+%%print:
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+    dec     ah
+    jnz short %%daloop                  ; loop
+
+    pop     ebx
+    pop     eax
+    pop     edx
+%endmacro
+
+%macro COM64_S_DWORD_REG 1
+    push    rdx
+    push    rax
+    push    rbx
+
+    mov     ebx, %1                     ; get value we're supposed to print
+
+    mov     ah, 8                       ; loop counter.
+%%daloop:
+    rol     ebx, 4                      ; shift next digit to the front
+
+%%status0:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status0
+
+    mov     al, bl                      ; get next char
+    and     al, 0fh
+    cmp     al, 10
+    jae short %%hex                     ; yasm BUG! It sometimes generate a near jump here. YASMCHECK!
+    add     al, '0'
+    jmp short %%print
+%%hex:
+    add     al, 'a' - 10
+%%print:
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+    dec     ah
+    jnz short %%daloop                  ; loop
+
+    pop     rbx
+    pop     rax
+    pop     rdx
+%endmacro
+
+%macro COM_S_DWORD_REG 1
+%ifdef RT_ARCH_AMD64
+    COM64_S_DWORD_REG %1
+%else
+    COM32_S_DWORD_REG %1
+%endif
+%endmacro
+
+
+;; Writes a qword from register to com port.
+; trashes nothing (uses stack though)
+%macro COM64_S_QWORD_REG 1
+    push    rdx
+    push    rax
+    push    rbx
+
+    mov     rbx, %1                     ; get value we're supposed to print
+
+    mov     ah, 16                      ; loop counter.
+%%daloop:
+    rol     rbx, 4                      ; shift next digit to the front
+
+%%status0:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status0
+
+    mov     al, bl                      ; get next char
+    and     al, 0fh
+    cmp     al, 10
+    jae short %%hex                     ; yasm BUG! It sometimes generate a near jump here. YASMCHECK!
+    add     al, '0'
+    jmp short %%print
+%%hex:
+    add     al, 'a' - 10
+%%print:
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+    dec     ah
+    jnz short %%daloop                  ; loop
+
+    pop     rbx
+    pop     rax
+    pop     rdx
+%endmacro
+
+
+;; Writes a byte from register to com port.
+; trashes nothing (uses stack though)
+
+%macro COM32_S_BYTE_REG 1
+    push    edx
+    push    eax
+    push    ebx
+
+    mov     ebx, %1                     ; get value we're supposed to print
+
+    mov     ah, 2                       ; loop counter.
+    ror     ebx, 8                      ; shift next digit to the front
+%%daloop:
+    rol     ebx, 4                      ; shift next digit to the front
+
+%%status0:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status0
+
+    mov     al, bl                      ; get next char
+    and     al, 0fh
+    cmp     al, 10
+    jae short %%hex                     ; yasm BUG! It sometimes generate a near jump here. YASMCHECK!
+    add     al, '0'
+    jmp short %%print
+%%hex:
+    add     al, 'a' - 10
+%%print:
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+    dec     ah
+    jnz short %%daloop                  ; loop
+
+    pop     ebx
+    pop     eax
+    pop     edx
+%endmacro
+
+%macro COM64_S_BYTE_REG 1
+    push    rdx
+    push    rax
+    push    rbx
+
+    mov     ebx, %1                     ; get value we're supposed to print
+
+    mov     ah, 2                       ; loop counter.
+    ror     ebx, 8                      ; shift next digit to the front
+%%daloop:
+    rol     ebx, 4                      ; shift next digit to the front
+
+%%status0:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status0
+
+    mov     al, bl                      ; get next char
+    and     al, 0fh
+    cmp     al, 10
+    jae short %%hex                     ; yasm BUG! It sometimes generate a near jump here. YASMCHECK!
+    add     al, '0'
+    jmp short %%print
+%%hex:
+    add     al, 'a' - 10
+%%print:
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+    dec     ah
+    jnz short %%daloop                  ; loop
+
+    pop     rbx
+    pop     rax
+    pop     rdx
+%endmacro
+
+%macro COM_S_BYTE_REG 1
+%ifdef RT_ARCH_AMD64
+    COM64_S_BYTE_REG %1
+%else
+    COM32_S_BYTE_REG %1
+%endif
+%endmacro
+
+
+
+;; Writes a single hex digit from register to com port.
+; trashes nothing (uses stack though)
+
+%macro COM32_S_DIGIT_REG 1
+    push    edx
+    push    eax
+    push    ebx
+
+    mov     ebx, %1                     ; get value we're supposed to print
+%%status0:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status0
+
+    mov     al, bl                      ; get next char
+    and     al, 0fh
+    cmp     al, 10
+    jae short %%hex                     ; yasm BUG! It sometimes generate a near jump here. YASMCHECK!
+    add     al, '0'
+    jmp short %%print
+%%hex:
+    add     al, 'a' - 10
+%%print:
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+    pop     ebx
+    pop     eax
+    pop     edx
+%endmacro
+
+%macro COM64_S_DIGIT_REG 1
+    push    rdx
+    push    rax
+    push    rbx
+
+    mov     ebx, %1                     ; get value we're supposed to print
+%%status0:
+    mov     dx, VBOX_UART_BASE + 5
+    in      al, dx
+    test    al, 20h
+    jz short %%status0
+
+    mov     al, bl                      ; get next char
+    and     al, 0fh
+    cmp     al, 10
+    jae short %%hex                     ; yasm BUG! It sometimes generate a near jump here. YASMCHECK!
+    add     al, '0'
+    jmp short %%print
+%%hex:
+    add     al, 'a' - 10
+%%print:
+    mov     dx, VBOX_UART_BASE
+    out     dx, al
+
+    pop     rbx
+    pop     rax
+    pop     rdx
+%endmacro
+
+%macro COM_S_DIGIT_REG 1
+%ifdef RT_ARCH_AMD64
+    COM64_S_DIGIT_REG %1
+%else
+    COM32_S_DIGIT_REG %1
+%endif
+%endmacro
+
+
+;;
+; Loops for a while.
+; ecx is trashed.
+%macro LOOP_A_WHILE 0
+
+    xor     ecx, ecx
+    dec     ecx
+    shr     ecx, 1
+%%looplabel:
+    nop
+    nop
+    nop
+    dec     ecx
+    jnz short %%looplabel
+
+%endmacro
+
+
+;;
+; Loops for a short while.
+; ecx is trashed.
+%macro LOOP_SHORT_WHILE 0
+
+    xor     ecx, ecx
+    dec     ecx
+    shr     ecx, 4
+%%looplabel:
+    nop
+    nop
+    dec     ecx
+    jnz short %%looplabel
+
+%endmacro
+
+%endif
+

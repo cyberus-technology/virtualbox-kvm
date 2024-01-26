@@ -1,0 +1,63 @@
+# $Id: ReorderCompilerIncs.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild SDK - Pseudo SDK that inserts the compiler includes a bit earlier.
+#
+# Note! This SDK is using a number of internal kBuild variables as well as
+#       making assumptions about expansion order and location.
+#       Please, do NOT attempt anything like this in your own SDKs!!
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_ReorderCompilerIncs := Pseudo SDK that inserts the compiler includes a bit earlier.
+
+FN_SDK_ReorderCompilerIncs_GET_INCS = \
+	 $(TOOL_$(tool)_$(1)INCS.$(2).$(3).$(5)) \
+	 $(TOOL_$(tool)_$(1)INCS.$(2).$(3)) \
+	 $(TOOL_$(tool)_$(1)INCS.$(2).$(5)) \
+	 $(TOOL_$(tool)_$(1)INCS.$(4)) \
+	 $(TOOL_$(tool)_$(1)INCS.$(3)) \
+	 $(TOOL_$(tool)_$(1)INCS.$(2)) \
+	 $(TOOL_$(tool)_$(1)INCS.$(5)) \
+	 $(TOOL_$(tool)_$(1)INCS) \
+	 $(TOOL_$(tool)_INCS.$(2).$(3).$(5)) \
+	 $(TOOL_$(tool)_INCS.$(2).$(3)) \
+	 $(TOOL_$(tool)_INCS.$(2).$(5)) \
+	 $(TOOL_$(tool)_INCS.$(4)) \
+	 $(TOOL_$(tool)_INCS.$(3)) \
+	 $(TOOL_$(tool)_INCS.$(2)) \
+	 $(TOOL_$(tool)_INCS.$(5)) \
+	 $(TOOL_$(tool)_INCS) \
+
+$(foreach os,$(KBUILD_OSES),$(foreach arch,$(KBUILD_ARCHES),$(foreach cat,$(KBUILD_COMPILE_CATEGTORIES) \
+	,$(eval SDK_ReorderCompilerIncs_$(cat)INCS.$(os).$(arch) = \
+			$$(call FN_SDK_ReorderCompilerIncs_GET_INCS,CXX,win,amd64,$$(bld_trg_cpu),$$(bld_type))\
+	   )\
+)))
+

@@ -1,0 +1,1785 @@
+# $Id: header.kmk 3579 2023-01-05 01:53:41Z bird $
+## @file
+# kBuild - File included at top of a makefile.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+ifndef __header_kmk__
+# start-of-file-content
+ifdef KBUILD_PROFILE_SELF
+ _KBUILD_TS_HEADER_START := $(nanots ) # just a dummy warm up query
+ $(info prof: since start - since previous -- event description)
+ ifeq ($(KBUILD_PROFILE_SELF),2)
+  $(info stat: $(make-stats ))
+ endif
+ _KBUILD_TS_HEADER_START := $(nanots )
+ _KBUILD_TS_PREV := $(_KBUILD_TS_HEADER_START)
+
+ _KBUILD_FMT_ELAPSED_EX = $(int-div $(int-add $(int-sub $1, $2),500000),1000000)ms
+ _KBUILD_FMT_ELAPSED = $(call _KBUILD_FMT_ELAPSED_EX,$(_KBUILD_TS_NOW),$1)
+
+define def_profile_self
+ _KBUILD_TS_NOW := $(nanots )
+ $(info prof: $(call _KBUILD_FMT_ELAPSED,$(_KBUILD_TS_HEADER_START)) - $(call _KBUILD_FMT_ELAPSED, $(_KBUILD_TS_PREV)) -- $(strip $1))
+ ifeq ($(KBUILD_PROFILE_SELF),2)
+  $(info stat: $(make-stats ))
+ endif
+ _KBUILD_TS_PREV := $(_KBUILD_TS_NOW)
+endef
+
+endif
+
+
+#
+# Check make version before we do anything else.
+#
+ifndef KMK_VERSION
+ $(error kBuild: The kmk default variable KMK_VERSION isn't defined! Make sure you are using 'kmk' and not 'make', 'gmake', 'kmk_gmake', 'dmake' or any other make program)
+endif
+ifneq ($(KBUILD_VERSION_MAJOR).$(KBUILD_VERSION_MINOR),0.1)
+ ifneq ($(KBUILD_VERSION_MAJOR),0)
+  $(warning kBuild: kmk major version mismatch! Expected '0' but found '$(KBUILD_VERSION_MAJOR)'!)
+ else
+  $(warning kBuild: kmk minor version mismatch! Expected '1' but found '$(KBUILD_VERSION_MINOR)'!)
+ endif
+else
+ if $(KBUILD_VERSION_PATCH) < 999
+  $(error kBuild: kmk version mismatch! Expected 0.1.999 or later. Actual version is $(KBUILD_VERSION).)
+ endif
+endif
+
+#
+# The revision in which this file was last modified.
+# This can be useful when using development versions of kBuild.
+#
+KMK_REVISION := $(patsubst %:,,  $Rev: 3579 $  )
+
+
+#
+# Define the default goal.
+#
+.PHONY: all all_recursive
+all: all_recursive
+
+#
+# The phony FORCE target.
+#
+.PHONY: FORCE
+FORCE:
+
+
+#
+# Enable delete on error and second expansion of prerequisites and targets.
+#
+.DELETE_ON_ERROR:
+
+.SECONDEXPANSION:
+
+.SECONDTARGETEXPANSION:
+
+
+#
+# General purpose macros.
+#
+
+##
+# Newline character(s).
+define NL
+
+
+endef
+
+##
+# Tab character.
+TAB := $(subst .,	,.)
+
+##
+# Newline + tab characters (for generating commands).
+NLTAB = $(NL)$(TAB)
+
+##
+# Space character.
+SP := $(subst ., ,.)
+
+##
+# Hash character.
+define HASH
+#
+endef
+
+##
+# Colon character.
+COLON := :
+
+##
+# Semicolon character.
+SEMICOLON := ;
+
+##
+# Comma character.
+COMMA := ,
+
+##
+# Dot character.
+DOT := .
+
+##
+# Dollar character.
+DOLLAR := $$
+
+##
+# Equal character.
+EQUAL := =
+
+##
+# Percent character.
+PERCENT := %
+
+##
+# Single quote character.
+SQUOTE := '
+
+##
+# Double quote character.
+DQUOTE := "
+
+##
+# Opening parenthesis.
+OPENPAR := (
+
+##
+# Closing parenthesis.
+CLOSEPAR := )
+
+
+#
+# The list of standard build types in kBuild.
+#
+# This list can be extended in Config.kmk and it's possible to extend
+# (inherit) another build type.
+#
+KBUILD_BLD_TYPES := release profile debug
+
+
+#
+# The OSes, Architectures and CPUs that kBuild recognizes.
+#
+# When kBuild is ported to a new OS or architecture a unique keyword needs
+# to be assigned to it and added here. This strictness is required because
+# this keyword namespace is shared between OSes, architectures, cpus and
+# build types. (PORTME)
+#
+KBUILD_OSES      := darwin dos dragonfly freebsd gnuhurd gnukfbsd gnuknbsd haiku l4 linux netbsd nt openbsd os2 solaris win os-agnostic
+KBUILD_ARCHES    := x86 amd64 noarch alpha arm32 arm64 hppa32 hppa64 ia64 m68k mips32 mips64 ppc32 ppc64 riscv32 riscv64 s390 s390x sh32 sh64 sparc32 sparc64 x32
+KBUILD_ARCHES_64 := amd64 alpha arm64 hppa64 ia64 mips64 ppc64 riscv64 s390x sh64 sparc64 x32
+KBUILD_ARCHES_32 := x86 arm32 hppa32 m68k mips32 ppc32 riscv32 s390 sh32 sparc32
+
+
+
+#
+# Mapping of kBuild OS + ARCH to GNU system type wildcards.
+# For use with the foreach/append/prepend and wildcard functions.
+#
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.darwin.x86      = i?86-apple-darwin*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.darwin.amd64    = x86_64-apple-darwin* amd64-apple-darwin*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.freebsd.x86     = i?86-*freebsd*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.freebsd.amd64   = x86_64-*freebsd* amd64-*freebsd*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.linux.x86       = i?86-*linux-gnu
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.linux.amd64     = x86_64-*linux-gnu amd64-*linux-gnu
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.netbsd.x86      = i?86-*netbsd*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.netbsd.amd64    = x86_64-*netbsd* amd64-*netbsd*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.os2.x86         = i?86-*os2*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.solaris.x86     = i?86-*solaris2*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.solaris.amd64   = amd64-*solaris2* x86_64-*solaris2*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.solaris.sparc32 = sparc-*solaris2*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.solaris.sparc64 = sparc64-*solaris2* sparcv9-*solaris2*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.win.x86         = i?86-*mingw32* i?86-*msys* i?86-*cygwin*
+KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.win.amd64       = x86_64-*mingw64* amd64-*mingw64* x86_64-*msys* amd64-*msys* x86_64-*cygwin* amd64-*cygwin*
+
+
+#
+# Set default build type.
+#
+ifndef KBUILD_TYPE
+ ifdef BUILD_TYPE
+  KBUILD_TYPE := $(BUILD_TYPE)
+ endif
+else ifdef BUILD_TYPE
+ ifneq ($(KBUILD_TYPE),$(BUILD_TYPE))
+  ifeq ($(origin KBUILD_TYPE):$(origin BUILD_TYPE),environment:command line)
+   $(warning kBuild: Please use KBUILD_TYPE instead of BUILD_TYPE on the command line!)
+   KBUILD_TYPE := $(BUILD_TYPE)
+  else ifneq ($(origin KBUILD_TYPE):$(origin BUILD_TYPE),command line:environment)
+   $(error kBuild: KBUILD_TYPE (command line) and BUILD_TYPE (env) disagree.)
+  endif
+ endif
+endif
+override BUILD_TYPE = $(KBUILD_TYPE)
+
+ifndef KBUILD_TYPE
+ KBUILD_TYPE := release
+else
+ if1of ($(KBUILD_TYPE), $(KBUILD_OSES) $(KBUILD_ARCHES))
+  $(error kBuild: The KBUILD_TYPE value '$(KBUILD_TYPE)' is an OS or architecture!)
+ endif
+ ifneq (.$(words $(KBUILD_TYPE)).$(KBUILD_TYPE).,.1.$(strip $(KBUILD_TYPE)).)
+  $(error kBuild: The KBUILD_TYPE value '$(KBUILD_TYPE)' contains spaces/tabs!)
+ endif
+endif
+
+
+#
+# Assert valid build platform variables.
+#
+# All these are set by kmk so they shouldn't be any trouble
+# unless the user starts messing about with environment variables.
+#
+ifneq (.$(words $(KBUILD_HOST)).$(KBUILD_HOST).,.1.$(strip $(KBUILD_HOST)).)
+ $(error kBuild: The KBUILD_HOST value '$(KBUILD_HOST)' contains spaces/tabs!)
+endif
+ifneq ($(words $(filter $(KBUILD_HOST),$(KBUILD_OSES))),1)
+ $(error kBuild: KBUILD_HOST value '$(KBUILD_HOST)' is not recognized (valid: $(KBUILD_OSES)))
+endif
+
+ifneq (.$(words $(KBUILD_HOST_ARCH)).$(KBUILD_HOST_ARCH).,.1.$(strip $(KBUILD_HOST_ARCH)).)
+ $(error kBuild: The KBUILD_HOST_ARCH value '$(KBUILD_HOST_ARCH)' contains spaces/tabs!)
+endif
+ifneq ($(words $(filter $(KBUILD_HOST_ARCH),$(KBUILD_ARCHES))),1)
+ $(error kBuild: KBUILD_HOST_ARCH value '$(KBUILD_HOST_ARCH)' is not recognized (valid: $(KBUILD_ARCHES)))
+endif
+
+ifeq ($(strip $(KBUILD_HOST_CPU)),)
+ KBUILD_HOST_CPU := blend
+else
+ ifneq (.$(words $(KBUILD_HOST_CPU)).$(KBUILD_HOST_CPU).,.1.$(strip $(KBUILD_HOST_CPU)).)
+  $(error kBuild: The KBUILD_HOST_CPU value '$(KBUILD_HOST_CPU)' contains spaces/tabs!)
+ endif
+ if1of ($(KBUILD_HOST_CPU), $(KBUILD_OSES) $(KBUILD_ARCHES))
+  $(error kBuild: The KBUILD_HOST_CPU value '$(KBUILD_HOST_CPU)' was found in the OS or architecture keywords!)
+ endif
+ ifeq ($(KBUILD_HOST_CPU),$(KBUILD_TYPE))
+  $(error kBuild: The KBUILD_HOST_CPU value '$(KBUILD_HOST_CPU)' is the same as the KBUILD_TYPE!)
+ endif
+endif
+
+
+#
+# Deal with target platform legacy.
+#
+ifndef KBUILD_TARGET
+ ifdef BUILD_TARGET
+  KBUILD_TARGET := $(BUILD_TARGET)
+ endif
+else ifdef BUILD_TARGET
+ ifneq ($(KBUILD_TARGET),$(BUILD_TARGET))
+  ifeq ($(origin KBUILD_TARGET):$(origin BUILD_TARGET),environment:command line)
+   $(warning kBuild: Please use KBUILD_TARGET instead of BUILD_TARGET on the command line!)
+   KBUILD_TARGET := $(BUILD_TARGET)
+  else ifneq ($(origin KBUILD_TARGET):$(origin BUILD_TARGET),command line:environment)
+   $(error kBuild: KBUILD_TARGET and BUILD_TARGET disagree)
+  endif
+ endif
+endif
+override BUILD_TARGET = $(KBUILD_TARGET)
+
+ifndef KBUILD_TARGET_ARCH
+ ifdef BUILD_TARGET_ARCH
+  KBUILD_TARGET_ARCH := $(BUILD_TARGET_ARCH)
+ endif
+else ifdef BUILD_TARGET_ARCH
+ ifneq ($(KBUILD_TARGET_ARCH),$(BUILD_TARGET_ARCH))
+  ifeq ($(origin KBUILD_TARGET_ARCH):$(origin BUILD_TARGET_ARCH),environment:command line)
+   $(warning kBuild: Please use KBUILD_TARGET_ARCH instead of BUILD_TARGET_ARCH on the command line!)
+   KBUILD_TARGET_ARCH := $(BUILD_TARGET_ARCH)
+  else ifneq ($(origin KBUILD_TARGET_ARCH):$(origin BUILD_TARGET_ARCH),command line:environment)
+   $(error kBuild: KBUILD_TARGET_ARCH and BUILD_TARGET_ARCH disagree)
+  endif
+ endif
+endif
+override BUILD_TARGET_ARCH = $(KBUILD_TARGET_ARCH)
+
+ifndef KBUILD_TARGET_CPU
+ ifdef BUILD_TARGET_CPU
+  KBUILD_TARGET_CPU := $(BUILD_TARGET_CPU)
+ endif
+else ifdef BUILD_TARGET_CPU
+ ifneq ($(KBUILD_TARGET_CPU),$(BUILD_TARGET_CPU))
+  ifeq ($(origin KBUILD_TARGET_CPU):$(origin BUILD_TARGET_CPU),environment:command line)
+   $(warning kBuild: Please use KBUILD_TARGET_CPU instead of BUILD_TARGET_CPU on the command line!)
+   KBUILD_TARGET_CPU := $(BUILD_TARGET_CPU)
+  else ifneq ($(origin KBUILD_TARGET_CPU):$(origin BUILD_TARGET_CPU),command line:environment)
+   $(error kBuild: KBUILD_TARGET_CPU and BUILD_TARGET_CPU disagree)
+  endif
+ endif
+endif
+override BUILD_TARGET_CPU = $(KBUILD_TARGET_CPU)
+
+
+#
+# Assert or set default target platform.
+# When not defined use the corresponding KBUILD_HOST value.
+#
+ifndef KBUILD_TARGET
+ KBUILD_TARGET := $(KBUILD_HOST)
+else
+ ifneq (.$(words $(KBUILD_TARGET)).$(KBUILD_TARGET).,.1.$(strip $(KBUILD_TARGET)).)
+  $(error kBuild: The KBUILD_TARGET value '$(KBUILD_TARGET)' contains spaces/tabs!)
+ endif
+ ifneq ($(words $(filter $(KBUILD_TARGET),$(KBUILD_OSES))),1)
+  $(error kBuild: KBUILD_TARGET value '$(KBUILD_TARGET)' is not recognized (valid: $(KBUILD_OSES)))
+ endif
+endif
+
+ifndef KBUILD_TARGET_ARCH
+ KBUILD_TARGET_ARCH := $(KBUILD_HOST_ARCH)
+else
+ ifneq (.$(words $(KBUILD_TARGET_ARCH)).$(KBUILD_TARGET_ARCH).,.1.$(strip $(KBUILD_TARGET_ARCH)).)
+  $(error kBuild: The KBUILD_TARGET_ARCH value '$(KBUILD_TARGET_ARCH)' contains spaces/tabs!)
+ endif
+ ifneq ($(words $(filter $(KBUILD_TARGET_ARCH),$(KBUILD_ARCHES))),1)
+  $(error kBuild: KBUILD_TARGET_ARCH value '$(KBUILD_TARGET_ARCH)' is not recognized (valid: $(KBUILD_ARCHES)))
+ endif
+endif
+
+ifndef KBUILD_TARGET_CPU
+ KBUILD_TARGET_CPU := $(KBUILD_HOST_CPU)
+else ifeq ($(strip $(KBUILD_TARGET_CPU)),)
+ ifeq ($(KBUILD_TARGET_ARCH),$(KBUILD_HOST_ARCH))
+  KBUILD_TARGET_CPU := $(KBUILD_HOST_CPU)
+ else
+  KBUILD_TARGET_CPU := blend
+ endif
+else
+ ifneq (.$(words $(KBUILD_TARGET_CPU)).$(KBUILD_TARGET_CPU).,.1.$(strip $(KBUILD_TARGET_CPU)).)
+  $(error kBuild: The KBUILD_TARGET_CPU value '$(KBUILD_TARGET_CPU)' contains spaces/tabs!)
+ endif
+ if1of ($(KBUILD_TARGET_CPU), $(KBUILD_OSES) $(KBUILD_ARCHES))
+  $(error kBuild: The KBUILD_TARGET_CPU value was found in the OS or architecture keywords!)
+ endif
+ ifeq ($(KBUILD_TARGET_CPU),$(KBUILD_TYPE))
+  $(error kBuild: The KBUILD_TARGET_CPU value '$(KBUILD_TARGET_CPU)' is the same as the KBUILD_TYPE!)
+ endif
+endif
+
+# Short hand for $(KBUILD_TARGET).$(KBUILD_TARGET_ARCH).
+KBUILD_TARGET_DOT_ARCH = $(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)
+KBUILD_HOST_DOT_ARCH   = $(KBUILD_HOST).$(KBUILD_TARGET_ARCH)
+
+
+#
+# Feature indicators.
+#
+
+## File quoting functions.
+if1of (quote, $(KMK_FEATURES))
+ KMK_WITH_QUOTING := 1
+endif
+
+## Version sorting and comparing.
+if1of (versort, $(KMK_FEATURES))
+ KMK_WITH_VERSION_COMPARE := 1
+endif
+
+
+#
+# Paths and stuff.
+#
+
+# Adjust DEPTH first.
+DEPTH := $(strip $(DEPTH))
+ifeq ($(DEPTH),)
+ DEPTH := .
+endif
+
+## PATH_CURRENT is the current directory (getcwd).
+PATH_CURRENT        := $(abspath $(CURDIR))
+## PATH_SUB_CURRENT points to current directory of the current makefile.
+# Meaning that it will change value as we enter and exit sub-makefiles.
+PATH_SUB_CURRENT    := $(PATH_CURRENT)
+## PATH_ROOT points to the project root directory.
+PATH_ROOT           := $(abspath $(PATH_CURRENT)/$(DEPTH))
+## PATH_SUB_ROOT points to the directory of the top-level makefile.
+ifneq ($(strip $(SUB_DEPTH)),)
+ SUB_DEPTH          := $(strip $(SUB_DEPTH))
+ PATH_SUB_ROOT      := $(abspath $(PATH_CURRENT)/$(SUB_DEPTH))
+else
+ PATH_SUB_ROOT      := $(PATH_CURRENT)
+endif
+
+## CURSUBDIR is PATH_SUB_ROOT described relative to PATH_ROOT.
+# This variable is used to determin where the object files and other output goes.
+ifneq ($(PATH_ROOT),$(PATH_SUB_ROOT))
+ CURSUBDIR          := $(patsubst $(PATH_ROOT)/%,%,$(PATH_SUB_ROOT))
+else
+ CURSUBDIR          := .
+endif
+
+# Install directory layout.  Relative to PATH_INS.
+KBUILD_INST_PATHS   := BIN DLL SYS LIB DOC DEBUG SBIN LIBEXEC SHARE
+INST_BIN             = bin/
+if1of ($(KBUILD_TARGET), win)
+INST_DLL             = bin/
+else
+INST_DLL             = lib/
+endif
+if1of ($(KBUILD_TARGET), os2 win)
+INST_SYS             = drivers/
+else
+INST_SYS             = kernel/
+endif
+INST_LIB             = lib/
+INST_DOC             = share/doc/
+INST_DEBUG           = debug/
+INST_SBIN            = sbin/
+INST_LIBEXEC         = libexec/
+INST_SHARE           = share/
+
+# Staging directory layout. Relative to PATH_STAGE.
+STAGE_BIN            = $(INST_BIN)
+STAGE_DLL            = $(INST_DLL)
+STAGE_SYS            = $(INST_SYS)
+STAGE_LIB            = $(INST_LIB)
+STAGE_DOC            = $(INST_DOC)
+STAGE_DEBUG          = $(INST_DEBUG)
+STAGE_SBIN           = $(INST_SBIN)
+STAGE_LIBEXEC        = $(INST_LIBEXEC)
+STAGE_SHARE          = $(INST_SHARE)
+
+# Install and staging directory paths.
+$(foreach path, $(KBUILD_INST_PATHS), \
+	$(eval PATH_STAGE_$(path) = $$(patsubst %/,%,$$(PATH_STAGE)/$$(STAGE_$(path)))) \
+	$(eval PATH_INST_$(path) = $$(patsubst %/,%,$$(PATH_INS)/$$(INST_$(path)))) \
+)
+
+# Output directories.
+ifndef PATH_OUT_BASE
+ PATH_OUT_BASE      := $(PATH_ROOT)/out
+endif
+ifndef PATH_OUT
+ ifdef BUILD_TARGET_SUB # (BUILD_TARGET_SUB is not currently recognized by kBuild in any other places - obsolete)
+  PATH_OUT           = $(PATH_OUT_BASE)/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH).$(BUILD_TARGET_SUB)/$(KBUILD_TYPE)
+ else
+  PATH_OUT           = $(PATH_OUT_BASE)/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/$(KBUILD_TYPE)
+ endif
+endif # !define PATH_OUT
+PATH_OBJCACHE        = $(PATH_OUT_BASE)/kObjCache
+PATH_OBJ             = $(PATH_OUT)/obj
+PATH_TARGET          = $(PATH_OBJ)/$(CURSUBDIR)
+PATH_STAGE           = $(PATH_OUT)/stage
+ifndef PATH_INS
+ ifdef DESTDIR
+PATH_INS             = $(DESTDIR)
+ else ifdef DESTROOT
+PATH_INS             = $(DESTROOT)
+ else
+PATH_INS             = $(PATH_OUT)/dist
+ endif
+endif
+
+# Tripwire obsolete PATH defines.
+PATH_BIN = $(error kBuild: PATH_BIN is obsoleted in kBuild 0.1.2. Use PATH_STAGE_BIN or PATH_INST_BIN instead)
+PATH_DLL = $(error kBuild: PATH_LIB is obsoleted in kBuild 0.1.2. Use PATH_STAGE_DLL or PATH_INST_DLL instead)
+PATH_LIB = $(error kBuild: PATH_LIB is obsoleted in kBuild 0.1.2. Use PATH_STAGE_LIB or PATH_INST_LIB instead)
+PATH_SYS = $(error kBuild: PATH_SYS is obsoleted in kBuild 0.1.2. Use PATH_STAGE_SYS or PATH_INST_SYS instead)
+PATH_DOC = $(error kBuild: PATH_DOC is obsoleted in kBuild 0.1.2. Use PATH_STAGE_DOC or PATH_INST_DOC instead)
+
+# Development tool tree.
+ifndef KBUILD_DEVTOOLS
+ ifeq ($(PATH_DEVTOOLS),)
+  KBUILD_DEVTOOLS    = $(PATH_ROOT)/tools
+ else
+  KBUILD_DEVTOOLS   := $(PATH_DEVTOOLS)
+  export KBUILD_DEVTOOLS
+ endif
+endif
+KBUILD_DEVTOOLS_TRG ?= $(KBUILD_DEVTOOLS)/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)
+KBUILD_DEVTOOLS_HST ?= $(KBUILD_DEVTOOLS)/$(KBUILD_HOST).$(KBUILD_HOST_ARCH)
+KBUILD_DEVTOOLS_TRG_NOARCH ?= $(KBUILD_DEVTOOLS)/$(KBUILD_TARGET).noarch
+KBUILD_DEVTOOLS_HST_NOARCH ?= $(KBUILD_DEVTOOLS)/$(KBUILD_HOST).noarch
+
+if1of ($(KBUILD_TARGET_ARCH), amd64 hppa64 mips64 ppc64 s390x sparc64)
+ ifeq ($(KBUILD_TARGET_ARCH),amd64)
+  KBUILD_DEVTOOLS_TRG_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_TARGET).x86
+ else ifeq ($(KBUILD_TARGET_ARCH),hppa64)
+  KBUILD_DEVTOOLS_TRG_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_TARGET).hppa32
+ else ifeq ($(KBUILD_TARGET_ARCH),mips64)
+  KBUILD_DEVTOOLS_TRG_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_TARGET).mips32
+ else ifeq ($(KBUILD_TARGET_ARCH),ppc64)
+  KBUILD_DEVTOOLS_TRG_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_TARGET).ppc32
+ else ifeq ($(KBUILD_TARGET_ARCH),s390x)
+  KBUILD_DEVTOOLS_TRG_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_TARGET).s390
+ else ifeq ($(KBUILD_TARGET_ARCH),sparc64)
+  KBUILD_DEVTOOLS_TRG_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_TARGET).sparc32
+ endif
+endif
+
+if1of ($(KBUILD_HOST_ARCH), amd64 hppa64 mips64 ppc64 s390x sparc64)
+ ifeq ($(KBUILD_HOST_ARCH),amd64)
+  KBUILD_DEVTOOLS_HST_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_HOST).x86
+ else ifeq ($(KBUILD_HOST_ARCH),hppa64)
+  KBUILD_DEVTOOLS_HST_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_HOST).hppa32
+ else ifeq ($(KBUILD_HOST_ARCH),mips64)
+  KBUILD_DEVTOOLS_HST_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_HOST).mips32
+ else ifeq ($(KBUILD_HOST_ARCH),ppc64)
+  KBUILD_DEVTOOLS_HST_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_HOST).ppc32
+ else ifeq ($(KBUILD_HOST_ARCH),s390x)
+  KBUILD_DEVTOOLS_HST_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_HOST).s390
+ else ifeq ($(KBUILD_HOST_ARCH),sparc64)
+  KBUILD_DEVTOOLS_HST_ALT ?= $(KBUILD_DEVTOOLS)/$(KBUILD_HOST).sparc32
+ endif
+endif
+
+# Deprecated legacy names.
+unexport PATH_DEVTOOLS
+PATH_DEVTOOLS         = $(warning Please replace obsolete PATH_DEVTOOLS with KBUILD_DEVTOOLS)$(KBUILD_DEVTOOLS)
+PATH_DEVTOOLS_TRG     = $(warning Please replace obsolete PATH_DEVTOOLS_TRG with KBUILD_DEVTOOLS_TRG)$(KBUILD_DEVTOOLS_TRG)
+PATH_DEVTOOLS_BLD     = $(warning Please replace obsolete PATH_DEVTOOLS_BLD with KBUILD_DEVTOOLS_BLD)$(KBUILD_DEVTOOLS_TRG)
+PATH_DEVTOOLS_TRG_ALT = $(warning Please replace obsolete PATH_DEVTOOLS_TRG_ALT with KBUILD_DEVTOOLS_TRG_ALT)$(KBUILD_DEVTOOLS_TRG_ALT)
+PATH_DEVTOOLS_HST     = $(warning Please replace obsolete PATH_DEVTOOLS_HST with KBUILD_DEVTOOLS_HST)$(KBUILD_DEVTOOLS_HST)
+PATH_DEVTOOLS_HST_ALT = $(warning Please replace obsolete PATH_DEVTOOLS_HST_ALT with KBUILD_DEVTOOLS_HST_ALT)$(KBUILD_DEVTOOLS_HST_ALT)
+
+# KBUILD_PATH / PATH_KBUILD is determined by kmk.
+ifndef KBUILD_PATH
+ KBUILD_PATH := $(PATH_KBUILD)
+endif
+ifeq ($(strip $(KBUILD_PATH)),)
+ $(error kBuild: KBUILD_PATH is missing or empty! kmk is supposed to set it.)
+endif
+# KBUILD_BIN_PATH / PATH_KBUILD_BIN is determined by kmk.
+ifndef KBUILD_BIN_PATH
+ KBUILD_BIN_PATH := $(PATH_KBUILD_BIN)
+endif
+ifeq ($(strip $(KBUILD_BIN_PATH)),)
+ $(error kBuild: KBUILD_BIN_PATH is missing or empty! kmk is supposed to set it.)
+endif
+
+# kBuild files which might be of interest.
+FILE_KBUILD_HEADER := $(KBUILD_PATH)/header.kmk
+#FILE_KBUILD_CONFIG := $(KBUILD_PATH)/config.kmk
+FILE_KBUILD_FOOTER := $(KBUILD_PATH)/footer.kmk
+FILE_KBUILD_SUB_HEADER := $(KBUILD_PATH)/subheader.kmk
+FILE_KBUILD_SUB_FOOTER := $(KBUILD_PATH)/subfooter.kmk
+
+## MAKEFILE is the name of the main makefile.
+MAKEFILE            := $(firstword $(MAKEFILE_LIST))
+## MAKEFILE_CURRENT is the name of the current makefile.
+# This is updated everything a sub-makefile is included.
+MAKEFILE_CURRENT    := $(MAKEFILE)
+
+
+## @todo this should be done via SUFF_XYZ.target/host...
+
+#
+# Build platform setup.
+# (PORTME)
+#
+if1of ($(KBUILD_HOST), win nt)
+# Win, Win32, Win64, NT.
+EXEC_X86_WIN32      :=
+HOSTSUFF_EXE        := .exe
+HOST_PATH_SEP       := $(SEMICOLON)
+
+# OS/2.
+else ifeq ($(KBUILD_HOST),os2)
+EXEC_X86_WIN32      := innopec.exe
+HOSTSUFF_EXE        := .exe
+HOST_PATH_SEP       := $(SEMICOLON)
+
+else if1of ($(KBUILD_HOST), dragonfly freebsd gnukfbsd gnuknbsd linux openbsd netbsd)
+# Unix (like) systems with wine.
+EXEC_X86_WIN32      := wine
+HOSTSUFF_EXE        :=
+HOST_PATH_SEP       := $(COLON)
+
+else
+# Unix (like) systems without wine.
+EXEC_X86_WIN32      := false
+HOSTSUFF_EXE        :=
+HOST_PATH_SEP       := $(COLON)
+endif
+
+
+#
+# Build target setup.
+# (PORTME)
+#
+SUFF_DEP    := .dep
+SUFF_BIN    :=
+if1of ($(KBUILD_TARGET), win nt os2)
+SUFF_OBJ    := .obj
+SUFF_LIB    := .lib
+SUFF_DLL    := .dll
+SUFF_EXE    := .exe
+SUFF_SYS    := .sys
+SUFF_RES    := .res
+else ifeq ($(KBUILD_TARGET),l4)
+SUFF_OBJ    := .o
+SUFF_LIB    := .a
+SUFF_DLL    := .s.so
+SUFF_EXE    :=
+SUFF_SYS    := .a
+SUFF_RES    :=
+else ifeq ($(KBUILD_TARGET),darwin)
+SUFF_OBJ    := .o
+SUFF_LIB    := .a
+SUFF_DLL    := .dylib
+SUFF_EXE    :=
+SUFF_SYS    :=
+SUFF_RES    :=
+else
+SUFF_OBJ    := .o
+SUFF_LIB    := .a
+SUFF_DLL    := .so
+SUFF_EXE    :=
+ if1of ($(KBUILD_TARGET), dragonfly freebsd gnukfbsd gnuknbsd linux netbsd openbsd) ## @todo check netbsd, gnuknbsd and openbsd.
+SUFF_SYS    := .ko
+ else
+SUFF_SYS    :=
+ endif
+SUFF_RES    :=
+endif
+
+#
+# Standard kBuild tools.
+#
+ifeq ($(KMK),kmk)
+KMK         := $(KBUILD_BIN_PATH)/kmk$(HOSTSUFF_EXE)
+endif
+MAKE        := $(KMK)
+
+GMAKE       := $(KBUILD_BIN_PATH)/kmk_gmake$(HOSTSUFF_EXE)
+
+#DEP_EXT     := $(KBUILD_BIN_PATH)/kDep$(HOSTSUFF_EXE)
+#DEP_INT     := $(KBUILD_BIN_PATH)/kDep$(HOSTSUFF_EXE)
+#DEP         := $(DEP_INT)
+
+DEP_IDB_EXT := $(KBUILD_BIN_PATH)/kDepIDB$(HOSTSUFF_EXE)
+DEP_IDB_INT := kmk_builtin_kDepIDB
+DEP_IDB     := $(DEP_IDB_INT)
+
+DEP_OBJ_EXT := $(KBUILD_BIN_PATH)/kDepObj$(HOSTSUFF_EXE)
+DEP_OBJ_INT := kmk_builtin_kDepObj
+DEP_OBJ     := $(DEP_OBJ_INT)
+
+DEP_PRE     := $(KBUILD_BIN_PATH)/kDepPre$(HOSTSUFF_EXE)
+
+KOBJCACHE_EXT := $(KBUILD_BIN_PATH)/kObjCache$(HOSTSUFF_EXE)
+KOBJCACHE   := $(KOBJCACHE_EXT)
+
+KLIBTWEAKER_EXT := $(KBUILD_BIN_PATH)/kLibTweaker$(HOSTSUFF_EXE)
+KLIBTWEAKER := $(KLIBTWEAKER_EXT)
+
+APPEND_EXT  := $(KBUILD_BIN_PATH)/kmk_append$(HOSTSUFF_EXE)
+APPEND_INT  := kmk_builtin_append
+APPEND      := $(APPEND_INT)
+
+CAT_EXT     := $(KBUILD_BIN_PATH)/kmk_cat$(HOSTSUFF_EXE)
+CAT_INT     := kmk_builtin_cat
+CAT         := $(CAT_INT)
+
+CHMOD_EXT   := $(KBUILD_BIN_PATH)/kmk_chmod$(HOSTSUFF_EXE)
+CHMOD_INT   := kmk_builtin_chmod
+CHMOD       := $(CHMOD_INT)
+
+CMP_EXT     := $(KBUILD_BIN_PATH)/kmk_cmp$(HOSTSUFF_EXE)
+CMP_INT     := kmk_builtin_cmp
+CMP         := $(CMP_INT)
+
+CP_EXT      := $(KBUILD_BIN_PATH)/kmk_cp$(HOSTSUFF_EXE)
+CP_INT      := kmk_builtin_cp
+CP          := $(CP_INT)
+
+ECHO_EXT    := $(KBUILD_BIN_PATH)/kmk_echo$(HOSTSUFF_EXE)
+ECHO_INT    := kmk_builtin_echo
+ECHO        := $(ECHO_INT)
+
+EXPR_EXT    := $(KBUILD_BIN_PATH)/kmk_expr$(HOSTSUFF_EXE)
+EXPR_INT    := kmk_builtin_expr
+EXPR        := $(EXPR_INT)
+
+INSTALL_EXT := $(KBUILD_BIN_PATH)/kmk_install$(HOSTSUFF_EXE)
+INSTALL_INT := kmk_builtin_install
+INSTALL     := $(INSTALL_INT)
+
+LN_EXT      := $(KBUILD_BIN_PATH)/kmk_ln$(HOSTSUFF_EXE)
+LN_INT      := kmk_builtin_ln
+LN          := $(LN_INT)
+
+MD5SUM_EXT  := $(KBUILD_BIN_PATH)/kmk_md5sum$(HOSTSUFF_EXE)
+MD5SUM_INT  := kmk_builtin_md5sum
+MD5SUM      := $(MD5SUM_INT)
+
+MKDIR_EXT   := $(KBUILD_BIN_PATH)/kmk_mkdir$(HOSTSUFF_EXE)
+MKDIR_INT   := kmk_builtin_mkdir
+MKDIR       := $(MKDIR_INT)
+
+MV_EXT      := $(KBUILD_BIN_PATH)/kmk_mv$(HOSTSUFF_EXE)
+MV_INT      := kmk_builtin_mv
+MV          := $(MV_INT)
+
+PRINTF_EXT  := $(KBUILD_BIN_PATH)/kmk_printf$(HOSTSUFF_EXE)
+PRINTF_INT  := kmk_builtin_printf
+PRINTF      := $(PRINTF_INT)
+
+REDIRECT_EXT:= $(KBUILD_BIN_PATH)/kmk_redirect$(HOSTSUFF_EXE)
+if $(KBUILD_KMK_REVISION) > 2911
+REDIRECT_INT:= kmk_builtin_redirect
+else
+REDIRECT_INT:= $(REDIRECT_EXT)
+endif
+REDIRECT    := $(REDIRECT_INT)
+
+RM_EXT      := $(KBUILD_BIN_PATH)/kmk_rm$(HOSTSUFF_EXE)
+RM_INT      := kmk_builtin_rm
+RM          := $(RM_INT)
+
+RMDIR_EXT   := $(KBUILD_BIN_PATH)/kmk_rmdir$(HOSTSUFF_EXE)
+RMDIR_INT   := kmk_builtin_rmdir
+RMDIR       := $(RMDIR_INT)
+
+SED_EXT     := $(KBUILD_BIN_PATH)/kmk_sed$(HOSTSUFF_EXE)
+SED_INT     := $(SED_EXT)
+SED         := $(SED_EXT)
+
+SLEEP_INT   := kmk_builtin_sleep
+SLEEP_EXT   := $(KBUILD_BIN_PATH)/kmk_sleep$(HOSTSUFF_EXE)
+SLEEP       := $(SLEEP_EXT)
+
+TEST_EXT    := $(KBUILD_BIN_PATH)/kmk_test$(HOSTSUFF_EXE)
+TEST_INT    := kmk_builtin_test
+TEST        := $(TEST_INT)
+
+TIME_EXT    := $(KBUILD_BIN_PATH)/kmk_time$(HOSTSUFF_EXE)
+TIME_INT    := $(TIME_EXT)
+TIME        := $(TIME_INT)
+
+TOUCH_EXT   := $(KBUILD_BIN_PATH)/kmk_touch$(HOSTSUFF_EXE)
+if $(KBUILD_KMK_REVISION) >= 3060
+TOUCH_INT   := kmk_builtin_touch
+else
+TOUCH_INT   := $(TOUCH_EXT)
+endif
+TOUCH       := $(TOUCH_INT)
+
+# Our default shell is the Almquist shell from *BSD.
+ASH         := $(KBUILD_BIN_PATH)/kmk_ash$(HOSTSUFF_EXE)
+MAKESHELL   := $(ASH)
+SHELL       := $(ASH)
+export SHELL MAKESHELL
+
+# Symlinking is problematic on some platforms...
+LN_SYMLINK  := $(LN) -s
+
+# When copying to the staging area, use hard links to save time and space.
+ifndef KBUILD_NO_HARD_LINKING
+ INSTALL_STAGING := $(INSTALL) --hard-link-files-when-possible
+else
+ INSTALL_STAGING := $(INSTALL)
+endif
+
+
+#
+# Some Functions.
+# The lower cased ones are either fallbacks or candidates for functions.c.
+#
+
+## ABSPATH - make paths absolute.
+# This implementation is clumsy and doesn't resolve '..' and '.' components.
+#
+# @param	$1	The paths to make absolute.
+# @obsolete Use the GNU make function $(abspath) directly now.
+ABSPATH = $(abspath $(1))$(warning ABSPATH is deprecated, use abspath directly!)
+
+## DIRDEP - make create directory dependencies.
+#
+# @param	$1	The paths to the directories which must be created.
+DIRDEP = $(foreach path,$(patsubst %/,%,$(1)),$(path)/)
+
+## Cygwin kludge.
+# This converts /cygdrive/x/% to x:%.
+#
+# @param	$1	The paths to make native.
+# @remark	This macro is pretty much obsolete since we don't use cygwin base make.
+ifneq ($(patsubst /cygdrive/%,%,$(CURDIR)),$(CURDIR))
+ CYGPATHMIXED = $(foreach path,$(1)\
+   ,$(if $(patsubst /cygdrive/%,,$(path)),$(path),$(patsubst $(strip $(firstword $(subst /, ,$(patsubst /cygdrive/%,%,$(path)))))/%,$(strip $(firstword $(subst /, ,$(patsubst /cygdrive/%,%,$(path))))):/%,$(patsubst /cygdrive/%,%,$(path)))))
+else
+ CYGPATHMIXED = $(1)
+endif
+
+## Removes the drive letter from a path (if it has one)
+# @param	$1 		the path
+no-drive    = $(word $(words $(subst :, ,$(1))),$(subst :, ,$(1)))
+
+## Removes the root slash from a path (if it has one)
+# @param	$1 		the path
+no-root-slash = $(patsubst /%,%,$(1))
+
+##
+# Similar to firstword, except it returns the value of first defined variable.
+# @param        $1              list of variables to probe.
+define FIRST-DEFINED-VAR
+local .RETURN := $(strip $(firstdefined $1, value))
+endef
+
+## Figure out where to put object files.
+# @param    $1      real target name.
+# @param    $2      normalized main target
+TARGET_BASE = $(PATH_TARGET)/$(2)/$(call no-root-slash,$(call no-drive,$(1)))
+
+## Figure out where to put object files.
+# @param    $1      normalized main target
+TARGET_PATH = $(PATH_TARGET)/$(1)
+
+##
+# Checks if the specified short option ($1) is found in the flags ($2),
+# assuming getopt style options.
+#
+# @returns $3 if present, $4 not.
+#
+# @param   $1	The option (single char!).
+# @param   $2   The option arguments.
+# @param   $3   Eval and return if present.
+# @param   $4   Eval and return if not present.
+#
+# @todo    May confuse option values starting with '-' for options.
+# @remarks Invoke like this: $(evalcall KB_FN_OPT_TEST_SHORT,d,$(flags),present,not-present)
+#
+define KB_FN_OPT_TEST_SHORT
+local options := $(translate $(strip $(filter -%,$(filter-out --%,$2))),$(SP)-,)
+local .RETURN := $(if-expr $(pos $1,$(options)) != 0,$3,$4)
+endef
+
+##
+# Checks if the specified long option ($1) is found in the flags ($2),
+# assuming getopt style options.
+#
+# @returns $3 if present, $4 not.
+#
+# @param   $1	The long option, dashes included. No % chars.
+# @param   $2   The option arguments.
+# @param   $3   Eval and return if present.
+# @param   $4   Eval and return if not present.
+#
+# @todo    May confuse option values starting with '--' for options.
+# @remarks Invoke like this: $(evalcall KBFN_OPT_TEST_SHORT,--defined,$(flags),present,not-present)
+#
+define KB_FN_OPT_TEST_LONG
+local options := $(filter-out =delete=%,$(subst :, =delete=,$(subst =, =delete=,$2)))
+local .RETURN := $(if-expr "$(filter $1,$(options))" != "",$3,$4)
+endef
+
+##
+# Checks if the specified short ($1) or long ($2) option is found in the flags ($2),
+# assuming getopt style options.
+#
+# @returns $4 if present, $5 not.
+#
+# @param   $1	The short option (single char!).
+# @param   $2	The long option, dashes included. No % chars.
+# @param   $3   The option arguments.
+# @param   $4   Eval and return if present.
+# @param   $5   Eval and return if not present.
+#
+# @todo    May confuse option values starting with '--' for options.
+# @remarks Invoke like this: $(evalcall KB_FN_OPT_TEST_SHORT_LONG,d,--defined,$(flags),present,not-present)
+#
+define KB_FN_OPT_TEST_SHORT_LONG
+local short_options := $(translate $(strip $(filter -%,$(filter-out --%,$3))),$(SP)-,)
+local long_options := $(filter-out =delete=%,$(subst :, =delete=,$(subst =, =delete=,$3)))
+local .RETURN := $(if-expr $(pos $1,$(short_options)) != 0 || "$(filter $2,$(long_options))" != "",$4,$5)
+endef
+
+##
+# Make an assignment to a deprecated variable.
+#
+# @param   $1   The variable name.
+# @param   $2   The value.
+# @param   $3   The variable to use instead.
+#
+ifdef KBUILD_WITH_DEPREATED_AS_ERROR
+ KB_FN_ASSIGN_DEPRECATED = $(eval $(subst :,$$(COLON),$1) = $2$$(error $1 is deprecated, use $3 instead))
+else
+ KB_FN_ASSIGN_DEPRECATED = $(eval $(subst :,$$(COLON),$1) = $2$$(warning $1 is deprecated, use $3 instead))
+endif
+
+##
+# Show an assertion message.
+#
+# @param   $1   The assertion name.
+# @param   $2   The details.
+#
+define KB_FN_ASSERT_MSG
+$(info !! kBuild $1 Assertion Failed !!)
+ifdef target
+ $(info !! target:   $(target))
+ local varloc := $(where $(target))
+ if "$(varloc)" == "undefined"
+  local varloc := $(where $(target)_TEMPLATE)
+ endif
+ if "$(varloc)" == "undefined"
+  local varloc := $(where $(target)_SOURCES)
+ endif
+ if "$(varloc)" == "undefined"
+  local varloc := $(where $(target)_EXTENDS)
+ endif
+ if "$(varloc)" == "undefined"
+  local varloc := $(where target)
+ endif
+ ifneq ($(varloc),)
+  $(info !! location: $(varloc))
+ else
+  $(info !! probable location: $($(target)_DEFPATH)/Makefile.kmk)
+ endif
+endif
+$(info !! $2)
+$(error fixme)
+endef
+
+##
+# Throw an error if the given path $1 isn't absolute and assertions are enabled.
+#
+# @param   $1   The name of the path variable to check.
+#
+ifdef KBUILD_INTERNAL_STRICT
+ KB_FN_ASSERT_ABSPATH = $(if-expr "$(abspath $($(strip $1)))" != "$(strip $($(strip $1)))",\
+ 	$(evalcall KB_FN_ASSERT_MSG,abspath,$1 is:$(NLTAB)'$($(strip $1))'$(NLTAB)expected:$(NLTAB)'$(abspath $($(strip $1)))'))
+else
+ KB_FN_ASSERT_ABSPATH :=
+endif
+
+
+#
+# Somewhat simple solution for automatic command dependencies.
+#
+
+## Included dependency files (used to be in footer.kmk).
+_DEPFILES_INCLUDED :=
+
+## Temporary for the compile rule below.
+if "$(KBUILD_KMK_REVISION)" >= 3134
+ KBUILD_HAVE_OPTIMIZED_APPEND := 1
+endif
+
+##
+# Advanced version of KB_FN_AUTO_CMD_DEPS_COMMANDS_EX where you set
+# the dependency file name yourself.
+#
+# After or before the recipe do $(call KB_FN_AUTO_CMD_DEPS_EX,<recipe-target>,<dep-file>).
+#
+# @param 1    dep file.
+ifdef KBUILD_HAVE_OPTIMIZED_APPEND
+define KB_FN_AUTO_CMD_DEPS_COMMANDS_EX
+	%$(QUIET2)$(APPEND) -tin "$1" \
+		'define AUTO_CMD_DEP_$(translate $@,:,_)_PREV_CMDS' \
+       	'--insert-command=$@' \
+       	'endef'
+endef
+else
+define KB_FN_AUTO_CMD_DEPS_COMMANDS_EX
+	%$(QUIET2)$(RM) -f -- "$1"
+	%$(QUIET2)$(APPEND) "$1" 'define AUTO_CMD_DEP_$(translate $@,:,_)_PREV_CMDS'
+	%$(QUIET2)$(APPEND) -c "$1"  '$@'
+	%$(QUIET2)$(APPEND) "$1" 'endef'
+endef
+endif
+
+##
+# Advanced version of KB_FN_AUTO_CMD_DEPS
+#
+# @param 1     recipe name
+# @param 2     dep file.
+KB_FN_AUTO_CMD_DEPS_EX = $(eval includedep $2$(NL)_DEPFILES_INCLUDED += $2)$1: .MUST_MAKE = $$(comp-cmds-ex $$(AUTO_CMD_DEP_$(translate $1,:,_)_PREV_CMDS),$$(commands $1),FORCE)
+
+##
+# $(call KB_FN_AUTO_CMD_DEPS_COMMANDS) as the first command in a recipe to
+# automatically generate command dependencies.
+# After or before the recipe do $(call KB_FN_AUTO_CMD_DEPS,<recipe-target>).
+ifdef KBUILD_HAVE_OPTIMIZED_APPEND
+define KB_FN_AUTO_CMD_DEPS_COMMANDS
+	%$(QUIET2)$(APPEND) -tni "$@.auto-dep" \
+		'define AUTO_CMD_DEP_$(translate $@,:,_)_PREV_CMDS' \
+		'--insert-command=$@' \
+		'endef'
+endef
+else
+define KB_FN_AUTO_CMD_DEPS_COMMANDS
+	%$(QUIET2)$(RM) -f -- "$@.auto-dep"
+       %$(QUIET2)$(APPEND) "$@.auto-dep" 'define AUTO_CMD_DEP_$(translate $@,:,_)_PREV_CMDS'
+       %$(QUIET2)$(APPEND) -c "$@.auto-dep"  '$@'
+       %$(QUIET2)$(APPEND) "$@.auto-dep" 'endef'
+endef
+endif
+
+##
+# Call before or after defining a recipe that you want automatic command
+# dependencies on. The recipe must start off by $(call KB_FN_AUTO_CMD_DEPS_COMMANDS).
+#
+# @param 1     recipe name
+KB_FN_AUTO_CMD_DEPS = $(call KB_FN_AUTO_CMD_DEPS_EX,$1,$1.auto-dep)
+
+
+#
+# Initialize some of the globals which the Config.kmk and
+# others can add stuff to if they like for processing in the footer.
+#
+
+## KBUILD_TEMPLATE_PATHS
+# List a paths (separated by space) where templates can be found.
+KBUILD_TEMPLATE_PATHS :=
+
+## KBUILD_TOOL_PATHS
+# List of paths (separated by space) where tools can be found.
+KBUILD_TOOL_PATHS :=
+
+## KBUILD_SDK_PATHS
+# List of paths (separated by space) where SDKs can be found.
+KBUILD_SDK_PATHS :=
+
+## KBUILD_UNIT_PATHS
+# List of paths (separated by space) where units (USES) can be found.
+KBUILD_UNIT_PATHS :=
+
+## KBUILD_DEFAULT_PATHS
+# List of paths (separated by space) to search for stuff as a last resort.
+KBUILD_DEFAULT_PATHS :=
+
+## Proritized list of the default makefile when walking subdirectories.
+# The user can overload this list.
+DEFAULT_MAKEFILE := Makefile.kmk makefile.kmk Makefile makefile
+
+## KBUILD_SRC_HANDLERS
+# The list of source handlers, pair of extension and handler.
+# The user can overload this list to provide additional or custom
+# handlers. On a per-target/template see SRC_HANDLERS.
+KBUILD_SRC_HANDLERS := \
+  .c:def_src_handler_c \
+  .C:def_src_handler_c \
+.cxx:def_src_handler_cxx \
+.CXX:def_src_handler_cxx \
+.cpp:def_src_handler_cxx \
+.CPP:def_src_handler_cxx \
+ .cc:def_src_handler_cxx \
+ .CC:def_src_handler_cxx \
+  .m:def_src_handler_objc \
+  .M:def_src_handler_objcxx \
+ .mm:def_src_handler_objcxx \
+.asm:def_src_handler_asm \
+.ASM:def_src_handler_asm \
+  .s:def_src_handler_asm \
+  .S:def_src_handler_asm \
+ .rc:def_src_handler_rc \
+.obj:def_src_handler_obj \
+  .o:def_src_handler_obj \
+.res:def_src_handler_obj
+
+## PROPS_TOOLS
+# This is a subset of PROPS_SINGLE.
+PROPS_TOOLS := TOOL CTOOL CXXTOOL PCHTOOL OBJCTOOL OBJCXXTOOL ASTOOL RCTOOL ARTOOL LDTOOL FETCHTOOL UNPACKTOOL PATCHTOOL
+
+## PROPS_SINGLE
+# The list of non-accumulative target properties.
+# A Config.kmk file can add it's own properties to this list and kBuild
+# will do the necessary inheritance for templates, sdks, tools and targets.
+PROPS_SINGLE := $(PROPS_TOOLS) TEMPLATE INSTTYPE INST STAGE NOINST BLD_TYPE BLD_TRG BLD_TRG_ARCH BLD_TRG_CPU FETCHDIR \
+	OBJSUFF COBJSUFF CXXOBJSUFF PCHOBJSUFF OBJCOBJSUFF OBJCXXOBJSUFF ASOBJSUFF RCOBJSUFF SYSSUFF BINSUFF EXESUFF DLLSUFF LIBSUFF ARLIBSUFF \
+	MODE UID GID LD_DEBUG DEBUG_INSTTYPE DEBUG_INST DEBUG_STAGE PCH_HDR
+## PROPS_SINGLE_LNK
+# Subset of PROPS_SINGLE which applies to all linkable targets.
+PROPS_SINGLE_LNK := $(filter-out FETCHTOOL UNPACKTOOL PATCHTOOL FETCHDIR, $(PROPS_SINGLE))
+
+## PROPS_DEFERRED
+# This list of non-accumulative target properties which are or may be
+# functions, and thus should not be expanded until the very last moment.
+PROPS_DEFERRED := INSTFUN INSTALLER PRE_CMDS POST_CMDS PRE_INST_CMDS POST_INST_CMDS \
+	PRE_FILE_CMDS POST_FILE_CMDS PRE_SYMLINK_CMDS POST_SYMLINK_CMDS PRE_DIRECTORY_CMDS POST_DIRECTORY_CMDS \
+	NAME SONAME
+
+## PROPS_ACCUMULATE_R
+# The list of accumulative target properties where the right most value/flag
+# is the 'most significant'.
+# A Config.kmk file can add it's own properties to this list and kBuild
+# will do the necessary inheritance from templates to targets.
+PROPS_ACCUMULATE_R := \
+	DEPS LNK_DEPS ORDERDEPS LNK_ORDERDEPS DEFS \
+	ARFLAGS \
+	CFLAGS CDEFS \
+	CXXFLAGS CXXDEFS \
+	PCHFLAGS PCHDEFS \
+	OBJCFLAGS OBJCDEFS \
+	OBJCXXFLAGS OBJCXXDEFS \
+	ASFLAGS ASDEFS \
+	RCFLAGS RCDEFS \
+	LDFLAGS \
+	IDFLAGS IFFLAGS EXEC_IFFLAGS ISFLAGS \
+	FETCHFLAGS UNPACKFLAGS PATCHFLAGS
+## PROPS_ACCUMULATE_R_LNK
+# Subset of PROPS_ACCUMULATE_R which applies to all linkable targets.
+PROPS_ACCUMULATE_R_LNK := $(filter-out ARFLAGS LDFLAGS EXEC_IFFLAGS FETCHFLAGS UNPACKFLAGS PATCHFLAGS, $(PROPS_ACCUMULATE_R))
+
+## PROPS_ACCUMULATE
+# The list of accumulative target properties where the left most value/flag
+# is the 'most significant'.
+# A Config.kmk file can add it's own properties to this list and kBuild
+# will do the necessary inheritance from templates to targets.
+PROPS_ACCUMULATE_L := \
+	SDKS USES SOURCES EXEC_SOURCES SRC_HANDLERS INTERMEDIATES \
+	INCS CINCS CXXINCS PCHINCS OBJCINCS OBJCXXINCS ASINCS RCINCS \
+	LIBS LIBPATH \
+	DIRS BLDDIRS CLEAN
+## PROPS_ACCUMULATE_L_LNK
+# Subset of PROPS_ACCUMULATE_L which applies to all linkable targets.
+PROPS_ACCUMULATE_L_LNK := $(filter-out LIBS LIBPATH EXEC_SOURCES DIRS, $(PROPS_ACCUMULATE_L))
+
+## PROPS_ALL
+# List of all the properties.
+PROPS_ALL = $(PROPS_SINGLE) $(PROPS_DEFERRED) $(PROPS_ACCUMULATE_L) $(PROPS_ACCUMULATE_R)
+
+## @name Properties valid on programs (BLDPROGS and PROGRAMS)
+## @{
+PROPS_PROGRAMS_SINGLE        := $(PROPS_SINGLE_LNK) LDTOOL EXESUFF
+PROPS_PROGRAMS_DEFERRED      := $(PROPS_DEFERRED)
+PROPS_PROGRAMS_ACCUMULATE_R  := $(PROPS_ACCUMULATE_R_LNK) LDFLAGS
+PROPS_PROGRAMS_ACCUMULATE_L  := $(PROPS_ACCUMULATE_L_LNK) LIBS LIBPATH
+## @}
+
+## @name Properties valid on libraries (LIBRARIES and IMPORT_LIBS)
+## @{
+PROPS_LIBRARIES_SINGLE       := $(PROPS_SINGLE_LNK) ARTOOL LIBSUFF ARLIBSUFF LIBSUFF
+PROPS_LIBRARIES_DEFERRED     := $(filter-out SONAME,$(PROPS_DEFERRED))
+PROPS_LIBRARIES_ACCUMULATE_R := $(PROPS_ACCUMULATE_R_LNK) ARFLAGS
+PROPS_LIBRARIES_ACCUMULATE_L := $(PROPS_ACCUMULATE_L_LNK)
+## @}
+
+## @name Properties valid on dlls (DLLS)
+## @{
+PROPS_DLLS_SINGLE            := $(PROPS_SINGLE_LNK) LDTOOL DLLSUFF LIBSUFF
+PROPS_DLLS_DEFERRED          := $(PROPS_DEFERRED)
+PROPS_DLLS_ACCUMULATE_R      := $(PROPS_ACCUMULATE_R_LNK) LDFLAGS
+PROPS_DLLS_ACCUMULATE_L      := $(PROPS_ACCUMULATE_L_LNK) LIBS LIBPATH
+## @}
+
+## @name Properties valid on system modules (SYSMODS)
+## @{
+PROPS_SYSMODS_SINGLE         := $(PROPS_SINGLE_LNK) LDTOOL SYSSUFF
+PROPS_SYSMODS_DEFERRED       := $(PROPS_DEFERRED)
+PROPS_SYSMODS_ACCUMULATE_R   := $(PROPS_ACCUMULATE_R_LNK) LDFLAGS
+PROPS_SYSMODS_ACCUMULATE_L   := $(PROPS_ACCUMULATE_L_LNK) LIBS LIBPATH
+## @}
+
+## @name Properties valid on misc binaries (MISCBINS)
+## @{
+PROPS_MISCBINS_SINGLE        := $(PROPS_SINGLE_LNK) LDTOOL BINSUFF
+PROPS_MISCBINS_DEFERRED      := $(PROPS_DEFERRED)
+PROPS_MISCBINS_ACCUMULATE_R  := $(PROPS_ACCUMULATE_R_LNK) LDFLAGS
+PROPS_MISCBINS_ACCUMULATE_L  := $(PROPS_ACCUMULATE_L_LNK) LIBS LIBPATH
+## @}
+
+## @name Properties valid on installs (INSTALLS)
+## @{
+PROPS_INSTALLS_SINGLE        := TOOL TEMPLATE INSTTYPE INST STAGE NOINST BLD_TYPE BLD_TRG BLD_TRG_ARCH BLD_TRG_CPU MODE UID GID
+PROPS_INSTALLS_DEFERRED      := INSTFUN INSTALLER PRE_FILE_CMDS POST_FILE_CMDS PRE_SYMLINK_CMDS POST_SYMLINK_CMDS \
+	PRE_DIRECTORY_CMDS POST_DIRECTORY_CMDS
+PROPS_INSTALLS_ACCUMULATE_R  := DEPS ORDERDEPS GOALS INST_ONLY_GOALS STAGE_ONLY_GOALS IFFLAGS EXEC_IFFLAGS
+PROPS_INSTALLS_ACCUMULATE_L  := SOURCES EXEC_SOURCES DIRS CLEAN
+## @}
+
+## @name Properties valid on fetches (FETCHES)
+## @{
+PROPS_FETCHES_SINGLE         := TOOL TEMPLATE FETCHTOOL UNPACKTOOL PATCHTOOL INST FETCHDIR
+PROPS_FETCHES_DEFERRED       :=
+PROPS_FETCHES_ACCUMULATE_R   := FETCHFLAGS UNPACKFLAGS PATCHFLAGS
+PROPS_FETCHES_ACCUMULATE_L   := SOURCES CLEAN
+## @}
+
+## KBUILD_COMPILE_CATEGTORIES
+# Tools categories for compiling.
+KBUILD_COMPILE_CATEGTORIES   := AS C CXX PCH OBJC OBJCXX RC
+
+## KBUILD_GENERIC_CATEGORIES
+# Generic tool categories.
+KBUILD_GENERIC_CATEGORIES    := FETCH UNPACK PATCH $(addprefix LINK_,LIBRARY PROGRAM DLL SYSMOD MISCBIN)
+
+## PROPS_TOOLS_ONLY
+# Properties found only on tools.
+# This is expanded in a deferred manner, so it will pick up changes made to
+# KBUILD_COMPILE_CATEGTORIES and KBUILD_GENERIC_CATEGORIES made by units.
+PROPS_TOOLS_ONLY              = \
+	$(foreach cat, $(KBUILD_COMPILE_CATEGTORIES), \
+		COMPILE_$(cat)_CMDS \
+		COMPILE_$(cat)_OUTPUT \
+		COMPILE_$(cat)_OUTPUT_MAYBE \
+		COMPILE_$(cat)_DEPEND \
+		COMPILE_$(cat)_DEPORD \
+		COMPILE_$(cat)_USES_KOBJCACHE ) \
+	$(foreach cat, $(KBUILD_GENERIC_CATEGORIES), \
+		$(cat)_CMDS \
+		$(cat)_OUTPUT \
+		$(cat)_OUTPUT_MAYBE \
+		$(cat)_DEPEND \
+		$(cat)_DEPORD ))
+
+
+#
+# Here is a special 'hack' to prevent innocent environment variables being
+# picked up and treated as properties. (The most annoying example of why
+# this is necessary is the Visual C++ commandline with it's LIBPATH.)
+#
+# Define KBUILD_DONT_KILL_ENV_PROPS in the env. or on the commandline to
+# disable this 'hack'.
+#
+ifndef KBUILD_DONT_KILL_ENV_PROPS
+
+define def_nuke_environment_prop
+ifeq ($(origin $(prop)),environment)
+$(prop) =
+endif
+endef
+$(foreach prop, $(PROPS_ALL) \
+	FETCHES PATCHES BLDPROGS LIBRARIES IMPORT_LIBS DLLS PROGRAMS SYSMODS MISCBINS INSTALLS OTHERS \
+	SUBDIRS MAKEFILES BLDDIRS \
+	,$(eval $(value def_nuke_environment_prop)))
+
+endif # KBUILD_DONT_KILL_ENV_PROPS
+
+
+#
+# Pass configuration.
+#
+# The PASS_<passname>_trgs variable is listing the targets.
+# The PASS_<passname>_vars variable is listing the target variables.
+# The PASS_<passname>_pass variable is the lowercased passname.
+#
+
+## PASS: fetches
+# This pass fetches and unpacks things needed to complete the build.
+PASS_FETCHES        := Fetches
+PASS_FETCHES_trgs   :=
+PASS_FETCHES_vars   := _FETCHES
+PASS_FETCHES_pass   := fetches
+
+## PASS: patches
+# This pass applies patches.
+PASS_PATCHES        := Patches
+PASS_PATCHES_trgs   :=
+PASS_PATCHES_vars   := _PATCHES
+PASS_PATCHES_pass   := patches
+
+## PASS: bldprogs
+# This pass builds targets which are required for building the rest.
+PASS_BLDPROGS       := Build Programs
+PASS_BLDPROGS_trgs  :=
+PASS_BLDPROGS_vars  := _BLDPROGS
+PASS_BLDPROGS_pass  := bldprogs
+
+## PASS: libraries
+# This pass builds library targets.
+PASS_LIBRARIES      := Libraries
+PASS_LIBRARIES_trgs :=
+PASS_LIBRARIES_vars := _LIBS _IMPORT_LIBS _OTHER_LIBRARIES
+PASS_LIBRARIES_pass := libraries
+
+## PASS: binaries
+# This pass builds dll targets.
+PASS_DLLS           := DLLs
+PASS_DLLS_trgs      :=
+PASS_DLLS_vars      := _DLLS _OTHER_DLLS
+PASS_DLLS_pass      := dlls
+
+## PASS: binaries
+# This pass builds binary targets, i.e. programs, system modules and stuff.
+PASS_BINARIES       := Programs
+PASS_BINARIES_trgs  :=
+PASS_BINARIES_vars  := _PROGRAMS _SYSMODS _MISC_BINS _OTHER_BINARIES
+PASS_BINARIES_pass  := binaries
+
+## PASS: others
+# This pass builds other targets.
+PASS_OTHERS         := Other Stuff
+PASS_OTHERS_trgs    :=
+PASS_OTHERS_vars    := _OTHERS
+PASS_OTHERS_pass    := others
+
+## PASS: staging
+# This pass installs the built entities to a sandbox area.
+## @todo split this up into build install (to sandbox) and real installation.
+PASS_STAGING        := Staging
+PASS_STAGING_trgs   :=
+PASS_STAGING_vars   := _STAGE_DIRS _INSTALLS _STAGE_FILES _DEBUG_STAGE_DIRS _DEBUG_STAGE_FILES
+PASS_STAGING_pass   := staging
+
+## PASS: install
+# This pass installs the built entities to where they will be used (using
+# DESTROOT or PATH_INS to indicate where this is).
+PASS_INSTALLS       := Install
+PASS_INSTALLS_trgs  :=
+PASS_INSTALLS_vars  := _INSTALLS_DIRS _INSTALLS_FILES _DEBUG_INSTALL_DIRS _DEBUG_INSTALL_FILES
+PASS_INSTALLS_pass  := installs
+
+## PASS: testing
+# This pass processes custom rules for executing tests.
+PASS_TESTING        := Tests
+PASS_TESTING_trgs   :=
+PASS_TESTING_vars   := _TESTING
+PASS_TESTING_pass   := testing
+
+## PASS: packing
+# This pass processes custom packing rules.
+PASS_PACKING        := Packing
+PASS_PACKING_trgs   :=
+PASS_PACKING_vars   := _PACKING
+PASS_PACKING_pass   := packing
+
+## PASS: clean
+# This pass removes all generated files.
+PASS_CLEAN          := Clean
+PASS_CLEAN_trgs     := do-clean
+PASS_CLEAN_vars     :=
+PASS_CLEAN_pass     := clean
+
+## PASS: nothing
+# This pass just walks the tree.
+PASS_NOTHING        := Nothing
+PASS_NOTHING_trgs   := do-nothing
+PASS_NOTHING_vars   :=
+PASS_NOTHING_pass   := nothing
+
+## DEFAULT_PASSES
+# The default passes and their order.
+DEFAULT_PASSES := BLDPROGS LIBRARIES DLLS BINARIES OTHERS STAGING
+
+## PASSES
+# The passes that should be defined. This must include
+# all passes mentioned by DEFAULT_PASSES.
+PASSES := FETCHES PATCHES $(DEFAULT_PASSES) INSTALLS TESTING PACKING CLEAN NOTHING
+
+
+#
+# Check for --pretty-command-printing before including the Config.kmk
+# so that anyone overriding the message macros can take the implied
+# verbosity level change into account.
+#
+ifndef KBUILD_VERBOSE
+ ifndef KBUILD_QUIET
+  ifeq ($(KMK_OPTS_PRETTY_COMMAND_PRINTING),1)
+   export KBUILD_VERBOSE := 2
+  endif
+ endif
+endif
+
+
+#
+# Legacy variable translation.
+# These will be eliminated when switching to the next version.
+#
+ifdef USE_KOBJCACHE
+ ifndef KBUILD_USE_KOBJCACHE
+  export KBUILD_USE_KOBJCACHE := $(USE_KOBJCACHE)
+ endif
+endif
+
+
+#
+# Library path searching hints (target OS + arch).
+#
+# 	 KBUILD_LIB_SEARCH_SUBS  - Subdirs typically containing the right libraries.
+#    KBUILD_LIB_SEARCH_ROOTS - Roots to search for library subdirs.
+#    KBUILD_LIB_SEARCH_PATHS - ROOTS + SUBS.
+#
+ifeq ($(KBUILD_TARGET),darwin)
+ KBUILD_LIB_SEARCH_ROOTS := \
+	/usr/ \
+	/Developer/usr/
+ KBUILD_LIB_SEARCH_SUBS  := lib/
+
+else if1of ($(KBUILD_TARGET), freebsd openbsd dragonfly)
+ KBUILD_LIB_SEARCH_ROOTS := \
+	/ \
+	/usr/ \
+	/usr/local/
+ KBUILD_LIB_SEARCH_SUBS := lib/
+
+else ifeq ($(KBUILD_TARGET),netbsd)
+ KBUILD_LIB_SEARCH_ROOTS := \
+	/ \
+	/usr/ \
+	/usr/pkg/ \
+	/usr/local/
+ KBUILD_LIB_SEARCH_SUBS := lib/
+
+else if1of ($(KBUILD_TARGET), gnukfbsd gnuknbsd linux)
+ ifeq ($(realpath /bin),/usr/bin)
+  KBUILD_LIB_SEARCH_ROOTS := \
+  	/usr/ \
+  	/ \
+  	/usr/local/
+ else
+  KBUILD_LIB_SEARCH_ROOTS := \
+  	/ \
+  	/usr/ \
+  	/usr/local/
+ endif
+ ifeq ($(KBUILD_TARGET_ARCH),amd64)
+  KBUILD_LIB_SEARCH_SUBS := \
+	lib/x86_64-linux-gnu/ \
+	lib64/ \
+	lib/
+ else ifeq ($(KBUILD_TARGET_ARCH),x86)
+  KBUILD_LIB_SEARCH_SUBS := \
+	lib/i686-linux-gnu/ \
+	lib/i386-linux-gnu/ \
+	lib32/ \
+	lib/
+ else
+  KBUILD_LIB_SEARCH_SUBS := lib/
+ endif
+
+else ifeq ($(KBUILD_TARGET),solaris)
+ KBUILD_LIB_SEARCH_ROOTS := \
+	/ \
+	/usr/ \
+	/usr/sfw/ \
+	/usr/local/ \
+	/sw/
+ ifeq ($(KBUILD_TARGET_ARCH),amd64)
+  KBUILD_LIB_SEARCH_SUBS := lib/amd64/ lib/
+ else ifeq ($(KBUILD_TARGET_ARCH),sparc64)
+  KBUILD_LIB_SEARCH_SUBS := lib/sparcv9/ lib/
+ else
+  KBUILD_LIB_SEARCH_SUBS := lib/
+ endif
+
+else
+ KBUILD_LIB_SEARCH_SUBS  :=
+ KBUILD_LIB_SEARCH_ROOTS :=
+endif
+KBUILD_LIB_SEARCH_PATHS  := $(foreach root, $(KBUILD_LIB_SEARCH_ROOTS), $(addprefix $(root),$(KBUILD_LIB_SEARCH_SUBS)))
+
+
+#
+# This is how we find the closest config.kmk.
+# It's a little hacky but I think it works fine.
+#
+_CFGDIR     := .
+_CFGFILES   := ./Config.kmk ./config.kmk
+define def_include_config
+$(eval _CFGDIR := $(_CFGDIR)/$(dir))
+_CFGFILES   += $(_CFGDIR)/Config.kmk $(_CFGDIR)/config.kmk
+endef
+# walk down the _RELATIVE_ path specified by DEPTH.
+$(foreach dir,$(subst /, ,$(DEPTH)), $(eval $(def_include_config)) )
+# add the default config file.
+_CFGFILE    := $(firstword $(wildcard $(_CFGFILES) $(FILE_KBUILD_CONFIG)))
+_CFGFILES   :=
+_CFGDIR     :=
+ifeq ($(_CFGFILE),)
+$(error kBuild: no Config.kmk file found! Check the DEPTH: DEPTH='$(DEPTH)' PATH_CURRENT='$(PATH_CURRENT)')
+endif
+
+# Include the config.kmk we found file (or the default one).
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, including $(_CFGFILE))
+ include $(_CFGFILE)
+ $(evalcall def_profile_self, included $(_CFGFILE))
+else
+ include $(_CFGFILE)
+endif
+
+
+
+#
+# Finalize a the central path variables now that we've included the Config.kmk file.
+#
+# This prevents some trouble when users override the defaults for these
+# variables and uses relative paths or paths with incorrect case.
+#
+PATH_OUT_BASE := $(abspath $(PATH_OUT_BASE))
+PATH_OUT      := $(abspath $(PATH_OUT))
+PATH_OBJ      := $(abspath $(PATH_OBJ))
+PATH_TARGET   := $(abspath $(PATH_TARGET))
+PATH_INS      := $(abspath $(PATH_INS))
+PATH_STAGE    := $(abspath $(PATH_STAGE))
+
+# Finalize the install and staging directory layouts.
+define def_kbuild_finalize_inst
+local val := $(strip $($(y)_$(x)))
+ifeq ($(val),)
+ $(error kBuild: '$(y)_$(x)' is set to an empty value.)
+endif
+ifneq ($(words $(val)),1)
+ $(error kBuild: The '$(y)_$(x)' value '$(val)' should not contain spaces.)
+endif
+ifneq ($(pos \,$(val)), 0)
+ $(error kBuild: The '$(y)_$(x)' value '$(val)' contains DOS slashes: not allowed.)
+endif
+ifneq ($(pos $(COLON),$(val)), 0)
+ $(error kBuild: The '$(y)_$(x)' value '$(val)' contains colon: not allowed.)
+endif
+ifneq ($(substr $(val),-1), /)
+ $(error kBuild: The '$(y)_$(x)' value '$(val)' has no trailing slash.)
+endif
+if $(pos /../,$(val)) != 0 || "$(substr $(val), 3)" == "../"
+ $(error kBuild: The '$(y)_$(x)' value '$(val)' contains dot-dot escape.)
+endif
+$($(y)_$(x) := $(val)
+
+local val := $(strip $(PATH_$(y)_$(x)))
+ifeq ($(val),)
+ $(error kBuild: 'PATH_$(y)_$(x)' is set to an empty value.)
+endif
+PATH_$(y)_$(x) := $(val)
+endef
+$(foreach y, INST STAGE, $(foreach x, $(KBUILD_INST_PATHS), $(evalcall def_kbuild_finalize_inst)))
+
+# No abspath for devtools since they might've been referenced already and we
+# don't want conflicting variable expansions.
+KBUILD_DEVTOOLS         := $(KBUILD_DEVTOOLS)
+KBUILD_DEVTOOLS_TRG     := $(KBUILD_DEVTOOLS_TRG)
+KBUILD_DEVTOOLS_TRG_ALT := $(KBUILD_DEVTOOLS_TRG_ALT)
+KBUILD_DEVTOOLS_HST     := $(KBUILD_DEVTOOLS_HST)
+KBUILD_DEVTOOLS_HST_ALT := $(KBUILD_DEVTOOLS_HST_ALT)
+
+
+#
+# Setup the message style. The default one is inlined.
+#
+# See kBuild/msgstyles for more styles or use KBUILD_MSG_STYLE_PATHS
+# to create your own message style.
+#
+KBUILD_MSG_STYLE ?= default
+ifeq ($(KBUILD_MSG_STYLE),default)
+ #
+ # The 'default' style.
+ #
+
+ ## Fetch starting.
+ # @param 1     Target name.
+ MSG_FETCH    ?= $(call MSG_L1,Fetching $1...)
+ ## Re-fetch starting.
+ # @param 1     Target name.
+ MSG_REFETCH  ?= $(call MSG_L1,Re-fetching $1...)
+ ## Downloading a fetch component.
+ # @param 1     Target name.
+ # @param 2     The source URL.
+ # @param 3     The destination file name.
+ MSG_FETCH_DL ?= $(call MSG_L1,Downloading $1 - $2,=> $3)
+ ## Checking a fetch component.
+ # @param 1     Target name.
+ # @param 2     The source URL.
+ # @param 3     The destination file name.
+ MSG_FETCH_CHK?= $(call MSG_L1,Checking $1 - $3, ($2))
+ ## Unpacking a fetch component.
+ # @param 1     Target name.
+ # @param 2     The archive file name.
+ # @param 3     The target directory.
+ MSG_FETCH_UP ?= $(call MSG_L1,Unpacking $1 - $2 => $3)
+ ## Fetch completed.
+ # @param 1     Target name.
+ MSG_FETCH_OK ?= $(call MSG_L1,Successfully fetched $1)
+ ## Unfetch a fetch target.
+ # @param 1     Target name.
+ MSG_UNFETCH  ?= $(call MSG_L1,Unfetching $1...)
+ ## Compiling a source file.
+ # @param 1     Target name.
+ # @param 2     The source filename.
+ # @param 3     The primary link output file name.
+ # @param 4     The source type (C,CXX,OBJC,AS,RC,++).
+ MSG_COMPILE  ?= $(call MSG_L1,Compiling $1 - $2,=> $3)
+ ## Tool
+ # @param 1     The tool name (bin2c,...)
+ # @param 2     Target name.
+ # @param 3     The source filename.
+ # @param 4     The primary output file name.
+ MSG_TOOL     ?= $(call MSG_L1,$1 $2 - $3,=> $4)
+ ## Generate a file, typically a source file.
+ # @param 1     Target name if applicable.
+ # @param 2     Output file name.
+ # @param 3     What it's generated from
+ MSG_GENERATE ?= $(call MSG_L1,Generating $(if $1,$1 - )$2,$(if $3,from $3))
+ ## Linking a bldprog/dll/program/sysmod target.
+ # @param 1     Target name.
+ # @param 2     The primary link output file name.
+ # @param 3     The link tool operation (LINK_LIBRARY,LINK_PROGRAM,LINK_DLL,LINK_SYSMOD,++).
+ MSG_LINK     ?= $(call MSG_L1,Linking $1,=> $2)
+ ## Merging a library into the target (during library linking).
+ # @param 1     Target name.
+ # @param 2     The output library name.
+ # @param 3     The input library name.
+ MSG_AR_MERGE ?= $(call MSG_L1,Merging $3 into $1, ($2))
+ ## Creating a directory (build).
+ # @param 1     Directory name.
+ MSG_MKDIR    ?= $(call MSG_L2,Creating directory $1)
+ ## Cleaning.
+ MSG_CLEAN    ?= $(call MSG_L1,Cleaning...)
+ ## Nothing.
+ MSG_NOTHING  ?= $(call MSG_L1,Did nothing in $(CURDIR))
+ ## Pass
+ # @param 1     The pass name.
+ MSG_PASS     ?= $(call MSG_L1,Pass - $1)
+ ## Installing a bldprog/lib/dll/program/sysmod target.
+ # @param 1     Target name.
+ # @param 2     The source filename.
+ # @param 3     The destination file name.
+ MSG_INST_TRG ?= $(call MSG_L1,Installing $1 => $3)
+ ## Installing a file (install target).
+ # @param 1     The source filename.
+ # @param 2     The destination filename.
+ MSG_INST_FILE?= $(call MSG_L1,Installing $2,(<= $1))
+ ## Installing a symlink.
+ # @param 1     Symlink
+ # @param 2     Link target
+ MSG_INST_SYM ?= $(call MSG_L1,Installing symlink $1,=> $2)
+ ## Installing a directory.
+ # @param 1     Directory name.
+ MSG_INST_DIR ?= $(call MSG_L1,Installing directory $1)
+
+else
+ _KBUILD_MSG_STYLE_FILE := $(firstword $(foreach path, $(KBUILD_MSG_STYLE_PATHS) $(KBUILD_PATH)/msgstyles, $(wildcard $(path)/$(KBUILD_MSG_STYLE).kmk)))
+ ifneq ($(_KBUILD_MSG_STYLE_FILE),)
+  include $(_KBUILD_MSG_STYLE_FILE)
+ else
+  $(error kBuild: Can't find the style setup file for KBUILD_MSG_STYLE '$(KBUILD_MSG_STYLE)')
+ endif
+endif
+
+
+#
+# Message macros.
+#
+# This is done after including Config.kmk as to allow for
+# KBUILD_QUIET and KBUILD_VERBOSE to be configurable.
+#
+ifdef KBUILD_QUIET
+ # No output
+ QUIET  := @
+ QUIET2 := @
+ MSG_L1 :=
+ MSG_L2 :=
+else
+ ifndef KBUILD_VERBOSE
+  # Default output level.
+  QUIET  := @
+  QUIET2 := @
+  MSG_L1 ?= %@$(ECHO) "kBuild: $1"
+  MSG_L2 :=
+ else ifeq ($(KBUILD_VERBOSE),1)
+  # A bit more output
+  QUIET  := @
+  QUIET2 := @
+  MSG_L1 ?= %@$(ECHO) "kBuild: $1 $2"
+  MSG_L2 :=
+ else ifeq ($(KBUILD_VERBOSE),2)
+  # Lot more output
+  QUIET  :=
+  QUIET2 := @
+  MSG_L1 ?= %@$(ECHO) "kBuild: $1 $2"
+  MSG_L2 ?= %@$(ECHO) "kBuild: $1"
+ else
+  # maximal output.
+  QUIET  :=
+  QUIET2 :=
+  MSG_L1 ?= %@$(ECHO) "kBuild: $1 $2"
+  MSG_L2 ?= %@$(ECHO) "kBuild: $1"
+ endif
+endif
+
+
+##
+# An internal define used by subheader.kmk, subfooter.kmk, and
+# KB_FN_DO_PASS0_ON_TARGET.
+#
+# @param target    The target to process.
+#
+define def_subfooter_header_target_pass
+ ifndef $(target)_PATH
+  ifndef $(target)_DEFPATH
+   $(target)_DEFPATH := $(PATH_SUB_CURRENT)
+  endif
+  $(call KB_FN_ASSIGN_DEPRECATED,$(target)_PATH,$($(target)_DEFPATH), $(target)_DEFPATH)
+ else ifndef $(target)_DEFPATH
+  $(target)_DEFPATH := $($(target)_PATH)
+ endif
+ ifndef $(target)_MAKEFILE
+  $(target)_MAKEFILE := $(MAKEFILE_CURRENT)
+ endif
+ ifndef $(target)_0_OUTDIR
+  $(target)_0_OUTDIR := $(call TARGET_PATH,$(target))
+  $(call KB_FN_ASSIGN_DEPRECATED,PATH_$(target),$($(target)_0_OUTDIR), $(target)_0_OUTDIR)
+ endif
+endef
+
+##
+# Function to call to set _0_OUTDIR, _DEFPATH, and _MAKEFILE earlier than subfooter.
+# Can be used to avoid exploiting double expansion.
+#
+# @param 1     The target name.
+KB_FN_DO_PASS0_ON_TARGET = $(foreach target,$1,$(if-expr defined($(target)_0_OUTDIR),,$(evalval def_subfooter_header_target_pass)))
+
+
+#
+# Validate any KBUILD_BLD_TYPES additions and finally the KBUILD_TYPE.
+#
+if1of ($(KBUILD_BLD_TYPES), $(KBUILD_OSES))
+ $(error kBuild: found KBUILD_BLD_TYPES in KBUILD_OSES!)
+endif
+if1of ($(KBUILD_BLD_TYPES), $(KBUILD_ARCHES))
+ $(error kBuild: found KBUILD_BLD_TYPES in KBUILD_ARCHES!)
+endif
+if1of ($(KBUILD_OSES), $(KBUILD_ARCHES))
+ $(error kBuild: found KBUILD_OSES in KBUILD_ARCHES!)
+endif
+ifn1of ($(KBUILD_TYPE), $(KBUILD_BLD_TYPES))
+ $(error kBuild: KBUILD_TYPE(=$(KBUILD_TYPE)) is not found in KBUILD_BLD_TYPES(=$(KBUILD_BLD_TYPES))!)
+endif
+
+
+#
+# Mark the output and temporary directories as volatile on windows.
+#
+# This automatically means the directories not listed here are considered
+# static and won't be invalidated once we start running compile jobs.
+#
+ifeq ($(KBUILD_HOST),win)
+ if $(KBUILD_KMK_REVISION) >= 2886
+   $(dircache-ctl volatile, $(PATH_OUT_BASE), $(PATH_OUT), $(TEMP), $(TMP), $(TMPDIR), $(TMP))
+ endif
+endif
+
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, end of header.kmk)
+ _KBUILD_TS_HEADER_END := $(_KBUILD_TS_PREV)
+endif
+
+# end-of-file-content
+__header_kmk__ := 1
+endif # !__header_kmk__
+
+

@@ -1,0 +1,88 @@
+# $Id: Config.kmk $
+## @file
+# kBuild Configuration file for the OS/2 Guest Additions.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+ifdef VBOX_ADDITIONS_OS2_CONFIG_KMK_INCLUDED
+ $(error oops.)
+endif
+VBOX_ADDITIONS_OS2_CONFIG_KMK_INCLUDED = true
+
+# Include the top-level configure file.
+ifndef VBOX_ROOT_CONFIG_KMK_INCLUDED
+ include $(PATH_ROOT)/Config.kmk
+endif
+
+## FIXME
+PATH_DDKVIDEO ?= D:/ddk/200402/video
+PATH_DDKBASE  ?= D:/ddk/200402/base
+TOOL_MASM510_AS   ?= $(PATH_DDKBASE)/tools/masm.exe
+TOOL_MSLINK510_LD ?= $(PATH_DDKBASE)/tools/link.exe
+PATH_TOOL_VAC308  ?= D:/VACpp/v3.08
+PATH_TOOL_ALP     ?= D:/Toolkit/v4.52/bin
+
+#
+# Template for VAC308 Gradd stuff.
+#
+TEMPLATE_VBoxOs2Vac308 = Template for VisualAge for C++ v3.08 / Gradd
+TEMPLATE_VBoxOs2Vac308_TOOL    = VAC308
+TEMPLATE_VBoxOs2Vac308_ASTOOL  = ALP
+TEMPLATE_VBoxOs2Vac308_ARTOOL  = GCC3OMF
+TEMPLATE_VBoxOs2Vac308_INST    = $(INST_ADDITIONS)
+TEMPLATE_VBoxOs2Vac308_DEFS    = RT_OS_OS2 IN_RING3  ## @todo IN_GUEST IN_GUEST_R3 IN_RT_R3
+
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Gn+               # Do not generate default libraries in object.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Gr+               # Allow object code to run at ring 0.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Rn                # Produce code to run with no runtime environment.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Sp1               # Pack aggregate members on 1 byte alignment.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Tm-               # No debug memory management.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Q+                # Suppress the logo. (in VAC308.kmk?)
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /C+                # Perform compile only, no link. (in VAC308.kmk?)
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Ss+               # Allow the double slash (//) format to be used for comments. (C only)
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /G5                # Generate code optimized for use on a Pentium processor.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Ti+               # Generate debugging information.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /O+                # Optimize generated code.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Oi+               # Turn on function inlining.
+TEMPLATE_VBoxOs2Vac308_CFLAGS  += /Ge-               # Use the version of the runtime library that assumes a DLL is being built. (_DLL_InitTerm++)
+TEMPLATE_VBoxOs2Vac308_CFLAGS := $(strip $(TEMPLATE_VBoxOs2Vac308_CFLAGS))
+TEMPLATE_VBoxOs2Vac308_CXXFLAGS = $(VBoxGradd_CFLAGS)
+
+TEMPLATE_VBoxOs2Vac308_LDFLAGS += -B"/Nologo"        # Quiet! (ILINK308.kmk?)
+TEMPLATE_VBoxOs2Vac308_LDFLAGS += -B"/Debug"         # Debug info (ILINK308.kmk?)
+TEMPLATE_VBoxOs2Vac308_LDFLAGS += -B"/Map"           # Generate map file (ILINK308.kmk?)
+TEMPLATE_VBoxOs2Vac308_LDFLAGS += -B"/Linenumbers"   # Map file with linenumbers.
+TEMPLATE_VBoxOs2Vac308_LDFLAGS += -B"/Exepack:2"     # Compress the file using exepack 2.
+TEMPLATE_VBoxOs2Vac308_LDFLAGS += -B"/Alignment:32"  # Pack LX pages on 32 byte boundaries (default is 512 bytes).
+TEMPLATE_VBoxOs2Vac308_LDFLAGS += -B"/NoDefaultLibrarySearch"
+TEMPLATE_VBoxOs2Vac308_LDFLAGS := $(strip $(TEMPLATE_VBoxOs2Vac308_LDFLAGS))
+
+TEMPLATE_VBoxOs2Vac308_INCS = \
+	$(PATH_DDKVIDEO)/rel/os2c/include/base/os2 \
+	$(PATH_DDKVIDEO)/rel/os2c/include/base/os2/16bit
+
+TEMPLATE_VBoxOs2Vac308_LIBS = \
+	$(PATH_DDKVIDEO)/rel/os2c/lib/os2/os2386.lib \
+	$(PATH_TOOL_VAC308_LIB)/cppon30.lib
+

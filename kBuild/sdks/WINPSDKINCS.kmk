@@ -1,0 +1,93 @@
+# $Id: WINPSDKINCS.kmk 3418 2020-08-21 11:02:13Z bird $
+## @file
+# kBuild SDK - The Windows Platform SDK, targeting (KBUILD_TARGET) but
+#              without any libraries or LIBPATH properties.
+#              Basically for finding specstrings.h when using the DDK.
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_WINPSDKINCS := The Windows Platform SDK, targeting (KBUILD_TARGET) but \
+	without any library or LIBPATH properties. \
+	Basically for finding specstrings.h when using the DDK.
+
+# SDK Specific Properties
+ifndef PATH_SDK_WINPSDKINCS
+ ifdef PATH_SDK_WINPSDK
+  PATH_SDK_WINPSDKINCS := $(PATH_SDK_WINPSDK)
+ else
+  PATH_SDK_WINPSDKINCS := $(wildcard $(KBUILD_DEVTOOLS_BLD)/sdk/2*)
+  ifeq ($(PATH_SDK_WINPSDKINCS),)
+   PATH_SDK_WINPSDKINCS := $(wildcard $(KBUILD_DEVTOOLS_TRG)/sdk/2*)
+  endif
+  ifeq ($(PATH_SDK_WINPSDKINCS),)
+   PATH_SDK_WINPSDKINCS := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/sdk/2*)
+  endif
+  ifeq ($(PATH_SDK_WINPSDKINCS),)
+   PATH_SDK_WINPSDKINCS := $(wildcard $(KBUILD_DEVTOOLS)/x86.win32/sdk/2*)
+  endif
+  ifeq ($(PATH_SDK_WINPSDKINCS),)
+   PATH_SDK_WINPSDKINCS := $(wildcard $(KBUILD_DEVTOOLS)/win.amd64/sdk/2*)
+  endif
+  ifneq ($(PATH_SDK_WINPSDKINCS),)
+   PATH_SDK_WINPSDKINCS := $(lastword $(sort $(PATH_SDK_WINPSDKINCS)))
+  else
+   $(warning kBuild: PATH_SDK_WINPSDKINCS couldn't be determined!)
+   PATH_SDK_WINPSDKINCS := $(KBUILD_DEVTOOLS_BLD)/sdk/not/found
+  endif
+ endif
+else
+ PATH_SDK_WINPSDKINCS := $(PATH_SDK_WINPSDKINCS)
+endif
+ifndef PATH_SDK_WINPSDKINCS_INC
+PATH_SDK_WINPSDKINCS_INC := $(firstword $(wildcard $(PATH_SDK_WINPSDKINCS)/[Ii][Nn][Cc][Ll][Uu][Dd][Ee]) $(PATH_SDK_WINPSDKINCS)/Include)
+endif
+
+ifndef PATH_SDK_WINPSDKINCS_LIB.x86
+PATH_SDK_WINPSDKINCS_LIB.x86 := $(firstword $(wildcard $(PATH_SDK_WINPSDKINCS)/[Ll][Ii][Bb]) $(PATH_SDK_WINPSDKINCS)/Lib)
+endif
+ifndef PATH_SDK_WINPSDKINCS_LIB.amd64
+PATH_SDK_WINPSDKINCS_LIB.amd64 := $(firstword $(wildcard $(PATH_SDK_WINPSDKINCS)/[Ll][Ii][Bb]/[Aa][Mm][Dd]64) $(PATH_SDK_WINPSDKINCS)/Lib/AMD64)
+endif
+PATH_SDK_WINPSDKINCS_LIB ?= $(PATH_SDK_WINPSDKINCS_LIB.$(KBUILD_TARGET_ARCH))
+
+ifndef PATH_SDK_WINPSDKINCS_BIN
+PATH_SDK_WINPSDKINCS_BIN := $(firstword $(wildcard $(PATH_SDK_WINPSDKINCS)/[Bb][Ii][Nn]) $(PATH_SDK_WINPSDKINCS)/Bin)
+endif
+ifndef PATH_SDK_WINPSDKINCS_BIN_AMD64
+PATH_SDK_WINPSDKINCS_BIN_AMD64 := $(firstword $(wildcard $(PATH_SDK_WINPSDKINCS_BIN)/[Ww][Ii][Nn]64/[Xx]86/[Aa][Mm][Dd]64) $(PATH_SDK_WINPSDKINCS_BIN)/win64/AMD64)
+endif
+ifndef PATH_SDK_WINPSDKINCS_BIN_IA64
+PATH_SDK_WINPSDKINCS_BIN_IA64 := $(firstword $(wildcard $(PATH_SDK_WINPSDKINCS_BIN)/[Ww][Ii][Nn]64) $(PATH_SDK_WINPSDKINCS_BIN)/win64)
+endif
+
+
+# General Properties used by kBuild
+SDK_WINPSDKINCS_INCS ?= $(PATH_SDK_WINPSDKINCS_INC)
+

@@ -1,0 +1,163 @@
+;; @file
+; HM - VMX Structures and Definitions.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%define VMX_VMCS_GUEST_FIELD_ES                                 0800h
+%define VMX_VMCS_GUEST_FIELD_CS                                 0802h
+%define VMX_VMCS_GUEST_FIELD_SS                                 0804h
+%define VMX_VMCS_GUEST_FIELD_DS                                 0806h
+%define VMX_VMCS_GUEST_FIELD_FS                                 0808h
+%define VMX_VMCS_GUEST_FIELD_GS                                 080Ah
+%define VMX_VMCS_GUEST_FIELD_LDTR                               080Ch
+%define VMX_VMCS_GUEST_FIELD_TR                                 080Eh
+%define VMX_VMCS_HOST_FIELD_ES                                  0C00h
+%define VMX_VMCS_HOST_FIELD_CS                                  0C02h
+%define VMX_VMCS_HOST_FIELD_SS                                  0C04h
+%define VMX_VMCS_HOST_FIELD_DS                                  0C06h
+%define VMX_VMCS_HOST_FIELD_FS                                  0C08h
+%define VMX_VMCS_HOST_FIELD_GS                                  0C0Ah
+%define VMX_VMCS_HOST_FIELD_TR                                  0C0Ch
+%define VMX_VMCS_CTRL_IO_BITMAP_A_FULL                          02000h
+%define VMX_VMCS_CTRL_IO_BITMAP_A_HIGH                          02001h
+%define VMX_VMCS_CTRL_IO_BITMAP_B_FULL                          02002h
+%define VMX_VMCS_CTRL_IO_BITMAP_B_HIGH                          02003h
+%define VMX_VMCS_CTRL_MSR_BITMAP_FULL                           02004h
+%define VMX_VMCS_CTRL_MSR_BITMAP_HIGH                           02005h
+%define VMX_VMCS_CTRL_VMEXIT_MSR_STORE_FULL                     02006h
+%define VMX_VMCS_CTRL_VMEXIT_MSR_STORE_HIGH                     02007h
+%define VMX_VMCS_CTRL_VMEXIT_MSR_LOAD_FULL                      02008h
+%define VMX_VMCS_CTRL_VMEXIT_MSR_LOAD_HIGH                      02009h
+%define VMX_VMCS_CTRL_VMENTRY_MSR_LOAD_FULL                     0200Ah
+%define VMX_VMCS_CTRL_VMENTRY_MSR_LOAD_HIGH                     0200Bh
+%define VMX_VMCS_CTRL_EXEC_VMCS_PTR_FULL                        0200Ch
+%define VMX_VMCS_CTRL_EXEC_VMCS_PTR_HIGH                        0200Dh
+%define VMX_VMCS_CTRL_TSC_OFFSET_FULL                           02010h
+%define VMX_VMCS_CTRL_TSC_OFFSET_HIGH                           02011h
+%define VMX_VMCS_CTRL_VAPIC_PAGEADDR_FULL                       02012h
+%define VMX_VMCS_CTRL_VAPIC_PAGEADDR_HIGH                       02013h
+%define VMX_VMCS_GUEST_LINK_PTR_FULL                            02800h
+%define VMX_VMCS_GUEST_LINK_PTR_HIGH                            02801h
+%define VMX_VMCS_GUEST_DEBUGCTL_FULL                            02802h
+%define VMX_VMCS_GUEST_DEBUGCTL_HIGH                            02803h
+%define VMX_VMCS_CTRL_PIN_EXEC                                  04000h
+%define VMX_VMCS_CTRL_PROC_EXEC                                 04002h
+%define VMX_VMCS_CTRL_EXCEPTION_BITMAP                          04004h
+%define VMX_VMCS_CTRL_PAGEFAULT_ERROR_MASK                      04006h
+%define VMX_VMCS_CTRL_PAGEFAULT_ERROR_MATCH                     04008h
+%define VMX_VMCS_CTRL_CR3_TARGET_COUNT                          0400Ah
+%define VMX_VMCS_CTRL_EXIT                                      0400Ch
+%define VMX_VMCS_CTRL_EXIT_MSR_STORE_COUNT                      0400Eh
+%define VMX_VMCS_CTRL_EXIT_MSR_LOAD_COUNT                       04010h
+%define VMX_VMCS_CTRL_ENTRY                                     04012h
+%define VMX_VMCS_CTRL_ENTRY_MSR_LOAD_COUNT                      04014h
+%define VMX_VMCS_CTRL_ENTRY_IRQ_INFO                            04016h
+%define VMX_VMCS_CTRL_ENTRY_EXCEPTION_ERRCODE                   04018h
+%define VMX_VMCS_CTRL_ENTRY_INSTR_LENGTH                        0401Ah
+%define VMX_VMCS_CTRL_TRP_TRESHOLD                              0401Ch
+%define VMX_VMCS_RO_VM_INSTR_ERROR                              04400h
+%define VMX_VMCS_RO_EXIT_REASON                                 04402h
+%define VMX_VMCS_RO_EXIT_INTERRUPTION_INFO                      04404h
+%define VMX_VMCS_RO_EXIT_INTERRUPTION_ERRCODE                   04406h
+%define VMX_VMCS_RO_IDT_INFO                                    04408h
+%define VMX_VMCS_RO_IDT_ERRCODE                                 0440Ah
+%define VMX_VMCS_RO_EXIT_INSTR_LENGTH                           0440Ch
+%define VMX_VMCS_RO_EXIT_INSTR_INFO                             0440Eh
+%define VMX_VMCS_GUEST_ES_LIMIT                                 04800h
+%define VMX_VMCS_GUEST_CS_LIMIT                                 04802h
+%define VMX_VMCS_GUEST_SS_LIMIT                                 04804h
+%define VMX_VMCS_GUEST_DS_LIMIT                                 04806h
+%define VMX_VMCS_GUEST_FS_LIMIT                                 04808h
+%define VMX_VMCS_GUEST_GS_LIMIT                                 0480Ah
+%define VMX_VMCS_GUEST_LDTR_LIMIT                               0480Ch
+%define VMX_VMCS_GUEST_TR_LIMIT                                 0480Eh
+%define VMX_VMCS_GUEST_GDTR_LIMIT                               04810h
+%define VMX_VMCS_GUEST_IDTR_LIMIT                               04812h
+%define VMX_VMCS_GUEST_ES_ACCESS_RIGHTS                         04814h
+%define VMX_VMCS_GUEST_CS_ACCESS_RIGHTS                         04816h
+%define VMX_VMCS_GUEST_SS_ACCESS_RIGHTS                         04818h
+%define VMX_VMCS_GUEST_DS_ACCESS_RIGHTS                         0481Ah
+%define VMX_VMCS_GUEST_FS_ACCESS_RIGHTS                         0481Ch
+%define VMX_VMCS_GUEST_GS_ACCESS_RIGHTS                         0481Eh
+%define VMX_VMCS_GUEST_LDTR_ACCESS_RIGHTS                       04820h
+%define VMX_VMCS_GUEST_TR_ACCESS_RIGHTS                         04822h
+%define VMX_VMCS_GUEST_INTERRUPTIBILITY_STATE                   04824h
+%define VMX_VMCS_GUEST_ACTIVITY_STATE                           04826h
+%define VMX_VMCS_GUEST_SYSENTER_CS                              0482Ah
+%define VMX_VMCS_CTRL_CR0_MASK                                  06000h
+%define VMX_VMCS_CTRL_CR4_MASK                                  06002h
+%define VMX_VMCS_CTRL_CR0_READ_SHADOW                           06004h
+%define VMX_VMCS_CTRL_CR4_READ_SHADOW                           06006h
+%define VMX_VMCS_CTRL_CR3_TARGET_VAL0                           06008h
+%define VMX_VMCS_CTRL_CR3_TARGET_VAL1                           0600Ah
+%define VMX_VMCS_CTRL_CR3_TARGET_VAL2                           0600Ch
+%define VMX_VMCS_CTRL_CR3_TARGET_VAL31                          0600Eh
+%define VMX_VMCS_RO_EXIT_QUALIFICATION                          06400h
+%define VMX_VMCS_RO_IO_RCX                                      06402h
+%define VMX_VMCS_RO_IO_RSX                                      06404h
+%define VMX_VMCS_RO_IO_RDI                                      06406h
+%define VMX_VMCS_RO_IO_RIP                                      06408h
+%define VMX_VMCS_GUEST_LINEAR_ADDR                              0640Ah
+%define VMX_VMCS64_GUEST_CR0                                    06800h
+%define VMX_VMCS64_GUEST_CR3                                    06802h
+%define VMX_VMCS64_GUEST_CR4                                    06804h
+%define VMX_VMCS64_GUEST_ES_BASE                                06806h
+%define VMX_VMCS64_GUEST_CS_BASE                                06808h
+%define VMX_VMCS64_GUEST_SS_BASE                                0680Ah
+%define VMX_VMCS64_GUEST_DS_BASE                                0680Ch
+%define VMX_VMCS64_GUEST_FS_BASE                                0680Eh
+%define VMX_VMCS64_GUEST_GS_BASE                                06810h
+%define VMX_VMCS64_GUEST_LDTR_BASE                              06812h
+%define VMX_VMCS64_GUEST_TR_BASE                                06814h
+%define VMX_VMCS64_GUEST_GDTR_BASE                              06816h
+%define VMX_VMCS64_GUEST_IDTR_BASE                              06818h
+%define VMX_VMCS64_GUEST_DR7                                    0681Ah
+%define VMX_VMCS64_GUEST_RSP                                    0681Ch
+%define VMX_VMCS64_GUEST_RIP                                    0681Eh
+%define VMX_VMCS64_GUEST_RFLAGS                                 06820h
+%define VMX_VMCS_GUEST_DEBUG_EXCEPTIONS                         06822h
+%define VMX_VMCS64_GUEST_SYSENTER_ESP                           06824h
+%define VMX_VMCS64_GUEST_SYSENTER_EIP                           06826h
+%define VMX_VMCS_HOST_CR0                                       06C00h
+%define VMX_VMCS_HOST_CR3                                       06C02h
+%define VMX_VMCS_HOST_CR4                                       06C04h
+%define VMX_VMCS_HOST_FS_BASE                                   06C06h
+%define VMX_VMCS_HOST_GS_BASE                                   06C08h
+%define VMX_VMCS_HOST_TR_BASE                                   06C0Ah
+%define VMX_VMCS_HOST_GDTR_BASE                                 06C0Ch
+%define VMX_VMCS_HOST_IDTR_BASE                                 06C0Eh
+%define VMX_VMCS_HOST_SYSENTER_ESP                              06C10h
+%define VMX_VMCS_HOST_SYSENTER_EIP                              06C12h
+%define VMX_VMCS_HOST_RSP                                       06C14h
+%define VMX_VMCS_HOST_RIP                                       06C16h
+

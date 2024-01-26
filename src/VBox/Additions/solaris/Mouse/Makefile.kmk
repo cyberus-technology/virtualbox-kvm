@@ -1,0 +1,81 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Solaris Mouse Integration kernel module.
+#
+
+#
+# Copyright (C) 2012-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include	$(KBUILD_PATH)/subheader.kmk
+
+#ifneq ($(KBUILD_HOST),solaris)
+#$(error "The Solaris guest additions can only be built on Solaris!")
+#endif
+
+#
+# vboxms - The Mouse Integration Driver
+#
+SYSMODS.solaris     += vboxms
+vboxms_TEMPLATE   = VBoxGuestR0Drv
+vboxms_DEFS       = VBOX_WITH_HGCM VBOX_SVN_REV=$(VBOX_SVN_REV)
+vboxms_DEPS      += $(VBOX_SVN_REV_KMK)
+vboxms_SOURCES    = \
+	vboxms.c
+vboxms_LIBS       = \
+	$(VBOX_LIB_VBGL_R0)
+ifeq ($(KBUILD_HOST),solaris)
+ vboxms_LDFLAGS         += -N drv/vboxguest -N misc/ctf
+else
+ vboxms_SOURCES         += deps.asm
+ vboxms_deps.asm_ASFLAGS = -f bin -g null
+endif
+
+
+PROGRAMS += vboxmslnk
+vboxmslnk_TEMPLATE    = VBoxGuestR3Exe
+vboxmslnk_SOURCES     = vboxmslnk.c
+
+
+if 0 # Broken - unresolved externals: vbglDriver*, RTR0AssertPanicSystem.
+ if defined(VBOX_WITH_TESTCASES) && !defined(VBOX_ONLY_ADDITIONS) && !defined(VBOX_ONLY_SDK)
+  PROGRAMS += tstVBoxMouse-solaris
+  tstVBoxMouse-solaris_TEMPLATE = VBoxR3TstExe
+  tstVBoxMouse-solaris_SOURCES = \
+  	vboxms.c \
+  	testcase/tstVBoxMouse-solaris.c
+  tstVBoxMouse-solaris_DEFS    = TESTCASE
+  tstVBoxMouse-solaris_LIBS    = $(LIB_RUNTIME)
+ endif
+endif
+
+include	$(KBUILD_PATH)/subfooter.kmk
+

@@ -1,0 +1,93 @@
+# $Id: .scm-settings $
+## @file
+# Top level source code massager settings.
+#
+# This will be loaded when scm is pointed to any file or directory in the
+# VirtualBox source tree.  It will recursively load all .scm-settings files
+# it find in or above directories or files it's told to work on.  So,
+# .scm-settings files can be placed in sub-directories in the tree to provide
+# additional settins specific to that sub-tree.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+
+#
+# Global settings.
+#
+# Only consider directories and files that are part of a SVN working set.
+#
+--only-svn-dirs
+--only-svn-files
+--set-svn-eol
+--set-svn-executable
+--set-svn-keywords
+
+#
+# Directories to ignore.
+#
+# These are simple string patterns (see iprt/string.h) and we'll match both the
+# base name as well as the absolute path of each directory we consider for
+# recursion against these patterns.
+#
+--filter-out-dirs  ".svn"
+--filter-out-dirs  "/*out*/."
+--filter-out-dirs  "/kBuild/."
+--filter-out-dirs  "/*kBuild_*/."
+--filter-out-dirs  "/*kBuild.*/."
+--filter-out-dirs  "/*_kBuild*/."
+--filter-out-dirs  "/SlickEdit/."
+
+
+#
+# Files to ignore.
+#
+# Same format as for the directories, except that we'll also apply them to
+# files specified directly on the command line.
+#
+--filter-out-files "/vslick.h"
+--filter-out-files "/.dir-locals.el"
+--filter-out-files "*/.gitignore"
+--filter-out-files "*/PkgInfo"
+--filter-out-files "*/*-PkgInfo"
+--filter-out-files "*.crt"
+--filter-out-files "*.plist"
+--filter-out-files "*.provisionprofile"
+--filter-out-files "*/Doxyfile*"
+--filter-out-files "*/COPYING"
+--filter-out-files "*/COPYING.LIB"
+--filter-out-files "*/COPYING.CDDL"
+--filter-out-files "*/COPYING.GPLv2"
+--filter-out-files "*/COPYING.UBDL"
+--filter-out-files "*.desktop"
+--filter-out-files "*/.swagger-codegen-ignore"
+--filter-out-files "*/.swagger-codegen/VERSION"
+
+
+#
+# Header guards are by default relative to the parent directory.
+#
+--guard-prefix VBOX_INCLUDED_SRC_
+--guard-relative-to-dir {parent}
+--fix-header-guard-endif
+

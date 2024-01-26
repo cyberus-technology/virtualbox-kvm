@@ -1,0 +1,895 @@
+; $Id: timesupA.mac $
+;; @file
+; IPRT - Time using SUPLib, the Assembly Code Template.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifdef RT_ARCH_X86
+;;
+; The x86 assembly implementation of the assembly routines.
+;
+; @returns Nanosecond timestamp.
+; @param   pData           Pointer to the nanosecond timestamp data.
+;
+BEGINPROC rtTimeNanoTSInternalAsm
+    ;
+    ; Variable definitions.
+    ;
+%define pData                   [ebp + 08h]
+%define u64RetNanoTS_Hi         [ebp - 04h]
+%define u64RetNanoTS            [ebp - 08h]
+%define u32UpdateIntervalNS     [ebp - 0ch]
+%define u32UpdateIntervalTSC    [ebp - 10h]
+%define u64TSC_Hi               [ebp - 14h]
+%define u64TSC                  [ebp - 18h]
+%define u64CurNanoTS_Hi         [ebp - 1ch]
+%define u64CurNanoTS            [ebp - 20h]
+%define u64PrevNanoTS_Hi        [ebp - 24h]
+%define u64PrevNanoTS           [ebp - 28h]
+%define u32TransactionId        [ebp - 2ch]
+%define u32ApicIdPlus           [ebp - 30h]
+%define TmpVar                  [ebp - 34h]
+%define SavedEBX                [ebp - 38h]
+%define SavedEDI                [ebp - 3ch]
+%define SavedESI                [ebp - 40h]
+
+    ;
+    ; Prolog.
+    ;
+    push    ebp
+    mov     ebp, esp
+    sub     esp, 40h
+    mov     SavedEBX, ebx
+    mov     SavedEDI, edi
+    mov     SavedESI, esi
+
+
+    ;;
+    ;; Read the GIP data and the previous value.
+    ;;
+.ReadGip:
+
+
+    ;
+    ; Load pGip.
+    ;
+%ifdef IMPORTED_SUPLIB
+ %ifdef IN_RING0
+    mov     esi, IMP(g_SUPGlobalInfoPage)
+ %else
+    mov     esi, IMP(g_pSUPGlobalInfoPage)
+    mov     esi, [esi]
+ %endif
+%else
+    mov     esi, [NAME(g_pSUPGlobalInfoPage)]
+%endif
+    or      esi, esi
+    jz      .Rediscover
+    cmp     dword [esi + SUPGLOBALINFOPAGE.u32Magic], SUPGLOBALINFOPAGE_MAGIC
+    jne     .Rediscover
+
+    ;
+    ; Calc pGipCPU, setting u32ApicIdPlus if necessary.
+    ;
+%ifdef NEED_APIC_ID
+    ; u8ApicId = ASMGetApicId();
+    mov     eax, 1
+    cpuid                               ; expensive
+ %ifdef NEED_TRANSACTION_ID
+    mov     u32ApicIdPlus, ebx
+ %endif
+    ; pGipCpu/pGipCpuDelta = &pGip->aCPU[pGip->aiCpuFromApicId[u8ApicId]];
+    shr     ebx, 24
+    movzx   ebx, word [esi + ebx * 2 + SUPGLOBALINFOPAGE.aiCpuFromApicId]
+    mov     eax, SUPGIPCPU_size
+    mul     ebx
+    lea     edi, [esi + eax + SUPGLOBALINFOPAGE.aCPUs]  ; edi == &pGip->aCPU[u8ApicId];
+%endif
+
+%ifdef NEED_TRANSACTION_ID
+    ;
+    ; Serialized loading of u32TransactionId.
+    ;
+ %ifdef ASYNC_GIP
+    mov     ebx, [edi + SUPGIPCPU.u32TransactionId]
+ %else
+    mov     ebx, [esi + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u32TransactionId]
+ %endif
+    mov     u32TransactionId, ebx
+ %ifdef USE_LFENCE
+    lfence
+ %else
+    lock xor dword TmpVar, 0
+ %endif
+%endif
+
+    ;
+    ; Load the data and TSC with delta applied.
+    ;
+    mov     eax, [esi + SUPGLOBALINFOPAGE.u32UpdateIntervalNS]
+    mov     u32UpdateIntervalNS, eax
+%ifdef ASYNC_GIP                        ; esi is now free.
+    mov     edx, [edi + SUPGIPCPU.u32UpdateIntervalTSC]
+%else
+    mov     edx, [esi + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u32UpdateIntervalTSC]
+%endif
+    mov     u32UpdateIntervalTSC, edx
+
+    rdtsc
+%ifdef WITH_TSC_DELTA
+    cmp     dword [edi + SUPGIPCPU.i64TSCDelta], 0xffffffff
+    je      .TscDeltaPossiblyInvalid
+.TscDeltaValid:
+    sub     eax, dword [edi + SUPGIPCPU.i64TSCDelta]
+    sbb     edx, dword [edi + SUPGIPCPU.i64TSCDelta + 4]
+.TscDeltaNotValid:                      ; edi is now free.
+%endif
+
+%ifdef ASYNC_GIP
+    mov     ecx, [edi + SUPGIPCPU.u64NanoTS]
+    mov     esi, [edi + SUPGIPCPU.u64NanoTS + 4]
+%else
+    mov     ecx, [esi + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u64NanoTS]
+    mov     ebx, [esi + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u64NanoTS + 4]
+%endif
+    mov     u64CurNanoTS, ecx
+    mov     u64CurNanoTS_Hi, ebx
+%ifdef ASYNC_GIP
+    mov     ecx, [edi + SUPGIPCPU.u64TSC]
+    mov     ebx, [edi + SUPGIPCPU.u64TSC + 4]
+%else
+    mov     ecx, [esi + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u64TSC]
+    mov     ebx, [esi + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u64TSC + 4]
+%endif
+    mov     u64TSC, ecx
+    mov     u64TSC_Hi, ebx
+
+    ; u64PrevNanoTS = ASMAtomicReadU64(pu64Prev);
+    ;   This serializes load/save. And with the dependency on the
+    ;   RDTSC result, we try to make sure it has completed as well.
+%ifdef ASYNC_GIP
+    mov     esi, pData
+    mov     esi, [esi + RTTIMENANOTSDATA.pu64Prev]
+%else
+    mov     edi, pData
+    mov     edi, [esi + RTTIMENANOTSDATA.pu64Prev]
+%endif
+    mov     ebx, eax
+    mov     ecx, edx
+%ifdef ASYNC_GIP
+    lock cmpxchg8b [esi]
+%else
+    lock cmpxchg8b [edi]
+%endif
+    mov     u64PrevNanoTS, eax
+    mov     u64PrevNanoTS_Hi, edx
+
+%undef SAVED_u64RetNanoTS
+%ifdef NEED_TRANSACTION_ID
+    ;
+    ; Check that the GIP and CPU didn't change.
+    ; We've already serialized all the loads and stores at this point.
+    ;
+ %ifdef NEED_APIC_ID
+    mov     u64RetNanoTS, ebx
+    mov     u64RetNanoTS_Hi, ecx
+  %define SAVED_u64RetNanoTS
+    mov     eax, 1
+    cpuid
+    cmp     u32ApicIdPlus, ebx
+    jne     .ReadGip
+ %endif
+ %ifdef ASYNC_GIP
+    mov     esi, [edi + SUPGIPCPU.u32TransactionId]
+ %else
+    mov     esi, [esi + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u32TransactionId]
+ %endif
+    cmp     esi, u32TransactionId
+    jne     .ReadGip
+    test    esi, 1
+    jnz     .ReadGip
+%endif ; NEED_TRANSACTION_ID
+%ifdef SAVED_u64RetNanoTS
+    mov     ebx, u64RetNanoTS
+    mov     ecx, u64RetNanoTS_Hi
+%endif
+
+    ;;
+    ;; Calc the timestamp.
+    ;;
+    ; u64RetNanoTS -= u64TSC;
+    sub     ebx, u64TSC
+    sbb     ecx, u64TSC_Hi
+
+    ; if (u64RetNanoTS > u32UpdateIntervalTSC) -> jump
+    or      ecx, ecx
+    jnz     .OverFlow
+    cmp     ebx, u32UpdateIntervalTSC
+    ja      .OverFlow
+    mov     eax, ebx
+.ContinueCalcs:                         ; eax <= u32UpdateIntervalTSC
+    mul     dword u32UpdateIntervalNS
+    div     dword u32UpdateIntervalTSC
+    xor     edx, edx
+
+    ; u64RetNanoTS += u64CurNanoTS;
+    add     eax, u64CurNanoTS
+    adc     edx, u64CurNanoTS_Hi
+
+    ;;
+    ;; Compare it with the previous one.
+    ;;
+    ; if (RT_LIKELY(   u64RetNanoTS > u64PrevNanoTS
+    ;               && u64RetNanoTS < u64PrevNanoTS + UINT64_C(86000000000000) /* 24h */))
+    ;; @todo optimize this compare (/me too tired).
+    mov     ecx, u64PrevNanoTS_Hi
+    mov     ebx, u64PrevNanoTS
+    cmp     edx, ecx
+    ja      .Compare2
+    jb      .DeltaPrevTooBig
+    cmp     eax, ebx
+    jbe     .DeltaPrevTooBig
+
+.Compare2:
+    add     ebx, 0x6F736000
+    adc     ecx, 0x00004E37
+    cmp     edx, ecx
+    jb      .CompareDone
+    ja      .DeltaPrevTooBig
+    cmp     eax, ebx
+    jae     .DeltaPrevTooBig
+.CompareDone:
+
+
+    ;;
+    ;; Update the previous value with the u64RetNanoTS value.
+    ;;
+.Update:
+    ; if (RT_LIKELY(ASMAtomicCmpXchgU64(&pData->u64Prev, u64RetNanoTS, u64PrevNanoTS)))
+    mov     ebx, eax
+    mov     ecx, edx
+    mov     esi, pData
+    mov     esi, [esi + RTTIMENANOTSDATA.pu64Prev]
+    mov     eax, u64PrevNanoTS
+    mov     edx, u64PrevNanoTS_Hi
+    lock cmpxchg8b [esi]
+    jnz     .UpdateFailed
+
+.Updated:
+    mov     eax, ebx
+    mov     edx, ecx
+
+.Done:
+    mov     esi, SavedESI
+    mov     edi, SavedEDI
+    mov     ebx, SavedEBX
+    leave
+    ret
+
+
+    ;;
+    ;; We've expired the interval, cap it. If we're here for the 2nd
+    ;; time without any GIP update in-between, the checks against
+    ;; pData->u64Prev below will force 1ns stepping.
+    ;;
+.OverFlow:
+    ; u64Delta = u32UpdateIntervalTSC;
+    mov     esi, pData
+    inc     dword [esi + RTTIMENANOTSDATA.cExpired]
+    mov     eax, u32UpdateIntervalTSC
+    jmp     .ContinueCalcs
+
+
+    ;;
+    ;; u64DeltaPrev >= 24h
+    ;;
+    ;; eax:edx = u64RetNanoTS (to be adjusted)
+    ;;
+.DeltaPrevTooBig:
+    ; uint64_t u64DeltaPrev = u64RetNanoTS - u64PrevNanoTS;
+    mov     ebx, eax
+    sub     ebx, u64PrevNanoTS
+    mov     ecx, edx
+    sbb     ecx, u64PrevNanoTS_Hi       ; ebx:ecx = u64DeltaPrev
+
+    ; else if (   (int64_t)u64DeltaPrev <= 0
+    ;          && (int64_t)u64DeltaPrev + u32UpdateIntervalNS * 2 >= 0)
+    ; {
+    ;    /* Occasional - u64RetNanoTS is in the recent 'past' relative the previous call. */
+    ;     pData->c1nsSteps++;
+    ;     u64RetNanoTS = u64PrevNanoTS + 1;
+    ; }
+    mov     esi, u32UpdateIntervalNS
+    cmp     ecx, 0
+    jl      .PrevNotZero2ndTest
+    jg      .DeltaPrevNotInRecentPast
+    cmp     ebx, 0
+    ja      .DeltaPrevNotInRecentPast
+
+.PrevNotZero2ndTest:
+    add     esi, esi                    ; ASSUMES: u32UpdateIntervalNS * 2 <= 32-bit.
+    xor     edi, edi
+    add     esi, ebx
+    adc     edi, ecx
+    test    edi, edi
+    js      .DeltaPrevNotInRecentPast
+
+.DeltaPrevInRecentPast:
+    mov     esi, pData
+    inc     dword [esi + RTTIMENANOTSDATA.c1nsSteps]
+    mov     eax, u64PrevNanoTS
+    mov     edx, u64PrevNanoTS_Hi
+    add     eax, 1
+    adc     edx, 0
+    jmp     .Update
+
+.DeltaPrevNotInRecentPast:
+    ; else if (!u64PrevNanoTS) /* We're resuming (see TMVirtualResume). */
+    ;     /* do nothing */;
+    cmp     dword u64PrevNanoTS, 0
+    jne     .DeltaPrevNotZero
+    cmp     dword u64PrevNanoTS_Hi, 0
+    jne     .DeltaPrevNotZero
+    jmp     .Update
+
+.DeltaPrevNotZero:
+    ; else
+    ; {
+    ;     /* Something has gone bust, if negative offset it's real bad. */
+    ;     rtTimeNanoTSInternalBitch(pVM,
+    ; }
+
+    ; call C function that does the bitching.
+    mov     u64RetNanoTS, eax
+    mov     u64RetNanoTS_Hi, edx
+
+    mov     edi, u64PrevNanoTS_Hi
+    mov     esi, u64PrevNanoTS
+    push    edi
+    push    esi                         ; 4 - u64PrevNanoTS
+    push    ecx
+    push    ebx                         ; 3 - u64DeltaPrev
+    push    edx
+    push    eax                         ; 2 - u64RetNanoTS
+    mov     eax, pData
+    push    eax                         ; 1 - pData
+    call    dword [eax + RTTIMENANOTSDATA.pfnBad]
+    add     esp, 4*7
+
+    mov     eax, u64RetNanoTS
+    mov     edx, u64RetNanoTS_Hi
+    jmp     .Update
+
+
+    ;;
+    ;; Attempt updating the previous value, provided we're still ahead of it.
+    ;;
+    ;; There is no point in recalculating u64NanoTS because we got preempted or if
+    ;; we raced somebody while the GIP was updated, since these are events
+    ;; that might occur at any point in the return path as well.
+    ;;
+    ;; eax:edx = *pData->u64Prev
+    ;; ebx:ecx = u64RetNanoTS
+    ;;
+    ALIGNCODE(16)
+.UpdateFailed:
+    mov     edi, pData
+    lock inc dword [edi + RTTIMENANOTSDATA.cUpdateRaces]
+    ; for (i = 0; i < 10; i++)
+    mov     edi, 10
+.UpdateLoop:
+    ; if (u64PrevNanoTS >= u64NanoTS)
+    ;     break;
+    cmp     edx, ecx
+    jg      .Updated
+    jne     .UpdateLoopLess
+    cmp     eax, ebx
+    jae     .Updated
+.UpdateLoopLess:
+    ; retry
+    lock cmpxchg8b [esi]
+    jz      .Updated
+    dec     edi
+    jnz     .UpdateLoop
+    jmp     .Updated
+
+
+    ;;
+    ;; The GIP is seemingly invalid, redo the discovery.
+    ;;
+.Rediscover:
+    mov     eax, pData
+    push    eax
+    call    [eax + RTTIMENANOTSDATA.pfnRediscover]
+    add     esp, 4h
+    jmp     .Done
+
+
+%ifdef WITH_TSC_DELTA
+    ;;
+    ;; Unlikely branch for when we think the TSC delta might be invalid.
+    ;;
+.TscDeltaPossiblyInvalid:
+    cmp     dword [edi + SUPGIPCPU.i64TSCDelta + 4], 0x7fffffff
+    jne     .TscDeltaValid
+    jmp     .TscDeltaNotValid
+%endif
+
+    ;
+    ; Cleanup variables
+    ;
+%undef pData
+%undef u64Delta_Hi
+%undef u64Delta
+%undef u32UpdateIntervalNS
+%undef u32UpdateIntervalTSC
+%undef u64TSC_Hi
+%undef u64TSC
+%undef u64NanoTS_Hi
+%undef u64NanoTS
+%undef u64PrevNanoTS_Hi
+%undef u64PrevNanoTS
+%undef u32TransactionId
+%undef u8ApicId
+
+%else ; AMD64
+
+;;
+; The AMD64 assembly implementation of the assembly routines.
+;
+; @returns Nanosecond timestamp.
+; @param   pData    gcc:rdi  msc:rcx    Pointer to the nanosecond timestamp data.
+;
+BEGINPROC rtTimeNanoTSInternalAsm
+    ;
+    ; Define variables and stack frame.
+    ;
+%define SavedRBX                [rbp - 08h]
+%define SavedR12                [rbp - 10h]
+%define SavedR13                [rbp - 18h]
+%define SavedRDI                [rbp - 20h]
+%define SavedRSI                [rbp - 28h]
+%define TmpVar                  [rbp - 30h]
+%define TmpVar2                 [rbp - 38h]
+%ifdef NEED_TRANSACTION_ID
+ %ifdef NEED_APIC_ID
+  %define SavedR14              [rbp - 40h]
+  %define SavedR15              [rbp - 48h]
+ %endif
+%endif
+
+%define pData                   rdi
+
+%ifdef ASYNC_GIP
+ %define u64TSC                 rsi
+ %define pGip                   rsi
+ %ifdef NEED_APIC_ID
+  %define pGipCPU               r8
+ %endif
+%else
+ %define u64TSC                 r8
+ %define pGip                   rsi
+ %ifdef NEED_APIC_ID
+  %define pGipCPU               r8
+ %endif
+%endif
+%define u32TransactionId        r9d
+%define u64CurNanoTS            r10
+%define u64PrevNanoTS           r11     ; not parameter register
+%define u32UpdateIntervalTSC    r12d
+%define u32UpdateIntervalTSC_64 r12
+%define u32UpdateIntervalNS     r13d
+%define u32UpdateIntervalNS_64  r13
+%undef u64SavedRetNanoTS
+%undef u32ApicIdPlus
+%ifdef NEED_TRANSACTION_ID
+ %ifdef NEED_APIC_ID
+  %define u64SavedRetNanoTS     r14
+  %define u32ApicIdPlus         r15d
+ %endif
+%endif
+
+    ;
+    ; The prolog.
+    ;
+    push    rbp
+    mov     rbp, rsp
+%ifdef ASM_CALL64_MSC
+    sub     rsp, 50h+20h
+%else
+    sub     rsp, 50h
+%endif
+    mov     SavedRBX, rbx
+    mov     SavedR12, r12
+    mov     SavedR13, r13
+%ifdef ASM_CALL64_MSC
+    mov     SavedRDI, rdi
+    mov     SavedRSI, rsi
+    mov     pData, rcx
+%else
+    ;mov     pData, rdi - already in rdi.
+%endif
+%ifdef SavedR14
+    mov     SavedR14, r14
+%endif
+%ifdef SavedR15
+    mov     SavedR15, r15
+%endif
+
+
+    ;;
+    ;; Data fetch loop.
+    ;; We take great pain ensuring that data consistency here.
+    ;;
+.ReadGip:
+
+    ;
+    ; Load pGip - finding the GIP is fun...
+    ;
+%ifdef RT_OS_WINDOWS
+ %ifdef IMPORTED_SUPLIB
+  %ifdef IN_RING0
+    mov     rax, qword IMP(g_SUPGlobalInfoPage)
+    mov     pGip, rax
+  %else
+    mov     pGip, [IMP(g_pSUPGlobalInfoPage) wrt rip]
+    mov     pGip, [pGip]
+  %endif
+ %else
+    mov     pGip, [NAME(g_pSUPGlobalInfoPage) wrt rip]
+ %endif
+%else
+ %ifdef IN_RING0
+    mov     rax, qword NAME(g_SUPGlobalInfoPage)
+    mov     pGip, rax
+ %else
+    mov     pGip, [rel NAME(g_pSUPGlobalInfoPage) wrt ..gotpcrel]
+    mov     pGip, [pGip]
+ %endif
+%endif
+    or      pGip, pGip
+    jz      .Rediscover
+    cmp     dword [pGip + SUPGLOBALINFOPAGE.u32Magic], SUPGLOBALINFOPAGE_MAGIC
+    jne     .Rediscover
+
+    ;
+    ; pGipCPU, setting u32ApicIdPlus if necessary.
+    ;
+%ifdef NEED_APIC_ID
+    ; u8ApicId = ASMGetApicId();
+    mov     eax, 1
+    cpuid                               ; expensive
+ %ifdef NEED_TRANSACTION_ID
+    mov     u32ApicIdPlus, ebx
+ %endif
+    ; pGipCPU = &pGip->aCPU[pGip->aiCpuFromApicId[u8ApicId]];
+    shr     ebx, 24
+    movzx   eax, word [pGip + rbx * 2 + SUPGLOBALINFOPAGE.aiCpuFromApicId]
+    imul    eax, SUPGIPCPU_size
+    lea     pGipCPU, [pGip + rax + SUPGLOBALINFOPAGE.aCPUs]
+%endif
+
+%ifdef NEED_TRANSACTION_ID
+    ;
+    ; Serialized loading of u32TransactionId.
+    ;
+ %ifdef ASYNC_GIP
+    mov     u32TransactionId, [pGipCPU + SUPGIPCPU.u32TransactionId]
+ %else
+    mov     u32TransactionId, [pGip + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u32TransactionId]
+ %endif
+ %ifdef USE_LFENCE
+    lfence
+ %else
+    lock xor dword TmpVar, 0
+ %endif
+%endif
+
+    ;
+    ; Load the data and TSC.
+    ;
+    mov     u32UpdateIntervalNS,  [pGip + SUPGLOBALINFOPAGE.u32UpdateIntervalNS]
+%ifdef ASYNC_GIP
+    mov     u32UpdateIntervalTSC, [pGipCPU + SUPGIPCPU.u32UpdateIntervalTSC]
+%else
+    mov     u32UpdateIntervalTSC, [pGip + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u32UpdateIntervalTSC]
+%endif
+
+    rdtsc
+    mov     u64PrevNanoTS,        [pData + RTTIMENANOTSDATA.pu64Prev]
+    mov     u64PrevNanoTS,        [u64PrevNanoTS]
+    shl     rdx, 32
+    or      rax, rdx                    ; rax is u64RetNanoTS.
+%ifdef WITH_TSC_DELTA
+    mov     rdx, [pGipCPU + SUPGIPCPU.i64TSCDelta]
+    mov     u64CurNanoTS, 0x7fffffffffffffff ; INT64_MAX - temporarily borrowing u64CurNanoTS
+    cmp     rdx, u64CurNanoTS
+    je      .TscDeltaNotValid
+    sub     rax, rdx
+.TscDeltaNotValid:
+%endif
+%ifdef u64SavedRetNanoTS                ; doing this here may save a tick or so?
+    mov     u64SavedRetNanoTS, rax
+%endif
+
+%ifdef ASYNC_GIP
+    mov     u64CurNanoTS,         [pGipCPU + SUPGIPCPU.u64NanoTS]
+    mov     u64TSC,               [pGipCPU + SUPGIPCPU.u64TSC]                              ; transhes pGIP!
+%else
+    mov     u64CurNanoTS,         [pGip + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u64NanoTS]
+    mov     u64TSC,               [pGip + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u64TSC]       ; trashes pGipCPU!
+%endif
+
+
+%ifdef NEED_TRANSACTION_ID
+    ;
+    ; Check that the GIP and CPU didn't change.
+    ;
+    ; It is crucial that the rdtsc instruction has completed before
+    ; we check the transaction id. The LOCK prefixed instruction with
+    ; dependency on the RDTSC result should do the trick, I think.
+    ; CPUID is serializing, so the async path is safe by default.
+    ;
+ %ifdef NEED_APIC_ID
+    mov     eax, 1
+    cpuid
+    cmp     u32ApicIdPlus, ebx
+    jne     .ReadGip
+ %else
+    lock xor qword TmpVar, rax
+ %endif
+ %ifdef ASYNC_GIP
+    cmp     u32TransactionId, [pGipCPU + SUPGIPCPU.u32TransactionId]
+ %else
+    cmp     u32TransactionId, [pGip + SUPGLOBALINFOPAGE.aCPUs + SUPGIPCPU.u32TransactionId]
+ %endif
+    jne     .ReadGip
+    test    u32TransactionId, 1
+    jnz     .ReadGip
+ %ifdef u64SavedRetNanoTS
+    mov     rax, u64SavedRetNanoTS      ; rax is u64RetNanoTS.
+ %endif
+%endif ; NEED_TRANSACTION_ID
+
+
+    ;;
+    ;; Calc the timestamp.
+    ;;
+    ; u64RetNanoTS -= u64TSC;
+    sub     rax, u64TSC
+    xor     edx, edx
+
+    ; if (u64RetNanoTS > u32UpdateIntervalTSC) -> jump
+    cmp     rax, u32UpdateIntervalTSC_64
+    ja      .OverFlow
+.ContinueCalcs:                         ; edx = 0; eax <= u32UpdateIntervalTSC
+    mul     u32UpdateIntervalNS
+    div     u32UpdateIntervalTSC
+
+    ; u64RetNanoTS += u64CurNanoTS;
+    add     rax, u64CurNanoTS
+
+
+    ;;
+    ;; Compare it with the previous one.
+    ;;
+    ; if (RT_LIKELY(   u64RetNanoTS > u64PrevNanoTS
+    ;               && u64RetNanoTS < u64PrevNanoTS + UINT64_C(86000000000000) /* 24h */))
+    ;    /* Frequent - less than 24h since last call. */;
+    cmp     rax, u64PrevNanoTS
+    jbe     .DeltaPrevTooBig
+    mov     ecx, 5
+    shl     rcx, 44                     ; close enough
+    add     rcx, u64PrevNanoTS
+    cmp     rax, rcx
+    jae     .DeltaPrevTooBig
+
+
+    ;;
+    ;; Update the previous value.
+    ;;
+.Update:
+    ; if (RT_LIKELY(ASMAtomicCmpXchgU64(&pData->u64Prev, u64RetNanoTS, u64PrevNanoTS)))
+    mov     rbx, [pData + RTTIMENANOTSDATA.pu64Prev]
+    mov     rcx, rax
+    mov     rax, u64PrevNanoTS
+    lock cmpxchg [rbx], rcx
+    jnz     .UpdateFailed
+
+.Updated:
+    mov     rax, rcx
+
+.Done:
+    mov     rbx, SavedRBX
+    mov     r12, SavedR12
+    mov     r13, SavedR13
+%ifdef SavedR14
+    mov     r14, SavedR14
+%endif
+%ifdef SavedR15
+    mov     r15, SavedR15
+%endif
+%ifdef ASM_CALL64_MSC
+    mov     rdi, SavedRDI
+    mov     rsi, SavedRSI
+%endif
+    leave
+    ret
+
+
+    ;;
+    ;; We've expired the interval, cap it. If we're here for the 2nd
+    ;; time without any GIP update in-between, the checks against
+    ;; pData->u64Prev below will force 1ns stepping.
+    ;;
+ALIGNCODE(16)
+.OverFlow:
+    ; u64RetNanoTS = u32UpdateIntervalTSC;
+    inc     dword [pData + RTTIMENANOTSDATA.cExpired]
+    mov     eax, u32UpdateIntervalTSC
+    jmp     .ContinueCalcs
+
+
+    ;;
+    ;; u64DeltaPrev >= 24h
+    ;;
+    ;; rax = u64RetNanoTS (to be adjusted)
+    ;;
+ALIGNCODE(16)
+.DeltaPrevTooBig:
+    ; uint64_t u64DeltaPrev = u64RetNanoTS - u64PrevNanoTS;
+    mov     rbx, rax
+    sub     rbx, u64PrevNanoTS
+
+    ; else if (   (int64_t)u64DeltaPrev <= 0
+    ;          && (int64_t)u64DeltaPrev + u32UpdateIntervalNS * 2 >= 0)
+    ; {
+    ;    /* Occasional - u64NanoTS is in the recent 'past' relative the previous call. */
+    ;     pData->c1nsSteps++;
+    ;     u64RetNanoTS = u64PrevNanoTS + 1;
+    ; }
+    test    rbx, rbx
+    jg      .DeltaPrevNotInRecentPast
+
+    lea     rdx, [u32UpdateIntervalNS_64 + u32UpdateIntervalNS_64]
+    add     rdx, rbx
+    js      .DeltaPrevNotInRecentPast
+
+    ; body
+    inc     dword [pData + RTTIMENANOTSDATA.c1nsSteps]
+    lea     rax, [u64PrevNanoTS + 1]
+    jmp     .Update
+
+    ; else if (!u64PrevNanoTS) /* We're resuming (see TMVirtualResume) / first call. */
+    ;     /* do nothing */;
+.DeltaPrevNotInRecentPast:
+    or      u64PrevNanoTS, u64PrevNanoTS
+    jz      .Update
+
+    ; else
+    ; {
+    ;     /* Something has gone bust, if negative offset it's real bad. */
+    ;     rtTimeNanoTSInternalBitch(pVM,
+    ; }
+
+    ; call C function that does the bitching.
+    mov     TmpVar, rax
+    mov     TmpVar2, pData
+
+%ifdef ASM_CALL64_MSC
+    mov     rcx, pData                  ; param 1 - pData
+    mov     rdx, rax                    ; param 2 - u64RetNanoTS
+    mov     r8, rbx                     ; param 3 - u64DeltaPrev
+    mov     r9, u64PrevNanoTS           ; param 4 - u64PrevNanoTS
+%else
+    ;mov     rdi, pData - already in rdi; param 1 - pData
+    mov     rsi, rax                    ; param 2 - u64RetNanoTS
+    mov     rdx, rbx                    ; param 3 - u64DeltaPrev
+    mov     rcx, u64PrevNanoTS          ; param 4 - u64PrevNanoTS
+%endif
+    call    qword [pData + RTTIMENANOTSDATA.pfnBad]
+
+    mov     rax, TmpVar
+    mov     pData, TmpVar2
+    jmp     .Update
+
+
+    ;;
+    ;; Attempt updating the previous value, provided we're still ahead of it.
+    ;;
+    ;; There is no point in recalculating u64NanoTS because we got preempted or if
+    ;; we raced somebody while the GIP was updated, since these are events
+    ;; that might occur at any point in the return path as well.
+    ;;
+    ;; rax = *pData->u64Prev;
+    ;; rcx = u64RetNanoTS
+    ;;
+ALIGNCODE(16)
+.UpdateFailed:
+    lock inc dword [pData + RTTIMENANOTSDATA.cUpdateRaces]
+    ; for (i = 0; i < 10; i++)
+    mov     edx, 10
+.UpdateLoop:
+    ; if (u64PrevNanoTS >= u64RetNanoTS)
+    ;     break;
+    cmp     rax, rcx
+    jge     .Updated
+.UpdateLoopLess:
+    ; retry
+    lock cmpxchg [rbx], rcx
+    jz      .Updated
+    dec     edx
+    jnz     .UpdateLoop
+    jmp     .Updated
+
+
+    ;;
+    ;; The GIP is seemingly invalid, redo the discovery.
+    ;;
+.Rediscover:
+%ifdef ASM_CALL64_MSC
+    mov     rcx, pData
+%else
+    ; mov     rdi, pData - already in rdi
+%endif
+    call    [pData + RTTIMENANOTSDATA.pfnRediscover]
+    jmp     .Done
+
+
+    ;
+    ; Cleanup variables
+    ;
+%undef SavedRBX
+%undef SavedR12
+%undef SavedR13
+%undef SavedR14
+%undef SavedR15
+%undef SavedRDI
+%undef SavedRSI
+%undef pData
+%undef TmpVar
+%undef u64TSC
+%undef pGip
+%undef pGipCPU
+%undef u32TransactionId
+%undef u64CurNanoTS
+%undef u64PrevNanoTS
+%undef u32UpdateIntervalTSC
+%undef u32UpdateIntervalTSC_64
+%undef u32UpdateIntervalNS
+%undef u64SavedRetNanoTS
+%undef u32ApicIdPlus
+
+%endif  ; AMD64
+ENDPROC rtTimeNanoTSInternalAsm
+

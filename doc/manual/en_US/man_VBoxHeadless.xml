@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxHeadless
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="man_vboxheadless" lang="en">
+  <refentryinfo>
+    <pubdate>August 2019</pubdate>
+    <title>VBoxHeadless</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxHeadless</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxHeadless</refname>
+    <refpurpose>&product-name; remote desktop server</refpurpose>
+    <refclass>Oracle VM VirtualBox</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-vboxheadless">
+      <command>VBoxHeadless</command>
+      <arg>--startvm=<group>
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>vmname</replaceable></arg>
+        </group></arg>
+      <arg>--vrde=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+          <arg choice="plain">config</arg>
+        </group></arg>
+      <arg>--vrdeproperty=<replaceable>prop-name</replaceable>=[<replaceable>prop-value</replaceable>]</arg>
+      <arg>--settingspw=[<replaceable>password</replaceable>]</arg>
+      <arg>--settingspwfile=<replaceable>password-file</replaceable></arg>
+      <arg>--start-paused=<replaceable>vmname</replaceable></arg>
+      <arg>--capture</arg>
+      <arg>--width=<replaceable>width</replaceable></arg>
+      <arg>--height=<replaceable>height</replaceable></arg>
+      <arg>--bitrate=<replaceable>bit-rate</replaceable></arg>
+      <arg>--filename=<replaceable>filename</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxHeadless</command> command is an alternate front
+      end that enables you to remotely manage virtual machines (VMs).
+      The front end is a CLI rather than the VirtualBox Manager
+      graphical user interface (GUI).
+    </para>
+    <para>
+      For information about using this command, see
+      <xref linkend="vboxheadless" />.
+    </para>
+    <refsect2 id="vboxmanage-vboxheadless-command-options">
+      <title>Command Options</title>
+      <variablelist>
+        <varlistentry>
+          <term><option>--startvm=<replaceable>uuid</replaceable> | <replaceable>vmname</replaceable></option></term>
+          <listitem><para>
+              Specifies the Universally Unique Identifier (UUID) or name
+              of the VM to start.
+            </para><para>
+              Use the <command>VBoxManage list vms</command> command to
+              obtain VM information.
+            </para><para>
+              The short versions of this option are <option>-s</option>
+              and <option>-startvm</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vrde=on | off | config</option></term>
+          <listitem><para>
+              Specifies how to use the VRDP server. The default value is
+              <literal>config</literal>. Valid values are as follows:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>on</literal> enables the VRDP server.
+                </para><screen>VBoxHeadless --startvm=<replaceable>vmname</replaceable> --vrde=on</screen></listitem>
+              <listitem><para>
+                  <literal>off</literal> disables the VRDP server.
+                </para><screen>VBoxHeadless --startvm=<replaceable>vmname</replaceable> --vrde=off</screen></listitem>
+              <listitem><para>
+                  <literal>config</literal> enables the VRDP server
+                  depending on the VM configuration.
+                </para><screen>VBoxHeadless --startvm=<replaceable>vmname</replaceable> --vrde=config</screen></listitem>
+            </itemizedlist><para>
+              The short version of this option is <option>-v</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vrdeproperty=<replaceable>prop-name</replaceable>=<replaceable>prop-value</replaceable></option></term>
+          <listitem><para>
+              Specifies a value for one of the following properties:
+            </para><itemizedlist>
+              <listitem><para>
+                  The <literal>TCP/Ports</literal> property value is a
+                  comma-separated list of ports to which the VRDE server
+                  can bind. Use a hyphen (<literal>-</literal>) between
+                  two port numbers to specify a range of ports.
+                </para></listitem>
+              <listitem><para>
+                  The <literal>TCP/Address</literal> property value is
+                  the interface IP address to which to bind the VRDE
+                  server.
+                </para></listitem>
+            </itemizedlist></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--settingspw=[<replaceable>password</replaceable>]</option></term>
+          <listitem><para>
+              Specifies a settings password to access encrypted
+              settings. If you do not specify the password on the
+              command line, <command>VBoxHeadless</command> prompts you
+              for the password.
+            </para><remark>
+              This design does not conform to Oracle's security
+              guidelines. You should not be able to specify a password
+              on the command line because the password can be seen in a
+              process listing.
+            </remark></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--settingspwfile=<replaceable>password-file</replaceable></option></term>
+          <listitem><para>
+              Specifies the file that contains the settings password.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--start-paused=<replaceable>vmname</replaceable></option></term>
+          <listitem><para>
+              Starts the specified VM in the paused state.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--capture</option></term>
+          <listitem><para>
+              Records the VM screen output to a file. In addition to
+              this option, you must use the <option>--filename</option>
+              option to specify the name of the file.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--width=<replaceable>width</replaceable></option></term>
+          <listitem><para>
+              Specifies the frame width of the recording in pixels. This
+              option is associated with the <option>--capture</option>
+              option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--height=<replaceable>height</replaceable></option></term>
+          <listitem><para>
+              Specifies the frame height of the recording in pixels.
+              This option is associated with the
+              <option>--capture</option> option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bitrate=<replaceable>bit-rate</replaceable></option></term>
+          <listitem><para>
+              Specifies the bit rate of the recording in kilobits per
+              second. This option is associated with the
+              <option>--capture</option> option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--filename=<replaceable>filename</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the file in which to store the
+              recording. The codec used is based on the file extension
+              that you choose. You must specify this option if you use
+              the <option>--capture</option> option.
+            </para><remark>
+              Where can we get information about the file extensions
+              that are supported?
+            </remark></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      The following command starts the <literal>ol7u4</literal> VM:
+    </para>
+<screen>$ VBoxHeadless --startvm "ol7u4"</screen>
+    <para>
+      The following command starts the <literal>ol7u6</literal> VM in
+      the Paused state.
+    </para>
+<screen>$ VBoxHeadless --startvm "ol7u6" --start-paused</screen>
+    <para>
+      The following command starts the <literal>ol7u6</literal> VM and
+      records the session. The recording is saved to the
+      <filename>ol7u6-recording</filename> WebM file.
+    </para>
+<screen>$ VBoxHeadless --startvm "ol7u6" --capture --filename ol7u6-recording.webm</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <xref linkend="vboxmanage-list" />,
+      <xref linkend="vboxmanage-startvm" />
+    </para>
+  </refsect1>
+</refentry>

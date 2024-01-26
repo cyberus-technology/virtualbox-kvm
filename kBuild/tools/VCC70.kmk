@@ -1,0 +1,366 @@
+# $Id: VCC70.kmk 3303 2020-01-14 15:09:44Z bird $
+## @file
+# kBuild Tool Config - Visual C++ 7.0 (aka Visual Studio .NET), targeting x86.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_VCC70 := Visual C++ 7.0 (aka Visual Studio .NET), targeting x86.
+
+# Tool Specific Properties
+ifndef PATH_TOOL_VCC70
+ PATH_TOOL_VCC70 := $(firstword $(wildcard \
+	$(KBUILD_DEVTOOLS)/win.x86/vcc/v7 \
+	$(KBUILD_DEVTOOLS)/x86.win32/vcc/v7 \
+	$(KBUILD_DEVTOOLS)/x86.win32/vcc70) )
+ # if not found, we'll enter 'pathless' mode.
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_TOOL_VCC70 := $(PATH_TOOL_VCC70)
+endif
+ifneq ($(PATH_TOOL_VCC70),)
+ PATH_TOOL_VCC70_BIN ?= $(PATH_TOOL_VCC70)/bin
+ PATH_TOOL_VCC70_LIB ?= $(PATH_TOOL_VCC70)/lib
+ PATH_TOOL_VCC70_INC ?= $(PATH_TOOL_VCC70)/include
+ PATH_TOOL_VCC70_ATLMFC ?= $(PATH_TOOL_VCC70)/atlmfc
+ PATH_TOOL_VCC70_ATLMFC_INC ?= $(PATH_TOOL_VCC70_ATLMFC)/include
+ PATH_TOOL_VCC70_ATLMFC_LIB ?= $(PATH_TOOL_VCC70_ATLMFC)/lib
+ TOOL_VCC70_CC  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC70_BIN)/cl.exe
+ TOOL_VCC70_CXX ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC70_BIN)/cl.exe
+ TOOL_VCC70_AS  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC70_BIN)/ml.exe
+ TOOL_VCC70_RC  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC70_BIN)/rc.exe
+ TOOL_VCC70_AR  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC70_BIN)/lib.exe
+ TOOL_VCC70_LD  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC70_BIN)/link.exe
+else
+ # Pathless, relies on the environment.
+ TOOL_VCC70_CC  ?= $(EXEC_X86_WIN32) cl.exe
+ TOOL_VCC70_CXX ?= $(EXEC_X86_WIN32) cl.exe
+ TOOL_VCC70_AS  ?= $(EXEC_X86_WIN32) ml.exe
+ TOOL_VCC70_RC  ?= $(EXEC_X86_WIN32) rc.exe
+ TOOL_VCC70_AR  ?= $(EXEC_X86_WIN32) lib.exe
+ TOOL_VCC70_LD  ?= $(EXEC_X86_WIN32) link.exe
+endif
+## Disabled fast DEP_IDB based dependencies.
+#VCC70_OLD_DEPS = 1
+
+## Constructs the correct .pdb name (the name is lowercased).
+# @param    $(1)        Base name, no extention.
+# @param    $(2)        The extension.
+TOOL_VCC70_PDB = $(dir $(1))$(tolower $(notdir $(1))).$(2)
+
+# General Properties used by kBuild
+TOOL_VCC70_COBJSUFF         ?= .obj
+TOOL_VCC70_CFLAGS           ?= -TC -c -nologo
+TOOL_VCC70_CFLAGS.debug     ?= -Od -Zi
+TOOL_VCC70_CFLAGS.release   ?= -O2
+TOOL_VCC70_CFLAGS.profile   ?= -O2
+TOOL_VCC70_CINCS            ?= $(PATH_TOOL_VCC70_INC)
+TOOL_VCC70_CDEFS            ?=
+
+TOOL_VCC70_CXXOBJSUFF       ?= .obj
+TOOL_VCC70_CXXFLAGS         ?= -TP -c -nologo
+TOOL_VCC70_CXXFLAGS.debug   ?= -Od -Zi
+TOOL_VCC70_CXXFLAGS.release ?= -O2
+TOOL_VCC70_CXXFLAGS.profile ?= -O2
+TOOL_VCC70_CXXINCS          ?= $(PATH_TOOL_VCC70_INC) $(PATH_TOOL_VCC70_ATLMFC_INC)
+TOOL_VCC70_CXXDEFS          ?=
+
+TOOL_VCC70_ASOBJSUFF        ?= .obj
+
+TOOL_VCC70_RCOBJSUFF        ?= .res
+TOOL_VCC70_RCINCS           ?= $(PATH_TOOL_VCC70_INC) $(PATH_TOOL_VCC70_ATLMFC_INC)
+
+TOOL_VCC70_ARFLAGS          ?= -nologo
+TOOL_VCC70_ARLIBSUFF        ?= .lib
+
+TOOL_VCC70_LDFLAGS          ?= -nologo
+TOOL_VCC70_LDFLAGS.debug    ?= -debug
+TOOL_VCC70_LDFLAGS.release  ?=
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC70_COMPILE_C_DONT_PURGE_OUTPUT =
+TOOL_VCC70_COMPILE_C_DEPEND =
+TOOL_VCC70_COMPILE_C_DEPORD =
+#ifdef KBUILD_USE_KOBJCACHE
+#TOOL_VCC70_COMPILE_C_OUTPUT = $(call TOOL_VCC70_PDB, $(outbase)-obj,pdb) $(call TOOL_VCC70_PDB, $(outbase)-obj,idb) $(outbase).i
+#TOOL_VCC70_COMPILE_C_USESES_KOBJCACHE = 1
+#define TOOL_VCC70_COMPILE_C_CMDS
+#	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -r --kObjCache-cpp $(outbase).i \
+#		$(TOOL_VCC70_CC) -E \
+#		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+#		$(subst /,\\,$(abspath $(source))) \
+#		--kObjCache-cc $(obj) \
+#		$(TOOL_VCC70_CC) -c -TC\
+#		$(flags) \
+#		-Fd$(outbase)-obj.pdb \
+#		-FD\
+#		-Fo$(obj)\
+#		$(subst /,\\,$(outbase).i)
+#	$(QUIET)$(DEP_IDB) -f -s -q -o $(dep) -t $(obj) $(call TOOL_VCC70_PDB,$(outbase)-obj,idb)
+#endef
+#else # !KBUILD_USE_KOBJCACHE
+TOOL_VCC70_COMPILE_C_OUTPUT = $(call TOOL_VCC70_PDB, $(outbase)-obj,idb)
+TOOL_VCC70_COMPILE_C_OUTPUT_MAYBE = $(call TOOL_VCC70_PDB, $(outbase)-obj,pdb)
+define TOOL_VCC70_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VCC70_CC) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Fd$(outbase)-obj.pdb \
+		-FD\
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_IDB) -f -s -q -o $(dep) -t $(obj) $(call TOOL_VCC70_PDB,$(outbase)-obj,idb)
+endef
+#endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC70_COMPILE_CXX_DONT_PURGE_OUTPUT =
+TOOL_VCC70_COMPILE_CXX_DEPEND =
+TOOL_VCC70_COMPILE_CXX_DEPORD =
+#ifdef KBUILD_USE_KOBJCACHE
+#TOOL_VCC70_COMPILE_CXX_OUTPUT = $(call TOOL_VCC70_PDB, $(outbase)-obj,pdb) $(call TOOL_VCC70_PDB, $(outbase)-obj,idb) $(outbase).ii
+#TOOL_VCC70_COMPILE_CXX_USES_KOBJCACHE = 1
+#define TOOL_VCC70_COMPILE_CXX_CMDS
+#	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -r --kObjCache-cpp $(outbase).ii \
+#		$(TOOL_VCC70_CC) -E \
+#		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+#		$(subst /,\\,$(abspath $(source))) \
+#		--kObjCache-cc $(obj) \
+#		$(TOOL_VCC70_CC) -c -TP\
+#		$(flags) \
+#		-Fd$(outbase)-obj.pdb \
+#		-FD\
+#		-Fo$(obj)\
+#		$(subst /,\\,$(outbase).ii)
+#	$(QUIET)$(DEP_IDB) -f -s -q -o $(dep) -t $(obj) $(call TOOL_VCC70_PDB,$(outbase)-obj,idb)
+#endef
+#else # !KBUILD_USE_KOBJCACHE
+TOOL_VCC70_COMPILE_CXX_OUTPUT = $(call TOOL_VCC70_PDB, $(outbase)-obj,idb)
+TOOL_VCC70_COMPILE_CXX_OUTPUT_MAYBE = $(call TOOL_VCC70_PDB, $(outbase)-obj,pdb)
+define TOOL_VCC70_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VCC70_CXX) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Fd$(outbase)-obj.pdb \
+		-FD\
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_IDB) -f -s -q -o $(dep) -t $(obj) $(call TOOL_VCC70_PDB,$(outbase)-obj,idb)
+endef
+#endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile resource source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC70_COMPILE_RC_OUTPUT =
+TOOL_VCC70_COMPILE_RC_DEPEND =
+TOOL_VCC70_COMPILE_RC_DEPORD =
+define TOOL_VCC70_COMPILE_RC_CMDS
+	$(QUIET)$(TOOL_VCC70_RC) \
+		$(flags) $(addprefix /i, $(subst /,\\,$(incs))) $(addprefix /d, $(defs))\
+		/fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+TOOL_VCC70_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_VCC70_LINK_LIBRARY_DEPORD =
+TOOL_VCC70_LINK_LIBRARY_OUTPUT = $(outbase).rsp
+TOOL_VCC70_LINK_LIBRARY_OUTPUT_MAYBE = $(outbase).lst $(outbase).exp $(outbase).pdb
+define TOOL_VCC70_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(foreach arg,\
+			$(subst /,\\,$(objs) \
+			$(filter-out %.def,$(othersrc))) \
+			$(addprefix /DEF:,$(filter %.def,$(othersrc))) \
+			,\"$(arg)\")
+	$(QUIET)$(TOOL_VCC70_AR) $(flags) /OUT:$(out) @$(outbase).rsp
+endef
+
+
+## Link program
+# @param    $(target)       Normalized main target name.
+# @param    $(out)          Program name.
+# @param    $(objs)         Object files to link together.
+# @param    $(libs)         Libraries to search.
+# @param    $(libpath)      Library search paths.
+# @param    $(flags)        Flags.
+# @param    $(dirdep)       Directory creation dependency.
+# @param    $(deps)         Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)      Output basename (full). Use this for list files and such.
+#
+TOOL_VCC70_LINK_PROGRAM_OUTPUT_MAYBE = $(outbase).lib $(outbase).exp $(outbase).ilk
+TOOL_VCC70_LINK_PROGRAM_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_VCC70_LINK_PROGRAM_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC70_LINK_PROGRAM_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+TOOL_VCC70_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC70_LINK_PROGRAM_DEPORD =
+define TOOL_VCC70_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(foreach arg,\
+		    $(subst /,\\,$(objs)) \
+		    $(subst /,\\,$(libs)) \
+			,\"$(arg)\")
+	$(QUIET)$(TOOL_VCC70_LD) $(flags) \
+		/OUT:$(out) \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO /MAPINFO:LINES \
+		/MAP:$(outbase).map \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(foreach p,$(libpath), /LIBPATH:$(p)) \
+		@$(outbase).rsp
+endef
+
+
+## Link DLL.
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      DLL name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VCC70_LINK_DLL_OUTPUT = $(outbase).lib $(outbase).exp
+TOOL_VCC70_LINK_DLL_OUTPUT_MAYBE = $(outbase).ilk
+TOOL_VCC70_LINK_DLL_OUTPUT_MAYBE_PRECIOUS = $(PATH_STAGE_LIB)/$(notdir $(outbase)).lib $(PATH_STAGE_LIB)/$(notdir $(outbase)).exp $(outbase).map $(outbase).rsp
+TOOL_VCC70_LINK_DLL_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC70_LINK_DLL_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+TOOL_VCC70_LINK_DLL_DEPEND = $(objs) $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC70_LINK_DLL_DEPORD = $(call DIRDEP,$(PATH_STAGE_LIB))
+define TOOL_VCC70_LINK_DLL_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(foreach arg,\
+		    $(subst /,\\,$(objs)) \
+		    $(subst /,\\,$(libs)) \
+			,\"$(arg)\")
+	$(QUIET)$(TOOL_VCC70_LD) $(flags) \
+		/OUT:$(out) \
+		/IMPLIB:$(outbase).lib \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO /MAPINFO:LINES \
+		/MAP:$(outbase).map \
+		/DLL \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(foreach p,$(libpath), /LIBPATH:$(p)) \
+		@$(outbase).rsp
+	$(QUIET)$(CP) --changed --ignore-non-existing $(outbase).exp $(outbase).lib $(PATH_STAGE_LIB)/
+$(eval _DIRS += $(PATH_STAGE_LIB))
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)       Normalized main target name.
+# @param    $(out)          System module name.
+# @param    $(objs)         Object files to link together.
+# @param    $(libs)         Libraries to search.
+# @param    $(libpath)      Library search paths.
+# @param    $(flags)        Flags.
+# @param    $(dirdep)       Directory creation dependency.
+# @param    $(deps)         Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VCC70_LINK_SYSMOD_OUTPUT_MAYBE = $(outbase).lib $(outbase).exp $(outbase).ilk
+TOOL_VCC70_LINK_SYSMOD_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_VCC70_LINK_SYSMOD_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC70_LINK_SYSMOD_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+TOOL_VCC70_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC70_LINK_SYSMOD_DEPORD =
+define TOOL_VCC70_LINK_SYSMOD_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(foreach arg,\
+		    $(subst /,\\,$(objs)) \
+		    $(subst /,\\,$(libs)) \
+			,\"$(arg)\")
+	$(QUIET)$(TOOL_VCC70_LD) $(flags) \
+		/OUT:$(out) \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO /MAPINFO:LINES \
+		/MAP:$(outbase).map \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(foreach p,$(libpath), /LIBPATH:$(p)) \
+		@$(outbase).rsp
+endef
+

@@ -1,0 +1,66 @@
+=head1 NAME
+
+TPMLIB_DecodeBlob    - Decode a base64-encode TPM blob
+ 
+=head1 SYNOPSIS
+
+B<#include <libtpms/tpm_types.h>>
+
+B<#include <libtpms/tpm_library.h>>
+
+B<TPM_RESULT TPMLIB_DecodeBlob(const char> *I<buffer>B<,
+                             enum TPMLIB_BlobType> I<type>B<,
+                             unsigned char> **I<result>B<
+                             size_t> *I<result_len>B<);>
+
+=head1 DESCRIPTION
+
+The B<TPMLIB_DecodeBlob()> function is used to decode a base64-encoded
+TPM state blob. The caller must pass what type of blob is expected to be
+decoded and following that the function will look for the start and
+end markers of the data.
+
+The following types of blobs are supported along with their start and 
+end markers:
+
+=over 4
+
+=item B<BLOB_TYPE_INITSTATE>
+
+'-----BEGIN INITSTATE-----' marks the beginning of the base64-encoded blob.
+
+'-----END INITSTATE-----' marks the end of the base64-encoded blob.
+
+=back
+
+This function is useful when passing state to the TPM inside the
+callback that is invoked to get the TPM's state blob.
+See I<TPMLIB_RegisterCallbacks>(3).
+
+=head1 ERRORS
+
+=over 4
+
+=item B<TPM_SUCCESS>
+
+The function completed successfully.
+
+=item B<TPM_SIZE>
+
+The size of a requested buffer exceeds the limit or the
+system is out of memory.
+
+=item B<TPM_FAIL>
+
+An error occurred while attempting to decode the blob.
+
+=back
+
+For a complete list of TPM error codes please consult the include file
+B<libtpms/tpm_error.h>
+
+=head1 SEE ALSO
+
+B<TPMLIB_MainInit>(3), B<TPMLIB_RegisterCallbacks>(3)
+
+=cut

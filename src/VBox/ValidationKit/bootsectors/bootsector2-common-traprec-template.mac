@@ -1,0 +1,115 @@
+; $Id: bootsector2-common-traprec-template.mac $
+;; @file
+; Boot sector 2 - Trap Records, Code Template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%include "bootsector2-template-header.mac"
+
+
+;;
+; Internal worker for reporting a missing trap
+;
+; The callee cleans up the arguments on the stack.
+;
+; @param    [xBP + xCB*2]   bExpected   Expected exception number.
+; @param    [xBP + xCB*2+1] szExpected  The name of the exception (2 bytes + terminator).
+; @uses     None
+;
+BEGINPROC TMPL_NM_CMN(TestFailedMissingTrapInternal)
+        push    xBP
+        mov     xBP, xSP
+        pushf
+        push    sAX
+
+        movzx   eax, byte [xBP + xCB*2]
+        push    xAX
+        lea     sAX, [sBP + xCB*2+1]
+%ifdef TMPL_16BIT
+        push    ss
+%endif
+        push    xAX
+%ifdef TMPL_16BIT
+        push    cs
+%endif
+        push    .szFmt
+        call    TMPL_NM_CMN(TestFailedF)
+%ifdef TMPL_16BIT
+        add     xSP, xCB*5
+%else
+        add     xSP, xCB*3
+%endif
+
+        pop     sAX
+        popf
+        leave
+        ret     sCB
+.szFmt: db 'Missing trap #%s (%RX8)', 13, 10, 0
+ENDPROC   TMPL_NM_CMN(TestFailedMissingTrapInternal)
+
+%ifndef TestFailedMissingTrapTemplate_defined
+ ;;
+ ; Internal template.
+ %macro TestFailedMissingTrapTemplate 4
+   BEGINPROC TMPL_NM_CMN(TestFailedMissingTrap_%1)
+       push    dword RT_MAKE_U32_FROM_U8(%1, %2, %3, %4)
+       call    TMPL_NM_CMN(TestFailedMissingTrapInternal)
+       ret
+   ENDPROC   TMPL_NM_CMN(TestFailedMissingTrap_%1)
+ %endmacro
+ %define TestFailedMissingTrapTemplate_defined
+%endif
+
+TestFailedMissingTrapTemplate X86_XCPT_DE,  'D', 'E', 0
+TestFailedMissingTrapTemplate X86_XCPT_DB,  'D', 'B', 0
+TestFailedMissingTrapTemplate X86_XCPT_NMI, 'N', 'M', 0
+TestFailedMissingTrapTemplate X86_XCPT_BP,  'B', 'P', 0
+TestFailedMissingTrapTemplate X86_XCPT_OF,  'O', 'F', 0
+TestFailedMissingTrapTemplate X86_XCPT_BR,  'B', 'R', 0
+TestFailedMissingTrapTemplate X86_XCPT_UD,  'U', 'D', 0
+TestFailedMissingTrapTemplate X86_XCPT_NM,  'N', 'M', 0
+;TestFailedMissingTrapTemplate X86_XCPT_DF,  'D', 'F', 0
+;TestFailedMissingTrapTemplate X86_XCPT_CO_SEG_OVERRUN, 'C', 'O', 0
+TestFailedMissingTrapTemplate X86_XCPT_TS,  'T', 'S', 0
+TestFailedMissingTrapTemplate X86_XCPT_NP,  'N', 'P', 0
+TestFailedMissingTrapTemplate X86_XCPT_SS,  'S', 'S', 0
+TestFailedMissingTrapTemplate X86_XCPT_GP,  'G', 'P', 0
+TestFailedMissingTrapTemplate X86_XCPT_PF,  'P', 'F', 0
+TestFailedMissingTrapTemplate X86_XCPT_MF,  'M', 'F', 0
+TestFailedMissingTrapTemplate X86_XCPT_AC,  'A', 'C', 0
+;TestFailedMissingTrapTemplate X86_XCPT_MC,  'M', 'C', 0
+TestFailedMissingTrapTemplate X86_XCPT_XF,  'X', 'F', 0
+
+
+%include "bootsector2-template-footer.mac"
+

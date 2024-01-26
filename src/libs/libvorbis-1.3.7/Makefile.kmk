@@ -1,0 +1,69 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for libvorbis.
+#
+
+#
+# Copyright (C) 2022-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# The VBox libvorbis shared library.
+#
+LIBRARIES += VBox-libvorbis
+VBox-libvorbis_TEMPLATE   := VBoxR3DllNonPedanticFast
+ifn1of ($(KBUILD_TARGET), win) # Include our own config.h. Not required on Windows.
+ VBox-libvorbis_DEFS      := HAVE_CONFIG_H
+endif
+VBox-libvorbis_INCS       := \
+	. \
+	include \
+	lib \
+	../libogg-1.3.5/include
+VBox-libvorbis_SOURCES    := \
+	lib/mdct.c \
+	lib/smallft.c \
+	lib/block.c \
+	lib/envelope.c \
+	lib/window.c \
+	lib/lsp.c \
+	lib/lpc.c \
+	lib/analysis.c \
+	lib/synthesis.c \
+	lib/psy.c \
+	lib/info.c \
+	lib/floor1.c \
+	lib/floor0.c \
+	lib/res0.c \
+	lib/mapping0.c \
+	lib/registry.c \
+	lib/codebook.c \
+	lib/sharedbook.c \
+	lib/lookup.c \
+	lib/bitrate.c \
+	lib/vorbisenc.c \
+	lib/vorbisfile.c
+
+include $(FILE_KBUILD_SUB_FOOTER)

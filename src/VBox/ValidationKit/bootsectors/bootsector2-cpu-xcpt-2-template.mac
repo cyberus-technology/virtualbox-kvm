@@ -1,0 +1,511 @@
+; $Id: bootsector2-cpu-xcpt-2-template.mac $
+;; @file
+; Bootsector test for debug exceptions - multi mode template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+%include "bootsector2-template-header.mac"
+
+
+;*******************************************************************************
+;*  Defined Constants And Macros                                               *
+;*******************************************************************************
+;;
+; Some 32/64 macros.
+;
+%if TMPL_BITS == 32
+ %define bs2Idt_BP      bs2Idt32bit_BP
+ %define MY_R0_CS       BS2_SEL_CS32
+ %define MY_R1_CS       BS2_SEL_R1_CS32
+ %define MY_R2_CS       BS2_SEL_R2_CS32
+ %define MY_R3_CS       BS2_SEL_R3_CS32
+
+ %define MY_R0_DS       BS2_SEL_DS32
+ %define MY_R1_DS       BS2_SEL_R1_DS32
+ %define MY_R2_DS       BS2_SEL_R2_DS32
+ %define MY_R3_DS       BS2_SEL_R3_DS32
+
+ %define MY_R0_SS       BS2_SEL_SS32
+ %define MY_R1_SS       BS2_SEL_R1_SS32
+ %define MY_R2_SS       BS2_SEL_R2_SS32
+ %define MY_R3_SS       BS2_SEL_R3_SS32
+
+%else
+ %define bs2Idt_BP      bs2Idt64bit_BP
+ %define MY_R0_CS       BS2_SEL_CS64
+ %define MY_R1_CS       BS2_SEL_R1_CS64
+ %define MY_R2_CS       BS2_SEL_R2_CS64
+ %define MY_R3_CS       BS2_SEL_R3_CS64
+
+ %define MY_R0_DS       BS2_SEL_DS64
+ %define MY_R1_DS       BS2_SEL_R1_DS64
+ %define MY_R2_DS       BS2_SEL_R2_DS64
+ %define MY_R3_DS       BS2_SEL_R3_DS64
+
+ %define MY_R0_SS       BS2_SEL_SS64
+ %define MY_R1_SS       BS2_SEL_R1_SS64
+ %define MY_R2_SS       BS2_SEL_R2_SS64
+ %define MY_R3_SS       BS2_SEL_R3_SS64
+%endif
+
+%ifdef TMPL_64BIT
+ %assign MY_IS_64BIT 1
+%else
+ %assign MY_IS_64BIT 0
+%endif
+
+;; Uncomment this to do lots more iterations (takes time!).
+%define QUICK_TEST
+
+
+;*******************************************************************************
+;*      Global Variables                                                       *
+;*******************************************************************************
+%ifndef CPU_XCPT_1_GLOBALS
+ %define CPU_XCPT_1_GLOBALS
+
+;;
+; Asserts a test.
+;
+; @param    %1  First cmp operand.
+; @param    %2  First cmp operand.
+; @param    %3  Which kind of conditional jump to make
+; @param    %4  The message to print (format string, no arguments please).
+;
+ %macro ASSERT_SIMPLE 4
+        cmp     %1, %2
+        %3      %%.ok
+        cli                             ; raw-mode hack
+        push    dword __LINE__
+  %ifdef TMPL_16BIT
+        push    ds
+  %endif
+        push    %%.s_szMsg
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, sCB*2
+        ;hlt
+        sti
+        jmp     %%.ok
+ %%.s_szMsg: db %4, " (0x%RX32)", 0
+ %%.ok:
+ %endmacro
+
+%endif
+
+
+;;
+; Disable the breakpoints as well as check RA1 bits.
+;
+; @changes DRx
+;
+BEGINPROC TMPL_NM(DisableBps)
+        push    sAX
+        push    sBX
+        sPUSHF
+
+        xor     eax, eax
+        mov     dr7, sAX
+        mov     dr6, sAX
+        mov     dr0, sAX
+        mov     dr1, sAX
+        mov     dr2, sAX
+        mov     dr3, sAX
+
+        mov     sAX, dr6
+        mov     ebx, X86_DR6_RA1_MASK
+        ASSERT_SIMPLE sAX, xBX, je, "Wrong DR6 value (RA1)."
+        mov     sAX, dr7
+        mov     ebx, X86_DR7_RA1_MASK
+        ASSERT_SIMPLE sAX, sBX, je, "Wrong DR7 value (RA1)."
+
+        sPOPF
+        pop     sBX
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM(DisableBps)
+
+
+;;
+; Checks different gate types.
+;
+BEGINPROC TMPL_NM(TestStepping)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+
+        ;
+        ; Step one instruction a lot of times to catch DR6 mismanagement.
+        ;
+%ifdef QUICK_TEST
+        mov     ecx, 0x1000
+%else
+        mov     ecx, 0x80000
+%endif
+.the_1st_loop:
+
+        mov     eax, X86_DR6_INIT_VAL
+        mov     dr6, sAX
+        mov     eax, 0x12345678
+        mov     ebx, 0xaabbccdd
+        sPUSHF
+        or      word [xSP], X86_EFL_TF
+        sPOPF
+        xchg ebx, eax
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, nop
+        ASSERT_SIMPLE eax, 0xaabbccdd, je, "xchg wasn't executed (eax)."
+        ASSERT_SIMPLE ebx, 0x12345678, je, "xchg wasn't executed (ebx)."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_BS), je, "Wrong DR6 value."
+
+        dec     ecx
+        jnz     .the_1st_loop
+
+        ;
+        ; Check that certain bits in DR6 is preserved and others not.
+        ;
+%ifdef QUICK_TEST
+        mov     ecx, 0x200
+%else
+        mov     ecx, 0x20000
+%endif
+.the_2nd_loop:
+        mov     eax, X86_DR6_INIT_VAL | X86_DR6_B0 | X86_DR6_B1 | X86_DR6_B2 | X86_DR6_B3 | X86_DR6_BT | X86_DR6_BD
+        mov     dr6, sAX
+        mov     eax, 0x12345678
+        mov     ebx, 0xaabbccdd
+        sPUSHF
+        or      word [xSP], X86_EFL_TF
+        sPOPF
+        xchg ebx, eax
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, nop
+        ASSERT_SIMPLE eax, 0xaabbccdd, je, "xchg wasn't executed (eax)."
+        ASSERT_SIMPLE ebx, 0x12345678, je, "xchg wasn't executed (ebx)."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_BS | X86_DR6_INIT_VAL | X86_DR6_BT | X86_DR6_BD), je, "Wrong DR6 value."
+
+        dec     ecx
+        jnz     .the_2nd_loop
+
+        ;
+        ; Done.
+        ;
+        cli                             ; raw-mode hack
+        call    TMPL_NM_CMN(TestSubDone)
+        sti
+
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', EFLAGS.TF stepping', 0
+ENDPROC   TMPL_NM(TestGateType)
+
+
+;;
+; Check execution breakpoint.
+;
+BEGINPROC TMPL_NM(TestBpExec)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+
+        ;
+        ; Arm all 4 breakpoints and check DR6 management.
+        ;
+%ifdef QUICK_TEST
+        mov     ecx, 0x1000
+%else
+        mov     ecx, 0x80000
+%endif
+        lea     sAX, [.bp_dr0 xWrtRIP]
+        mov     dr0, sAX
+        lea     sAX, [.bp_dr1 xWrtRIP]
+        mov     dr1, sAX
+        lea     sAX, [.bp_dr2 xWrtRIP]
+        mov     dr2, sAX
+        lea     sAX, [.bp_dr3 xWrtRIP]
+        mov     dr3, sAX
+        mov     eax, X86_DR7_RA1_MASK | X86_DR7_G0 | X86_DR7_G1 | X86_DR7_G2 | X86_DR7_G3 | X86_DR7_GE
+        mov     dr7, sAX
+
+.the_loop:
+        mov     eax, X86_DR6_INIT_VAL | X86_DR6_BS | X86_DR6_BT | X86_DR6_BD
+        mov     dr6, sAX
+
+        mov     eax, 0x12345678
+        mov     ebx, 0xaabbccdd
+.bp_dr0:
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, xchg ebx, eax
+        ASSERT_SIMPLE eax, 0x12345678, je, "xchg was executed (eax)."
+        ASSERT_SIMPLE ebx, 0xaabbccdd, je, "xchg was executed (ebx)."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_BS | X86_DR6_BT | X86_DR6_BD | X86_DR6_B0), je, "Wrong DR6 value (dr0)."
+
+        mov     eax, 0x12345678
+        mov     ebx, 0xaabbccdd
+.bp_dr1:
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, xchg ebx, eax
+        ASSERT_SIMPLE eax, 0x12345678, je, "xchg was executed (eax)."
+        ASSERT_SIMPLE ebx, 0xaabbccdd, je, "xchg was executed (ebx)."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_BS | X86_DR6_BT | X86_DR6_BD | X86_DR6_B1), je, "Wrong DR6 value (dr1)."
+
+        mov     eax, 0x12345678
+        mov     ebx, 0xaabbccdd
+.bp_dr2:
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, xchg ebx, eax
+        ASSERT_SIMPLE eax, 0x12345678, je, "xchg was executed (eax)."
+        ASSERT_SIMPLE ebx, 0xaabbccdd, je, "xchg was executed (ebx)."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_BS | X86_DR6_BT | X86_DR6_BD | X86_DR6_B2), je, "Wrong DR6 value (dr2)."
+
+        mov     eax, 0x12345678
+        mov     ebx, 0xaabbccdd
+.bp_dr3:
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, xchg ebx, eax
+        ASSERT_SIMPLE eax, 0x12345678, je, "xchg was executed (eax)."
+        ASSERT_SIMPLE ebx, 0xaabbccdd, je, "xchg was executed (ebx)."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_BS | X86_DR6_BT | X86_DR6_BD | X86_DR6_B3), je, "Wrong DR6 value (dr3)."
+
+        dec     ecx
+        jnz     .the_loop
+
+        ;
+        ; Touch the code, making sure the BPs don't trigger on data access.
+        ;
+        mov     al, [.bp_dr0 xWrtRIP]
+        mov     [.bp_dr0 xWrtRIP], al
+        mov     al, [.bp_dr1 xWrtRIP]
+        mov     [.bp_dr1 xWrtRIP], al
+        mov     al, [.bp_dr2 xWrtRIP]
+        mov     [.bp_dr2 xWrtRIP], al
+        mov     al, [.bp_dr3 xWrtRIP]
+        mov     [.bp_dr3 xWrtRIP], al
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM(DisableBps)
+        cli                             ; raw-mode hack
+        call    TMPL_NM_CMN(TestSubDone)
+        sti
+
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', Exec BP', 0
+ENDPROC   TMPL_NM(TestBpExec)
+
+
+;;
+; Check I/O breakpoints.
+;
+BEGINPROC TMPL_NM(TestBpIo)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+
+        ;
+        ; Arm all 4 breakpoints and check range handling and such.
+        ;
+        mov     sAX, cr4
+        or      sAX, X86_CR4_DE
+        mov     cr4, sAX
+
+%ifdef QUICK_TEST
+        mov     ecx, 1000
+%else
+        mov     ecx, 4096
+%endif
+        mov     sAX, 84h
+        mov     dr0, sAX
+        mov     sAX, 85h
+        mov     dr1, sAX
+        mov     sAX, 86h
+        mov     dr2, sAX
+        mov     sAX, 8ch
+        mov     dr3, sAX
+        mov     eax, X86_DR7_RA1_MASK | X86_DR7_LE | X86_DR7_GE \
+                   | X86_DR7_L0 | X86_DR7_G0 | X86_DR7_RW(0, X86_DR7_RW_IO) | X86_DR7_LEN(0, X86_DR7_LEN_BYTE) \
+                   | X86_DR7_L1 | X86_DR7_G1 | X86_DR7_RW(1, X86_DR7_RW_IO) | X86_DR7_LEN(1, X86_DR7_LEN_WORD) \
+                   | X86_DR7_L2 | X86_DR7_G2 | X86_DR7_RW(2, X86_DR7_RW_IO) | X86_DR7_LEN(2, X86_DR7_LEN_DWORD) \
+                   | X86_DR7_L3 | X86_DR7_G3 | X86_DR7_RW(3, X86_DR7_RW_IO) | X86_DR7_LEN(3, X86_DR7_LEN_DWORD)
+        mov     dr7, sAX
+
+.the_loop:
+        mov     eax, X86_DR6_INIT_VAL
+        mov     dr6, sAX
+
+        mov     eax, 0x12345678
+        in eax, 84h
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, nop
+        ASSERT_SIMPLE eax, 0x12345678, jne, "in was not executed."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_B0), je, "Wrong DR6 value (dr0)."
+
+        mov     ebx, 0x12345678
+        in eax, 85h
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, nop
+        ASSERT_SIMPLE eax, 0x12345678, jne, "in was not executed."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_B1), je, "Wrong DR6 value (dr1)."
+
+        mov     eax, 0x12345678
+        in eax, 86h
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, nop
+        ASSERT_SIMPLE eax, 0x12345678, jne, "in was not executed."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_B2), je, "Wrong DR6 value (dr2)."
+
+        mov     eax, 0x12345678
+        in eax, 8ch
+        BS2_TRAP_INSTR X86_XCPT_DB, 0, nop
+        ASSERT_SIMPLE eax, 0x12345678, jne, "in was not executed."
+        mov     sAX, dr6
+        ASSERT_SIMPLE eax, (X86_DR6_INIT_VAL | X86_DR6_B3), je, "Wrong DR6 value (dr3)."
+
+        dec     ecx
+        jnz     .the_loop
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM(DisableBps)
+        cli                             ; raw-mode hack
+        call    TMPL_NM_CMN(TestSubDone)
+        sti
+
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', I/O BP', 0
+ENDPROC   TMPL_NM(TestBpIo)
+
+
+;;
+; Do the tests for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(DoTestsForMode_rm)
+        push    bp
+        mov     bp, sp
+        push    ax
+
+        ;
+        ; Check if the mode and NX is supported, do the switch.
+        ;
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+        pushf
+        sti                             ; raw-mode hacks
+
+        ;
+        ; Do the testing.
+        ;
+
+        call    TMPL_NM(TestStepping)
+        call    TMPL_NM(TestBpExec)
+        call    TMPL_NM(TestBpIo)
+
+        ;
+        ; Back to real mode.
+        ;
+        popf
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+        call    Bs2DisableNX_r86
+
+.done:
+        pop     ax
+        leave
+        ret
+ENDPROC TMPL_NM(DoTestsForMode_rm)
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+%include "bootsector2-template-footer.mac"
+

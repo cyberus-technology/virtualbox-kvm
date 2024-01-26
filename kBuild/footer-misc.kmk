@@ -1,0 +1,134 @@
+# $Id: footer-misc.kmk 3307 2020-01-15 02:26:07Z bird $
+## @file
+# kBuild - Footer - Target lists - Pass 2 - Misc.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version source of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+
+#
+# OTHERS
+#
+_OTHERS = $(OTHERS) $(OTHERS.$(KBUILD_TARGET)) $(OTHERS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))
+
+
+
+#
+# TESTING
+#
+_TESTING += $(TESTING) \
+	$(TESTING.$(KBUILD_TARGET)) \
+	$(TESTING.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) \
+	$(TESTING.$(KBUILD_TARGET_ARCH)) \
+	$(TESTING.$(KBUILD_TARGET_CPU))
+
+
+#
+# PACKING
+#
+_PACKING += $(PACKING) \
+	$(PACKING.$(KBUILD_TARGET)) \
+	$(PACKING.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) \
+	$(PACKING.$(KBUILD_TARGET_ARCH)) \
+	$(PACKING.$(KBUILD_TARGET_CPU))
+
+
+#
+# DOCS
+#
+
+
+#
+# DIRECTORIES
+#
+_DIR_ALL := $(sort \
+    $(addsuffix /,$(patsubst %/,%,$(_DIRS) )) \
+    $(dir $(_OUT_FILES) $(_OBJS) $(_INSTALLS_FILES) $(_DEBUG_INSTALL_FILES) $(_STAGE_FILES) $(_DEBUG_STAGE_FILES) ) \
+    $(foreach path, $(KBUILD_INST_PATHS), $(PATH_INS)/$(INST_$(path)) $(PATH_STAGE)/$(STAGE_$(path)) ) \
+    $(dir $(patsubst %/,%, $(_INSTALLS_DIRS) $(_STAGE_DIRS) $(_DEBUG_INSTALL_DIRS) $(_DEBUG_STAGE_DIRS)) ) \
+    )
+$(foreach directory, \
+    $(_INSTALLS_DIRS) \
+    $(_STAGE_DIRS) \
+    $(_DEBUG_INSTALL_DIRS) \
+    $(_DEBUG_STAGE_DIRS) \
+    , $(eval _DIR_ALL := $(filter-out $(directory),$(_DIR_ALL))) )
+
+
+define def_mkdir_rule
+$(directory):
+	%$$(call MSG_MKDIR,$$@)
+	$$(QUIET)$$(MKDIR) -p -- $$@
+endef
+
+$(foreach directory,$(_DIR_ALL),$(eval $(def_mkdir_rule)))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done directories)
+endif
+
+
+#
+# NOTHING
+#
+do-nothing:
+	%$(call MSG_NOTHING)
+ifdef KBUILD_PROFILE_SELF
+	@$(ECHO) 'prof: $(call _KBUILD_FMT_ELAPSED_EX, $(nanots ), $(_KBUILD_TS_HEADER_START)) - $(call _KBUILD_FMT_ELAPSED_EX, $(nanots ), $(_KBUILD_TS_PREV)) - executing $@'
+ ifeq ($(KBUILD_PROFILE_SELF),2)
+	@$(ECHO) 'stat: $(make-stats )'
+ endif
+endif
+
+
+#
+# CLEAN UP
+#
+do-clean:
+	%$(call MSG_CLEAN)
+	$(QUIET)$(RM) -f -- \
+		$(_OUT_FILES) \
+		$(_OBJS) \
+		$(_DEPFILES) \
+		$(_DEPFILES_INCLUDED) \
+		$(_CLEAN_FILES) \
+		$(OTHER_CLEAN) \
+		$(_STAGE_FILES) \
+		$(_DEBUG_STAGE_FILES)
+	$(QUIET)$(RMDIR) -p --ignore-fail-on-non-empty --ignore-fail-on-not-exist -- \
+		$(rsort $(dir   $(_OUT_FILES) \
+				$(_OBJS) \
+				$(_DEPFILES) \
+				$(_DEPFILES_INCLUDED) \
+				$(_CLEAN_FILES) \
+				$(OTHER_CLEAN) \
+				$(_STAGE_FILES) \
+				$(_DEBUG_STAGE_FILES) )\
+			$(_STAGE_DIRS) )
+

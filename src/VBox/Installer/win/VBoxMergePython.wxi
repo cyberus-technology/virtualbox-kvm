@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi"
+         xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension"
+         xmlns:util="http://schemas.microsoft.com/wix/Util">
+
+<?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+    <!-- Python bindings -->
+    <Component Id="cp_VBoxPyInst" Guid="C9A40306-5102-11DE-A7BA-C3C555D89593" Win64="$(var.Property_Win64)">
+         <File Id="file_vboxapisetup.py" Name="vboxapisetup.py"
+               Source="$(env.PATH_OUT)\bin\sdk\installer\vboxapisetup.py"
+               DiskId="$(var.Property_DiskIdCommon)" />
+    </Component>
+    <Directory Id="dir_VBoxPythonSDKVBoxAPI" Name="vboxapi">
+        <Component Id="cp_VBoxPyMod" Guid="DF19CB76-5102-11DE-943B-13C755D89593" Win64="$(var.Property_Win64)">
+            <File Id="file___init__.py" Name="__init__.py"
+                  Source="$(env.PATH_OUT)\bin\sdk\installer\vboxapi\__init__.py"
+                  DiskId="$(var.Property_DiskIdCommon)" />
+            <File Id="file_VirtualBox_constants.py" Name="VirtualBox_constants.py"
+                  Source="$(env.PATH_OUT)\bin\sdk\installer\vboxapi\VirtualBox_constants.py"
+                  DiskId="$(var.Property_DiskIdCommon)" />
+        </Component>
+    </Directory>
+    <Component Id="cp_VBoxPyDel" Guid="D3C59511-E148-49FA-ADFF-718F2FF1B07A" Win64="$(var.Property_Win64)">
+        <RegistryValue Root="HKLM" Key="$(var.Property_RegKey)" Name="PythonApiInstallDir" Type="string"
+                        Value="[msm_VBoxPythonFolder]" KeyPath="yes" />
+        <util:RemoveFolderEx On="uninstall" Property="EXISTING_PYTHON_API_FOLDER" />
+    </Component>
+
+<?endif?>
+    <Component Id="cp_VBoxPythonBinding" KeyPath="yes"
+               Guid="293D7E11-78DA-4C31-AEED-AE2FE42F6881" Win64="$(var.Property_Win64)">
+        <Condition>VBOX_PYTHON_IS_INSTALLED</Condition>
+    </Component>
+
+</Include>

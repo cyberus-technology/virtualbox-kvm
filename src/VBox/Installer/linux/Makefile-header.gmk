@@ -1,0 +1,301 @@
+# $Id: Makefile-header.gmk $
+## @file
+# VirtualBox Guest Additions kernel module Makefile, common parts.
+#
+# (For 2.6.x, the main file must be called 'Makefile'!)
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# Testing:
+# * Building with KERN_DIR set uses the value specified and
+#   the default value for the unspecified one if any.
+
+#
+# These file should be included by the Makefiles for any kernel modules we
+# build as part of the Guest Additions.  The intended way of doing this is as
+# follows:
+#
+# # Linux kbuild sets this to our source directory if we are called from there
+# obj ?= $(CURDIR)
+# include $(obj)/Makefile-header.gmk
+# VBOXMOD_NAME = <name of the module to be built, without extension>
+# VBOXMOD_OBJS = <list of object files which should be included>
+# VBOXMOD_DEFS = <any additional defines which this module needs>
+# VBOXMOD_INCL = <any additional include paths which this module needs>
+# VBOXMOD_CFLAGS = <any additional CFLAGS which this module needs>
+# include $(obj)/Makefile-footer.gmk
+#
+# To avoid potential confusion between kmk/kBuild and linux/kbuild,
+# we use VBOX_KBUILD_TARGET_ARCH instead of KBUILD_TARGET_ARCH and
+# VBOX_KBUILD_TYPE instead of KBUILD_TYPE.  The VBOX_KBUILD_ variable
+# variant takes percedence over the kmk/kBuild ones.
+#
+
+
+#
+# First, figure out which architecture we're targeting and the build type.
+# (We have to support basic cross building (ARCH=i386|x86_64).)
+# While at it, warn about *BUILD_* vars found to help with user problems.
+#
+
+# VBOX_KBUILD_TARGET_ARCH = amd64|x86
+ifeq ($(filter-out x86_64 amd64 AMD64,$(shell uname -m)),)
+ VBOX_KBUILD_TARGET_ARCH_DEFAULT := amd64
+else
+ VBOX_KBUILD_TARGET_ARCH_DEFAULT := x86
+endif
+ifdef VBOX_KBUILD_TARGET_ARCH
+ ifneq ($(filter-out amd64 x86,$(VBOX_KBUILD_TARGET_ARCH)),)
+  $(warning Ignoring unknown VBOX_KBUILD_TARGET_ARCH value '$(VBOX_KBUILD_TARGET_ARCH)'.)
+  VBOX_KBUILD_TARGET_ARCH :=
+ endif
+else
+ ifdef KBUILD_TARGET_ARCH
+  ifneq ($(filter-out amd64 x86,$(KBUILD_TARGET_ARCH)),)
+  $(warning Ignoring unknown KBUILD_TARGET_ARCH value '$(KBUILD_TARGET_ARCH)'.)
+  VBOX_KBUILD_TARGET_ARCH :=
+  endif
+  else
+   ifdef BUILD_TARGET_ARCH
+    $(warning BUILD_TARGET_ARCH is deprecated, use VBOX_KBUILD_TARGET_ARCH instead.)
+    ifneq ($(filter-out amd64 x86,$(BUILD_TARGET_ARCH)),)
+     $(warning Ignoring unknown BUILD_TARGET_ARCH value '$(BUILD_TARGET_ARCH)'.)
+     VBOX_KBUILD_TARGET_ARCH :=
+   endif
+  endif
+ endif
+endif
+ifeq ($(VBOX_KBUILD_TARGET_ARCH),)
+ ifeq ($(ARCH),x86_64)
+  VBOX_KBUILD_TARGET_ARCH := amd64
+ else
+  ifeq ($(ARCH),i386)
+   VBOX_KBUILD_TARGET_ARCH := x86
+  else
+   VBOX_KBUILD_TARGET_ARCH := $(VBOX_KBUILD_TARGET_ARCH_DEFAULT)
+  endif
+ endif
+else
+ ifneq ($(VBOX_KBUILD_TARGET_ARCH),$(VBOX_KBUILD_TARGET_ARCH_DEFAULT))
+  $(warning Using VBOX_KBUILD_TARGET_ARCH='$(VBOX_KBUILD_TARGET_ARCH)' from the $(origin VBOX_KBUILD_TARGET_ARCH).)
+ endif
+endif
+
+# VBOX_KBUILD_TYPE = release|debug|profile|strict|asan
+ifdef VBOX_KBUILD_TYPE
+ VBOX_KBUILD_TYPE_VAR := VBOX_KBUILD_TYPE
+ ifneq ($(filter-out release profile debug strict asan,$(VBOX_KBUILD_TYPE)),)
+  $(warning Ignoring unknown VBOX_KBUILD_TYPE value '$(VBOX_KBUILD_TYPE)'.)
+  VBOX_KBUILD_TYPE :=
+ endif
+else
+ ifdef KBUILD_TYPE
+  VBOX_KBUILD_TYPE_VAR := KBUILD_TYPE
+  VBOX_KBUILD_TYPE := $(KBUILD_TYPE)
+  ifneq ($(filter-out release profile debug strict asan,$(KBUILD_TYPE)),)
+   $(warning Ignoring unknown KBUILD_TYPE value '$(KBUILD_TYPE)'.)
+   VBOX_KBUILD_TYPE :=
+  endif
+ else
+  ifdef BUILD_TYPE
+   $(warning BUILD_TYPE is deprecated, use VBOX_KBUILD_TYPE instead.)
+   VBOX_KBUILD_TYPE_VAR := BUILD_TYPE
+   VBOX_KBUILD_TYPE := $(BUILD_TYPE)
+   ifneq ($(filter-out release profile debug strict asan,$(BUILD_TYPE)),)
+    $(warning Ignoring unknown BUILD_TYPE value '$(BUILD_TYPE)'.)
+    VBOX_KBUILD_TYPE :=
+   endif
+  endif
+ endif
+endif
+ifeq ($(VBOX_KBUILD_TYPE),)
+ VBOX_KBUILD_TYPE_VAR = VBOX_KBUILD_TYPE
+ VBOX_KBUILD_TYPE := release
+else
+ ifneq ($(VBOX_KBUILD_TYPE),release)
+  ifndef VBOX_KERN_QUIET
+   $(warning Using VBOX_KBUILD_TYPE='$(VBOX_KBUILD_TYPE)' from the $(origin $(VBOX_KBUILD_TYPE_VAR)) ($(VBOX_KBUILD_TYPE_VAR)).)
+  endif
+ endif
+endif
+
+ifeq ($(USERNAME),)
+ USERNAME := noname
+endif
+
+ifeq ($(KERNELRELEASE),)
+
+ #
+ # building from this directory
+ #
+
+ # kernel base directory
+ ifdef KERN_DIR
+  ifndef KERN_VER
+   ifeq ($(filter %/build,$(KERN_DIR)),)
+    $(error The variable KERN_DIR must be a kernel build folder and end with /build without a trailing slash, or KERN_VER must be set)
+   endif
+  endif
+ endif
+
+ ifndef KERN_VER
+  ifdef KERN_DIR
+   KERN_VER = $(notdir $(patsubst %/build,%,$(KERN_DIR)))
+   ifeq ($(shell expr $(KERN_VER) : '[0-9]*\.[0-9]*.[0-9]*'),0)
+    $(error The kernel build folder path must end in <version>/build, or the variable KERN_VER must be set)
+   endif
+  endif
+  KERN_VER ?= $(shell uname -r)
+ endif
+
+ ifeq ($(KERN_DIR),)
+  KERN_DIR := /lib/modules/$(KERN_VER)/build
+ endif
+
+ # Is this 2.4 or < 2.6.6? The UTS_RELEASE "2.x.y.z" define is present in the header until 2.6.1x something.
+ ifeq ($(shell if grep '"2\.4\.' $(KERN_DIR)/include/linux/version.h > /dev/null 2>&1; then echo yes; fi),yes)
+  KERN_VERSION := 24
+  VBOX_KERN_GROKS_EXTMOD :=
+ else
+  KERN_VERSION := 26
+  VBOX_KERN_GROKS_EXTMOD := yes
+  ifeq ($(shell if grep '"2\.6\.[012345][."]' $(KERN_DIR)/include/linux/version.h > /dev/null 2>&1; then echo yes; fi),yes)
+   VBOX_KERN_GROKS_EXTMOD :=
+  endif
+  VBOX_KERN_GROKS_SUBDIRS  :=
+  ifeq ($(shell if grep '"[432]\.' $(KERN_DIR)/include/linux/version.h > /dev/null 2>&1; then echo yes; fi),yes)
+   VBOX_KERN_GROKS_SUBDIRS := yes
+  endif
+ endif
+
+ #
+ # Hack for Ubuntu 4.10 where we determine 2.6.8.1-3-generic-amd64 here, but the
+ # the next invocation (M/SUBDIR) ends up with KERNELRELEASE=2.6.8.1-3.
+ #
+ ifeq ($(shell if grep '"[2]\.' $(KERN_DIR)/include/linux/version.h > /dev/null 2>&1; then echo yes; fi),yes)
+  export KERN_VER KERN_DIR
+ else
+  # This makefile received some variables in the command line which should
+  # not be passed to the recursive make invocations (of the Linux makefile
+  # for building kernel modules), since they should derive KERN_DIR from the
+  # respective command line variables to come up with the value they expect.
+  unexport KERN_VER KERN_DIR
+  MAKEOVERRIDES := $(filter-out KERN_VER=% KERN_DIR=%,$(MAKEOVERRIDES))
+ endif
+
+else # neq($(KERNELRELEASE),)
+
+ #
+ # building from kbuild (make -C <kernel_directory> M=`pwd`)
+ #
+
+ # guess kernel version (24 or 26)
+ ifeq ($(VERSION).$(PATCHLEVEL),2.4)
+  KERN_VERSION := 24
+  VBOX_KERN_GROKS_EXTMOD :=
+ else
+  KERN_VERSION := 26
+  VBOX_KERN_GROKS_EXTMOD := yes
+  ifeq ($(VERSION).$(PATCHLEVEL),2.6)
+   ifeq ($(findstring @$(SUBLEVEL)@,@0@1@2@3@4@5@),@$(SUBLEVEL)@)
+    VBOX_KERN_GROKS_EXTMOD :=
+   endif
+  endif
+  VBOX_KERN_GROKS_SUBDIRS  :=
+  ifeq ($(VERSION),2)
+   VBOX_KERN_GROKS_SUBDIRS := yes
+  endif
+  ifeq ($(VERSION),3)
+   VBOX_KERN_GROKS_SUBDIRS := yes
+  endif
+  ifeq ($(VERSION),4)
+   VBOX_KERN_GROKS_SUBDIRS := yes
+  endif
+ endif
+
+ KERN_VER := $(KERNELRELEASE)
+
+ ifeq ($(KERN_DIR),)
+  ifneq ($(srctree),)
+   KERN_DIR := $(srctree)
+  else
+   KERN_DIR := /lib/modules/$(KERN_VER)/build
+  endif
+ endif
+endif # neq($(KERNELRELEASE),)
+
+# Kernel build folder
+ifneq ($(shell if test -d $(KERN_DIR); then echo yes; fi),yes)
+ $(error Error: unable to find the headers of the Linux kernel to build against (KERN_DIR=$(KERN_DIR)). \
+          Specify KERN_VER=<version> (currently $(KERN_VER)) and run Make again)
+endif
+# Kernel include folder
+KERN_INCL := $(KERN_DIR)/include
+# module install folder
+INSTALL_MOD_DIR ?= misc
+MODULE_DIR := $(INSTALL_MOD_PATH)/lib/modules/$(KERN_VER)/$(INSTALL_MOD_DIR)
+
+# For VBOX_GCC_CHECK_CC
+VBOX_CLOSEPAR := )
+VBOX_DOLLAR   := $$
+## Modified VBOX_GCC_CHECK_EX_CC_CXX macro from /Config.kmk.
+# @param 1 The option to test for.
+# @param 2 The return value when supported.
+# @param 3 The return value when NOT supported.
+VBOX_GCC_CHECK_CC = $(shell \
+    > /tmp/$(VBOX_DOLLAR)$(VBOX_DOLLAR).check.c; \
+    if $(CC) $(subst -Wno-,-W,$(1)) -Werror -c -o /dev/null /tmp/$(VBOX_DOLLAR)$(VBOX_DOLLAR).check.c > /dev/null 2>&1; then \
+        case "`LC_ALL=C $(CC) $(subst -Wno-,-W,$(1)) -Werror -c -o /dev/null /tmp/$(VBOX_DOLLAR)$(VBOX_DOLLAR).check.c 2>&1`" in \
+            "error: unknown warning option"*$(VBOX_CLOSEPAR) echo "$(3)";; \
+            *$(VBOX_CLOSEPAR) echo "$(2)";; \
+         esac; \
+    else echo "$(3)"; fi; \
+    rm -f /tmp/$(VBOX_DOLLAR)$(VBOX_DOLLAR).check.c; )
+
+#
+# Guess the module directory ASSUMING that this file is located in that directory.
+# Note! The special MAKEFILE_LIST variable was introduced in GNU make 3.80.
+#
+ifndef VBOX_MODULE_SRC_DIR
+ ifdef MAKEFILE_LIST
+  VBOX_MODULE_SRC_DIR := $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
+ else
+  VBOX_MODULE_SRC_DIR := $(CURDIR)/
+ endif
+endif
+
+
+# debug - show guesses.
+ifdef DEBUG
+ ifndef VBOX_KERN_QUIET
+$(warning dbg: INSTALL_MOD_PATH = $(INSTALL_MOD_PATH))
+$(warning dbg: INSTALL_MOD_DIR  = $(INSTALL_MOD_DIR))
+$(warning dbg: KERN_DIR         = $(KERN_DIR))
+$(warning dbg: KERN_INCL        = $(KERN_INCL))
+$(warning dbg: KERN_VERSION     = $(KERN_VERSION))
+$(warning dbg: MODULE_DIR       = $(MODULE_DIR))
+$(warning dbg: VBOX_MODULE_SRC_DIR = $(VBOX_MODULE_SRC_DIR))
+ endif
+endif
+

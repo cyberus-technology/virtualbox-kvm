@@ -1,0 +1,36 @@
+Test VM - ubuntu-20-04_64 - Ubuntu 20.04 64-bit (for IOMMU testing)
+===================================================================
+
+Setup:
+ - Configure a VM tst-ubuntu-20_04-64 with default Ubuntu 64-bit setting,
+   with a default 10 GB or larger disk.
+ - Configure the VM with 2 GB of RAM, ICH9 chipset, I/O APIC and IOMMU (AMD or Intel).
+ - Make sure networking is NAT.
+ - Disable audio for the VM.
+ - Install Ubuntu 20.04 amd64.
+   Disallow "Install Updates During Installation"
+ - After installation, open "Settings" and configure as follows:
+   - Power:
+       - Set "Blank Screen" to "Never"
+       - Set "Automatic Suspend" to "Off"
+   - Displays:
+       - Set screen resolution to 1280x960 (4:3)
+   - Privacy -> Screen lock:
+       - Set "Automatic Screen Lock" to "Off"
+       - Set "Lock Screen On Suspend" to "Off"
+       - Set "Show notifications on Lock screen" to "Off"
+ - Disable VirtualBox Guest Additions that ship with Ubuntu by default:
+       - sudo sh -c "echo 'blacklist vboxguest' >> /etc/modprobe.d/blacklist.conf"
+       - sudo sh -c "echo 'blacklist vboxvideo' >> /etc/modprobe.d/blacklist.conf"
+ - Disable auto-mounting of the CDROM:
+      gsettings set org.gnome.desktop.media-handling automount false
+      sudo mkdir -p /media/cdrom
+      Add /dev/sr0 to /etc/fstab for mounting CD (see readme_first.txt for details).
+ - Enable address translation for Intel IOMMU:
+       - sudo nano /etc/default/grub
+       - Change GRUB_CMDLINE_LINUX_DEFAULT="intel_iommu=on"
+         i.e. remove "quiet splash" and replaces with "intel_iommu=on" instead.
+         This setting has no effect when AMD IOMMU is configured so always configure this so we can switch testing
+         AMD or Intel IOMMUs.
+ - Proceed as shown in readme_first.txt
+

@@ -1,0 +1,10 @@
+$Id: WindbgPython.txt $
+
+Just a couple of useful windbg commands:
+
+Show python filenames + frame line number (not statement) up the call stack:
+!for_each_frame ".block { dt python27!_frame qwo(!f) f_lineno; da qwo(qwo(qwo(!f)+0x20) + 50) + 20 } "
+
+Same, alternative version:
+!for_each_frame .if ( $spat("${@#FunctionName}","*PyEval_EvalFrameEx*") ) { .printf "python frame: line     %d\npython frame: filename %ma\n", @@c++(f->f_lineno), qwo(qwo(qwo(!f)+0x20) + 50) + 20 }
+

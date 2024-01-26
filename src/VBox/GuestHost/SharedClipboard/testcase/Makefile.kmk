@@ -1,0 +1,76 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Shared Clipboard Guest/Host testcases.
+#
+
+#
+# Copyright (C) 2011-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+if defined(VBOX_WITH_TESTCASES) && !defined(VBOX_ONLY_ADDITIONS) && !defined(VBOX_ONLY_SDK)
+ if1of ($(KBUILD_TARGET), freebsd linux netbsd openbsd solaris)
+
+  PROGRAMS += tstClipboardGH-X11 tstClipboardGH-X11Smoke
+  TESTING  += \
+  	$(tstClipboardGH-X11_0_OUTDIR)/tstClipboardGH-X11.run \
+  	$(tstClipboardGH-X11_0_OUTDIR)/tstClipboardGH-X11Smoke.run
+
+  tstClipboardGH-X11_TEMPLATE  = VBoxR3TstExe
+  tstClipboardGH-X11_DEFS      = VBOX_WITH_HGCM UNIT_TEST TESTCASE
+  tstClipboardGH-X11_SOURCES   = \
+  	tstClipboardGH-X11.cpp \
+  	../clipboard-x11.cpp \
+  	../clipboard-common.cpp
+  tstClipboardGH-X11_CXXFLAGS += -Wno-array-bounds
+  tstClipboardGH-X11_LIBS      = X11 Xt
+  tstClipboardGH-X11_CLEAN     = $(tstClipboardGH-X11_0_OUTDIR)/tstClipboardGH-X11.run
+
+  tstClipboardGH-X11Smoke_TEMPLATE = VBoxR3TstExe
+  tstClipboardGH-X11Smoke_DEFS     = VBOX_WITH_HGCM SMOKETEST
+  tstClipboardGH-X11Smoke_SOURCES  = \
+  	tstClipboardGH-X11Smoke.cpp \
+  	../clipboard-x11.cpp \
+  	../clipboard-common.cpp
+  tstClipboardGH-X11Smoke_LIBPATH  = $(VBOX_LIBPATH_X11)
+  tstClipboardGH-X11Smoke_LIBS     = X11 Xt
+  tstClipboardGH-X11Smoke_CLEAN    = $(tstClipboardGH-X11Smoke_0_OUTDIR)/tstClipboardGH-X11Smoke.run
+
+  $$(tstClipboardGH-X11_0_OUTDIR)/tstClipboardGH-X11.run: $$(tstClipboardGH-X11_1_STAGE_TARGET)
+	export VBOX_LOG_DEST=nofile; $(tstClipboardGH-X11_1_STAGE_TARGET) quiet
+	$(QUIET)$(APPEND) -t "$@" "done"
+
+  $$(tstClipboardGH-X11Smoke_0_OUTDIR)/tstClipboardGH-X11Smoke.run: $$(tstClipboardGH-X11Smoke_1_STAGE_TARGET)
+	export VBOX_LOG_DEST=nofile; $(tstClipboardGH-X11Smoke_1_STAGE_TARGET) quiet
+	$(QUIET)$(APPEND) -t "$@" "done"
+
+  if defined(VBOX_WITH_QTGUI)
+   include $(PATH_SUB_CURRENT)/tstClipboardQt/Makefile.kmk
+  endif
+
+
+ endif
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

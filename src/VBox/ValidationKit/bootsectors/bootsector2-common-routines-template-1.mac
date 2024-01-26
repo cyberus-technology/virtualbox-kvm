@@ -1,0 +1,2655 @@
+; $Id: bootsector2-common-routines-template-1.mac $
+;; @file
+; bootsector2 common routines - template containing code common to related modes.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%include "bootsector2-template-header.mac"
+%include "VBox/bios.mac"
+
+ALIGNCODE(32)
+GLOBALNAME TMPL_NM_CMN(g_szMode)
+        db TMPL_MODE_STR, 0
+
+
+;;
+; Shutdown routine.
+;
+; Does not return.
+;
+; @uses     N/A
+;
+BEGINPROC TMPL_NM_CMN(Shutdown)
+%ifdef TMPL_16BIT
+        jmp     Bs2Shutdown
+%else
+        cli
+        mov     bl, 64
+        mov     ax, ss
+        mov     ds, ax
+        mov     dx, VBOX_BIOS_SHUTDOWN_PORT
+        mov     ax, VBOX_BIOS_OLD_SHUTDOWN_PORT
+.retry:
+        mov     ecx, 8
+        mov     esi, .s_szShutdown
+        rep outsb
+        xchg    dx, ax                  ; alternate between the new (VBox) and old (Bochs) ports.
+        dec     bl
+        jnz     .retry
+        ; Shutdown failed!
+        jmp     Bs2Panic
+.s_szShutdown:
+        db      'Shutdown', 0
+%endif
+ENDPROC   TMPL_NM_CMN(Shutdown)
+
+
+;;
+; Prints a 32-bit unsigned integer on the screen.
+;
+; @param    eax         The value to print.
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(PrintU32)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sDX
+        push    sCX
+        push    sBX
+%ifdef TMPL_16BIT
+        push    ds
+
+        mov     cx, ss
+        mov     ds, cx
+%endif
+
+        ; Allocate a stack buffer and terminate it. ds:bx points ot the end.
+        sub     xSP, 30h
+        mov     xBX, xSP
+        add     xBX, 2fh
+        mov     byte [xBX], 0
+
+        mov     ecx, 10                 ; what to divide by
+.next:
+        xor     edx, edx
+        div     ecx                     ; edx:eax / ecx -> eax and rest in edx.
+        add     dl, '0'
+        dec     xBX
+        mov     [xBX], dl
+        cmp     eax, 0
+        jnz     .next
+
+        ; Print the string.
+        mov     xAX, xBX
+        call    TMPL_NM_CMN(PrintStr)
+
+        add     xSP, 30h
+%ifdef TMPL_16BIT
+        pop     ds
+%endif
+        pop     sBX
+        pop     sCX
+        pop     sDX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(PrintU32)
+
+
+;;
+; Equivalent to RTPrintf, but a max output length of 1KB.
+;
+; @remarks  This uses an entirely STACK BASED CALLING CONVENTION where the
+;           caller does the cleanup (cdecl sans volatile regs).
+;
+; @param    fpszFormat          The format string (far pointer on 16-bit
+;                               systems). See StrFormatV for format details.
+; @param    ...                 Zero or more format string arguments.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(PrintF)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xDX
+        push    xCX
+        push    xBX
+%ifdef TMPL_16BIT
+        push    ds
+        push    es
+        push    fs
+%endif
+        sub     xSP, 0400h              ; string buffer (1024 bytes)
+
+        ;
+        ; Format the failure string and call TestFailed.
+        ;
+%ifdef TMPL_16BIT
+        mov     ax, ss                  ; buffer address.
+        mov     ds, ax
+        mov     ax, sp
+        mov     xDX, 0400h              ; buffer size.
+        les     cx, [bp + 4]            ; format string
+        mov     bx, ss                  ; argument list
+        mov     fs, bx
+        mov     bx, bp
+        add     bx, 8
+%else
+        mov     xAX, xSP                ; buffer address
+        mov     xDX, 0400h              ; buffer size
+        mov     xCX, [xBP + xCB * 2]    ; format string
+        lea     xBX, [xBP + xCB * 3]    ; argument list.
+%endif
+        call    TMPL_NM_CMN(StrFormatV)
+        call    TMPL_NM_CMN(PrintStr)
+
+        add     xSP, 0400h
+%ifdef TMPL_16BIT
+        pop     fs
+        pop     es
+        pop     ds
+%endif
+        pop     xBX
+        pop     xCX
+        pop     xDX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(PrintF)
+
+
+;;
+; Print a string followed by a semicolon and at least one space.
+;
+; @param    ds:ax       The string to print.
+; @param    dx          The desired minimum length of the output. That is
+;                       string + colon + spaces.
+; @uses     nothing.
+;
+BEGINPROC TMPL_NM_CMN(PrintStrColonSpaces)
+        push    xBP
+        mov     xBP, xSP
+        push    xAX
+        push    xCX
+
+        call    TMPL_NM_CMN(PrintStr)
+        call    TMPL_NM_CMN(StrLen)
+        mov     cx, ax
+        mov     al, ':'
+        call    TMPL_NM_CMN(PrintChr)
+        inc     cx
+        mov     al, ' '
+.next_space:
+        call    TMPL_NM_CMN(PrintChr)
+        inc     cx
+        cmp     cx, dx
+        jb      .next_space
+
+        pop     xCX
+        pop     xAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(PrintStrColonSpaces)
+
+
+;;
+; Print a string followed by a 0+ spaces, a semicolon and a space.
+;
+; @param    ds:ax       The string to print.
+; @param    dx          The desired minimum length of the output. That is
+;                       string + spaces + colon + space.
+; @uses     nothing.
+;
+BEGINPROC TMPL_NM_CMN(PrintStrSpacesColonSpace)
+        push    xBP
+        mov     xBP, xSP
+        push    xAX
+        push    xCX
+
+        call    TMPL_NM_CMN(PrintStr)
+        call    TMPL_NM_CMN(StrLen)
+        mov     cx, ax
+        inc     cx
+        mov     al, ' '
+.next_space:
+        inc     cx
+        cmp     cx, dx
+        jae     .done_spaces
+        call    TMPL_NM_CMN(PrintChr)
+        jmp     .next_space
+.done_spaces:
+        mov     al, ':'
+        call    TMPL_NM_CMN(PrintChr)
+        mov     al, ' '
+        call    TMPL_NM_CMN(PrintChr)
+
+        pop     xCX
+        pop     xAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(PrintStrSpacesColonSpace)
+
+
+;;
+; Store the current nanosecond timestamp in [ax] (qword).
+;
+; @param    ds:ax       Where to store the 64-bit timestamp.
+;
+; @uses nothing
+;
+BEGINPROC TMPL_NM_CMN(GetNanoTS)
+        push    sAX
+        push    sCX
+        push    xDX
+%ifdef TMPL_16BIT
+        movzx   ecx, ax
+%else
+        mov     xCX, xAX
+%endif
+
+        mov     dx, VMMDEV_TESTING_IOPORT_TS_LOW
+        in      eax, dx
+        mov     [sCX], eax
+
+        mov     dx, VMMDEV_TESTING_IOPORT_TS_HIGH
+        in      eax, dx
+        mov     [sCX + 4], eax
+
+        pop     xDX
+        pop     sCX
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM_CMN(GetNanoTS)
+
+
+
+;;
+; Calculates the time elapsed since [ax] (qword), storing it at [ax] (qword).
+;
+; @param    ds:ax       Where to get the start timestamp (input) and where
+;                       to store the time elapsed (output). qword
+;
+; @uses nothing
+;
+BEGINPROC TMPL_NM_CMN(GetElapsedNanoTS)
+        push    sAX
+        push    sCX
+        push    xDX
+%ifdef TMPL_16BIT
+        movzx   ecx, ax
+%else
+        mov     xCX, xAX
+%endif
+
+        mov     dx, VMMDEV_TESTING_IOPORT_TS_LOW
+        in      eax, dx
+        sub     eax, [sCX]
+        mov     [sCX], eax
+
+        mov     dx, VMMDEV_TESTING_IOPORT_TS_HIGH
+        in      eax, dx
+        sbb     eax, [sCX + 4]
+        mov     [sCX + 4], eax
+
+        pop     xDX
+        pop     sCX
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM_CMN(GetElapsedNanoTS)
+
+
+;;
+; Sends a command to VMMDev followed by a single string.
+;
+; If the VMMDev is not present or is not being used, this function will
+; do nothing.
+;
+; @param    eax         The command.
+; @param    ds:dx       The string (zero terminated).
+; @uses     nothing
+; @internal
+;
+BEGINPROC TMPL_NM_CMN(testSendStrCmd)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xDX
+
+        cmp     byte [g_fbBs2VMMDevTesting], 0
+        je      .no_vmmdev
+
+        mov     dx, VMMDEV_TESTING_IOPORT_CMD
+        out     dx, eax
+
+        mov     dx, VMMDEV_TESTING_IOPORT_DATA
+        pop     xBX
+        push    xBX
+        dec     xBX
+.next_char:
+        inc     xBX
+        mov     al, [xBX]
+        out     dx, al
+        test    al, al
+        jnz     .next_char
+
+.no_vmmdev:
+        pop     xDX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(testSendStrCmd)
+
+
+;;
+; Equivalent to RTTestCreate + RTTestBanner
+;
+; @param    DS16:xAX            Pointer to a zero terminated string naming the
+;                               test.  Must be a global constant.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(TestInit)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xDX
+
+        ; Initialize the globals.
+        mov     [g_npszBs2Test], xAX
+        xor     eax, eax
+        mov     [g_uscBs2TestErrors], ax
+        mov     [g_npszBs2SubTest], eax
+        mov     [g_uscBs2SubTestAtErrors], ax
+        mov     byte [g_fbBs2SubTestReported], 1
+        mov     [g_uscBs2SubTests], ax
+        mov     [g_uscBs2SubTestsFailed], ax
+
+        ; Print the name. RTTestBanner
+        mov     xAX, [g_npszBs2Test]
+        call    TMPL_NM_CMN(PrintStr)
+        mov     xAX, .s_szTesting
+        call    TMPL_NM_CMN(PrintStr)
+
+        ; Report it to the VMMDev.
+        mov     eax, VMMDEV_TESTING_CMD_INIT
+        mov     xDX, [g_npszBs2Test]
+        call    TMPL_NM_CMN(testSendStrCmd)
+
+        pop     xDX
+        pop     sAX
+        leave
+        ret
+.s_szTesting:
+        db ': TESTING...', 13, 10, 0
+ENDPROC   TMPL_NM_CMN(TestInit)
+
+
+;;
+; rtTestSubTestReport
+; @uses     nothing
+; @internal
+BEGINPROC TMPL_NM_CMN(testSubTestReport)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sCX
+        push    xDX
+
+        ; Check if there is anything to do.
+        cmp     byte [g_fbBs2SubTestReported], 0
+        jne     .done
+        xor     xAX, xAX                ; load the sub test name pointer for later
+        mov     xAX, [g_npszBs2SubTest]
+        test    xAX, xAX
+        jz      .done
+
+        ; Start the printing.
+        mov     dx, 48
+        call    TMPL_NM_CMN(PrintStrSpacesColonSpace)
+
+        mov     byte [g_fbBs2SubTestReported], 1
+        mov     cx, [g_uscBs2TestErrors]
+        sub     cx, [g_uscBs2SubTestAtErrors]
+        and     ecx, 0ffffh
+        jnz     .failed
+
+        ; passed
+        mov     xAX, .s_szPassed
+        call    TMPL_NM_CMN(PrintStr)
+        jmp     .vmmdev
+
+        ; failed
+.failed:
+        mov     xAX, .s_szFailure
+        call    TMPL_NM_CMN(PrintStr)
+        mov     eax, ecx
+        call    TMPL_NM_CMN(PrintU32)
+        mov     xAX, .s_szFailureEnd
+        call    TMPL_NM_CMN(PrintStr)
+
+        ; report to VMMDev
+.vmmdev:
+        cmp     byte [g_fbBs2VMMDevTesting], 0
+        je      .no_vmmdev
+
+        mov     dx, VMMDEV_TESTING_IOPORT_CMD
+        mov     eax, VMMDEV_TESTING_CMD_SUB_DONE
+        out     dx, eax
+
+        mov     dx, VMMDEV_TESTING_IOPORT_DATA
+        mov     eax, ecx
+        out     dx, eax
+
+.no_vmmdev:
+.done:
+        pop     xDX
+        pop     sCX
+        pop     sAX
+        leave
+        ret
+.s_szPassed:
+        db 'PASSED', 13, 10, 0
+.s_szFailure:
+        db 'FAILED (', 0
+.s_szFailureEnd:
+        db ' errors)', 13, 10, 0
+ENDPROC   TMPL_NM_CMN(testSubTestReport)
+
+
+;;
+; rtTestSubCleanup
+; @uses     nothing
+; @internal
+BEGINPROC TMPL_NM_CMN(testSubCleanup)
+        push    xBP
+        mov     xBP, xSP
+
+        cmp     dword [g_npszBs2SubTest], 0
+        je      .cleaned_up
+
+        call    TMPL_NM_CMN(testSubTestReport)
+        mov     dword [g_npszBs2SubTest], 0
+        mov     byte [g_fbBs2SubTestReported], 0
+
+.cleaned_up:
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(testSubCleanup)
+
+
+;;
+; Equivalent to RTTestSub.
+;
+; @param    ds:xAX      Pointer to a zero terminated string naming the sub test.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(TestSub)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xDX
+
+        ; Complete and cleanup any current sub test.
+        call    TMPL_NM_CMN(testSubCleanup)
+
+        ; Start a new sub test.
+        inc     word [g_uscBs2SubTests]
+        mov     dx, [g_uscBs2TestErrors]
+        mov     [g_uscBs2SubTestAtErrors], dx
+        mov     [g_npszBs2SubTest], xAX
+        mov     byte [g_fbBs2SubTestReported], 0
+
+        ; Report it to the VMMDev.
+        mov     xDX, xAX
+        mov     eax, VMMDEV_TESTING_CMD_SUB_NEW
+        call    TMPL_NM_CMN(testSendStrCmd)
+
+        pop     xDX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(TestSub)
+
+
+;;
+; Calculates the error count for the current sub test.
+;
+; @returns  ax          Error count for the current sub test.
+; @uses     ax
+;
+BEGINPROC TMPL_NM_CMN(TestSubErrorCount)
+        pushf
+
+        mov     ax, [g_uscBs2TestErrors]
+        sub     ax, [g_uscBs2SubTestAtErrors]
+
+        popf
+        ret
+ENDPROC   TMPL_NM_CMN(TestSubErrorCount)
+
+
+
+;;
+; Equivalent to RTTestValue.
+;
+; @param    ds:ax       The value name.
+; @param    edx         The 32-bit value to report.
+; @param    cl          The unit (VMMDEV_TESTING_UNIT_XXX).
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(TestValueU32)
+        push    xBP
+        mov     xBP, xSP
+        push    sDX
+        push    sCX
+        push    sAX
+        push    sSI
+        pushf
+        cld
+
+        mov     xSI, xAX                ; xSI = name
+
+        ; Print it.
+        mov     dx, 48
+        call    TMPL_NM_CMN(PrintStrSpacesColonSpace)
+        mov     eax, [xBP - sCB]
+        call    TMPL_NM_CMN(PrintU32)
+        mov     al, ' '
+        call    TMPL_NM_CMN(PrintChr)
+        movzx   sAX, cl                 ; ASSUMES correct input.
+        mov     edx, eax                ; edx = unit
+        shl     xAX, 4                  ; * 16
+        add     xAX, g_aszBs2TestUnitNames
+        call    TMPL_NM_CMN(PrintStr)
+        mov     al, 13
+        call    TMPL_NM_CMN(PrintChr)
+        mov     al, 10
+        call    TMPL_NM_CMN(PrintChr)
+
+        ; Report it to the host.
+        cmp     byte [g_fbBs2VMMDevTesting], 0
+        je      .no_vmmdev
+        mov     ecx, edx                ; ecx = unit
+
+        mov     dx, VMMDEV_TESTING_IOPORT_CMD
+        mov     eax, VMMDEV_TESTING_CMD_VALUE
+        out     dx, eax
+
+        mov     dx, VMMDEV_TESTING_IOPORT_DATA
+        mov     eax, [xBP - sCB]
+        out     dx, eax                 ; value - low dword
+        xor     eax, eax
+        out     dx, eax                 ; value - high dword
+        mov     eax, ecx
+        out     dx, eax                 ; unit
+.next_char:
+        lodsb
+        out     dx, al
+        test    al, al
+        jnz     .next_char
+
+.no_vmmdev:
+        popf
+        pop     sSI
+        pop     sAX
+        pop     sCX
+        pop     sDX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(TestValueU32)
+
+
+;;
+; RTTestValue + DBGFR3RegNmQueryU64.
+;
+; @param    ds:ax       The value name and register name separated by a colon.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(TestValueReg)
+        push    xBP
+        mov     xBP, xSP
+        push    sDX
+        push    sAX
+        push    sSI
+        pushf
+        cld
+
+        mov     xSI, xAX                ; xSI = name
+
+        ; Report it to the host.
+        cmp     byte [g_fbBs2VMMDevTesting], 0
+        je      .no_vmmdev
+
+        mov     dx, VMMDEV_TESTING_IOPORT_CMD
+        mov     eax, VMMDEV_TESTING_CMD_VALUE_REG
+        out     dx, eax
+
+        mov     dx, VMMDEV_TESTING_IOPORT_DATA
+.next_char:
+        lodsb
+        out     dx, al
+        test    al, al
+        jnz     .next_char
+
+.no_vmmdev:
+        popf
+        pop     sSI
+        pop     sAX
+        pop     sDX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(TestValueReg)
+
+
+;;
+; Equivalent to RTTestFailed("%s", ds:xAX).
+;
+; @param    ds:xAX      Failure explanation.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(TestFailed)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xDX
+
+        ; Increment the error count.
+        inc     word [g_uscBs2TestErrors]
+
+        ; Print failure message.
+        call    TMPL_NM_CMN(PrintStr)
+
+        ; Report it to the VMMDev.
+        mov     xDX, xAX
+        mov     eax, VMMDEV_TESTING_CMD_FAILED
+        call    TMPL_NM_CMN(testSendStrCmd)
+
+        pop     xDX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(TestFailed)
+
+
+;;
+; Equivalent to RTTestFailed.
+;
+; @remarks  This uses an entirely STACK BASED CALLING CONVENTION where the
+;           caller does the cleanup (cdecl sans volatile regs).
+;
+; @param    fpszFormat          The format string (far pointer on 16-bit
+;                               systems). See StrFormatV for format details.
+; @param    ...                 Zero or more format string arguments.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(TestFailedF)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xDX
+        push    xCX
+        push    xBX
+%ifdef TMPL_16BIT
+        push    ds
+        push    es
+        push    fs
+%endif
+        sub     xSP, 0400h              ; string buffer (1024 bytes)
+
+        ;
+        ; Format the failure string and call TestFailed.
+        ;
+%ifdef TMPL_16BIT
+        mov     ax, ss                  ; buffer address.
+        mov     ds, ax
+        mov     ax, sp
+        mov     xDX, 0400h              ; buffer size.
+        les     cx, [bp + 4]            ; format string
+        mov     bx, ss                  ; argument list
+        mov     fs, bx
+        mov     bx, bp
+        add     bx, 8
+%else
+        mov     xAX, xSP                ; buffer address
+        mov     xDX, 0400h              ; buffer size
+        mov     xCX, [xBP + xCB * 2]    ; format string
+        lea     xBX, [xBP + xCB * 3]    ; argument list.
+%endif
+        call    TMPL_NM_CMN(StrFormatV)
+        call    TMPL_NM_CMN(TestFailed)
+
+        add     xSP, 0400h
+%ifdef TMPL_16BIT
+        pop     fs
+        pop     es
+        pop     ds
+%endif
+        pop     xBX
+        pop     xCX
+        pop     xDX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(TestFailedF)
+
+
+;;
+; Equivalent to RTTestSkipped("%s", ds:xAX).
+;
+; @param    ds:xAX      Explanation.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(TestSkipped)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xDX
+
+        ; Print reason.
+        call    TMPL_NM_CMN(PrintStr)
+
+        ; Report it to the VMMDev.
+        mov     xDX, xAX
+        mov     eax, VMMDEV_TESTING_CMD_SKIPPED
+        call    TMPL_NM_CMN(testSendStrCmd)
+
+        pop     xDX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(TestSkipped)
+
+
+
+;;
+; Equivalent to RTTestSubDone.
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(TestSubDone)
+        jmp     TMPL_NM_CMN(testSubCleanup)
+ENDPROC   TMPL_NM_CMN(TestSubDone)
+
+
+;;
+; Equivalent to RTTestSummaryAndDestroy, does not return.
+;
+BEGINPROC TMPL_NM_CMN(TestTerm)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sCX
+        push    xDX
+
+        ; Complete and cleanup any current sub test.
+        call    TMPL_NM_CMN(testSubCleanup)
+
+        ; Print test summary.
+        mov     xAX, [g_npszBs2Test]
+        call    TMPL_NM_CMN(PrintStr)
+
+        mov     cx, [g_uscBs2TestErrors]
+        and     ecx, 0ffffh
+        jnz     .failure
+
+        ; success
+        mov     xAX, .s_szSuccess
+        call    TMPL_NM_CMN(PrintStr)
+        jmp     .vmmdev
+
+        ; failure
+.failure:
+        mov     xAX, .s_szFailure
+        call    TMPL_NM_CMN(PrintStr)
+        mov     eax, ecx
+        call    TMPL_NM_CMN(PrintU32)
+        mov     xAX, .s_szFailureEnd
+        call    TMPL_NM_CMN(PrintStr)
+
+        ; report to VMMDev
+.vmmdev:
+        cmp     byte [g_fbBs2VMMDevTesting], 0
+        je      .no_vmmdev
+
+        mov     dx, VMMDEV_TESTING_IOPORT_CMD
+        mov     eax, VMMDEV_TESTING_CMD_TERM
+        out     dx, eax
+
+        mov     dx, VMMDEV_TESTING_IOPORT_DATA
+        mov     eax, ecx
+        out     dx, eax
+.no_vmmdev:
+
+        ; Shut down the VM by default.
+        call    TMPL_NM_CMN(Shutdown)
+
+        pop     xDX
+        pop     sCX
+        pop     sAX
+        leave
+        ret
+.s_szSuccess:
+        db ': SUCCESS', 13, 10, 0
+.s_szFailure:
+        db ': FAILURE - ', 0
+.s_szFailureEnd:
+        db ' errors', 13, 10, 0
+ENDPROC TMPL_NM_CMN(TestTerm)
+
+
+
+
+;;
+; Report a result (elapsed time).
+;
+; @param    ds:ax       Pointer to the elapsed time.
+; @param    edx         The number of tests executed.
+; @param    ds:cx       The test description.
+;
+; @users    nothing
+;
+BEGINPROC TMPL_NM_CMN(ReportResult)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sDX
+        push    xCX
+
+%if 0
+        push    sDX
+        push    xCX
+        push    sDX
+        mov     edx, [sAX]
+        push    sDX
+        mov     edx, [sAX + 4]
+        push    sDX
+        push    .szDbg
+        call    TMPL_NM_CMN(PrintF)
+        add     xSP, 4 * sCB + xCB
+        pop     sDX
+        jmp     .end_debug
+.szDbg:
+        db 'ReportResult(%RX32.%RX32, %RX32, %s)', 13, 10, 0
+.end_debug:
+%endif
+
+        call    TMPL_NM_CMN(CalcTestPerSecond)
+        mov     edx, eax
+        mov     xAX, xCX
+        mov     cl, VMMDEV_TESTING_UNIT_INSTRS_PER_SEC
+        call    TMPL_NM_CMN(TestValueU32)
+
+        pop     xCX
+        pop     sDX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(ReportResult)
+
+
+%ifdef BS2_WITH_TRAPS
+;;
+; Checks a trap, complains if not the expected one.
+;
+; @param    al          The expected trap number.
+; @param    sDX         The expected trap error code.
+; @param    sCX         The expected fault eip.
+; @param    sBX         The expected fault address.
+; @returns  al=1 and ZF=0 on success.
+; @returns  al=0 and ZF=1 on failure
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(TestCheckTrap)
+        push    xBP
+        mov     xBP, xSP
+%define a_u8ExpectedTrapNo      byte  [xBP - xCB]
+        push    xAX
+%define a_uExpectedErr          sPRE [xBP - xCB - sCB*1]
+        push    sDX
+%define a_uExpectedFaultPC      sPRE [xBP - xCB - sCB*2]
+        push    sCX
+%define a_uExpectedFaultAddr    sPRE [xBP - xCB - sCB*3]
+        push    sBX
+
+        ; Any traps at all?
+        cmp     dword [g_u32cTraps], 0
+        jne     .trapped
+        mov     xAX, .s_szNoTrap
+        jmp     .failed
+.trapped:
+
+        ; Exactly one trap.
+        cmp     dword [g_u32cTraps], 1
+        je      .one_trap
+        mov     xAX, .s_szToManyTraps
+        jmp     .failed
+.one_trap:
+
+        ; The right trap.
+        cmp     byte [g_u8LastTrapNo], al
+        je      .right_trap_no
+        mov     xAX, .s_szWrongTrapNo
+        jmp     .failed
+.right_trap_no:
+
+        ; The right error code.
+        cmp     [g_u64LastTrapErr], sDX
+%ifndef TMPL_64BIT
+        jne     .bad_err_cd
+        cmp     dword [g_u64LastTrapErr + 4], 0
+%endif
+        je      .right_err_cd
+.bad_err_cd:
+        mov     xAX, .s_szWrongErrCd
+        jmp     .failed
+.right_err_cd:
+
+        ; The fault PC.
+        cmp     [g_LastTrapRegs + BS2REGS.rip], sCX
+%ifndef TMPL_64BIT
+        jne     .bad_pc
+        cmp     dword [g_LastTrapRegs + BS2REGS.rip + 4], 0
+%endif
+        je      .right_pc
+.bad_pc:
+        mov     xAX, .s_szWrongPc
+        jmp     .failed
+.right_pc:
+
+
+        ; The fault address (PF only).
+        cmp     al, 0eh
+        jne     .right_fault_address
+        cmp     [g_LastTrapRegs + BS2REGS.cr2], sBX
+%ifndef TMPL_64BIT
+        jne     .bad_fault_address
+        cmp     dword [g_LastTrapRegs + BS2REGS.cr2 + 4], 0
+%endif
+        je      .right_fault_address
+.bad_fault_address:
+        mov     xAX, .s_szWrongFaultAddress
+        jmp     .failed
+.right_fault_address:
+
+        pop     sBX
+        pop     sCX
+        pop     sDX
+        pop     xAX
+        leave
+        mov     al, 1
+        test    al, al
+        ret
+
+        ;
+        ; Reportfailure
+        ;
+.failed:
+        mov     xDX, xSP                ; save xSP - lazy bird.
+        cmp     a_u8ExpectedTrapNo, 0eh
+        jne     .not_pf2
+%ifndef TMPL_64BIT
+        push    dword 0
+%endif
+        push    a_uExpectedFaultAddr
+.not_pf1:
+%ifndef TMPL_64BIT
+        push    dword 0
+%endif
+        push    a_uExpectedErr
+%ifndef TMPL_64BIT
+        push    dword 0
+%endif
+        push    a_uExpectedFaultPC
+        movzx   xBX, a_u8ExpectedTrapNo
+        push    xBX
+        ; line break
+        cmp     a_u8ExpectedTrapNo, 0eh
+        jne     .not_pf2
+%ifndef TMPL_64BIT
+        push    dword [g_LastTrapRegs + BS2REGS.cr2 + 4]
+%endif
+        push    sPRE [g_LastTrapRegs + BS2REGS.cr2]
+.not_pf2:
+%ifndef TMPL_64BIT
+        push    dword [g_u64LastTrapErr + 4]
+%endif
+        push    sPRE [g_u64LastTrapErr]
+%ifndef TMPL_64BIT
+        push    dword [g_LastTrapRegs + BS2REGS.rip + 4]
+%endif
+        push    sPRE [g_LastTrapRegs + BS2REGS.rip]
+        movzx   xBX, byte [g_u8LastTrapNo]
+        push    xBX
+        push    xAX                     ; msg
+        mov     xAX, .s_szFailureMsg
+        cmp     a_u8ExpectedTrapNo, 0eh
+        jne     .not_pf3
+        mov     xAX, .s_szFailurePfMsg
+.not_pf3:
+        push    xAX                     ; format string
+        call    TMPL_NM_CMN(TestFailedF)
+        mov     xSP, xDX                ; clean up call frame
+
+.done:
+        pop     sBX
+        pop     sCX
+        pop     sDX
+        pop     xAX
+        leave
+        xor     al, al
+        ret
+
+.s_szFailureMsg:
+        db '%s', 13, 10
+        db ' got trap %RX8 pc=%RX64 err=%RX64', 13, 10
+        db ' expected %RX8 pc=%RX64 err=%RX64', 13, 10, 0
+.s_szFailurePfMsg:
+        db '%s', 13, 10
+        db ' got trap %RX8 pc=%RX64 err=%RX64 cr2=%RX64', 13, 10,
+        db ' expected %RX8 pc=%RX64 err=%RX64 cr2=%RX64', 13, 10, 0
+.s_szNoTrap:
+        db 'no traps', 0
+.s_szToManyTraps:
+        db 'too many traps', 0
+.s_szWrongTrapNo:
+        db 'wrong trap number', 0
+.s_szWrongErrCd:
+        db 'wrong error code', 0
+.s_szWrongPc:
+        db 'wrong xIP', 0
+.s_szWrongFaultAddress:
+        db 'wrong fault address', 0
+%undef a_u8ExpectedTrapNo
+%undef a_u32ExpectedErr
+%undef a_u32ExpectedFaultPC
+%undef a_u32ExpectedFaultAddr
+ENDPROC   TMPL_NM_CMN(TestCheckTrap)
+%endif ; BS2_WITH_TRAPS
+
+
+%ifdef BS2_WITH_TRAPS
+;;
+; Installs the active list of trap records (BS2TRAPREC).
+;
+; @param    sAX         Flat address of the trap records (BS2TRAPREC).
+;                       Assumes that DS is FLAT.
+; @param    edx         The number of trap records.
+; @param    sCX         Flat image base address, i.e. what BS2TRAPREC.offWhere
+;                       is relative to.
+; @returns  al=1 and ZF=0 on success.
+; @returns  al=0 and ZF=1 on failure
+;
+; @uses     sAX (return value)
+;
+BEGINPROC TMPL_NM_CMN(TestInstallTrapRecs)
+        push    xBP
+        mov     xBP, xSP
+        push    sDX
+        push    sBX
+        push    sCX
+        push    sDI
+        push    sSI
+
+        ; Make sure the record array is within limits.
+        cmp     edx, _4M
+        jae     .nok
+
+        ; Scan the trap records.
+        mov     sDI, sAX
+        mov     esi, edx
+        or      esi, esi
+        jnz     .ok
+.next:
+        cmp     dword [sDI + BS2TRAPREC.offWhere], _2G
+        jae     .nok
+
+        cmp     dword [sDI + BS2TRAPREC.offResumeAddend], 0
+        je      .nok
+        cmp     dword [sDI + BS2TRAPREC.offResumeAddend], 0xff
+        je      .nok
+
+        cmp     dword [sDI + BS2TRAPREC.u8TrapNo], X86_XCPT_LAST
+        ja      .nok
+
+        ; next.
+        add     sDI, BS2TRAPREC_size
+        dec     esi
+        jnz     .next
+
+        ; Set the global variables.
+.ok:
+        xor     esi, esi
+        mov     [g_paTrapRecs + 4], esi
+        mov     [g_paTrapRecs], sAX
+        mov     [g_cTrapRecs], edx
+        mov     [g_iTrapRecLast], esi
+        mov     [g_pTrapRecBase + 4], esi
+        mov     [g_pTrapRecBase], sCX
+        mov     eax, 1
+        or      eax, eax
+
+.done:
+        pop     sSI
+        pop     sDI
+        pop     sBX
+        pop     sCX
+        pop     sDX
+        leave
+        ret
+
+.nok:
+        xor     eax, eax
+        jmp     .done
+ENDPROC   TMPL_NM_CMN(TestInstallTrapRecs)
+%endif ; BS2_WITH_TRAPS
+
+
+;;
+; Calculate the number of tests executed per second.
+;
+; @param    ds:ax       Pointer to the elapsed time.
+; @param    edx         The number of tests executed.
+; @returns  The tests per second in eax.
+;
+; @uses     eax (return value)
+;
+BEGINPROC TMPL_NM_CMN(CalcTestPerSecond)
+        push    xBP
+        mov     xBP, xSP
+        push    sDX
+        push    sCX
+%ifdef TMPL_16BIT
+        movzx   eax, ax
+%endif
+
+        ; Calc NS per test.
+        mov     ecx, edx
+        cmp     ecx, 0
+        jz      .div_zero
+        movzx   eax, ax
+        mov     edx, [sAX + 4]
+        cmp     edx, ecx
+        jae     .div_overflow
+        mov     eax, [sAX]
+        shld    edx, eax, 10
+        shl     eax,10
+        div     ecx                     ; eax = NS per test
+
+        ; Calc tests per second.
+        mov     ecx, eax
+        cmp     ecx, 0
+        jz      .div_zero
+        mov     edx, 0xee
+        mov     eax, 0x6b280000         ; 1024G
+        div     ecx                     ; eax = tests per second
+
+.done:
+        pop     sCX
+        pop     sDX
+        leave
+        ret
+
+.div_zero:
+        mov     eax, 0
+        jmp     .done
+
+.div_overflow:
+        mov     eax, 4242424242
+        jmp     .done
+ENDPROC   TMPL_NM_CMN(CalcTestPerSecond)
+
+
+;;
+; Calculate the number of iterations for a benchmark based on the time a short
+; calibration run too.
+;
+; @param    ds:xAX      Pointer to the elapsed time.
+; @param    edx         The number of tests iterations executed.
+; @param    ecx         The desired test length, in seconds.
+; @returns  The tests iterations in eax.
+;
+; @uses     eax (return value)
+;
+BEGINPROC TMPL_NM_CMN(CalcBenchmarkIterations)
+        push    xBP
+        mov     xBP, xSP
+        push    sDX
+        push    sCX
+%ifdef TMPL_16BIT
+        movzx   eax, ax
+%endif
+
+        ; Calc NS per test.
+        mov     ecx, edx
+        cmp     ecx, 0
+        jz      .div_zero
+        movzx   eax, ax
+        mov     edx, [sAX + 4]
+        cmp     edx, ecx
+        jae     .div_overflow
+        mov     eax, [sAX]
+        div     ecx                     ; eax = NS per test
+
+        ; Calc tests per second.
+        mov     ecx, eax
+        cmp     ecx, 0
+        jz      .div_zero
+        xor     edx, edx
+        mov     eax, 1000000000         ; 1G
+        div     ecx                     ; eax = tests per second
+
+        ; Multiply this up to the desired number of seconds.
+        mov     edx, [xBP - xCB*2]
+        mul     edx
+        test    edx, edx
+        jnz      .mult_32bit_overflow
+        cmp     eax, _64K
+        jle     .too_small
+
+.done:
+        pop     sCX
+        pop     sDX
+        leave
+        ret
+
+.too_small:
+        mov     eax, _64K
+        jmp     .done
+
+.mult_32bit_overflow:
+        mov     eax, 0ffff0000h
+        jmp     .done
+
+.div_zero:
+        mov     eax, [xBP - xCB]
+        shl     eax, 8
+        jmp     .fudge
+
+.div_overflow:
+        mov     eax, [xBP - xCB]
+        shr     eax, 4
+.fudge:
+        add     eax, 10
+        jmp     .done
+ENDPROC   TMPL_NM_CMN(CalcBenchmarkIterations)
+
+
+;;
+; Prints a string on the screen.
+;
+; @param    ds:ax       The string to find the length of.
+; @returns  The string length in ax.
+;
+; @uses     ax (return value)
+;
+BEGINPROC TMPL_NM_CMN(StrLen)
+        push    xBP
+        mov     xBP, xSP
+        push    xBX
+
+        mov     xBX, xAX
+        dec     xBX
+.next:
+        inc     xBX
+        cmp     byte [xBX], byte 0
+        jnz     .next
+
+        xchg    xAX, xBX
+        sub     xAX, xBX
+
+        pop     xBX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(StrLen)
+
+
+
+;;
+; Simple string format, taking an argument list.
+;
+; Implemented:
+;       - %RX8
+;       - %RX16
+;       - %RX32
+;       - %RX64
+;       - %s
+;
+; Planned:
+;       - %RU8
+;       - %RU16
+;       - %RU32
+;       - %RU64
+;       - %RI8
+;       - %RI16
+;       - %RI32
+;       - %RI64
+;
+; @param        ds:xAX          The buffer address.
+; @param        xDX             The buffer size.
+; @param        es:xCX          The format string.
+; @param        fs:xBX          The argument list.
+; @uses         nothing
+;
+BEGINPROC TMPL_NM_CMN(StrFormatV)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sDX
+        push    sCX
+        push    sBX
+        push    sDI
+        push    sSI
+        pushf
+        cld
+%ifdef TMPL_16BIT
+        push    ds
+        push    es
+        push    fs
+        push    gs
+
+        mov     si, ds
+        mov     di, es
+        mov     ds, di
+        mov     es, si
+        mov     di, ax                  ; es:di    -> output buffer.
+        mov     si, cx                  ; ds:si    -> format string.
+%define a_pArgs                 [fs:bx]
+%define a_pu32ArgsHighDW        dword [fs:bx + 4]
+%else
+        mov     xDI, xAX                ; (es:)xDI -> output buffer.
+        mov     xSI, xCX                ; (ds:)xSI -> format string.
+%define a_pArgs                 [xBX]
+%define a_pu32ArgsHighDW        dword [xBX + 4]
+%endif
+        xchg    xCX, xDX                ; xCX=buffer size.
+
+        ;
+        ; Make sure we've got space for a terminator char in the output buffer.
+        ;
+        test    xCX, xCX
+        jz      .return
+        dec     xCX
+        jz      .done
+
+        ;
+        ; In this loop we're free to use sDX and (with some caution) sAX.
+        ;
+.format_loop:
+        lodsb
+        test    al, al
+        jz      .done
+        cmp     al, '%'
+        je      .switch
+
+        ; Emit the character in al if there is room for it.
+.emit_al:
+        test    xCX, xCX
+        jz      .done
+        stosb
+        dec     xCX
+        jmp     .format_loop
+
+        ; Try recognize the format specifier.
+.switch:
+        lodsb
+        cmp     al, 's'
+        je      .switch_case_string
+        cmp     al, 'c'
+        je      .switch_case_char
+        cmp     al, 'R'
+        jne     .switch_default
+        lodsb
+        cmp     al, 'X'
+        jne     .switch_case_number
+        cmp     al, 'U'
+        jne     .switch_case_number
+        cmp     al, 'I'
+        jne     .switch_case_number
+
+.switch_default:
+        test    al, al
+        jz      .done
+        mov     al, '!'
+        jmp     .emit_al
+
+        ; parse the number part.
+.switch_case_number:
+        mov     ah, al                  ; ah = {X,U,I}
+        lodsb
+        cmp     al, '8'
+        je      .switch_case_number_8bit
+        cmp     al, '1'
+        je      .switch_case_number_16bit
+        cmp     al, '3'
+        je      .switch_case_number_32bit
+        cmp     al, '6'
+        je      .switch_case_number_64bit
+        jmp     .switch_default
+
+
+        ;
+        ; Common code for 8-bit, 16-bit and 32-bit.
+        ;
+        ; The first part load the value into edx, ah={X,U,I},
+        ; al=(max-hex, max-unsigned-dec).
+        ;
+.switch_case_number_8bit:
+        mov     al, (2 << 4) | 2
+        movzx   edx, byte a_pArgs
+        add     xBX, xCB
+        cmp     ah, 'I'
+        jne     .switch_case_number_common_32bit_hex_or_unsigned
+        movsx   edx, dl
+        jmp     .switch_case_number_common_32bit_signed
+
+.switch_case_number_16bit:
+        lodsb
+        cmp     al, '6'
+        jne     .switch_default
+        mov     al, (4 << 4) | 5
+        movzx   edx, word a_pArgs
+        add     xBX, xCB
+        cmp     ah, 'I'
+        jne     .switch_case_number_common_32bit_hex_or_unsigned
+        movsx   edx, dx
+        jmp     .switch_case_number_common_32bit_signed
+
+.switch_case_number_32bit:
+        lodsb
+        cmp     al, '2'
+        jne     .switch_default
+        mov     al, (8 << 4) | 10
+        mov     edx, dword a_pArgs
+        add     xBX, sCB
+        cmp     ah, 'I'
+        je      .switch_case_number_common_32bit_signed
+
+.switch_case_number_common_32bit_hex_or_unsigned:
+        cmp     ah, 'X'
+        jne     .switch_case_number_common_32bit_unsigned
+        shr     al, 4
+        and     xAX, 0fh
+        cmp     xCX, xAX
+        jb      .switch_case_number_bad_buf
+        call    .format_32bit_hex_subroutine
+        jmp     .format_loop
+
+.switch_case_number_common_32bit_unsigned:
+        and     xAX, 0fh
+        cmp     xCX, xAX
+        jb      .switch_case_number_bad_buf
+        call    .format_32bit_dec_subroutine
+        jmp     .format_loop
+
+.switch_case_number_common_32bit_signed:
+        cmp     edx, 0
+        jge     .switch_case_number_common_32bit_unsigned
+        and     xAX, 0fh
+        inc     xAX                     ; sign char
+        cmp     xCX, xAX
+        jb      .switch_case_number_bad_buf
+        ; Emit the minus sign, invert the value and join the unsigned formatting.
+        push    xAX
+        mov     al, '-'
+        stosb
+        dec     xCX
+        pop     xAX
+        neg     edx
+        call    .format_32bit_dec_subroutine
+        jmp     .format_loop
+
+
+        ;
+        ; 64-bit is special, to simplify we treat all formats as hex...
+        ;
+.switch_case_number_64bit:
+        lodsb
+        cmp     al, '4'
+        jne     .switch_default
+        cmp     ah, 'X'
+        je      .switch_case_number_64bit_hex
+        cmp     ah, 'I'
+        je      .switch_case_number_64bit_signed
+        jmp     .switch_case_number_64bit_unsigned
+
+.switch_case_number_64bit_hex:
+        mov     eax, dword a_pArgs
+        mov     edx, a_pu32ArgsHighDW
+        add     xBX, 8
+        cmp     xCX, 8+1+8
+        jb      .switch_case_number_bad_buf
+        ; Simple, format it as two 32-bit hex values.
+        push    sAX
+        mov     eax, 8
+        call    .format_32bit_hex_subroutine
+        mov     al, 27h                 ; '\'' - how do we escape this with yasm?
+        stosb
+        dec     xCX
+        pop     sDX
+        mov     eax, 8
+        call    .format_32bit_hex_subroutine
+        jmp     .format_loop
+
+.switch_case_number_64bit_unsigned:
+        cmp     xCX, 19
+        jb      .switch_case_number_bad_buf
+.switch_case_number_64bit_unsigned_format_it:
+        ;; @todo implement me
+        jmp     .switch_case_number_64bit_hex
+
+.switch_case_number_64bit_signed:
+        mov     eax, dword a_pArgs
+        mov     edx, a_pu32ArgsHighDW
+        add     xBX, 8
+        cmp     xCX, 20
+        jb      .switch_case_number_bad_buf
+        test    edx, 080000000h
+        jz      .switch_case_number_64bit_unsigned_format_it
+        ; Emit the minus sign, invert the value and join the unsigned formatting.
+        push    xAX
+        mov     al, '-'
+        stosb
+        dec     xCX
+        pop     xAX
+        neg     eax
+        neg     edx
+        jmp     .switch_case_number_64bit_unsigned_format_it
+
+
+        ; The remaining buffer is too small to hold the number.
+.switch_case_number_bad_buf:
+        mov     al, '^'
+        jmp     .emit_al
+
+
+        ;
+        ; Emit a string.
+        ;
+.switch_case_string:
+%ifdef TMPL_16BIT
+        lgs     dx, a_pArgs
+        add     xBX, 4
+%else
+        mov     xDX, a_pArgs
+        add     xBX, xCB
+%endif
+        test    xCX, xCX
+.switch_case_string_loop:
+        jz      .done
+%ifdef TMPL_16BIT
+        mov     al, [gs:edx]
+%else
+        mov     al, [xDX]
+%endif
+        test    al, al
+        jz      .format_loop
+        inc     xDX
+        stosb
+        dec     xCX
+        jmp     .switch_case_string_loop
+
+        ;
+        ; Emit a char.
+        ;
+.switch_case_char:
+        mov     al, byte a_pArgs
+        add     xBX, xCB
+        jmp     .emit_al
+
+
+        ;
+        ; Done, just emit the terminator char.
+        ;
+.done:
+        xor     al, al
+        stosb
+
+.return:
+%ifdef TMPL_16BIT
+        pop     gs
+        pop     fs
+        pop     es
+        pop     ds
+%endif
+        popf
+        pop     sSI
+        pop     sDI
+        pop     sBX
+        pop     sCX
+        pop     sDX
+        pop     sAX
+        leave
+        ret
+%undef a_pArgs
+%undef a_pu32ArgsHighDW
+
+;;
+; Internal subroutine for formatting a hex number into the buffer.
+; @param        al      The precision (2, 4, 8).
+; @param        edx     The value.
+;
+; @uses         ecx, edi
+;
+.format_32bit_hex_subroutine:
+        push    xAX
+        push    sDX
+        push    xBX
+
+        ; Rotate edx into position.
+        mov     ebx, 8
+        sub     bl, al
+        shl     bl, 2
+        xchg    cl, bl
+        rol     edx, cl
+        xchg    bl, cl
+
+        mov     bl, al                  ; Width counter
+.format_32bit_hex_subroutine_next:
+        rol     edx, 4
+        mov     eax, edx
+        and     eax, 0fh
+        add     sAX, g_achHex
+        mov     al, [cs:sAX]
+        stosb
+        dec     xCX
+        dec     bl
+        jnz     .format_32bit_hex_subroutine_next
+
+        pop     xBX
+        pop     sDX
+        pop     xAX
+        ret
+
+
+;;
+; Internal subroutine for formatting a hex number into the buffer.
+; @param        al      The max precision (2, 5, 10).
+; @param        edx     The value.
+; @param        xCX     Counter register to decrement as characters are emited.
+; @param        es:xDI  Where to write the output, xDI is updated.
+;
+; @uses         xCX, xDI
+;
+.format_32bit_dec_subroutine:
+%if 0   ;; @todo implement this
+        sub     xSP, 20h
+        ; Format in reverse order into a stack buffer.
+
+        ; Append the stack buffer to the string, reversing it in the process.
+
+        add     xSP, 20h
+%else
+        call    .format_32bit_hex_subroutine
+%endif
+        ret
+
+ENDPROC   TMPL_NM_CMN(StrFormatV)
+
+
+;;
+; Very limited RTStrPrintf version.
+;
+; @remarks  This uses an entirely STACK BASED CALLING CONVENTION where the
+;           caller does the cleanup (cdecl sans volatile regs).
+;
+; @param    fpszBuf             The output buffer.
+; @param    cbBuf               The output buffer size (natural size).
+; @param    fpszFormat          The format string (far pointer in 16-bit).
+;                               See StrFormatV for format.
+; @param    ...                 Zero or more format string arguments.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM_CMN(StrFormatF)
+        push    xBP
+        mov     xBP, xSP
+        push    xAX
+        push    xDX
+        push    xCX
+        push    xBX
+%ifdef TMPL_16BIT
+        push    ds
+        push    es
+        push    fs
+
+        lds     xAX, [bp + 04h]
+        mov     dx,  [bp + 08h]
+        les     xCX, [bp + 0ah]
+        mov     bx, ss
+        mov     fs, bx
+        mov     bx, bp
+        add     bx, 0eh
+%else
+        mov     xAX, [xBP + xCB * 2]
+        mov     xDX, [xBP + xCB * 3]
+        mov     xCX, [xBP + xCB * 4]
+        lea     xBX, [xBP + xCB * 5]
+%endif
+        call    TMPL_NM_CMN(StrFormatV)
+
+%ifdef TMPL_16BIT
+        pop     fs
+        pop     es
+        pop     ds
+%endif
+        pop     xBX
+        pop     xCX
+        pop     xDX
+        pop     xAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(StrFormatF)
+
+
+;;
+; Dumps the CPU registers.
+;
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(TestDumpCurrentRegisters)
+%ifndef TMPL_64BIT
+        push    xBP
+        mov     xBP, xSP
+        push    eax
+        pushfd
+
+        push    dword [xBP - sCB - 4]   ; eflags
+        mov     eax, cr2
+        push    eax
+        xor     eax, eax
+        mov     eax, gs
+        push    eax
+        mov     eax, fs
+        push    eax
+        mov     eax, es
+        push    eax
+        mov     eax, ds
+        push    eax
+        mov     eax, cs
+        push    eax
+
+        mov     eax, cr4
+        push    eax
+        mov     eax, cr3
+        push    eax
+        mov     eax, cr0
+        push    eax
+        mov     eax, ebp                ; return EBP
+        mov     xAX, [xBP]
+        push    eax
+
+        mov     eax, ebp                ; return ESP
+        add     xAX, xCB
+        push    eax
+
+        mov     xAX, [xBP + xCB]        ; return EIP
+ %ifdef TMPL_16BIT
+        movzx   eax, ax
+ %endif
+        push    eax
+
+        push    edi
+        push    esi
+        push    edx
+        push    ecx
+        push    ebx
+        push    dword [xBP - sCB]       ; eax
+
+ %ifdef TMPL_16BIT
+        push    cs
+ %endif
+        push    .s_szRegFmt
+        call    TMPL_NM_CMN(PrintF)
+
+        popfd
+        pop     eax
+        leave
+        ret
+
+.s_szRegFmt:
+        db      'eax=%RX32 ebx=%RX32 ecx=%RX32 edx=%RX32 esi=%RX32 edi=%RX32', 13, 10
+        db      'eip=%RX32 esp=%RX32 ebp=%RX32 cr0=%RX32 cr3=%RX32 cr4=%RX32', 13, 10
+        db      'cs=%RX16 ds=%RX16 es=%RX16 fs=%RX16 gs=%RX16 ss=%RX16 cr2=%RX32  eflags=%RX32', 13, 10, 0
+
+%else  ; 64-bit
+        push    .s_szRegFmt
+        call TMPL_NM_CMN(PrintF)
+        ret
+
+.s_szRegFmt:
+        db      'TestDumpCurrentRegisters not implemented', 13, 10, 0
+
+%endif ; 64-bit
+ENDPROC   TMPL_NM_CMN(TestDumpCurrentRegisters)
+
+
+
+;;
+; Dumps the CPU registers.
+;
+; @param    ds:xAX              Pointer to the register frame to dump.
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(TestDumpRegisters)
+        push    xBP
+        mov     xBP, xSP
+        pushf
+        push    sDX
+        push    sBX
+        mov     xBX, xAX
+
+        cmp     byte [xBX + BS2REGS.cBits], 64
+        je      .dump_64bit_regs
+
+        push    -1                      ; sanity
+        mov     edx, [xBX + BS2REGS.rflags]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.cr2]
+        push    sDX
+        xor     edx, edx
+        mov     dx, [xBX + BS2REGS.ss]
+        push    xDX
+        mov     dx, [xBX + BS2REGS.gs]
+        push    xDX
+        mov     dx, [xBX + BS2REGS.fs]
+        push    xDX
+        mov     dx, [xBX + BS2REGS.es]
+        push    xDX
+        mov     dx, [xBX + BS2REGS.ds]
+        push    xDX
+        mov     dx, [xBX + BS2REGS.cs]
+        push    xDX
+
+        mov     edx, [xBX + BS2REGS.cr4]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.cr3]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.cr0]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.rbp]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.rsp]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.rip]
+        push    sDX
+
+        mov     edx, [xBX + BS2REGS.rdi]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.rsi]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.rdx]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.rcx]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.rbx]
+        push    sDX
+        mov     edx, [xBX + BS2REGS.rax]
+        push    sDX
+
+%ifdef TMPL_16BIT
+        push    cs
+%endif
+        push    .s_szReg32Fmt
+        call    TMPL_NM_CMN(PrintF)
+        jmp     .return
+
+.dump_64bit_regs:
+%ifdef TMPL_16BIT
+        push    cs
+%endif
+        push    .s_szReg64Fmt
+        call    TMPL_NM_CMN(PrintF)
+
+.return:
+        lea     xSP, [xBP - sCB*2 - xCB]
+        pop     sBX
+        pop     sDX
+        popf
+        leave
+        ret
+
+.s_szReg32Fmt:
+        db      'eax=%RX32 ebx=%RX32 ecx=%RX32 edx=%RX32 esi=%RX32 edi=%RX32', 13, 10
+        db      'eip=%RX32 esp=%RX32 ebp=%RX32 cr0=%RX32 cr3=%RX32 cr4=%RX32', 13, 10
+        db      'cs=%RX16 ds=%RX16 es=%RX16 fs=%RX16 gs=%RX16 ss=%RX16 cr2=%RX32  eflags=%RX32', 13, 10
+        db      0
+
+.s_szReg64Fmt:
+        db      'TestDumpCurrentRegisters not implemented', 13, 10, 0
+ENDPROC   TMPL_NM_CMN(TestDumpRegisters)
+
+
+;;
+; Saves the CPU registers.
+;
+; @param    ds:xAX              Pointer to the register frame to dump.
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(TestSaveRegisters)
+        push    xBP
+        mov     xBP, xSP
+%ifdef TMPL_16BIT
+        pushfd
+%else
+        pushf                           ; - 1*sCB
+%endif
+        push    sBX                     ; - 2*sCB
+        push    sAX                     ; - 3*sCB
+        push    sDX                     ; - 4*sCB
+
+        xor     edx, edx                ; zero register.
+        mov     xBX, xAX                ; xBX for addressing, xAX for scratch.
+
+%ifdef TMPL_64BIT
+        mov     rax, [xSP + sCB*1]
+        mov     [xBX + BS2REGS.rax], rax
+        mov     rax, [xSP + sCB*2]
+        mov     [xBX + BS2REGS.rbx], rax
+        mov     [xBX + BS2REGS.rcx], rcx
+        mov     rax, [xSP]
+        mov     [xBX + BS2REGS.rdx], rax
+        mov     [xBX + BS2REGS.rdi], rdi
+        mov     [xBX + BS2REGS.rsi], rsi
+        mov     rax, [xBP]
+        mov     [xBX + BS2REGS.rbp], rax
+        lea     rax, [xBP + 16]
+        mov     [xBX + BS2REGS.rsp], rax
+        mov     rax, [xBP + 8]
+        mov     [xBX + BS2REGS.rip], rax
+        mov     [xBX + BS2REGS.r8],  r8
+        mov     [xBX + BS2REGS.r9],  r9
+        mov     [xBX + BS2REGS.r10], r10
+        mov     [xBX + BS2REGS.r11], r11
+        mov     [xBX + BS2REGS.r12], r12
+        mov     [xBX + BS2REGS.r13], r13
+        mov     [xBX + BS2REGS.r14], r14
+        mov     [xBX + BS2REGS.r15], r15
+        mov     rax, [xBP - sCB]
+        mov     [xBX + BS2REGS.rflags], rax
+        mov     ax, cs
+        mov     [xBX + BS2REGS.cs], ax
+        mov     ax, ds
+        mov     [xBX + BS2REGS.ds], ax
+        mov     ax, es
+        mov     [xBX + BS2REGS.es], ax
+        mov     ax, fs
+        mov     [xBX + BS2REGS.fs], ax
+        mov     ax, gs
+        mov     [xBX + BS2REGS.gs], ax
+        mov     ax, ss
+        mov     [xBX + BS2REGS.ss], ax
+        mov     byte [xBX + BS2REGS.cBits], 64
+        mov     [xBX + BS2REGS.pad    ], dl
+        mov     [xBX + BS2REGS.pad + 1], dx
+        mov     rax, cr0
+        mov     [xBX + BS2REGS.cr0], rax
+        mov     rax, cr2
+        mov     [xBX + BS2REGS.cr2], rax
+        mov     rax, cr3
+        mov     [xBX + BS2REGS.cr3], rax
+        mov     rax, cr4
+        mov     [xBX + BS2REGS.cr4], rax
+        mov     rax, cr8
+        mov     [xBX + BS2REGS.cr8], rax
+%else ; !TMPL_64
+        mov     eax, [xBP - sCB*3]
+        mov     dword [xBX + BS2REGS.rax], eax
+        mov     dword [xBX + BS2REGS.rax + 4], edx
+        mov     eax, [xBP - sCB*2]
+        mov     dword [xBX + BS2REGS.rbx], eax
+        mov     dword [xBX + BS2REGS.rbx + 4], edx
+        mov     dword [xBX + BS2REGS.rcx], ecx
+        mov     dword [xBX + BS2REGS.rcx + 4], edx
+        mov     eax, [xBP - sCB*4]
+        mov     dword [xBX + BS2REGS.rdx], eax
+        mov     dword [xBX + BS2REGS.rdx + 4], edx
+        mov     dword [xBX + BS2REGS.rdi], edi
+        mov     dword [xBX + BS2REGS.rdi + 4], edx
+        mov     dword [xBX + BS2REGS.rsi], esi
+        mov     dword [xBX + BS2REGS.rsi + 4], edx
+        mov     eax, ebp
+        mov     ax, [xBP]
+        mov     dword [xBX + BS2REGS.rbp], eax
+        mov     dword [xBX + BS2REGS.rbp + 4], edx
+ %ifdef TMPL_16BIT
+        mov     eax, esp
+        mov     ax, bp
+        sub     ax, 4
+ %else
+        lea     eax, [ebp + 8]
+ %endif
+        mov     dword [xBX + BS2REGS.rsp], eax
+        mov     dword [xBX + BS2REGS.rsp + 4], edx
+ %ifdef TMPL_16BIT
+        movzx   eax, word [xBP + 2]
+ %else
+        mov     eax, [xBP + 4]
+ %endif
+        mov     dword [xBX + BS2REGS.rip], eax
+        mov     dword [xBX + BS2REGS.rip + 4], edx
+        mov     dword [xBX + BS2REGS.r8    ], edx
+        mov     dword [xBX + BS2REGS.r8 + 4], edx
+        mov     dword [xBX + BS2REGS.r9    ], edx
+        mov     dword [xBX + BS2REGS.r9 + 4], edx
+        mov     dword [xBX + BS2REGS.r10    ], edx
+        mov     dword [xBX + BS2REGS.r10 + 4], edx
+        mov     dword [xBX + BS2REGS.r11    ], edx
+        mov     dword [xBX + BS2REGS.r11 + 4], edx
+        mov     dword [xBX + BS2REGS.r12    ], edx
+        mov     dword [xBX + BS2REGS.r12 + 4], edx
+        mov     dword [xBX + BS2REGS.r13    ], edx
+        mov     dword [xBX + BS2REGS.r13 + 4], edx
+        mov     dword [xBX + BS2REGS.r14    ], edx
+        mov     dword [xBX + BS2REGS.r14 + 4], edx
+        mov     dword [xBX + BS2REGS.r15    ], edx
+        mov     dword [xBX + BS2REGS.r15 + 4], edx
+        mov     eax, [xBP - sCB]
+        mov     dword [xBX + BS2REGS.rflags], eax
+        mov     dword [xBX + BS2REGS.rflags + 4], edx
+        mov     ax, cs
+        mov     [xBX + BS2REGS.cs], ax
+        mov     ax, ds
+        mov     [xBX + BS2REGS.ds], ax
+        mov     ax, es
+        mov     [xBX + BS2REGS.es], ax
+        mov     ax, fs
+        mov     [xBX + BS2REGS.fs], ax
+        mov     ax, gs
+        mov     [xBX + BS2REGS.gs], ax
+        mov     ax, ss
+        mov     [xBX + BS2REGS.ss], ax
+ %ifdef TMPL_16BIT
+        mov     byte [xBX + BS2REGS.cBits], 16
+ %else
+        mov     byte [xBX + BS2REGS.cBits], 32
+ %endif
+        mov     [xBX + BS2REGS.pad    ], dl
+        mov     [xBX + BS2REGS.pad + 1], dx
+        mov     eax, cr0
+        mov     dword [xBX + BS2REGS.cr0], eax
+        mov     dword [xBX + BS2REGS.cr0 + 4], edx
+        mov     eax, cr2
+        mov     dword [xBX + BS2REGS.cr2], eax
+        mov     dword [xBX + BS2REGS.cr2 + 4], edx
+        mov     eax, cr3
+        mov     dword [xBX + BS2REGS.cr3], eax
+        mov     dword [xBX + BS2REGS.cr3 + 4], edx
+        mov     eax, cr4
+        mov     dword [xBX + BS2REGS.cr4], eax
+        mov     dword [xBX + BS2REGS.cr4 + 4], edx
+        mov     dword [xBX + BS2REGS.cr8], edx
+        mov     dword [xBX + BS2REGS.cr8 + 4], edx
+%endif  ; !TMPL_64
+
+.return:
+        pop     sDX
+        pop     sAX
+        pop     sBX
+%ifdef TMPL_16BIT
+        popfd
+%else
+        popf
+%endif
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(TestSaveRegisters)
+
+
+;;
+; Restores the CPU registers, except for rsp, rip, cs, ss and ds.
+;
+; @param    ds:xAX              Pointer to the register frame to dump.
+; @uses     All, but RSP, RIP, CS, SS and DS.
+;
+BEGINPROC TMPL_NM_CMN(TestRestoreRegisters)
+        push    xBP
+        mov     xBP, xSP
+%ifdef TMPL_16BIT
+        pushfd
+%else
+        pushf                           ; - 1*sCB
+%endif
+        push    sBX                     ; - 2*sCB
+        push    sAX                     ; - 3*sCB
+
+        mov     xBX, xAX                ; xBX for addressing, xAX for scratch.
+
+        mov     sAX, [xBX + BS2REGS.rax]
+        mov     [xBP - 3*sCB], sAX
+        mov     sAX, [xBX + BS2REGS.rbx]
+        mov     [xBP - 2*sCB], sAX
+        mov     sCX, [xBX + BS2REGS.rcx]
+        mov     sDX, [xBX + BS2REGS.rdx]
+        mov     sDI, [xBX + BS2REGS.rdi]
+        mov     sSI, [xBX + BS2REGS.rsi]
+        ; skip rsp, rbp or rip.
+%ifdef TMPL_64BIT
+        mov     r8,  [xBX + BS2REGS.r8]
+        mov     r9,  [xBX + BS2REGS.r9]
+        mov     r10, [xBX + BS2REGS.r10]
+        mov     r11, [xBX + BS2REGS.r11]
+        mov     r12, [xBX + BS2REGS.r12]
+        mov     r13, [xBX + BS2REGS.r13]
+        mov     r14, [xBX + BS2REGS.r14]
+        mov     r15, [xBX + BS2REGS.r15]
+%endif
+        mov     sAX, [xBX + BS2REGS.rflags]
+        mov     [xBP - sCB], sAX
+        ; skip cs & ds.
+        mov     ax, [xBX + BS2REGS.es]
+        mov     es, ax
+        mov     ax, [xBX + BS2REGS.fs]
+        mov     fs, ax
+        mov     ax, [xBX + BS2REGS.gs]
+        mov     gs, ax
+        ; skip ss
+        mov     sAX, [xBX + BS2REGS.cr0]
+        mov     cr0, sAX
+        mov     sAX, [xBX + BS2REGS.cr2]
+        mov     cr2, sAX
+        mov     sAX, [xBX + BS2REGS.cr3]
+        mov     cr3, sAX
+        mov     sAX, [xBX + BS2REGS.cr4]
+        mov     cr4, sAX
+
+.return:
+        pop     sAX
+        pop     sBX
+%ifdef TMPL_16BIT
+        popfd
+%else
+        popf
+%endif
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(TestRestoreRegisters)
+
+
+;;
+; Enables the A20 gate.
+;
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2EnableA20)
+        call    TMPL_NM_CMN(Bs2EnableA20ViaPortA)
+;        call    TMPL_NM_CMN(Bs2EnableA20ViaKbd)
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2EnableA20)
+
+
+;;
+; Disables the A20 gate.
+;
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2DisableA20)
+        ; Must call both because they may be ORed together on real HW.
+        call    TMPL_NM_CMN(Bs2DisableA20ViaKbd)
+        call    TMPL_NM_CMN(Bs2DisableA20ViaPortA)
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2DisableA20)
+
+
+;;
+; Waits for the keyboard controller to become ready.
+;
+; @uses         Nothing
+;
+BEGINPROC TMPL_NM_CMN(Bs2KbdWait)
+        push    xAX
+
+.check_status:
+        in      al, 64h
+        test    al, 1                   ; KBD_STAT_OBF
+        jnz     .read_data_and_status
+        test    al, 2                   ; KBD_STAT_IBF
+        jnz     .check_status
+
+        pop     xAX
+        ret
+
+.read_data_and_status:
+        in      al, 60h
+        jmp     .check_status
+ENDPROC   TMPL_NM_CMN(Bs2KbdWait)
+
+
+;;
+; Sends a read command to the keyboard controller and gets the result.
+;
+; The caller is responsible for making sure the keyboard controller is ready
+; for a command (call Bs2KbdWait if unsure).
+;
+; @param        al              The read command.
+; @returns      The value read is returned.
+; @uses         al (obviously)
+;
+BEGINPROC TMPL_NM_CMN(Bs2KbdRead)
+        out     64h, al                 ; Write the command.
+
+.check_status:
+        in      al, 64h
+        test    al, 1                   ; KBD_STAT_OBF
+        jz      .check_status
+
+        in      al, 60h                 ; Read the data.
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2KbdRead)
+
+
+;;
+; Sends a write command to the keyboard controller and then sends the data.
+;
+; The caller is responsible for making sure the keyboard controller is ready
+; for a command (call Bs2KbdWait if unsure).
+;
+; @param        al              The write command.
+; @param        ah              The data to write.
+; @uses         Nothing.
+;
+; @todo         Return status?
+;
+BEGINPROC TMPL_NM_CMN(Bs2KbdWrite)
+        out     64h, al                 ; Write the command.
+        call    TMPL_NM_CMN(Bs2KbdWait)
+
+        xchg    al, ah
+        out     60h, al                 ; Write the data.
+        call    TMPL_NM_CMN(Bs2KbdWait)
+        xchg    al, ah
+
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2KbdWrite)
+
+
+;;
+; Enables the A20 gate via the keyboard controller.
+;
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2EnableA20ViaKbd)
+        push    xAX
+        pushf
+        cli
+
+        call    TMPL_NM_CMN(Bs2KbdWait)
+        mov     al, 0d0h                ; KBD_CCMD_READ_OUTPORT
+        call    TMPL_NM_CMN(Bs2KbdRead)
+
+        mov     ah, 002h
+        or      ah, al
+        mov     al, 0d1h                ; KBD_CCMD_WRITE_OUTPORT
+        call    TMPL_NM_CMN(Bs2KbdWrite)
+
+        mov     al, 0ffh                ; KBD_CMD_RESET
+        out     64h, al
+        call    TMPL_NM_CMN(Bs2KbdWait)
+
+        popf
+        pop     xAX
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2EnableA20ViaKbd)
+
+
+;;
+; Disables the A20 gate via the keyboard controller.
+;
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2DisableA20ViaKbd)
+        push    xAX
+        pushf
+        cli
+
+        call    TMPL_NM_CMN(Bs2KbdWait)
+        mov     al, 0d0h                ; KBD_CCMD_READ_OUTPORT
+        call    TMPL_NM_CMN(Bs2KbdRead)
+
+        mov     ah, 0fdh                ; ~2
+        and     ah, al
+        mov     al, 0d1h                ; KBD_CCMD_WRITE_OUTPORT
+        call    TMPL_NM_CMN(Bs2KbdWrite)
+
+        mov     al, 0ffh                ; KBD_CMD_RESET
+        out     64h, al
+        call    TMPL_NM_CMN(Bs2KbdWait)
+
+        popf
+        pop     xAX
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2DisableA20ViaKbd)
+
+
+;;
+; Enables the A20 gate via control port A (PS/2 style).
+;
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2EnableA20ViaPortA)
+        push    xAX
+
+        ; Use Control port A, assuming a PS/2 style system.
+        in      al, 092h
+        test    al, 02h
+        jnz     .done                   ; avoid trouble writing back the same value.
+        or      al, 2                   ; enable the A20 gate.
+        out     092h, al
+
+.done:
+        pop     xAX
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2EnableA20ViaPortA)
+
+
+;;
+; Disables the A20 gate via control port A (PS/2 style).
+;
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2DisableA20ViaPortA)
+        push    xAX
+
+        ; Use Control port A, assuming a PS/2 style system.
+        in      al, 092h
+        test    al, 02h
+        jz      .done                   ; avoid trouble writing back the same value.
+        and     al, 0fdh                ; disable the A20 gate.
+        out     092h, al
+
+.done:
+        pop     xAX
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2DisableA20ViaPortA)
+
+
+;;
+; Checks if the no-execution bit is supported.
+;
+; @returns  AL=1 and ZF=0 if supported.
+; @returns  AL=0 and ZF=1 if not.
+; @uses     al
+;
+BEGINPROC TMPL_NM_CMN(Bs2IsNXSupported)
+        push    xBP
+        mov     xBP, xSP
+        push    sBX
+        push    sDX
+        push    sCX
+        push    sAX
+
+        mov     eax, 080000000h
+        cpuid
+        cmp     eax, 080000001h
+        jb      .not_supported
+        cmp     eax, 080001000h
+        jae     .not_supported
+
+        mov     eax, 080000001h
+        cpuid
+        test    edx, X86_CPUID_EXT_FEATURE_EDX_NX
+        jz      .not_supported
+
+        ; supported
+        pop     sAX
+        mov     al, 1
+
+.return:
+        pop     sCX
+        pop     sDX
+        pop     sBX
+        leave
+        ret
+.not_supported:
+        pop     sAX
+        xor     al, al
+        jmp .return
+ENDPROC   TMPL_NM_CMN(Bs2IsNXSupported)
+
+
+;;
+; Sets EFER.NXE=al if NXE is supported.
+;
+; @param    al          0 if NXE should be disabled, non-zero if it should
+;                       be enabled.
+; @uses     nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2SetupNX)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sDX
+        push    sCX
+
+        call    TMPL_NM_CMN(Bs2IsNXSupported)
+        jz      .done
+
+        mov     ecx, MSR_K6_EFER
+        rdmsr
+        test    byte [xBP - sCB], 0ffh
+        jz      .disable_it
+        or      eax, MSR_K6_EFER_NXE
+        jmp     .set_it
+.disable_it:
+        and     eax, ~MSR_K6_EFER_NXE
+.set_it:
+        wrmsr
+
+.done:
+        pop     sCX
+        pop     sDX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2SetupNX)
+
+
+;;
+; Disables NX if supported.
+;
+; @uses     nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2DisableNX)
+        push    xBP
+        mov     xBP, xSP
+        push    xAX
+
+        xor     al, al
+        call    TMPL_NM_CMN(Bs2SetupNX)
+
+        pop     xAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2DisableNX)
+
+
+;;
+; Enables NX if supported.
+;
+; @uses     nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2EnableNX)
+        push    xBP
+        mov     xBP, xSP
+        push    xAX
+
+        mov     al, 1
+        call    TMPL_NM_CMN(Bs2SetupNX)
+
+        pop     xAX
+        leave
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2EnableNX)
+
+
+;;
+; Panics if the testing feature of the VMMDev is missing.
+;
+; A message will be printed.
+;
+; @uses     Nothing.
+;
+BEGINPROC TMPL_NM_CMN(Bs2PanicIfVMMDevTestingIsMissing)
+        push    xDX
+        push    sAX
+
+        xor     eax, eax
+        mov     dx, VMMDEV_TESTING_IOPORT_NOP
+        in      eax, dx
+        cmp     eax, VMMDEV_TESTING_NOP_RET
+        je      .ok
+
+        mov     xAX, .s_szMissingVMMDevTesting
+        call    TMPL_NM_CMN(PrintStr)
+        call    Bs2Panic
+
+.ok:
+        pop     sAX
+        pop     xDX
+        ret
+
+.s_szMissingVMMDevTesting:
+        db 'fatal error: The testing feature of the VMMDevVMMDev is not present!', 13, 10, 0
+ENDPROC   TMPL_NM_CMN(Bs2PanicIfVMMDevTestingIsMissing)
+
+
+
+%ifdef BS2_WITH_TRAPS
+
+;;
+; Switches to ring-0 from whatever the current mode is.
+;
+; @uses cs, ss, ds, es, fs, gs
+;
+BEGINPROC TMPL_NM_CMN(Bs2ToRing0)
+        push    sAX
+        mov     sAX, BS2_SYSCALL_TO_RING0
+        int     BS2_TRAP_SYSCALL
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2ToRing0)
+
+;;
+; Switches to ring-1 from whatever the current mode is.
+;
+; @uses cs, ss, ds, es, fs, gs
+;
+BEGINPROC TMPL_NM_CMN(Bs2ToRing1)
+        push    sAX
+        mov     sAX, BS2_SYSCALL_TO_RING1
+        int     BS2_TRAP_SYSCALL
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2ToRing1)
+
+;;
+; Switches to ring-0 from whatever the current mode is.
+;
+; @uses cs, ss, ds, es, fs, gs
+;
+BEGINPROC TMPL_NM_CMN(Bs2ToRing2)
+        push    sAX
+        mov     sAX, BS2_SYSCALL_TO_RING2
+        int     BS2_TRAP_SYSCALL
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2ToRing2)
+
+;;
+; Switches to ring-3 from whatever the current mode is.
+;
+; @uses cs, ss, ds, es, fs, gs
+;
+BEGINPROC TMPL_NM_CMN(Bs2ToRing3)
+        push    sAX
+        mov     sAX, BS2_SYSCALL_TO_RING3
+        int     BS2_TRAP_SYSCALL
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM_CMN(Bs2ToRing3)
+
+;;
+; Switches the given ring from whatever the current mode is.
+;
+; @param AL     The desired ring.
+; @uses cs, ss, ds, es, fs, gs
+;
+BEGINPROC TMPL_NM_CMN(Bs2ToRingN)
+        pushf
+        cmp     al, 3
+        je      .ring3
+        cmp     al, 2
+        je      .ring2
+        cmp     al, 1
+        je      .ring1
+.ring0:
+        call    TMPL_NM_CMN(Bs2ToRing0)
+.done:
+        popf
+        ret
+
+.ring1:
+        call    TMPL_NM_CMN(Bs2ToRing1)
+        jmp     .done
+.ring2:
+        call    TMPL_NM_CMN(Bs2ToRing2)
+        jmp     .done
+.ring3:
+        call    TMPL_NM_CMN(Bs2ToRing3)
+        jmp     .done
+ENDPROC   TMPL_NM_CMN(Bs2ToRingN)
+
+%endif ; BS2_WITH_TRAPS
+
+
+
+;
+; Wrapper for dynamically calling the right specific method.
+; This avoid putting large portions of the code in the 2nd template.
+;
+
+TMPL_NM_CMN(g_pfnPrintStrInternal): TMPL_PTR_DEF 0
+TMPL_NM_CMN(g_pfnPrintChrInternal): TMPL_PTR_DEF 0
+
+BEGINPROC TMPL_NM_CMN(PrintStr)
+        jmp     [TMPL_NM_CMN(g_pfnPrintStrInternal)]
+ENDPROC   TMPL_NM_CMN(PrintStr)
+
+BEGINPROC TMPL_NM_CMN(PrintChr)
+        jmp     [TMPL_NM_CMN(g_pfnPrintChrInternal)]
+ENDPROC   TMPL_NM_CMN(PrintChr)
+
+
+%include "bootsector2-template-footer.mac"
+

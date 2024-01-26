@@ -1,0 +1,1435 @@
+;; @file
+; IPRT - Global YASM/NASM macros
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+; Special hack for bs3kit.
+%ifdef RT_ASMDEFS_INC_FIRST_FILE
+ %include "asmdefs-first.mac"
+%endif
+
+%ifndef ___iprt_asmdefs_mac
+%define ___iprt_asmdefs_mac
+
+
+;; @defgroup grp_rt_cdefs_size     Size Constants
+; (Of course, these are binary computer terms, not SI.)
+; @{
+;; 1 K (Kilo)                     (1 024).
+%define _1K                     000000400h
+;; 4 K (Kilo)                     (4 096).
+%define _4K                     000001000h
+;; 8 K (Kilo)                     (8 192).
+%define _8K                     000002000h
+;; 16 K (Kilo)                   (16 384).
+%define _16K                    000004000h
+;; 32 K (Kilo)                   (32 768).
+%define _32K                    000008000h
+;; 64 K (Kilo)                   (65 536).
+%define _64K                    000010000h
+;; 128 K (Kilo)                 (131 072).
+%define _128K                   000020000h
+;; 256 K (Kilo)                 (262 144).
+%define _256K                   000040000h
+;; 512 K (Kilo)                 (524 288).
+%define _512K                   000080000h
+;; 1 M (Mega)                 (1 048 576).
+%define _1M                     000100000h
+;; 2 M (Mega)                 (2 097 152).
+%define _2M                     000200000h
+;; 4 M (Mega)                 (4 194 304).
+%define _4M                     000400000h
+;; 1 G (Giga)             (1 073 741 824).
+%define _1G                     040000000h
+;; 2 G (Giga)             (2 147 483 648).
+%define _2G             00000000080000000h
+;; 4 G (Giga)             (4 294 967 296).
+%define _4G             00000000100000000h
+;; 1 T (Tera)         (1 099 511 627 776).
+%define _1T             00000010000000000h
+;; 1 P (Peta)     (1 125 899 906 842 624).
+%define _1P             00004000000000000h
+;; 1 E (Exa)  (1 152 921 504 606 846 976).
+%define _1E             01000000000000000h
+;; 2 E (Exa)  (2 305 843 009 213 693 952).
+%define _2E             02000000000000000h
+;; @}
+
+
+;;
+; Define RT_STRICT for debug builds like iprt/cdefs.h does.
+%ifndef RT_STRICT
+ %ifdef DEBUG
+  %define RT_STRICT
+ %endif
+%endif
+%ifdef RT_NO_STRICT
+ %undef RT_STRICT
+%endif
+
+;;
+; Make the mask for the given bit.
+%define RT_BIT(bit)        (1 << bit)
+
+;;
+; Make the mask for the given bit.
+%define RT_BIT_32(bit)     (1 << bit)
+;;
+; Make the mask for the given bit.
+%define RT_BIT_64(bit)     (1 << bit)
+
+;;
+; Makes a 32-bit unsigned (not type safe, but whatever) out of four byte values.
+%define RT_MAKE_U32_FROM_U8(b0, b1, b2, b3) ( (b3 << 24) | (b2 << 16) | (b1 << 8) | b0 )
+
+;; Preprocessor concatenation macro.
+%define RT_CONCAT(a_1,a_2)              a_1 %+ a_2
+
+;; Preprocessor concatenation macro, three arguments.
+%define RT_CONCAT3(a_1,a_2,a_3)         a_1 %+ a_2 %+ a_3
+
+;; Preprocessor concatenation macro, four arguments.
+%define RT_CONCAT4(a_1,a_2,a_3,a_4)     a_1 %+ a_2 %+ a_3 %+ a_4
+
+;;
+; Trick for using RT_CONCAT and the like on %define names.
+; @param 1  The name (expression.
+; @param 2  The value.
+%macro RT_DEFINE_EX 2
+ %error 1=%1 2=%2
+ %define %1 %2
+%endmacro
+
+;;
+; Trick for using RT_CONCAT and the like on %xdefine names.
+; @param 1  The name (expression.
+; @param 2  The value.
+%macro RT_XDEFINE_EX 2
+ %xdefine %1 %2
+%endmacro
+
+;;
+; Trick for using RT_CONCAT and the like on %undef names.
+; @param 1  The name (expression.
+%macro RT_UNDEF_EX 1
+ %error 1=%1
+ %undef %1
+%endmacro
+
+;;
+; Empty define
+%define RT_NOTHING
+
+;; Define ASM_FORMAT_PE64 if applicable.
+%ifdef ASM_FORMAT_PE
+ %ifdef RT_ARCH_AMD64
+  %define ASM_FORMAT_PE64       1
+ %endif
+%endif
+
+;;
+; SEH64 macros.
+%ifdef RT_ASM_WITH_SEH64
+ %ifndef ASM_FORMAT_PE64
+  %undef RT_ASM_WITH_SEH64
+ %endif
+%endif
+
+%ifdef RT_ASM_WITH_SEH64_ALT
+ %ifdef ASM_FORMAT_PE64
+  ;; @name Register numbers. Used with RT_CONCAT to convert macro inputs to numbers.
+  ;; @{
+  %define SEH64_PE_GREG_rax     0
+  %define SEH64_PE_GREG_xAX     0
+  %define SEH64_PE_GREG_rcx     1
+  %define SEH64_PE_GREG_xCX     1
+  %define SEH64_PE_GREG_rdx     2
+  %define SEH64_PE_GREG_xDX     2
+  %define SEH64_PE_GREG_rbx     3
+  %define SEH64_PE_GREG_xBX     3
+  %define SEH64_PE_GREG_rsp     4
+  %define SEH64_PE_GREG_xSP     4
+  %define SEH64_PE_GREG_rbp     5
+  %define SEH64_PE_GREG_xBP     5
+  %define SEH64_PE_GREG_rsi     6
+  %define SEH64_PE_GREG_xSI     6
+  %define SEH64_PE_GREG_rdi     7
+  %define SEH64_PE_GREG_xDI     7
+  %define SEH64_PE_GREG_r8      8
+  %define SEH64_PE_GREG_r9      9
+  %define SEH64_PE_GREG_r10     10
+  %define SEH64_PE_GREG_r11     11
+  %define SEH64_PE_GREG_r12     12
+  %define SEH64_PE_GREG_r13     13
+  %define SEH64_PE_GREG_r14     14
+  %define SEH64_PE_GREG_r15     15
+  ;; @}
+
+  ;; @name PE unwind operations.
+  ;; @{
+  %define SEH64_PE_PUSH_NONVOL      0
+  %define SEH64_PE_ALLOC_LARGE      1
+  %define SEH64_PE_ALLOC_SMALL      2
+  %define SEH64_PE_SET_FPREG        3
+  %define SEH64_PE_SAVE_NONVOL      4
+  %define SEH64_PE_SAVE_NONVOL_FAR  5
+  %define SEH64_PE_SAVE_XMM128      8
+  %define SEH64_PE_SAVE_XMM128_FAR  9
+  ;; @}
+
+  ;;
+  ; Starts the unwind info for the manual SEH64 info generation.
+  ; @param 1 Function name.
+  %macro SEH64_ALT_START_UNWIND_INFO 1
+   %assign seh64_idxOps   0
+   %assign seh64_FrameReg SEH64_PE_GREG_rsp
+   %assign seh64_offFrame 0
+   %define asm_seh64_proc %1
+   %undef  seh64_slot_bytes
+  %endmacro
+
+  ;; We keep the unwind bytes in the seh64_slot_bytes (x)define, in reverse order as per spec.
+  %macro SEH64_APPEND_SLOT_PAIR 2
+   %ifdef seh64_slot_bytes
+    %xdefine seh64_slot_bytes %1, %2, seh64_slot_bytes
+   %else
+    %xdefine seh64_slot_bytes %1, %2
+   %endif
+  %endmacro
+
+  ;; For multi-slot unwind info.
+  %macro SEH64_APPEND_SLOT_BYTES 2+
+   %rep %0
+    %rotate -1
+    %ifdef seh64_slot_bytes
+     %xdefine seh64_slot_bytes %1, seh64_slot_bytes
+    %else
+     %xdefine seh64_slot_bytes %1
+    %endif
+   %endrep
+  %endmacro
+
+ %else
+  %undef RT_ASM_WITH_SEH64_ALT
+ %endif
+%endif
+
+;;
+; Records a xBP push.
+%macro SEH64_PUSH_xBP 0
+ %ifdef RT_ASM_WITH_SEH64
+        [pushreg rbp]
+
+ %elifdef RT_ASM_WITH_SEH64_ALT
+RT_CONCAT(.seh64_op_label_,seh64_idxOps):
+  %ifdef ASM_FORMAT_PE64
+   SEH64_APPEND_SLOT_PAIR   RT_CONCAT(.seh64_op_label_,seh64_idxOps) - .start_of_prologue, \
+                            SEH64_PE_PUSH_NONVOL | (SEH64_PE_GREG_rbp << 4)
+  %endif
+  %assign seh64_idxOps      seh64_idxOps + 1
+ %endif
+%endmacro
+
+;;
+; Records a general register push.
+; @param 1 Register name.
+%macro SEH64_PUSH_GREG 1
+ %ifdef RT_ASM_WITH_SEH64
+        [pushreg %1]
+
+ %elifdef RT_ASM_WITH_SEH64_ALT
+RT_CONCAT(.seh64_op_label_,seh64_idxOps):
+  %ifdef ASM_FORMAT_PE64
+   SEH64_APPEND_SLOT_PAIR   RT_CONCAT(.seh64_op_label_,seh64_idxOps) - .start_of_prologue, \
+                            SEH64_PE_PUSH_NONVOL | (RT_CONCAT(SEH64_PE_GREG_,%1) << 4)
+  %endif
+  %assign seh64_idxOps      seh64_idxOps + 1
+ %endif
+%endmacro
+
+;;
+; Sets xBP as frame pointer that's pointing to a stack position %1 relative to xBP.
+%macro SEH64_SET_FRAME_xBP 1
+ %ifdef RT_ASM_WITH_SEH64
+  [setframe rbp, %1]
+
+ %elifdef RT_ASM_WITH_SEH64_ALT
+RT_CONCAT(.seh64_op_label_,seh64_idxOps):
+  %ifdef ASM_FORMAT_PE64
+   SEH64_APPEND_SLOT_PAIR   RT_CONCAT(.seh64_op_label_,seh64_idxOps) - .start_of_prologue, \
+                            SEH64_PE_SET_FPREG | 0 ; vs2019 seems to put the offset in the info field
+   %assign seh64_FrameReg   SEH64_PE_GREG_rbp
+   %assign seh64_offFrame   %1
+  %endif
+  %assign seh64_idxOps      seh64_idxOps + 1
+ %endif
+%endmacro
+
+;;
+; Records an ADD xSP, %1.
+%macro SEH64_ALLOCATE_STACK 1
+ %ifdef RT_ASM_WITH_SEH64
+        [allocstack %1]
+
+ %elifdef RT_ASM_WITH_SEH64_ALT
+RT_CONCAT(.seh64_op_label_,seh64_idxOps):
+  %ifdef ASM_FORMAT_PE64
+   %if (%1) & 7
+    %error "SEH64_ALLOCATE_STACK must be a multiple of 8"
+   %endif
+   %if (%1) < 8
+    %error "SEH64_ALLOCATE_STACK must have an argument that's 8 or higher."
+   %elif (%1) <= 128
+    SEH64_APPEND_SLOT_PAIR RT_CONCAT(.seh64_op_label_,seh64_idxOps) - .start_of_prologue, \
+                           SEH64_PE_ALLOC_SMALL | ((((%1) / 8) - 1) << 4)
+   %elif (%1) < 512
+    SEH64_APPEND_SLOT_BYTES RT_CONCAT(.seh64_op_label_,seh64_idxOps) - .start_of_prologue, \
+                            SEH64_PE_ALLOC_LARGE | 0, \
+                            ((%1) / 8) & 0xff, ((%1) / 8) >> 8
+   %else
+    SEH64_APPEND_SLOT_BYTES RT_CONCAT(.seh64_op_label_,seh64_idxOps) - .start_of_prologue, \
+                            SEH64_PE_ALLOC_LARGE | 1, \
+                            (%1) & 0xff, ((%1) >> 8) & 0xff, ((%1) >> 16) & 0xff, ((%1) >> 24) & 0xff
+   %endif
+  %endif
+  %assign seh64_idxOps      seh64_idxOps + 1
+ %endif
+%endmacro
+
+%macro SEH64_INFO_HELPER 1
+%if defined(%1)
+        dw      %1
+%endif
+%endmacro
+
+;;
+; Ends the prologue.
+%macro SEH64_END_PROLOGUE 0
+.end_of_prologue:
+ %ifdef RT_ASM_WITH_SEH64
+        [endprolog]
+
+ %elifdef RT_ASM_WITH_SEH64_ALT
+  %ifdef ASM_FORMAT_PE
+        ; Emit the unwind info now.
+   %ifndef ASM_DEFINED_XDATA_SECTION
+    %define ASM_DEFINED_XDATA_SECTION
+        section .xdata rdata align=4
+   %else
+        section .xdata
+        align   4, db 0
+   %endif
+.unwind_info:
+        db      1                       ; version 1 (3 bit), no flags (5 bits)
+        db      .end_of_prologue - .start_of_prologue
+
+        db      (.unwind_info_array_end - .unwind_info_array) / 2
+        db      seh64_FrameReg | (seh64_offFrame & 0xf0) ; framereg and offset/16.
+.unwind_info_array:
+   %ifdef seh64_slot_bytes
+        db      seh64_slot_bytes
+    %undef seh64_slot_bytes
+   %endif
+.unwind_info_array_end:
+
+        ; Reset the segment
+        BEGINCODE
+  %endif
+ %endif
+%endmacro
+
+;;
+; Macro for generating the endbr32/64 instruction when
+; RT_WITH_IBT_BRANCH_PROTECTION is defined.
+%macro IBT_ENDBRxx 0
+ %ifdef RT_WITH_IBT_BRANCH_PROTECTION
+  %ifdef RT_ARCH_AMD64
+        db      0xf3, 0x0f, 0x1e, 0xfa ; yasm doesn't know about endbr64
+  %elifdef RT_ARCH_X86
+        db      0xf3, 0x0f, 0x1e, 0xfb ; yasm doesn't know about endbr32
+  %else
+   %error "Which arch?"
+  %endif
+ %endif
+%endmacro
+
+;;
+; Macro for generating the endbr32/64 instruction when
+; RT_WITH_IBT_BRANCH_PROTECTION_WITHOUT_NOTRACK is defined.
+%macro IBT_ENDBRxx_WITHOUT_NOTRACK 0
+ %ifdef RT_WITH_IBT_BRANCH_PROTECTION_WITHOUT_NOTRACK
+  %ifdef RT_ARCH_AMD64
+        db      0xf3, 0x0f, 0x1e, 0xfa ; yasm doesn't know about endbr64
+  %elifdef RT_ARCH_X86
+        db      0xf3, 0x0f, 0x1e, 0xfb ; yasm doesn't know about endbr32
+  %else
+   %error "Which arch?"
+  %endif
+ %endif
+%endmacro
+
+;;
+; Macro for generating a NOTRACK prefix to an indirect jmp or call
+; instruction when RT_WITH_IBT_BRANCH_PROTECTION is defined.
+;
+; @note Carful if mixing with other segment prefixes (should work, but needs
+;       testing).
+%macro IBT_NOTRACK 0
+ %ifdef RT_WITH_IBT_BRANCH_PROTECTION
+  %ifndef RT_WITH_IBT_BRANCH_PROTECTION_WITHOUT_NOTRACK
+        db      0x3e                    ; DS prefix.
+  %endif
+ %endif
+%endmacro
+
+
+;;
+; Align code, pad with INT3.
+%define ALIGNCODE(alignment) align alignment, db 0cch
+
+;;
+; Align data, pad with ZEROs.
+%define ALIGNDATA(alignment) align alignment, db 0
+
+;;
+; Align BSS, pad with ZEROs.
+%define ALIGNBSS(alignment) align alignment, resb 1
+
+;;
+; NAME_OVERLOAD can be defined by a .asm module to modify all the
+; names created using the name macros in this files.
+; This is handy when you've got some kind of template code.
+%ifndef NAME_OVERLOAD
+ %ifdef RT_MANGLER_PREFIX
+  %define NAME_OVERLOAD(name) RT_MANGLER_PREFIX %+ name
+ %else
+  %define NAME_OVERLOAD(name) name
+ %endif
+%endif
+
+;;
+; Mangles the given name so it can be referenced using DECLASM() in the
+; C/C++ world.
+%ifndef ASM_FORMAT_BIN
+ %ifdef RT_ARCH_X86
+  %ifdef RT_OS_OS2
+   %define NAME(name)   _ %+ NAME_OVERLOAD(name)
+  %endif
+  %ifdef RT_OS_WINDOWS
+   %define NAME(name)   _ %+ NAME_OVERLOAD(name)
+  %endif
+ %endif
+ %ifdef RT_OS_DARWIN
+  %define NAME(name)    _ %+ NAME_OVERLOAD(name)
+ %endif
+%endif
+%ifndef NAME
+ %define NAME(name)     NAME_OVERLOAD(name)
+%endif
+
+;;
+; Mangles the given C name so it will _import_ the right symbol.
+%ifdef ASM_FORMAT_PE
+ %define IMPNAME(name)  __imp_ %+ NAME(name)
+%else
+ %define IMPNAME(name)  NAME(name)
+%endif
+
+;;
+; Gets the pointer to an imported object.
+%ifdef ASM_FORMAT_PE
+ %ifdef RT_ARCH_AMD64
+  %define IMP(name)     qword [IMPNAME(name) wrt rip]
+ %else
+  %define IMP(name)     dword [IMPNAME(name)]
+ %endif
+%else
+ %define IMP(name)      IMPNAME(name)
+%endif
+
+;;
+; Gets the pointer to an imported object.
+%ifdef ASM_FORMAT_PE
+ %ifdef RT_ARCH_AMD64
+  %define IMP_SEG(SegOverride, name)  qword [SegOverride:IMPNAME(name) wrt rip]
+ %else
+  %define IMP_SEG(SegOverride, name)  dword [SegOverride:IMPNAME(name)]
+ %endif
+%else
+ %define IMP_SEG(SegOverride, name)   IMPNAME(name)
+%endif
+
+;;
+; Declares an imported object for use with IMP2.
+; @note May change the current section!
+%macro EXTERN_IMP2 1
+    extern IMPNAME(%1)
+    BEGINDATA
+ %ifdef ASM_FORMAT_MACHO
+    g_Imp2_ %+ %1:  RTCCPTR_DEF IMPNAME(%1)
+ %endif
+%endmacro
+
+;;
+; Gets the pointer to an imported object, version 2.
+%ifdef ASM_FORMAT_PE
+ %ifdef RT_ARCH_AMD64
+  %define IMP2(name)    qword [IMPNAME(name) wrt rip]
+ %else
+  %define IMP2(name)    dword [IMPNAME(name)]
+ %endif
+%elifdef ASM_FORMAT_ELF
+ %ifdef PIC
+  %ifdef RT_ARCH_AMD64
+   %define IMP2(name)   qword [rel IMPNAME(name) wrt ..got]
+  %else
+   %define IMP2(name)   IMPNAME(name) wrt ..plt
+  %endif
+ %endif
+%elifdef ASM_FORMAT_MACHO
+ %define IMP2(name)     RTCCPTR_PRE [g_Imp2_ %+ name xWrtRIP]
+%endif
+%ifndef IMP2
+ %define IMP2(name)     IMPNAME(name)
+%endif
+
+
+;;
+; Define a label as given, with a '$' prepended to permit using instruction
+; names like fdiv as labels.
+%macro SAFE_LABEL 1
+$%1:
+%endmacro
+
+;;
+; Global marker which is DECLASM() compatible.
+%macro GLOBALNAME 1
+%ifndef ASM_FORMAT_BIN
+global NAME(%1)
+%endif
+SAFE_LABEL NAME(%1)
+%endmacro
+
+;;
+; Global exported marker which is DECLASM() compatible.
+%macro EXPORTEDNAME 1
+ %ifdef ASM_FORMAT_PE
+  export %1=NAME(%1)
+ %endif
+ %ifdef __NASM__
+  %ifdef ASM_FORMAT_OMF
+   export NAME(%1) NAME(%1)
+  %endif
+%endif
+GLOBALNAME %1
+%endmacro
+
+;;
+; Same as GLOBALNAME_EX, but without the name mangling.
+;
+; @param %1     The symbol name - subjected to NAME().
+; @param %2     ELF and PE attributes: 'function', 'object', 'data', 'notype'.
+;               PE ignores all but 'function' (yasm only).  Other formats ignores
+;               this completely.
+; @param %3     Symbol visibility: 'hidden', 'protected', 'internal', and
+;                                   RT_NOTHING (for 'default' visibility).
+;               These are ELF attributes, but 'hidden' is translated to
+;               'private_extern' for the Macho-O format.
+;               Ignored by other formats.
+;
+%macro GLOBALNAME_RAW 3
+%ifdef ASM_FORMAT_ELF
+global %1:%2 %3
+
+%elifdef ASM_FORMAT_PE
+ %ifidn %2,function
+  %ifdef __YASM__      ; nasm does not support any attributes, it errors out. So, nasm is no good with control flow guard atm.
+global %1:function
+  %else
+global %1
+  %endif
+ %else
+global %1
+ %endif
+
+%elifdef ASM_FORMAT_MACHO
+ %ifidn %3,hidden
+global %1:private_extern
+ %else
+global %1
+ %endif
+
+%elifndef ASM_FORMAT_BIN
+global %1
+
+%endif
+
+%1:
+%endmacro
+
+;;
+; Global marker which is DECLASM() compatible.
+;
+; @param %1     The symbol name - subjected to NAME().
+; @param %2     ELF and PE attributes: 'function', 'object', 'data', 'notype'.
+;               PE ignores all but 'function' (yasm only).  Other formats ignores
+;               this completely.
+; @param %3     Symbol visibility: 'hidden', 'protected', 'internal', and
+;                                   RT_NOTHING (for 'default' visibility).
+;               These are ELF attributes, but 'hidden' is translated to
+;               'private_extern' for the Macho-O format.
+;               Ignored by other formats.
+;
+%macro GLOBALNAME_EX 3
+GLOBALNAME_RAW NAME(%1), %2, %3
+%endmacro
+
+
+;;
+; Global exported marker, raw version w/o automatic name mangling.
+;
+; @param %1     The internal symbol name.
+; @param %2     The external symbol name.
+; @param %3     ELF and PE attributes: 'function', 'object', 'data', 'notype'.
+;               PE ignores all but 'function' (yasm only).  Other formats ignores
+;               this completely.
+;
+%macro EXPORTEDNAME_RAW 3
+ %ifdef ASM_FORMAT_PE
+  export %2=%1
+ %endif
+ %ifdef __NASM__
+  %ifdef ASM_FORMAT_OMF
+   export %1 %2
+  %endif
+%endif
+GLOBALNAME_RAW %1, %3, RT_NOTHING
+%endmacro
+
+;;
+; Global exported marker which is DECLASM() compatible.
+;
+; @param %1     The symbol name - subjected to NAME().
+; @param %2     ELF and PE attributes: 'function', 'object', 'data', 'notype'.
+;               PE ignores all but 'function' (yasm only).  Other formats ignores
+;               this completely.
+;
+%macro EXPORTEDNAME_EX 2
+EXPORTEDNAME_RAW NAME(%1), %1, %2
+%endmacro
+
+
+;;
+; Begins a procedure, raw version w/o automatic name mangling.
+; @param 1  The (raw) name.
+; @param 2  Whether to manually apply IBT_ENDBRxx (1) or
+;           not (0, default). Optional
+%macro BEGINPROC_RAW 1-2 0
+ %ifdef RT_ASM_WITH_SEH64_ALT
+  SEH64_ALT_START_UNWIND_INFO %1
+ %endif
+ %ifdef RT_ASM_WITH_SEH64
+global     %1:function
+proc_frame %1
+ %else
+GLOBALNAME_RAW %1, function, hidden
+ %endif
+.start_of_prologue:
+ %if %2 == 0
+        IBT_ENDBRxx
+ %endif
+%endmacro
+
+;;
+; Begins a C callable (DECLASM) procedure.
+%macro BEGINPROC 1-2 0
+BEGINPROC_RAW NAME(%1), %2
+%endmacro
+
+
+;;
+; Begins a exported procedure, raw version w/o automatic name mangling.
+; @param 1  Internal name.
+; @param 2  Exported name.
+; @param 3  Whether to manually apply IBT_ENDBRxx (1) or
+;           not (0, default). Optional
+%macro BEGINPROC_EXPORTED_RAW 2-3 0
+ %ifdef RT_ASM_WITH_SEH64_ALT
+  SEH64_ALT_START_UNWIND_INFO %1
+ %endif
+ %ifdef RT_ASM_WITH_SEH64
+  %ifdef ASM_FORMAT_PE
+export  %2=%1
+  %endif
+global     %1:function
+proc_frame %1
+ %else
+EXPORTEDNAME_RAW %1, %2, function
+ %endif
+.start_of_prologue:
+ %if %3 == 0
+        IBT_ENDBRxx
+ %endif
+%endmacro
+
+;;
+; Begins a C callable (DECLASM) exported procedure.
+%macro BEGINPROC_EXPORTED 1-2 0
+BEGINPROC_EXPORTED_RAW NAME(%1), %1, %2
+%endmacro
+
+
+;;
+; Ends a procedure, raw version w/o automatic name mangling.
+%macro ENDPROC_RAW 1
+ %ifdef RT_ASM_WITH_SEH64
+endproc_frame
+ %endif
+GLOBALNAME_RAW %1 %+ _EndProc, , hidden ; no function here, this isn't a valid code flow target.
+%ifdef ASM_FORMAT_ELF
+ %ifndef __NASM__ ; nasm does this in the global directive.
+size %1               %1 %+ _EndProc - %1
+size %1 %+ _EndProc   4 ; make it non-zero to shut up warnigns from Linux's objtool.
+ %endif
+%endif
+    db  0xCC, 0xCC, 0xCC, 0xCC
+
+ %ifdef RT_ASM_WITH_SEH64_ALT
+  %ifdef ASM_FORMAT_PE
+        ; Emit the RUNTIME_FUNCTION entry.  The linker is picky here, no label.
+   %ifndef ASM_DEFINED_PDATA_SECTION
+    %define ASM_DEFINED_PDATA_SECTION
+        section .pdata rdata align=4
+   %else
+        section .pdata
+   %endif
+        dd      %1                    wrt ..imagebase
+        dd      %1 %+ _EndProc        wrt ..imagebase
+        dd      %1 %+ .unwind_info    wrt ..imagebase
+
+        ; Restore code section.
+        BEGINCODE
+  %endif
+ %endif
+%endmacro
+
+;;
+; Ends a C callable procedure.
+%macro ENDPROC 1
+ENDPROC_RAW NAME(%1)
+%endmacro
+
+
+;
+; Do OMF and Mach-O/Yasm segment definitions
+;
+; Both format requires this to get the segment order right, in the Mach-O/Yasm case
+; it's only to make sure the .bss section ends up last (it's not declared here).
+;
+%ifdef ASM_FORMAT_OMF
+ %ifndef RT_NOINC_SEGMENTS
+
+  ; 16-bit segments first (OMF / OS/2 specific).
+  %ifdef RT_INCL_16BIT_SEGMENTS
+   segment DATA16 public CLASS=FAR_DATA align=16 use16
+   segment DATA16_INIT public CLASS=FAR_DATA align=16 use16
+   group DGROUP16 DATA16 DATA16_INIT
+
+   ;;
+   ; Begins 16-bit data
+   %macro BEGINDATA16 0
+    segment DATA16
+   %endmacro
+
+   ;;
+   ; Begins 16-bit init data
+   %macro BEGINDATA16INIT 0
+    segment DATA16_INIT
+   %endmacro
+
+   segment CODE16 public CLASS=FAR_CODE align=16 use16
+   segment CODE16_INIT public CLASS=FAR_CODE align=16 use16
+   group CGROUP16 CODE16 CODE16_INIT
+
+   ;;
+   ; Begins 16-bit code
+   %macro BEGINCODE16 0
+    segment CODE16
+   %endmacro
+
+   ;;
+   ; Begins 16-bit init code
+   %macro BEGINCODE16INIT 0
+    segment CODE16_INIT
+   %endmacro
+
+  %endif
+
+  ; 32-bit segments.
+  segment TEXT32 public CLASS=CODE align=16 use32 flat
+  segment DATA32 public CLASS=DATA align=16 use32 flat
+  segment BSS32  public CLASS=BSS  align=16 use32 flat
+
+  ; Make the TEXT32 segment default.
+  segment TEXT32
+ %endif ; RT_NOINC_SEGMENTS
+%endif
+
+%ifdef ASM_FORMAT_MACHO
+ %ifdef __YASM__
+  section .text
+  section .data
+ %endif
+%endif
+
+
+;;
+; Begins code
+%ifdef ASM_FORMAT_OMF
+ %macro BEGINCODE 0
+  segment TEXT32
+ %endmacro
+%else
+%macro BEGINCODE 0
+ section .text
+%endmacro
+%endif
+
+;;
+; Begins constant (read-only) data
+;
+; @remarks  This is mapped to the CODE section/segment when there isn't
+;           any dedicated const section/segment. (There is code that
+;           assumes this, so don't try change it.)
+%ifdef ASM_FORMAT_OMF
+ %macro BEGINCONST 0
+  segment TEXT32
+ %endmacro
+%else
+ %macro BEGINCONST 0
+  %ifdef ASM_FORMAT_MACHO ;; @todo check the other guys too.
+   section .rodata
+  %else
+   section .text
+  %endif
+ %endmacro
+%endif
+
+;;
+; Begins initialized data
+%ifdef ASM_FORMAT_OMF
+ %macro BEGINDATA 0
+  segment DATA32
+ %endmacro
+%else
+%macro BEGINDATA 0
+ section .data
+%endmacro
+%endif
+
+;;
+; Begins uninitialized data
+%ifdef ASM_FORMAT_OMF
+ %macro BEGINBSS 0
+  segment BSS32
+ %endmacro
+%else
+%macro BEGINBSS 0
+ section .bss
+%endmacro
+%endif
+
+
+
+;; @def ARCH_BITS
+; Defines the bit count of the current context.
+%ifndef ARCH_BITS
+ %ifdef RT_ARCH_AMD64
+  %define ARCH_BITS 64
+ %else
+  %define ARCH_BITS 32
+ %endif
+%endif
+
+;; @def HC_ARCH_BITS
+; Defines the host architechture bit count.
+%ifndef HC_ARCH_BITS
+ %ifndef IN_RC
+  %define HC_ARCH_BITS ARCH_BITS
+ %else
+  %define HC_ARCH_BITS 32
+ %endif
+%endif
+
+;; @def R3_ARCH_BITS
+; Defines the host ring-3 architechture bit count.
+%ifndef R3_ARCH_BITS
+ %ifdef IN_RING3
+  %define R3_ARCH_BITS ARCH_BITS
+ %else
+  %define R3_ARCH_BITS HC_ARCH_BITS
+ %endif
+%endif
+
+;; @def R0_ARCH_BITS
+; Defines the host ring-0 architechture bit count.
+%ifndef R0_ARCH_BITS
+ %ifdef IN_RING0
+  %define R0_ARCH_BITS ARCH_BITS
+ %else
+  %define R0_ARCH_BITS HC_ARCH_BITS
+ %endif
+%endif
+
+;; @def GC_ARCH_BITS
+; Defines the guest architechture bit count.
+%ifndef GC_ARCH_BITS
+ %ifdef IN_RC
+  %define GC_ARCH_BITS ARCH_BITS
+ %else
+  %define GC_ARCH_BITS 32
+ %endif
+%endif
+
+
+
+;; @def RTHCPTR_DEF
+; The pesudo-instruction used to declare an initialized pointer variable in the host context.
+%if HC_ARCH_BITS == 64
+ %define RTHCPTR_DEF    dq
+%else
+ %define RTHCPTR_DEF    dd
+%endif
+
+;; @def RTHCPTR_RES
+; The pesudo-instruction used to declare (=reserve space for) an uninitialized pointer
+; variable of the host context.
+%if HC_ARCH_BITS == 64
+ %define RTHCPTR_RES    resq
+%else
+ %define RTHCPTR_RES    resd
+%endif
+
+;; @def RTHCPTR_PRE
+; The memory operand prefix used for a pointer in the host context.
+%if HC_ARCH_BITS == 64
+ %define RTHCPTR_PRE    qword
+%else
+ %define RTHCPTR_PRE    dword
+%endif
+
+;; @def RTHCPTR_CB
+; The size in bytes of a pointer in the host context.
+%if HC_ARCH_BITS == 64
+ %define RTHCPTR_CB     8
+%else
+ %define RTHCPTR_CB     4
+%endif
+
+
+
+;; @def RTR0PTR_DEF
+; The pesudo-instruction used to declare an initialized pointer variable in the ring-0 host context.
+%if R0_ARCH_BITS == 64
+ %define RTR0PTR_DEF    dq
+%else
+ %define RTR0PTR_DEF    dd
+%endif
+
+;; @def RTR0PTR_RES
+; The pesudo-instruction used to declare (=reserve space for) an uninitialized pointer
+; variable of the ring-0 host context.
+%if R0_ARCH_BITS == 64
+ %define RTR0PTR_RES    resq
+%else
+ %define RTR0PTR_RES    resd
+%endif
+
+;; @def RTR0PTR_PRE
+; The memory operand prefix used for a pointer in the ring-0 host context.
+%if R0_ARCH_BITS == 64
+ %define RTR0PTR_PRE    qword
+%else
+ %define RTR0PTR_PRE    dword
+%endif
+
+;; @def RTR0PTR_CB
+; The size in bytes of a pointer in the ring-0 host context.
+%if R0_ARCH_BITS == 64
+ %define RTR0PTR_CB     8
+%else
+ %define RTR0PTR_CB     4
+%endif
+
+
+
+;; @def RTR3PTR_DEF
+; The pesudo-instruction used to declare an initialized pointer variable in the ring-3 host context.
+%if R3_ARCH_BITS == 64
+ %define RTR3PTR_DEF    dq
+%else
+ %define RTR3PTR_DEF    dd
+%endif
+
+;; @def RTR3PTR_RES
+; The pesudo-instruction used to declare (=reserve space for) an uninitialized pointer
+; variable of the ring-3 host context.
+%if R3_ARCH_BITS == 64
+ %define RTR3PTR_RES    resq
+%else
+ %define RTR3PTR_RES    resd
+%endif
+
+;; @def RTR3PTR_PRE
+; The memory operand prefix used for a pointer in the ring-3 host context.
+%if R3_ARCH_BITS == 64
+ %define RTR3PTR_PRE    qword
+%else
+ %define RTR3PTR_PRE    dword
+%endif
+
+;; @def RTR3PTR_CB
+; The size in bytes of a pointer in the ring-3 host context.
+%if R3_ARCH_BITS == 64
+ %define RTR3PTR_CB     8
+%else
+ %define RTR3PTR_CB     4
+%endif
+
+
+
+;; @def RTGCPTR_DEF
+; The pesudo-instruction used to declare an initialized pointer variable in the guest context.
+%if GC_ARCH_BITS == 64
+ %define RTGCPTR_DEF    dq
+%else
+ %define RTGCPTR_DEF    dd
+%endif
+
+;; @def RTGCPTR_RES
+; The pesudo-instruction used to declare (=reserve space for) an uninitialized pointer
+; variable of the guest context.
+%if GC_ARCH_BITS == 64
+ %define RTGCPTR_RES    resq
+%else
+ %define RTGCPTR_RES    resd
+%endif
+
+%define RTGCPTR32_RES   resd
+%define RTGCPTR64_RES   resq
+
+;; @def RTGCPTR_PRE
+; The memory operand prefix used for a pointer in the guest context.
+%if GC_ARCH_BITS == 64
+ %define RTGCPTR_PRE    qword
+%else
+ %define RTGCPTR_PRE    dword
+%endif
+
+;; @def RTGCPTR_CB
+; The size in bytes of a pointer in the guest context.
+%if GC_ARCH_BITS == 64
+ %define RTGCPTR_CB     8
+%else
+ %define RTGCPTR_CB     4
+%endif
+
+
+;; @def RTRCPTR_DEF
+; The pesudo-instruction used to declare an initialized pointer variable in the raw mode context.
+%define RTRCPTR_DEF    dd
+
+;; @def RTRCPTR_RES
+; The pesudo-instruction used to declare (=reserve space for) an uninitialized pointer
+; variable of the raw mode context.
+%define RTRCPTR_RES    resd
+
+;; @def RTRCPTR_PRE
+; The memory operand prefix used for a pointer in the raw mode context.
+%define RTRCPTR_PRE    dword
+
+;; @def RTRCPTR_CB
+; The size in bytes of a pointer in the raw mode context.
+%define RTRCPTR_CB     4
+
+
+;; @def RT_CCPTR_DEF
+; The pesudo-instruction used to declare an initialized pointer variable in the current context.
+
+;; @def RT_CCPTR_RES
+; The pesudo-instruction used to declare (=reserve space for) an uninitialized pointer
+; variable of the current context.
+
+;; @def RT_CCPTR_PRE
+; The memory operand prefix used for a pointer in the current context.
+
+;; @def RT_CCPTR_CB
+; The size in bytes of a pointer in the current context.
+
+%ifdef IN_RC
+ %define RTCCPTR_DEF        RTRCPTR_DEF
+ %define RTCCPTR_RES        RTRCPTR_RES
+ %define RTCCPTR_PRE        RTRCPTR_PRE
+ %define RTCCPTR_CB         RTRCPTR_CB
+%else
+ %ifdef IN_RING0
+  %define RTCCPTR_DEF       RTR0PTR_DEF
+  %define RTCCPTR_RES       RTR0PTR_RES
+  %define RTCCPTR_PRE       RTR0PTR_PRE
+  %define RTCCPTR_CB        RTR0PTR_CB
+ %else
+  %define RTCCPTR_DEF       RTR3PTR_DEF
+  %define RTCCPTR_RES       RTR3PTR_RES
+  %define RTCCPTR_PRE       RTR3PTR_PRE
+  %define RTCCPTR_CB        RTR3PTR_CB
+ %endif
+%endif
+
+
+
+;; @def RTHCPHYS_DEF
+; The pesudo-instruction used to declare an initialized host physical address.
+%define RTHCPHYS_DEF    dq
+
+;; @def RTHCPTR_RES
+; The pesudo-instruction used to declare (=reserve space for) an uninitialized
+; host physical address variable
+%define RTHCPHYS_RES    resq
+
+;; @def RTHCPTR_PRE
+; The memory operand prefix used for a host physical address.
+%define RTHCPHYS_PRE    qword
+
+;; @def RTHCPHYS_CB
+; The size in bytes of a host physical address.
+%define RTHCPHYS_CB     8
+
+
+
+;; @def RTGCPHYS_DEF
+; The pesudo-instruction used to declare an initialized guest physical address.
+%define RTGCPHYS_DEF    dq
+
+;; @def RTGCPHYS_RES
+; The pesudo-instruction used to declare (=reserve space for) an uninitialized
+; guest physical address variable
+%define RTGCPHYS_RES    resq
+
+;; @def RTGCPTR_PRE
+; The memory operand prefix used for a guest physical address.
+%define RTGCPHYS_PRE    qword
+
+;; @def RTGCPHYS_CB
+; The size in bytes of a guest physical address.
+%define RTGCPHYS_CB     8
+
+
+
+;;
+; The size of the long double C/C++ type.
+; On 32-bit Darwin this is 16 bytes, on L4, Linux, OS/2 and Windows
+; it's 12 bytes.
+; @todo figure out what 64-bit Windows does (I don't recall right now).
+%ifdef RT_ARCH_X86
+ %ifdef RT_OS_DARWIN
+  %define RTLRD_CB          16
+ %else
+  %define RTLRD_CB          12
+ %endif
+%else
+  %define RTLRD_CB          16
+%endif
+
+;; @name Floating point constants along the lines of the iprt/types.h types.
+; @note YASM does support special  the __Infinity__ and __NaN__ nasm tokens.
+; @{
+%define RTFLOAT32U_QNAN_PLUS    0x7fc00000
+%define RTFLOAT32U_QNAN_MINUS   0xffc00000
+%define RTFLOAT32U_INF_PLUS     0x7f800000
+%define RTFLOAT32U_INF_MINUS    0xff800000
+
+%define RTFLOAT64U_QNAN_PLUS    0x7ff8000000000000
+%define RTFLOAT64U_QNAN_MINUS   0xfff8000000000000
+%define RTFLOAT64U_INF_PLUS     0x7ff0000000000000
+%define RTFLOAT64U_INF_MINUS    0xfff0000000000000
+; @}
+
+
+
+;; @def ASM_CALL64_GCC
+; Indicates that we're using the GCC 64-bit calling convention.
+; @see @ref sec_vboxrem_amd64_compare (in VBoxREMWrapper.cpp) for an ABI description.
+
+;; @def ASM_CALL64_MSC
+; Indicates that we're using the Microsoft 64-bit calling convention (fastcall on steroids).
+; @see @ref sec_vboxrem_amd64_compare (in VBoxREMWrapper.cpp) for an ABI description.
+
+; Note: On X86 we're using cdecl unconditionally. There is not yet any common
+; calling convention on AMD64, that's why we need to support two different ones.)
+
+%ifdef RT_ARCH_AMD64
+ %ifndef ASM_CALL64_GCC
+  %ifndef ASM_CALL64_MSC
+   ; define it based on the object format.
+   %ifdef ASM_FORMAT_PE
+    %define ASM_CALL64_MSC
+   %else
+    %define ASM_CALL64_GCC
+   %endif
+  %endif
+ %else
+  ; sanity check.
+  %ifdef ASM_CALL64_MSC
+   %error "Only one of the ASM_CALL64_* defines should be defined!"
+  %endif
+ %endif
+%else
+ ;later; %ifdef ASM_CALL64_GCC
+ ;later;  %error "ASM_CALL64_GCC is defined without RT_ARCH_AMD64!" ASM_CALL64_GCC
+ ;later; %endif
+ ;later; %ifdef ASM_CALL64_MSC
+ ;later;  %error "ASM_CALL64_MSC is defined without RT_ARCH_AMD64!" ASM_CALL64_MSC
+ ;later; %endif
+%endif
+
+
+;; @def RT_BEGINPROC
+; Starts an IPRT procedure that should be exported unless IN_RT_STATIC is defined.
+;
+; @param    1       The function name.  Will apply NAME macro to it.
+%macro RT_BEGINPROC 1
+ %ifdef IN_RT_STATIC
+BEGINPROC          %1, 0
+ %else
+BEGINPROC_EXPORTED %1, 0
+ %endif
+%endmacro ; RT_BEGINPROC
+
+
+;; @def RT_NOCRT
+; Symbol name wrapper for the No-CRT bits.
+;
+; In order to coexist in the same process as other CRTs, we need to
+; decorate the symbols such that they don't conflict the ones in the
+; other CRTs. The result of such conflicts / duplicate symbols can
+; confuse the dynamic loader on unix like systems.
+;
+; @remark Always feed the name to this macro first and then pass the result
+;         on to the next *NAME* macro.
+;
+%ifndef RT_WITHOUT_NOCRT_WRAPPERS
+ %define RT_NOCRT(name) nocrt_ %+ name
+%else
+ %define RT_NOCRT(name) name
+%endif
+
+;; @def RT_NOCRT_BEGINPROC
+; Starts a NOCRT procedure, taking care of name wrapping and aliasing.
+;
+; Weak aliases for regular crt (%1) names to the nocrt_ prefixed ones will be
+; added when RT_WITH_NOCRT_ALIASES is defined and the output is ELF.  If
+; RT_WITH_GENALIAS_NOCRT_ALIASES is undefined, strong aliases will be added for
+; for non-ELF targets, otherwise it's assumed the genalias build tool will do
+; the weak aliasing for us.
+;
+%macro RT_NOCRT_BEGINPROC 1
+ %ifdef RT_WITH_NOCRT_ALIASES
+BEGINPROC_EXPORTED RT_NOCRT(%1), 1 ; Do our own IBT_ENDBRxx after aliasing/
+  %ifdef ASM_FORMAT_ELF
+   ; ELF
+   %ifdef RT_WITH_NOCRT_UNDERSCORE_ALIASES
+global NAME(_ %+ %1):function
+weak NAME(_ %+ %1)
+SAFE_LABEL NAME(_ %+ %1)
+   %endif
+global NAME(%1):function
+weak NAME(%1)
+SAFE_LABEL NAME(%1)
+
+  %elifndef RT_WITH_GENALIAS_NOCRT_ALIASES
+   ; non-ELF when not using genalias.
+   %ifdef RT_WITH_NOCRT_UNDERSCORE_ALIASES
+GLOBALNAME _%1
+   %endif
+GLOBALNAME %1
+  %endif
+        IBT_ENDBRxx
+ %else  ; !RT_WITH_NOCRT_ALIASES
+BEGINPROC_EXPORTED RT_NOCRT(%1), 0
+ %endif ; !RT_WITH_NOCRT_ALIASES
+%endmacro ; RT_NOCRT_BEGINPROC
+
+
+
+;; @def xCB
+; The stack unit size  / The register unit size.
+
+;; @def xSP
+; The stack pointer register (RSP or ESP).
+
+;; @def xBP
+; The base pointer register (RBP or ESP).
+
+;; @def xAX
+; RAX or EAX depending on context.
+
+;; @def xBX
+; RBX or EBX depending on context.
+
+;; @def xCX
+; RCX or ECX depending on context.
+
+;; @def xDX
+; RDX or EDX depending on context.
+
+;; @def xDI
+; RDI or EDI depending on context.
+
+;; @def xSI
+; RSI or ESI depending on context.
+
+;; @def xWrtRIP
+; 'wrt rip' for AMD64 targets, nothing for x86 ones.
+
+%ifdef RT_ARCH_AMD64
+ %define xCB 8
+ %define xSP rsp
+ %define xBP rbp
+ %define xAX rax
+ %define xBX rbx
+ %define xCX rcx
+ %define xDX rdx
+ %define xDI rdi
+ %define xSI rsi
+ %define xWrtRIP wrt rip
+%else
+ %define xCB 4
+ %define xSP esp
+ %define xBP ebp
+ %define xAX eax
+ %define xBX ebx
+ %define xCX ecx
+ %define xDX edx
+ %define xDI edi
+ %define xSI esi
+ %define xWrtRIP
+%endif
+
+
+;
+; NASM sets __PASS__ to 0 in preprocess-only mode, and to 3 when only generating dependencies.
+; YASM has no such setting which is why we must rely on kBuild to tell us what we're doing.
+; For simplicity, we'll set the kBuild macro when using NASM.
+;
+%ifndef KBUILD_GENERATING_MAKEFILE_DEPENDENCIES
+ %ifdef __NASM__
+  %if __PASS__ == 0 || __PASS__ == 3
+   %define KBUILD_GENERATING_MAKEFILE_DEPENDENCIES
+  %endif
+ %endif
+%endif
+
+
+;
+; Some simple compile time assertions.
+;
+; Note! Requires new kBuild to work with YASM (see above).
+;
+
+;;
+; Structure size assertion macro.
+%define AssertCompileSize(a_Type, a_Size) AssertCompileSizeML a_Type, a_Size
+%macro AssertCompileSizeML 2
+ %ifndef KBUILD_GENERATING_MAKEFILE_DEPENDENCIES
+  %assign AssertVar_cbActual   %1 %+ _size
+  %assign AssertVar_cbExpected %2
+  %if AssertVar_cbActual != AssertVar_cbExpected
+   %error %1 is AssertVar_cbActual bytes instead of AssertVar_cbExpected
+  %endif
+ %endif
+%endmacro
+
+;;
+; Structure size alignment assertion macro.
+
+%define AssertCompileSizeAlignment(a_Type, a_Align) AssertCompileSizeAlignmentML a_Type, a_Align
+%macro AssertCompileSizeAlignmentML 2
+ %ifndef KBUILD_GENERATING_MAKEFILE_DEPENDENCIES
+  %assign AssertVar_cbActual    %1 %+ _size
+  %assign AssertVar_cbAlignment %2
+  %if (AssertVar_cbActual & (AssertVar_cbAlignment - 1)) != 0
+   %error %1 is AssertVar_cbActual bytes, expected size with AssertVar_cbAlignment bytes alignment.
+  %endif
+ %endif
+%endmacro
+
+;;
+; Structure member offset assertion macro.
+%define AssertCompileMemberOffset(a_Type, a_Member, a_off) AssertCompileMemberOffsetML a_Type, a_Member, a_off
+%macro AssertCompileMemberOffsetML 3
+ %ifndef KBUILD_GENERATING_MAKEFILE_DEPENDENCIES
+  %assign AssertVar_offActual   %1 %+ . %+ %2
+  %assign AssertVar_offExpected %3
+  %if AssertVar_offActual != AssertVar_offExpected
+   %error %1 %+ . %+ %2 is at AssertVar_offActual instead of AssertVar_offExpected
+  %endif
+ %endif
+%endmacro
+
+;;
+; Structure member alignment assertion macro.
+%define AssertCompileMemberAlignment(a_Type, a_Member, a_cbAlign) AssertCompileMemberAlignmentML a_Type, a_Member, a_cbAlign
+%macro AssertCompileMemberAlignmentML 3
+ %ifndef KBUILD_GENERATING_MAKEFILE_DEPENDENCIES
+  %assign AssertVar_offActual   %1 %+ . %+ %2
+  %assign AssertVar_cbAlign     %3
+  %if AssertVar_offActual & (AssertVar_cbAlign - 1)
+   %error %1 %+ . %+ %2 is at AssertVar_offActual, expected AssertVar_cbAlign alignment
+  %endif
+ %endif
+%endmacro
+
+;;
+; Generic compile time expression assertion.
+%define AssertCompile(a_Expr) AssertCompileML { a_Expr }
+%macro AssertCompileML 1
+ %ifndef KBUILD_GENERATING_MAKEFILE_DEPENDENCIES
+  %if (%1) != 1
+   %assign AssertVar_uResult %1
+   %error %1 => AssertVar_uResult
+  %endif
+ %endif
+%endmacro
+
+%endif
+

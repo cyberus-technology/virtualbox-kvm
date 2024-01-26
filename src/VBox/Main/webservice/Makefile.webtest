@@ -1,0 +1,94 @@
+# $Id: Makefile.webtest $
+## @files
+# ???
+#
+
+#
+# Copyright (C) 2016-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+XSLTPROC          = xsltproc
+ifeq ($(PATH_GSOAP),)
+ PATH_GSOAP       = $(lastword $(sort $(wildcard $(KBUILD_DEVTOOLS)/common/gsoap/*)))
+endif
+PATH_GSOAP_BIN   := $(strip $(PATH_GSOAP))
+ifeq ($(PATH_GSOAP_BIN),)
+ PATH_GSOAP_BIN = /usr/bin
+endif
+SOAPCPP2          = $(PATH_GSOAP_BIN)/soapcpp2
+
+ifneq ($(MAKECMDGOALS),clean)
+ ifeq ($(wildcard $(PATH_GSOAP)/stdsoap2.cpp),)
+ $(error Fix PATH_GSOAP!)
+ endif
+endif
+
+WEBSRVWSDL2GSOAPH = ../../../xsl/websrv-wsdl2gsoapH.xsl
+WEBSRVNSMAPXSL    = ../../../xsl/websrv-nsmap.xsl
+VBOXWEBIDLSRC     = ../../../../VirtualBox.xidl
+VBOXWEBWSDL       = ../../../vboxweb.wsdl
+SPLITSOAPCCPP     = ../../../tools/split-soapC.cpp
+SOAPCCPP          = $(foreach num,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20,soapC-$(num).cpp)
+SOAPCO            = $(patsubst %.cpp,%.o,$(SOAPCCPP))
+
+webtest: webtest.o soapClient.o $(SOAPCO) stdsoap2.o
+	$(CXX) -O2 -o $@ $^ -lssl -lcrypto
+
+webtest.o: webtest.cpp soapC.cpp vboxwebsrv.nsmap
+	$(CXX) -O2 -DWITH_OPENSSL -c -o $@ $< -I$(PATH_GSOAP)
+
+soapClient.o: soapC.cpp
+	$(CXX) -O2 -c -o $@ soapClient.cpp -I$(PATH_GSOAP)
+
+$(SOAPCO): soapC-%.o: soapC-%.cpp
+	$(CXX) -O0 -c -o $@ $< -I$(PATH_GSOAP)
+
+soapC.cpp: gsoapH_from_xslt.h
+	$(SOAPCPP2) -x -L -2 -w -I$(PATH_GSOAP)/import $^
+
+stdsoap2.o: $(PATH_GSOAP)/stdsoap2.cpp
+	$(CXX) -O2 -DWITH_OPENSSL -c -o $@ $<
+
+gsoapH_from_xslt.h:
+	$(XSLTPROC) -o $@ $(WEBSRVWSDL2GSOAPH) $(VBOXWEBWSDL)
+
+vboxwebsrv.nsmap:
+	$(XSLTPROC) -o $@ $(WEBSRVNSMAPXSL) $(VBOXWEBIDLSRC)
+
+$(subst soapC,%,$(SOAPCCPP)): split-soapC %.cpp
+	./split-soapC soapC.cpp . 20
+
+split-soapC: $(SPLITSOAPCCPP)
+	$(CXX) -O2 -o $@ $<
+
+.PHONY: clean
+clean:
+	rm -f gsoapH_from_xslt.h
+	rm -f soapStub.h soapServer.cpp soapC.cpp soapClient.cpp
+	rm -f soapH.h soapvboxBindingObject.h soapvboxBindingProxy.h
+	rm -f vboxBinding.nsmap
+	rm -f vboxwebsrv.nsmap
+	rm -f split-soapC
+	rm -f $(SOAPCCPP) $(SOAPCO)
+	rm -f soapClient.o stdsoap2.o
+	rm -f webtest.o webtest
+	rm -f soapC-split-done
+

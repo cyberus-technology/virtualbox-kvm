@@ -1,0 +1,281 @@
+# $Id: GXX.kmk 3566 2022-06-13 15:37:08Z bird $
+## @file
+# kBuild Tool Config - Generic GCC using the system GCC, for building C++ code.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_GXX := Generic GCC using the system GCC, for building C++ code.
+
+# Tool Specific Properties
+ifndef TOOL_GXX_PREFIX
+ TOOL_GXX_PREFIX  :=
+endif
+ifndef TOOL_GXX_SUFFIX
+ TOOL_GXX_SUFFIX  := $(HOSTSUFF_EXE)
+endif
+if1of ($(KBUILD_HOST), solaris)
+ TOOL_GXX_PREFIX2 ?= g
+else
+ TOOL_GXX_PREFIX2 ?=
+endif
+TOOL_GXX_SUFFIX2  ?= $(HOSTSUFF_EXE)
+TOOL_GXX_PREFIX3  ?=
+TOOL_GXX_SUFFIX3  ?= $(HOSTSUFF_EXE)
+TOOL_GXX_CC       ?= $(TOOL_GXX_PREFIX)gcc$(TOOL_GXX_SUFFIX)
+TOOL_GXX_CXX      ?= $(TOOL_GXX_PREFIX)g++$(TOOL_GXX_SUFFIX)
+TOOL_GXX_PCH      ?= $(TOOL_GXX_CXX)
+TOOL_GXX_AS       ?= $(TOOL_GXX_PREFIX)gcc$(TOOL_GXX_SUFFIX)
+TOOL_GXX_AR       ?= $(TOOL_GXX_PREFIX2)ar$(TOOL_GXX_SUFFIX2)
+TOOL_GXX_RANLIB   ?= $(TOOL_GXX_PREFIX2)ranlib$(TOOL_GXX_SUFFIX2)
+TOOL_GXX_LD       ?= $(TOOL_GXX_PREFIX)g++$(TOOL_GXX_SUFFIX)
+TOOL_GXX_LDFLAGS.dll.os2    ?= -Zdll
+TOOL_GXX_LDFLAGS.dll.darwin ?= -dynamiclib
+ifndef TOOL_GXX_LDFLAGS.$(KBUILD_TARGET)
+ TOOL_GXX_LDFLAGS.dll       ?= -shared
+else
+ TOOL_GXX_LDFLAGS.dll       ?= $(TOOL_GXX_LDFLAGS.$(KBUILD_TARGET))
+endif
+
+# General Properties used by kBuild
+TOOL_GXX_COBJSUFF         ?= .o
+TOOL_GXX_CFLAGS           ?=
+TOOL_GXX_CFLAGS.debug     ?= -g
+TOOL_GXX_CFLAGS.profile   ?= -g -O2 #-pg
+TOOL_GXX_CFLAGS.release   ?= -O2
+TOOL_GXX_CINCS            ?=
+TOOL_GXX_CDEFS            ?=
+
+TOOL_GXX_CXXOBJSUFF       ?= .o
+TOOL_GXX_CXXOBJSUFF       ?= .o
+TOOL_GXX_CXXFLAGS         ?=
+TOOL_GXX_CXXFLAGS.debug   ?= -g -O0
+TOOL_GXX_CXXFLAGS.profile ?= -g -O2 #-pg
+TOOL_GXX_CXXFLAGS.release ?= -O2
+TOOL_GXX_CXXINCS          ?=
+TOOL_GXX_CXXDEFS          ?=
+
+TOOL_GXX_PCHOBJSUFF       ?= .h.gch
+TOOL_GXX_PCHFLAGS         ?= $(TOOL_GXX_CXXFLAGS)
+TOOL_GXX_PCHFLAGS.debug   ?= $(TOOL_GXX_CXXFLAGS.debug)
+TOOL_GXX_PCHFLAGS.profile ?= $(TOOL_GXX_CXXFLAGS.profile)
+TOOL_GXX_PCHFLAGS.release ?= $(TOOL_GXX_CXXFLAGS.release)
+TOOL_GXX_PCHINCS          ?= $(TOOL_GXX_CXXINCS)
+TOOL_GXX_PCHDEFS          ?= $(TOOL_GXX_CXXDEFS)
+
+TOOL_GXX_ASFLAGS          ?= -x assembler-with-cpp
+TOOL_GXX_ASFLAGS.debug    ?= -g
+TOOL_GXX_ASFLAGS.profile  ?= -g
+TOOL_GXX_ASOBJSUFF        ?= .o
+
+TOOL_GXX_ARFLAGS          ?= cr
+TOOL_GXX_ARLIBSUFF        ?= .a
+
+TOOL_GXX_LDFLAGS          ?=
+TOOL_GXX_LDFLAGS.debug    ?= -g
+TOOL_GXX_LDFLAGS.profile  ?= -g
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_GXX_COMPILE_C_OUTPUT =
+TOOL_GXX_COMPILE_C_DEPEND =
+TOOL_GXX_COMPILE_C_DEPORD =
+define TOOL_GXX_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_GXX_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) \
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GXX_COMPILE_CXX_OUTPUT =
+TOOL_GXX_COMPILE_CXX_DEPEND = $($(target)_1_GCC_PCH_FILE)
+TOOL_GXX_COMPILE_CXX_DEPORD =
+define TOOL_GXX_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_GXX_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $($(target)_1_GCC_PCH_DIR) $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj) $(if-expr defined($(target)_PCH_HDR) \
+		,-Winvalid-pch -include $(basename $($(target)_1_GCC_PCH_FILE)),) \
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Precompile C++ header.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GXX_COMPILE_PCH_OUTPUT = $($(target)_1_GCC_PCH_FILE)
+TOOL_GXX_COMPILE_PCH_DEPEND =
+TOOL_GXX_COMPILE_PCH_DEPORD = $($(target)_1_GCC_PCH_DIR)
+define TOOL_GXX_COMPILE_PCH_CMDS
+	$(QUIET)$(TOOL_GXX_PCH) -c\
+		$(flags) $(qaddprefix sh,-I, $($(target)_1_GCC_PCH_DIR) $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(INSTALL) --hard-link-files-when-possible -m 0644 -- "$(obj)" "$($(target)_1_GCC_PCH_FILE)"
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_GXX_COMPILE_AS_OUTPUT =
+TOOL_GXX_COMPILE_AS_DEPEND =
+TOOL_GXX_COMPILE_AS_DEPORD =
+define TOOL_GXX_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_GXX_AS) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) \
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GXX_LINK_LIBRARY_OUTPUT =
+TOOL_GXX_LINK_LIBRARY_DEPEND =
+TOOL_GXX_LINK_LIBRARY_DEPORD =
+define TOOL_GXX_LINK_LIBRARY_CMDS
+	$(QUIET)$(TOOL_GXX_AR) $(flags) $(out) $(filter-out %.h.gch,$(objs))
+	$(call xargs,$(QUIET)$(TOOL_GXX_AR) $(flags) $(out),$(filter-out %.h.gch,$(objs)))
+	$(foreach lib,$(othersrc)\
+		,$(NL)$(TAB)$(call MSG_AR_MERGE,$(target),$(out),$(lib)) \
+		$(NL)$(TAB)$(QUIET)$(RM_EXT) -f $(dir $(outbase))ar.tmp.dir/* \
+		$(NL)$(TAB)$(QUIET)$(MKDIR) -p $(dir $(outbase))/ar.tmp.dir/ \
+		$(NL)$(TAB)$(QUIET)(cd $(dir $(outbase))ar.tmp.dir/ \
+			&& $(TOOL_GXX_AR) x $(abspath $(lib)) \
+			&& $(TOOL_GXX_AR) $(flags) $(out) *) \
+		$(NL)$(TAB)$(QUIET)$(RM_EXT) -f $(dir $(outbase))/ar.tmp.dir/* \
+		$(NL)$(TAB)$(QUIET)$(RMDIR) $(dir $(outbase))ar.tmp.dir/)
+	$(QUIET)$(TOOL_GXX_RANLIB) $(out)
+endef
+
+
+## Link program
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GXX_LINK_PROGRAM_OUTPUT =
+TOOL_GXX_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_GXX_LINK_PROGRAM_DEPORD =
+define TOOL_GXX_LINK_PROGRAM_CMDS
+	$(QUIET)$(TOOL_GXX_LD) $(flags) -o $(out) $(filter-out %.h.gch,$(objs)) \
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+endef
+
+
+## Link DLL
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)      Output basename (full). Use this for list files and such.
+TOOL_GXX_LINK_DLL_OUTPUT =
+TOOL_GXX_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_GXX_LINK_DLL_DEPORD =
+define TOOL_GXX_LINK_DLL_CMDS
+	$(QUIET)$(TOOL_GXX_LD) $(TOOL_GXX_LDFLAGS.dll) $(flags) -o $(out) $(filter-out %.h.gch,$(objs)) \
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+endef
+

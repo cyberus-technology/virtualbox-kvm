@@ -1,0 +1,203 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Bus Mouse Extension Pack Sample.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation
+# files (the "Software"), to deal in the Software without
+# restriction, including without limitation the rights to use,
+# copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following
+# conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Extend the extension pack templates.
+#
+TEMPLATE_VBoxR3ExtPackBusMouse          = For the ring-3 context modules in the Bus Mouse extension pack.
+TEMPLATE_VBoxR3ExtPackBusMouse_EXTENDS  = VBoxR3ExtPack
+TEMPLATE_VBoxR3ExtPackBusMouse_INST     = $(INST_EXTPACK)BusMouse/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/
+
+TEMPLATE_VBoxR0ExtPackBusMouse          = For the ring-0 context modules in the Bus Mouse extension pack.
+TEMPLATE_VBoxR0ExtPackBusMouse_EXTENDS  = VBoxR0ExtPack
+TEMPLATE_VBoxR0ExtPackBusMouse_INST     = $(INST_EXTPACK)BusMouse/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/
+
+TEMPLATE_VBoxRcExtPackBusMouse          = For the raw-mode context modules in the Bus Mouse extension pack.
+TEMPLATE_VBoxRcExtPackBusMouse_EXTENDS  = VBoxRcExtPack
+TEMPLATE_VBoxRcExtPackBusMouse_INST     = $(INST_EXTPACK)BusMouse/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/
+
+TEMPLATE_VBoxInsExtPackBusMouse         = For the install targets of an extension pack.
+TEMPLATE_VBoxInsExtPackBusMouse_EXTENDS = VBoxR0ExtPack
+TEMPLATE_VBoxInsExtPackBusMouse_INST    = $(INST_EXTPACK)BusMouse/
+
+#
+# Globals.
+#
+VBOX_BUSMOUSE_NAME         = BusMouse
+VBOX_BUSMOUSE_MANGLED_NAME = BusMouse
+VBOX_PATH_EXTPACK_BUSMOUSE = $(PATH_STAGE)/$(INST_EXTPACK)BusMouse
+
+
+#
+# VBoxBusMouseMain - The module which the VirtualBox Main API talks to.
+#
+DLLS += VBoxBusMouseMain
+VBoxBusMouseMain_TEMPLATE = VBoxR3ExtPackBusMouse
+VBoxBusMouseMain_SOURCES = VBoxBusMouseMain.cpp
+VBoxBusMouseMain_DEFS =
+
+
+#
+# VBoxBusMouseMainVM - The module in a VM which the VirtualBox Main API talks to.
+#
+DLLS += VBoxBusMouseMainVM
+VBoxBusMouseMainVM_TEMPLATE = VBoxR3ExtPackBusMouse
+VBoxBusMouseMainVM_SOURCES = VBoxBusMouseMainVM.cpp
+VBoxBusMouseMainVM_DEFS =
+
+
+#
+# The device code.
+#
+DLLS += VBoxBusMouseR3
+VBoxBusMouseR3_TEMPLATE = VBoxR3ExtPackBusMouse
+VBoxBusMouseR3_SOURCES  = DevBusMouse.cpp
+
+ifdef VBOX_WITH_R0_MODULES
+ ifdef VBOX_WITH_VBOXR0_AS_DLL
+  DLLS    += VBoxBusMouseR0
+ else
+  SYSMODS += VBoxBusMouseR0
+ endif
+ VBoxBusMouseR0_TEMPLATE = VBoxR0ExtPackBusMouse
+ VBoxBusMouseR0_SOURCES  = DevBusMouse.cpp
+endif
+
+ifdef VBOX_WITH_RAW_MODE
+ SYSMODS += VBoxBusMouseRC
+ VBoxBusMouseRC_TEMPLATE = VBoxRcExtPackBusMouse
+ VBoxBusMouseRC_SOURCES  = DevBusMouse.cpp
+endif
+
+
+#
+# Install the description.
+#
+INSTALLS += VBoxBusMouseIns
+VBoxBusMouseIns_TEMPLATE = VBoxInsExtPackBusMouse
+VBoxBusMouseIns_SOURCES = \
+	$(VBoxBusMouseIns_0_OUTDIR)/ExtPack.xml
+$(call VBOX_EDIT_VERSION_RULE_FN,VBoxBusMouseIns,ExtPack.xml)
+
+
+#
+# Packing.
+#
+ifndef VBOX_WITHOUT_EXTPACK_BUSMOUSE_PACKING
+ PACKING += $(VBOX_PATH_PACKAGES)/$(VBOX_BUSMOUSE_MANGLED_NAME)-$(VBOX_VERSION_STRING)r$(VBOX_SVN_REV).vbox-extpack
+endif
+
+ifndef VBOX_WITH_EXTPACK_OS_ARCHS
+ ifeq ($(USER),bird) # for now
+  VBOX_WITH_EXTPACK_OS_ARCHS = $(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)
+ endif
+endif
+
+# Build the file list.  The macro takes 1=darwin.x86, 2=dist/VirtualBox.app/Contents/MacOS, 3=dylib
+VBOX_BUSMOUSE_FILES_MACRO = \
+	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_BUSMOUSE_MANGLED_NAME)/$(1)/VBoxBusMouseMain.$(3)=>$(1)/VBoxBusMouseMain.$(3) \
+	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_BUSMOUSE_MANGLED_NAME)/$(1)/VBoxBusMouseMainVM.$(3)=>$(1)/VBoxBusMouseMainVM.$(3) \
+	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_BUSMOUSE_MANGLED_NAME)/$(1)/VBoxBusMouseR3.$(3)=>$(1)/VBoxBusMouseR3.$(3) \
+	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_BUSMOUSE_MANGLED_NAME)/$(1)/VBoxBusMouseR0.r0=>$(1)/VBoxBusMouseR0.r0
+ifdef VBOX_WITH_RAW_MODE
+ VBOX_BUSMOUSE_FILES_MACRO += \
+ 	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_BUSMOUSE_MANGLED_NAME)/$(1)/VBoxBusMouseRC.rc=>$(1)/VBoxBusMouseRC.rc
+endif
+
+VBOX_BUSMOUSE_FILES := \
+	$(VBOX_PATH_EXTPACK_BUSMOUSE)/ExtPack.xml=>ExtPack.xml
+
+if1of (darwin.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,darwin.amd64,dist/VirtualBox.app/Contents/MacOS,dylib)
+endif
+if1of (darwin.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,darwin.x86,dist/VirtualBox.app/Contents/MacOS,dylib)
+endif
+if1of (freebsd.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,freebsd.amd64,bin,so)
+endif
+if1of (freebsd.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,freebsd.x86,bin,so)
+endif
+if1of (linux.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,linux.amd64,bin,so)
+endif
+if1of (linux.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,linux.x86,bin,so)
+endif
+if1of (os2.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,os2.x86,bin,so)
+endif
+if1of (solaris.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,solaris.amd64,bin,so)
+endif
+if1of (solaris.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,solaris.x86,bin,so)
+endif
+if1of (win.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,win.amd64,bin,dll)
+endif
+if1of (win.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_BUSMOUSE_FILES += $(call VBOX_BUSMOUSE_FILES_MACRO,win.x86,bin,dll)
+endif
+
+# Pack it all up using a temporary staging directory.
+$(VBOX_PATH_PACKAGES)/$(VBOX_BUSMOUSE_MANGLED_NAME)-$(VBOX_VERSION_STRING)r$(VBOX_SVN_REV).vbox-extpack: \
+		$$(foreach file, $$(VBOX_BUSMOUSE_FILES), $$(firstword $$(subst =>,$$(SP),$$(file)))) \
+		| $(VBOX_PATH_PACKAGES)/
+	$(RM) -f $(wildcard $(VBOX_PATH_PACKAGES)/$(VBOX_BUSMOUSE_MANGLED_NAME)-*.vbox-extpack) \
+		$(VBoxBusMouseIns_0_OUTDIR)/ExtPack.manifest \
+		$(VBoxBusMouseIns_0_OUTDIR)/ExtPack.signature
+# Stage all the files
+	$(RM) -Rf $(VBoxBusMouseIns_0_OUTDIR)/Stage/
+	$(foreach file, $(VBOX_BUSMOUSE_FILES),\
+		$(NLTAB)$(MKDIR) -p $(dir $(lastword $(subst =>,$(SP)$(VBoxBusMouseIns_0_OUTDIR)/Stage/,$(file)))) \
+		$(NLTAB)$(CP) $(subst =>,$(SP)$(VBoxBusMouseIns_0_OUTDIR)/Stage/,$(file)) )
+# Create the manifest
+	$(VBOX_RTMANIFEST) \
+		--manifest $(VBoxBusMouseIns_0_OUTDIR)/Stage/ExtPack.manifest \
+		--chdir $(VBoxBusMouseIns_0_OUTDIR)/Stage/ \
+		$(foreach file, $(VBOX_BUSMOUSE_FILES), $(lastword $(subst =>,$(SP),$(file))))
+	$(APPEND) $(VBoxBusMouseIns_0_OUTDIR)/Stage/ExtPack.signature "todo"
+	$(CHMOD) a+r \
+		$(VBoxBusMouseIns_0_OUTDIR)/Stage/ExtPack.manifest \
+		$(VBoxBusMouseIns_0_OUTDIR)/Stage/ExtPack.signature
+# Tar it up.
+	tar -cvf - -C $(VBoxBusMouseIns_0_OUTDIR)/Stage/ . | gzip -9c > $@
+# Clean up
+	$(RM) -Rf $(VBoxBusMouseIns_0_OUTDIR)/Stage/
+
+BLDDIRS += $(VBOX_PATH_PACKAGES)/
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

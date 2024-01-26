@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage export
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-export" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage export</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-export</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-export</refname>
+    <refpurpose>экспорт одной или нескольких виртуальных машин в виртуальную конфигурацию или в облачную службу</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-export-ovf">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage export</command>
+      <arg choice="req"><replaceable>машины</replaceable></arg>
+      <arg choice="req">--output=<replaceable>имя</replaceable></arg>
+      <group>
+        <arg choice="plain">--legacy09</arg>
+        <arg choice="plain">--ovf09</arg>
+        <arg choice="plain">--ovf10</arg>
+        <arg choice="plain">--ovf20</arg>
+      </group>
+      <arg>--manifest</arg>
+      <arg>--options=<group choice="plain" rep="repeat">
+          <arg choice="plain">manifest</arg>
+          <arg choice="plain">iso</arg>
+          <arg choice="plain">nomacs</arg>
+          <arg choice="plain">nomacsbutnat</arg>
+        </group></arg>
+      <arg>--vsys=<replaceable>номер-виртуальной-системы</replaceable></arg>
+      <arg>--description=<replaceable>описание</replaceable></arg>
+      <arg>--eula=<replaceable>текст-лицензии</replaceable></arg>
+      <arg>--eulafile=<replaceable>имя-файла</replaceable></arg>
+      <arg>--product=<replaceable>имя-продукта</replaceable></arg>
+      <arg>--producturl=<replaceable>URL-продукта</replaceable></arg>
+      <arg>--vendor=<replaceable>имя-поставщика</replaceable></arg>
+      <arg>--vendorurl=<replaceable>URL-поставщика</replaceable></arg>
+      <arg>--version=<replaceable>информация-о-версии</replaceable></arg>
+      <arg>--vmname=<replaceable>имя-ВМ</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-export-cloud">
+      <command>VBoxManage export</command>
+      <arg choice="req"><replaceable>машина</replaceable></arg>
+      <arg choice="req">--output=<replaceable>провайдер-облачной-службы</replaceable></arg>
+      <arg>--opc10</arg>
+      <arg>--vmname=<replaceable>имя-ВМ</replaceable></arg>
+      <arg>--cloud=<replaceable>номер-виртуальной-системы</replaceable></arg>
+      <arg>--cloudprofile=<replaceable>имя-облачного-профиля</replaceable></arg>
+      <arg>--cloudshape=<replaceable>имя-облачной-формы</replaceable></arg>
+      <arg>--clouddomain=<replaceable>облачный-домен</replaceable></arg>
+      <arg>--clouddisksize=<replaceable>размер-диска-в-ГБ</replaceable></arg>
+      <arg>--cloudbucket=<replaceable>имя-корзины</replaceable></arg>
+      <arg>--cloudocivcn=<replaceable>OCI-VCN-ID</replaceable></arg>
+      <arg>--cloudocisubnet=<replaceable>ID-подсети-OCI</replaceable></arg>
+      <arg>--cloudkeepobject=<group choice="plain">
+          <arg choice="plain">true</arg>
+          <arg choice="plain">false</arg>
+        </group></arg>
+      <arg>--cloudlaunchinstance=<group choice="plain">
+          <arg choice="plain">true</arg>
+          <arg choice="plain">false</arg>
+        </group></arg>
+      <arg>--cloudlaunchmode=<group choice="plain">
+          <arg choice="plain">EMULATED</arg>
+          <arg choice="plain">PARAVIRTUALIZED</arg>
+        </group></arg>
+      <arg>--cloudpublicip=<group choice="plain">
+          <arg choice="plain">true</arg>
+          <arg choice="plain">false</arg>
+        </group></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage export</command> позволяет экспортировать
+      одну или несколько виртуальных машин (ВМ) из &product-name;.
+      Можно экспортировать ВМ в одно из следующих назначений:
+    </para>
+    <itemizedlist>
+      <listitem><para>
+          <emphasis role="bold">Виртуальная конфигурация в OVF формат.</emphasis>
+          Включает копирование ее виртуальных дисков в сжатый VMDK.
+        </para></listitem>
+      <listitem><para>
+          <emphasis role="bold">Облачная служба, например &oci;.</emphasis>
+          Экспортирует только одну машину VM.
+        </para></listitem>
+    </itemizedlist>
+    <para>
+      Для более детальной информации об экспорте ВМ из &product-name;
+      смотрите <xref linkend="ovf" />
+    </para>
+    <refsect2 id="vboxmanage-export-ovf">
+      <title>Экспорт виртуальной машины в виртуальную конфигурацию OVF</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage export</command> позволяет экспортировать
+        ВМ в виртуальную конфигурацию в формате OVF.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>машины</replaceable></term>
+          <listitem><para>
+              Задает список, разделенный запятыми, одной или нескольких
+              машин для экспорта в один файл OVF.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--output=<replaceable>имя-файла</replaceable></option></term>
+          <listitem><para>
+              Задает файл назначения OVF. Файл может быть OVF, OVA или
+              файл ZIP сжатый через команду <command>gzip</command>.
+              Из-за того, что директория, содержащая файл назначения
+              OFV, также сохраняет экспортированные образы в формате
+              сжатого VMDK, убедитесь, что на диске, содержащем эту
+              директорию достаточно свободного места для сохранения
+              образов.
+            </para><para>
+              Краткая форма этой опции <option>-o</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--legacy09</option></term>
+          <listitem><para>
+              Экспортирует в устаревший OVF-0.9 формат если продукт
+              виртуализации не полностью совместим со стандартном
+              OVF-1.0.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ovf09</option></term>
+          <listitem><para>
+              Экспортирует в формат OVF 0.9.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ovf10</option></term>
+          <listitem><para>
+              Экспортирует в формат OVF 1.0.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ovf20</option></term>
+          <listitem><para>
+              Экспортирует в формат OVF 2.0.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--manifest</option></term>
+          <listitem><para>
+              Создает манифест экспортированных файлов.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--options=<replaceable>аргумент</replaceable>,...</option></term>
+          <listitem><para>
+              Указывает информацию для управления точным содержимым
+              файла конфигурации. Укажите один или несколько разделенных
+              запятыми аргументами:
+            </para><variablelist>
+              <varlistentry>
+                <term><literal>manifest</literal></term>
+                <listitem><para>
+                    Создает файл манифеста, который обнаруживает
+                    поврежденные конфигурации при импорте.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>iso</literal></term>
+                <listitem><para>
+                    Экспортирует образы DVD в файл ISO.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>nomacs</literal></term>
+                <listitem><para>
+                    Исключает все MAC адреса.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>nomacsbutnat</literal></term>
+                <listitem><para>
+                    Исключает все MAC адреса кроме тех, что в сети NAT.
+                  </para></listitem>
+              </varlistentry>
+            </variablelist></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--description=<replaceable>описание</replaceable></option></term>
+          <listitem><para>
+              Задает описание ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--eula=<replaceable>текст-лицензии</replaceable></option></term>
+          <listitem><para>
+              Задает текст лицензии конечного пользователя.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--eulafile=<replaceable>имя-файла</replaceable></option></term>
+          <listitem><para>
+              Задает файл лицензии конечного пользователя.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--product=<replaceable>имя-продукта</replaceable></option></term>
+          <listitem><para>
+              Задает имя продукта.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--producturl=<replaceable>URL-продукта</replaceable></option></term>
+          <listitem><para>
+              Задает URL продукта.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vendor=<replaceable>имя-поставщика</replaceable></option></term>
+          <listitem><para>
+              Задает имя поставщика.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vendorurl=<replaceable>URL-поставщика</replaceable></option></term>
+          <listitem><para>
+              Задает URl поставщика.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--version=<replaceable>информация-о-версии</replaceable></option></term>
+          <listitem><para>
+              Задает информацию о версии.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vmname=<replaceable>имя-ВМ</replaceable></option></term>
+          <listitem><para>
+              Задает имя экспортируемой ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vsys=<replaceable>номер-виртуальной-системы</replaceable></option></term>
+          <listitem><para>
+              Задает номер виртуальной системы.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-export-cloud">
+      <title>Экспортировать виртуальную машину в &oci;</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage export</command> позволяет экспортировать
+        ВМ в провайдер облачной службы, например &oci;. По умолчанию
+        экспортированный образ диска преобразуется в формат сжатого VMDK.
+        Это минимизирует размер данных, передаваемых в облачную службу.
+      </para>
+      <para>
+        Некоторые из нижеследующих опций являются настройками конфигурации
+        экземпляра ВМ. Как результат, укажите Идентификатор Облака Oracle
+        (OCID) ресурса. Используйте консоль &oci; для просмотра OCID.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--output=<replaceable>провайдер-облачной-службы</replaceable></option></term>
+          <listitem><para>
+              Указывает краткое имя провайдера облачной службы, куда
+              необходимо экспортировать ВМ. Для &oci;, укажите
+              <literal>OCI://</literal>.
+            </para><para>
+              Краткая форма это опции <option>-o</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--opc10</option></term>
+          <listitem><para>
+              Экспорт в формат &oci;.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloud=<replaceable>номер-виртуальной-системы</replaceable></option></term>
+          <listitem><para>
+              Задает номер, идентифицирующий экспортируемую ВМ.
+              Нумерация начинается с <literal>0</literal> для первой ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vmname=<replaceable>имя-ВМ</replaceable></option></term>
+          <listitem><para>
+              Задает имя экспортируемой ВМ, используемое как имя
+              ВМ экземпляра в &oci;.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudprofile=<replaceable>имя-облачного-профиля</replaceable></option></term>
+          <listitem><para>
+              Задает облачный профиль, используемый для подключения к
+              провайдеру облачной службы. Облачный профиль содержит ваши
+              данные учетной записи &oci;, например ваш OCID пользователя
+              и отпечаток вашего публичного ключа.
+            </para><para>
+              Для использования облачных профилей у вас должны быть
+              необходимые разрешения в &oci;.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudshape=<replaceable>имя-облачной-формы</replaceable></option></term>
+          <listitem><para>
+              Задает форму, используемую экземпляром ВМ. Форма
+              определяет количество ЦПУ и размер памяти, выделенных
+              экземпляру ВМ. Убедитесь, что форма совместима с
+              экспортируемым образом.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--clouddomain=<replaceable>облачный-домен</replaceable></option></term>
+          <listitem><para>
+              Задает домен доступности, используемый экземпляром ВМ.
+              Введите полное имя домена доступности.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--clouddisksize=<replaceable>размер-диска-в-ГБ</replaceable></option></term>
+          <listitem><para>
+              Задает размер дискового пространства в гигабайтах,
+              используемый экспортированным образом диска. Допустимые
+              значения от 50 ГБ до 300 ГБ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudbucket=<replaceable>имя-корзины</replaceable></option></term>
+          <listitem><para>
+              Задает корзину где сохранять загруженные файлы. В &oci;,
+              корзина - это логический контейнер для хранения объектов.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudocivcn=<replaceable>OCI-VCN-ID</replaceable></option></term>
+          <listitem><para>
+              Задает OCID виртуальной облачной сети (VCN), используемой
+              экземпляром ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudocisubnet=<replaceable>ID-подсети-OCI</replaceable></option></term>
+          <listitem><para>
+              Задает OCID подсети VCN, используемой экземпляром ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudkeepobject=true | false</option></term>
+          <listitem><para>
+              Указывает сохранять ли экспортированный образ диска
+              в хранилище объектов Oracle.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudlaunchinstance=true | false</option></term>
+          <listitem><para>
+              Указывает запускать ли экземпляр ВМ после завершения
+              экспорта в &oci;.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudlaunchinstance=EMULATED | PARAVIRTUALIZED</option></term>
+          <listitem><para>
+              Указывает режим запуска экземпляра.
+              Паравиртуализированный режим дает более высокую
+              производительность.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudpublicip=true | false</option></term>
+          <listitem><para>
+              Указывает включать ли публичный IP адрес экземпляру ВМ.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примет</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      Следующий пример показывает как экспортировать ВМ
+      <literal>myVM</literal> в &oci;. Аргументы опции команды
+      описывают конфигурацию ВМ <literal>myVM_Cloud</literal>
+      в &oci;.
+    </para>
+<screen># VBoxManage export myVM --output=OCI:// --cloud=0 --vmname=myVM_Cloud \
+--cloudprofile="standard user" --cloudbucket=myBucket \
+--cloudshape=VM.Standard2.1 --clouddomain=US-ASHBURN-AD-1 --clouddisksize=50  \
+--cloudocivcn=ocid1.vcn.oc1.iad.aaaa... --cloudocisubnet=ocid1.subnet.oc1.iad.aaaa... \
+--cloudkeepobject=true --cloudlaunchinstance=true --cloudpublicip=true</screen>
+  </refsect1>
+</refentry>

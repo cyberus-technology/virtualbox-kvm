@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    VirtualBox Windows Installation Script (WiX), preprocessor defines.
+-->
+<!--
+    Copyright (C) 2014-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi"
+         xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+  <!-- TODO: Add "VBox" prefix! -->
+  <?define Property_RegKey = "Software\$(env.VBOX_VENDOR_SHORT)\VirtualBox" ?>
+  <?define Property_RegKeyInstall = "Software\$(env.VBOX_VENDOR_SHORT)\VirtualBox\Install" ?>
+  <?define Property_Upgrade = "yes" ?>
+  <?define Property_Version = "$(env.VBOX_VERSION_STRING_RAW)" ?>
+  <?define Property_VersionExt = "$(env.VBOX_VERSION_STRING)" ?>
+
+  <?if $(env.KBUILD_TARGET_ARCH) = "amd64" ?>
+      <?define Property_ProgramFiles = "ProgramFiles64Folder" ?>
+      <?define Property_Platform     = "x64" ?>
+      <?define Property_Win64        = "yes" ?>
+
+      <?if $(env.VBOX_SIGNING_MODE)!= none ?>
+          <?define Property_DriverLegacy = "no" ?>
+      <?else ?>
+          <?define Property_DriverLegacy = "yes" ?>
+      <?endif ?>
+
+  <?else ?>
+      <?define Property_ProgramFiles = "ProgramFilesFolder" ?>
+      <?define Property_Platform     = "x86" ?>
+      <?define Property_Win64        = "no" ?>
+
+      <?if $(env.VBOX_SIGNING_MODE)!= none ?>
+          <!-- Note: Settings this to 'no' breaks Windows 2000 installs (!) -->
+          <?define Property_DriverLegacy = "yes" ?>
+      <?else ?>
+          <?define Property_DriverLegacy = "yes" ?>
+      <?endif ?>
+
+  <?endif ?>
+
+  <!-- If we build a combined installer (32- and 64-bit in one installer), we
+       use two installer "disks": One for all platform-specific stuff and one which
+       contains all common (platform independent) stuff (like manuals, bitmaps etc) -->
+  <?if $(env.VBOX_WITH_COMBINED_PACKAGE) = "yes" ?>
+      <?define Property_DiskIdCommon = "2" ?>
+  <?else ?>
+      <?define Property_DiskIdCommon = "1" ?>
+  <?endif ?>
+
+</Include>

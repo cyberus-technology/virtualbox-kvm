@@ -1,0 +1,48 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for VBoxBugReport
+#
+# VBoxBugReport is a tool for collecting useful information on the host.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+PROGRAMS += VBoxBugReport
+VBoxBugReport_TEMPLATE   = VBoxMainClientExe
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ # VBoxBugReport_DEFS      = VBOX_WATCHDOG_GLOBAL_PERFCOL VBOX_BUILD_TARGET="$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)"
+else
+ # VBoxBugReport_DEFS      = VBOX_WATCHDOG_GLOBAL_PERFCOL VBOX_BUILD_TARGET=\"$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)\"
+endif
+VBoxBugReport_DEFS.win   = _WIN32_WINNT=0x0501 PSAPI_VERSION=1
+VBoxBugReport_LIBS.win   = psapi.lib
+VBoxBugReport_SOURCES    = \
+	VBoxBugReport.cpp
+VBoxBugReport_SOURCES.win = \
+	VBoxBugReportWin.cpp
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

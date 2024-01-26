@@ -1,0 +1,107 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the OpenGLTest helper app.
+#
+
+#
+# Copyright (C) 2008-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# VBoxOGLTest - Library that VBoxSVC is linked with.
+#
+# On darwin this does the whole job, while on the other platforms it just
+# starts VBoxTestOGL.
+#
+LIBRARIES += VBoxOGLTest
+VBoxOGLTest_TEMPLATE         := VBoxR3Dll
+ifneq ($(KBUILD_TARGET),darwin)
+ VBoxOGLTest_SOURCES         := OpenGLTest.cpp
+else
+ VBoxOGLTest_SOURCES.darwin  := OpenGLTestDarwin.cpp
+ VBoxOGLTest_CXXFLAGS.darwin  = $(VBOX_GCC_Wno-deprecated-declarations)
+endif
+
+
+#
+# VBoxTestOGL - OpenGL support test app.
+# Note! Doesn't link with VBOX_WITH_DEBUG_VCC_CRT defined because it uses Qt.
+#
+if   defined(VBOX_WITH_QTGUI) \
+  && (defined(VBOX_WITH_VMSVGA3D) || defined(VBOX_WITH_VIDEOHWACCEL)) \
+  && !defined(VBOX_WITH_DEBUG_VCC_CRT) \
+  && "$(KBUILD_TARGET)" != "darwin"
+ ifdef VBOX_WITH_VIDEOHWACCEL
+  ifndef VBOX_WITH_QT6
+   USES += qt5
+  else
+   USES += qt6
+  endif
+ endif
+ PROGRAMS += VBoxTestOGL
+ VBoxTestOGL_TEMPLATE         = $(if $(VBOX_WITH_VIDEOHWACCEL),$(if $(VBOX_WITH_HARDENING),VBoxQtGuiDll,VBoxQtGuiExe),VBoxMainExe)
+ VBoxTestOGL_DEFS.win         = _WIN32_WINNT=0x0500 WINDOWS=1
+ VBoxTestOGL_DEFS.linux       = Linux=1 _GNU_SOURCE
+ VBoxTestOGL_DEFS.solaris     = SunOS=1 _GNU_SOURCE #GLEXT_64_TYPES_DEFINED
+ VBoxTestOGL_DEFS.freebsd     = FreeBSD=1 _GNU_SOURCE
+ ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+  VBoxTestOGL_DEFS            = VBOX_BUILD_TARGET="$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)"
+ else
+  VBoxTestOGL_DEFS            = VBOX_BUILD_TARGET=\"$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)\"
+ endif
+ VBoxTestOGL_SOURCES          = OpenGLTestApp.cpp
+ VBoxTestOGL_SOURCES.win      = VBoxTestOGL.rc
+ VBoxTestOGL_LIBS             = \
+ 	$(LIB_RUNTIME)
+ if1of ($(KBUILD_TARGET), freebsd linux netbsd openbsd solaris) # the X11 gang
+  VBoxTestOGL_LIBS += \
+  	X11 \
+  	Xext
+  VBoxTestOGL_LIBPATH = \
+  	$(VBOX_LIBPATH_X11)
+ endif
+
+ ifdef VBOX_WITH_VIDEOHWACCEL
+  VBoxTestOGL_DEFS           += VBOX_WITH_VIDEOHWACCEL
+  VBoxTestOGL_QT_MODULES      = Core Gui OpenGL Widgets
+  ifdef VBOX_WITH_QT6
+   VBoxTestOGL_QT_MODULES    += OpenGLWidgets
+  endif
+  if1of ($(KBUILD_TARGET), solaris linux freebsd)
+   VBoxTestOGL_LIBS          += xcb GL pthread dl
+  endif
+  VBoxTestOGL_LIBS.win       += $(PATH_SDK_$(VBOX_WINPSDK)_LIB)/Opengl32.lib
+  VBoxTestOGL_SOURCES        += VBoxGLSupportInfo.cpp
+ endif
+
+ # Don't let ld strip out explicitly linked libraries even when they are not needed.
+ # This was causing some dynamic library loading problems in case of indirect dependencies
+ # in systems where RUNPATH instead of RPATH is utilized.
+ VBoxTestOGL_LDFLAGS.linux    = -Wl,--no-as-needed
+ VBoxTestOGL_LDFLAGS.win      = /SUBSYSTEM:windows
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

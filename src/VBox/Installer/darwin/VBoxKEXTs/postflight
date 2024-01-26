@@ -1,0 +1,117 @@
+#!/bin/sh
+# $Id$
+## @file
+# Reloads the new kernel extension at the end of installation.
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+#
+# Make sure the old startup items are gone.
+#
+if [ -d /Library/StartupItems/VirtualBox/ ]; then
+    rm -vf  "/Library/StartupItems/VirtualBox/StartupParameters.plist"
+    rm -vf  "/Library/StartupItems/VirtualBox/VirtualBox"
+    rm -vf  "/Library/StartupItems/VirtualBox/Resources/English.lproj/Localizable.strings"
+    test -d "/Library/StartupItems/VirtualBox/Resources/English.lproj/" && rmdir "/Library/StartupItems/VirtualBox/Resources/English.lproj/"
+    test -d "/Library/StartupItems/VirtualBox/Resources/"               && rmdir "/Library/StartupItems/VirtualBox/Resources/"
+    test -d "/Library/StartupItems/VirtualBox/"                         && rmdir "/Library/StartupItems/VirtualBox/"
+fi
+
+#
+# Make sure old kernel extensions are gone (moved to "/Library/Application Support/VirtualBox/" with 4.3).
+#
+rm -Rfv \
+    "/Library/Extensions/VBoxDrv.kext/" \
+    "/Library/Extensions/VBoxNetFlt.kext/" \
+    "/Library/Extensions/VBoxNetAdp.kext/" \
+    "/Library/Extensions/VBoxUSB.kext/" \
+    "/Library/Extensions/VBoxDrvTiger.kext/" \
+    "/Library/Extensions/VBoxUSBTiger.kext/"
+
+#
+# Install the launchd script.
+#
+# Make sure "/Library/LaunchDaemons/ exists first as some uninstallers/users
+# may be silly enough to remove it.  We assume that /Library exists and will
+# not try create it because it normally has extra ACLs.
+#
+if [ ! -e "/Library/LaunchDaemons/" ]; then
+    set -e
+    mkdir "/Library/LaunchDaemons"
+    chmod 755 "/Library/LaunchDaemons"
+    chown root:wheel "/Library/LaunchDaemons"
+    set +e
+fi
+rm -vf "/Library/LaunchDaemons/org.virtualbox.startup.plist"
+set -e
+ln -s  "../Application Support/VirtualBox/LaunchDaemons/org.virtualbox.startup.plist" \
+       "/Library/LaunchDaemons/org.virtualbox.startup.plist"
+set +e
+
+#
+# Unload any old extension that might be loaded already (ignore failures).
+#
+sync
+if kextstat -lb org.virtualbox.kext.VBoxNetAdp 2>&1 | grep -q org.virtualbox.kext.VBoxNetAdp; then
+    kextunload -m org.virtualbox.kext.VBoxNetAdp
+fi
+if kextstat -lb org.virtualbox.kext.VBoxNetFlt 2>&1 | grep -q org.virtualbox.kext.VBoxNetFlt; then
+    kextunload -m org.virtualbox.kext.VBoxNetFlt
+fi
+if kextstat -lb org.virtualbox.kext.VBoxUSB 2>&1 | grep -q org.virtualbox.kext.VBoxUSB; then
+    kextunload -m org.virtualbox.kext.VBoxUSB
+fi
+if kextstat -lb org.virtualbox.kext.VBoxDrv 2>&1 | grep -q org.virtualbox.kext.VBoxDrv; then
+    kextunload -m org.virtualbox.kext.VBoxDrv
+fi
+
+#
+# Load the extension, exit on first error except on BigSur onwards as an error
+# is expected there and the user has to reboot.
+#
+MACOS_VERSION_MAJOR=$(sw_vers -productVersion | /usr/bin/sed -e 's/^\([0-9]*\).*$/\1/')
+sync
+if [[ ${MACOS_VERSION_MAJOR} -lt 11 ]]; then
+    set -e
+    kextload    '/Library/Application Support/VirtualBox/VBoxDrv.kext'
+    kextload -d '/Library/Application Support/VirtualBox/VBoxDrv.kext'  '/Library/Application Support/VirtualBox/VBoxNetFlt.kext'
+    kextload -d '/Library/Application Support/VirtualBox/VBoxDrv.kext'  '/Library/Application Support/VirtualBox/VBoxNetAdp.kext'
+else
+    VBOX_RC=0
+    if ! kmutil load -p '/Library/Application Support/VirtualBox/VBoxDrv.kext'; then
+        VBOX_RC=1
+    fi
+
+    if ! kmutil load -p '/Library/Application Support/VirtualBox/VBoxNetFlt.kext'; then
+        VBOX_RC=1
+    fi
+
+    if ! kmutil load -p '/Library/Application Support/VirtualBox/VBoxNetAdp.kext'; then
+        VBOX_RC=1
+    fi
+
+    if [ $VBOX_RC -ne 1 ]; then
+        osascript -e 'display dialog "A reboot is required on macOS BigSur and onwards in order to be able to load the installed kernel extensions" buttons { "Ok" } with icon caution'
+    fi
+fi

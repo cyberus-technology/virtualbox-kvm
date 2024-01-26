@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi"
+         xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+<?if $(env.VBOX_SIGNING_MODE) != none ?>
+    <Component Id="cp_NetAdp6DriverCat_PreW10" Guid="40aab6d8-a9ca-41bd-3c5e-bd768d44faa7" Win64="$(var.Property_Win64)">
+        <File Id="file_VBoxNetAdp6_PreW10.cat" Name="VBoxNetAdp6.cat" Source="$(env.PATH_OUT)\bin\VBoxNetAdp6-PreW10.cat" />
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+        <Condition><![CDATA[(localMSMNetworkType="NDIS6") AND (NOT VBOX_IS_WINDOWS_10)]]></Condition>
+    <?else ?>
+        <Condition><![CDATA[(NETWORKTYPE="NDIS6") AND (NOT VBOX_IS_WINDOWS_10)]]></Condition>
+    <?endif ?>
+    </Component>
+    <Component Id="cp_NetAdp6DriverCat_W10" Guid="37431619-c0ac-4f6a-029e-6a8ac4cd58ad" Win64="$(var.Property_Win64)">
+        <File Id="file_VBoxNetAdp6_W10.cat" Name="VBoxNetAdp6.cat" Source="$(env.PATH_OUT)\bin\VBoxNetAdp6.cat" />
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+        <Condition><![CDATA[(localMSMNetworkType="NDIS6") AND (VBOX_IS_WINDOWS_10)]]></Condition>
+    <?else ?>
+        <Condition><![CDATA[(NETWORKTYPE="NDIS6") AND (VBOX_IS_WINDOWS_10)]]></Condition>
+    <?endif ?>
+    </Component>
+<?endif ?>
+
+    <Component Id="cp_NetAdp6Driver" Guid="945d9537-e60d-4bbf-9422-239739e31092" Win64="$(var.Property_Win64)">
+        <File Id="file_VBoxNetAdp6.sys" Name="VBoxNetAdp6.sys" KeyPath="yes"
+              Source="$(env.PATH_OUT)\bin\VBoxNetAdp6.sys" Checksum="yes"/>
+        <File Id="file_VBoxNetAdp6.inf" Name="VBoxNetAdp6.inf"
+              Source="$(env.PATH_OUT)\bin\VBoxNetAdp6.inf" />
+
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+        <Condition><![CDATA[(localMSMNetworkType="NDIS6")]]></Condition>
+<?else ?>
+        <Condition><![CDATA[(NETWORKTYPE="NDIS6")]]></Condition>
+<?endif ?>
+
+    </Component>
+
+</Include>

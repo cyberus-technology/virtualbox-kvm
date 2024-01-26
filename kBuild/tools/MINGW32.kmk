@@ -1,0 +1,273 @@
+# $Id: MINGW32.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild Tool Config - MinGW32 GCC v3.3+.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+ifdef TOOL_MINGW32
+$(error Already included (TOOL_MINGW32=$(TOOL_MINGW32)))
+endif
+TOOL_MINGW32 := MinGW32 GCC v3.3+.
+
+# Tool Specific Properties
+ifndef PATH_TOOL_MINGW32
+ PATH_TOOL_MINGW32 := $(wildcard $(KBUILD_DEVTOOLS_HST)/mingw32/v*.*)
+ ifeq ($(PATH_TOOL_MINGW32),)
+  PATH_TOOL_MINGW32 := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/mingw32/v*.*)
+ endif
+ ifeq ($(PATH_TOOL_MINGW32),)
+  PATH_TOOL_MINGW32 := $(wildcard $(KBUILD_DEVTOOLS)/x86.win32/mingw32/v*.*)
+ endif
+ ifneq ($(PATH_TOOL_MINGW32),)
+  PATH_TOOL_MINGW32 := $(lastword $(sort $(PATH_TOOL_MINGW32)))
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_TOOL_MINGW32 := $(PATH_TOOL_MINGW32)
+endif
+
+# figure out if it's native or needs a win32 launcher
+TOOL_MINGW32_HOSTSUFF_EXE ?= $(HOSTSUFF_EXE)
+ifndef TOOL_MINGW32_PREFIX
+ ifneq ($(PATH_TOOL_MINGW32),)
+  TOOL_MINGW32_PREFIX := $(PATH_TOOL_MINGW32)/bin/
+ else
+  TOOL_MINGW32_PREFIX :=
+ endif
+ ifneq ($(KBUILD_HOST),win)
+  # we're cross compiling either using an emulator (wine/odin) or a cross compiler.
+  ifneq ($(PATH_TOOL_MINGW32),$(subst /win.x86,,$(subst /x86.win,,$(PATH_TOOL_MINGW32))))
+   TOOL_MINGW32_PREFIX := $(EXEC_X86_WIN32) $(TOOL_MINGW32_PREFIX)
+   TOOL_MINGW32_HOSTSUFF_EXE := .exe
+  else
+   TOOL_MINGW32_PREFIX := $(TOOL_MINGW32_PREFIX)i386-mingw32msvc-
+   TOOL_MINGW32_HOSTSUFF_EXE :=
+   TOOL_MINGW32_XCOMPILE := 1
+  endif
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ TOOL_MINGW32_PREFIX := $(TOOL_MINGW32_PREFIX)
+endif
+
+TOOL_MINGW32_CC  ?= $(TOOL_MINGW32_PREFIX)gcc$(TOOL_MINGW32_HOSTSUFF_EXE)
+TOOL_MINGW32_CXX ?= $(TOOL_MINGW32_PREFIX)g++$(TOOL_MINGW32_HOSTSUFF_EXE)
+TOOL_MINGW32_AS  ?= $(TOOL_MINGW32_PREFIX)gcc$(TOOL_MINGW32_HOSTSUFF_EXE)
+TOOL_MINGW32_AR  ?= $(TOOL_MINGW32_PREFIX)ar$(TOOL_MINGW32_HOSTSUFF_EXE)
+ifndef TOOL_MINGW32_XCOMPILE# The gentoo package doesn't have g++.
+TOOL_MINGW32_LD  ?= $(TOOL_MINGW32_PREFIX)g++$(TOOL_MINGW32_HOSTSUFF_EXE)
+else
+TOOL_MINGW32_LD  ?= $(TOOL_MINGW32_PREFIX)gcc$(TOOL_MINGW32_HOSTSUFF_EXE)
+endif
+TOOL_MINGW32_DLLWRAP ?= $(TOOL_MINGW32_PREFIX)dllwrap$(TOOL_MINGW32_HOSTSUFF_EXE)
+TOOL_MINGW32_DLLTOOL ?= $(TOOL_MINGW32_PREFIX)dlltool$(TOOL_MINGW32_HOSTSUFF_EXE)
+
+# General Properties used by kBuild
+TOOL_MINGW32_COBJSUFF           ?= .o
+TOOL_MINGW32_CFLAGS             ?= -g
+TOOL_MINGW32_CFLAGS.debug       ?= -O0
+TOOL_MINGW32_CFLAGS.release     ?= -O2
+TOOL_MINGW32_CFLAGS.profile     ?= -O2 #-pg
+TOOL_MINGW32_CINCS              ?=
+TOOL_MINGW32_CDEFS              ?=
+
+TOOL_MINGW32_CXXOBJSUFF         ?= .o
+TOOL_MINGW32_CXXOBJSUFF         ?= .o
+TOOL_MINGW32_CXXFLAGS           ?= -g
+TOOL_MINGW32_CXXFLAGS.debug     ?= -O0
+TOOL_MINGW32_CXXFLAGS.release   ?= -O2
+TOOL_MINGW32_CXXFLAGS.profile   ?= -O2 #-pg
+TOOL_MINGW32_CXXINCS            ?=
+TOOL_MINGW32_CXXDEFS            ?=
+
+TOOL_MINGW32_ASFLAGS            ?= -g -x assembler-with-cpp
+TOOL_MINGW32_ASOBJSUFF          ?= .o
+
+TOOL_MINGW32_ARFLAGS            ?= cr
+TOOL_MINGW32_ARLIBSUFF          ?= .a
+
+TOOL_MINGW32_LDFLAGS            ?=
+TOOL_MINGW32_LDFLAGS.debug      ?= -g
+TOOL_MINGW32_LDFLAGS.release    ?= -s
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_MINGW32_COMPILE_C_OUTPUT =
+TOOL_MINGW32_COMPILE_C_DEPEND =
+TOOL_MINGW32_COMPILE_C_DEPORD =
+define TOOL_MINGW32_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_MINGW32_CC) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+endef
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_MINGW32_COMPILE_CXX_OUTPUT =
+TOOL_MINGW32_COMPILE_CXX_DEPEND =
+TOOL_MINGW32_COMPILE_CXX_DEPORD =
+define TOOL_MINGW32_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_MINGW32_CXX) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+endef
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_MINGW32_COMPILE_AS_OUTPUT =
+TOOL_MINGW32_COMPILE_AS_DEPEND =
+TOOL_MINGW32_COMPILE_AS_DEPORD =
+define TOOL_MINGW32_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_MINGW32_AS) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_MINGW32_LINK_LIBRARY_OUTPUT = $(out).ar-script
+TOOL_MINGW32_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_MINGW32_LINK_LIBRARY_DEPORD =
+define TOOL_MINGW32_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) $(out).ar-script 'CREATE $(out)'
+	$(QUIET)$(APPEND) -n $(out).ar-script \
+		$(foreach o,$(objs), 'ADDMOD $(o)') \
+		$(foreach o,$(othersrc), 'ADDLIB $(o)')
+	$(QUIET)$(APPEND) $(out).ar-script 'SAVE'
+	$(QUIET)$(APPEND) $(out).ar-script 'END'
+	$(QUIET)$(TOOL_MINGW32_AR) -M < $(out).ar-script
+endef
+
+
+
+## Link program
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_MINGW32_LINK_PROGRAM_OUTPUT =
+TOOL_MINGW32_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_MINGW32_LINK_PROGRAM_DEPORD =
+define TOOL_MINGW32_LINK_PROGRAM_CMDS
+	$(QUIET)$(TOOL_MINGW32_LD) $(flags) -o $(out) $(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(basename $(lib))), $(lib)))
+endef
+
+
+## Link DLL.
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      DLL name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_MINGW32_LINK_DLL_OUTPUT =
+TOOL_MINGW32_LINK_DLL_OUTPUT_MAYBE = $(outbase).a $(outbase).exp $(PATH_STAGE_LIB)/$(notdir $(outbase)).exp $(PATH_STAGE_LIB)/$(notdir $(outbase)).a
+## @todo Find a better solution for installing the extra files (.a, .exp, .pdb, etc).
+TOOL_MINGW32_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))\
+	$(filter %.def %.res,$(othersrc))
+TOOL_MINGW32_LINK_DLL_DEPORD = $(call DIRDEP,$(PATH_STAGE_LIB))
+define TOOL_MINGW32_LINK_DLL_CMDS
+	$(QUIET)$(TOOL_MINGW32_DLLWRAP) $(flags)\
+		--dllname=$(out)\
+		--output-exp=$(outbase).exp\
+		--output-lib=$(outbase).a\
+		$(foreach def,$(filter %.def,$(othersrc)), --def $(def))\
+		$(filter %.res,$(othersrc))\
+		$(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(basename $(lib))), $(lib)))
+	$(QUIET)$(CP) $(outbase).exp $(outbase).a $(PATH_STAGE_LIB)/
+endef
+## @todo separate install stuff!

@@ -1,0 +1,97 @@
+# $Id: MASM510.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild Tool Config - MASM v5.10
+#
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_MASM510 := Microsoft Macro Assembler v5.10
+
+# Tool Specific Properties
+ifndef TOOL_MASM510_AS
+ TOOL_MASM510_AS := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST)/masm/v5.10*/masm$(HOSTSUFF_EXE))))
+ ifeq ($(TOOL_MASM510_AS),)
+  TOOL_MASM510_AS := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_TRG)/masm/v5.10*/masm$(HOSTSUFF_EXE))))
+ endif
+ ifeq ($(TOOL_MASM510_AS),)
+  TOOL_MASM510_AS := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS)/os2.x86/ddk/*/base/tools/masm$(HOSTSUFF_EXE))))
+ endif
+ ifeq ($(TOOL_MASM510_AS),)
+  TOOL_MASM510_AS := $(firstword $(rsort $(wildcard \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/video/tools/os2.386/lx.386/bin/masm$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/base32/tools/os2.386/bin/masm$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/base32/tools/os2.386/lx.386/bin/masm$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/print/tools/os2.386/lx.386/bin/masm$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/wpshell/tools/os2.386/lx.386/bin/masm$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/mme/tools/os2.386/lx.386/bin/masm$(HOSTSUFF_EXE) \
+	)))
+ endif
+ ifneq ($(TOOL_MASM510_AS),)
+  TOOL_MASM510_AS := $(TOOL_MASM510_AS)
+ endif
+endif
+ifeq ($(TOOL_MASM510_AS),)
+ TOOL_MASM510_AS := $(firstword $(which masm$(HOSTSUFF_EXE)) path/notfound/masm$(HOSTSUFF_EXE))
+endif
+
+# General Properties used by kBuild
+TOOL_MASM510_ASFLAGS ?= -t -z -Zd -Zi -t
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+# @remarks  MASM v5.10 has severe length limitations in several places and will respond with
+#           crashing when these are exceeded. Thus, we use MASM and INCLUDE to avoid exceeding
+#           the command line length (and the MASM length).
+#           The closing of file handles and zapping of environment is to make sure it doesn't
+#           mess up due handles left behind by some device init or because the env is too big.
+TOOL_MASM510_COMPILE_AS_OUTPUT = $(outbase).lst
+TOOL_MASM510_COMPILE_AS_DEPEND =
+TOOL_MASM510_COMPILE_AS_DEPORD =
+define TOOL_MASM510_COMPILE_AS_CMDS
+	$(QUIET)$(REDIRECT) \
+		-c3 -c4 -c5 -c6 -c7 -c8 -c9 -c10 -c11 -c12 -c13 -c14 -c15 -c16 -c17 -c18 -c19 -Z \
+		-E 'MASM=$(addprefix -D, $(subst /,\,$(defs)))' \
+		-E 'INCLUDE=$(subst $(SP),,$(addsuffix ;,$(subst /,\,$(incs))))' \
+		-- \
+		$(subst /,\\,$(TOOL_MASM510_AS)) $(strip $(flags)) '$(subst /,\,$(source),$(obj),$(outbase).lst);'
+endef
+

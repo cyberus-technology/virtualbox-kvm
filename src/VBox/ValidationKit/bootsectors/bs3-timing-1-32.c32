@@ -1,0 +1,363 @@
+/* $Id: bs3-timing-1-32.c32 $ */
+/** @file
+ * BS3Kit - bs3-timinig-1, 32-bit C code.
+ */
+
+/*
+ * Copyright (C) 2007-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+
+/*********************************************************************************************************************************
+*   Header Files                                                                                                                 *
+*********************************************************************************************************************************/
+#ifndef STANDALONE_EXECUTABLE
+# include <bs3kit.h>
+#endif
+#include <iprt/asm-amd64-x86.h>
+#include <iprt/asm-math.h>
+#include <iprt/asm.h>
+#include <iprt/uint128.h>
+
+
+/*********************************************************************************************************************************
+*   Structures and Typedefs                                                                                                      *
+*********************************************************************************************************************************/
+/** TSC timing results. */
+typedef struct BS3TIMING1RESULT
+{
+    /** Number of nanoseconds elapsed while testing. */
+    uint64_t    cNsElapsed;
+    /** Number of CPU ticks elapsed while testing. */
+    uint64_t    cTicksElapsed;
+    /** The minium number of ticks between TSC reads. */
+    uint64_t    cTicksMin;
+    /** The maximum number of ticks between TSC reads. */
+    uint64_t    cTicksMax;
+    /** The sum of all TSC read deltas. */
+    uint64_t    cTicksSum;
+    /** Number of loops (TSC read deltas). */
+    uint64_t    cTotalLoops;
+    /** Number of times TSC moved backwards. */
+    uint64_t    cBackwards;
+    /** Approx log2(cTicks) distribution. */
+    uint64_t    aDistribution[65];
+} BS3TIMING1RESULT;
+
+
+/*********************************************************************************************************************************
+*   Global Variables                                                                                                             *
+*********************************************************************************************************************************/
+/** The total result. */
+static BS3TIMING1RESULT g_TotalResult;
+
+/** Set if history wrapped (i.e. table is full). */
+static bool     g_fBigHistoryWrapped = false;
+/** The next history entry. */
+static uint32_t g_iBigHistory;
+/** History of large gaps. */
+static struct { uint64_t uTsc, cTicksDelta; } g_aBigHistory[384];
+
+
+
+/**
+ * Pretty prints
+ */
+static void bs3Timing1_PrintTicks(uint64_t cTicks, uint64_t uCpuFreq)
+{
+    if (uCpuFreq > _128M)
+    {
+        if (cTicks >= uCpuFreq * 1000)
+            Bs3TestPrintf("%'RU64s", cTicks / uCpuFreq);
+        else
+        {
+            const char *pszUnit;
+            uint64_t    uValue;
+            if (cTicks >= uCpuFreq)
+            {
+                pszUnit = "s";
+                uValue  = (cTicks * RT_MS_1SEC) / uCpuFreq;
+            }
+            else if (cTicks * RT_MS_1SEC >= uCpuFreq)
+            {
+                pszUnit = "ms";
+                uValue  = (cTicks * RT_US_1SEC) / uCpuFreq;
+            }
+            else if (cTicks * RT_US_1SEC >= uCpuFreq)
+            {
+                pszUnit = "us";
+                uValue  = (cTicks * RT_NS_1SEC) / uCpuFreq;
+            }
+            else if (cTicks * RT_NS_1SEC >= uCpuFreq)
+            {
+                pszUnit = "ns";
+                uValue  = (cTicks * UINT64_C(1000000000000)) / uCpuFreq;
+            }
+            else
+            {
+                Bs3TestPrintf("%'RU64ps", (cTicks * UINT64_C(1000000000000)) / uCpuFreq);
+                return;
+            }
+            Bs3TestPrintf("%u.%03u%s (%'RU64 ticks)", (uint32_t)uValue / 1000, (uint32_t)uValue % 1000, pszUnit, cTicks);
+        }
+    }
+    else
+        Bs3TestPrintf("%'RU64 ticks", cTicks);
+}
+
+
+/**
+ * Prints a result.
+ *
+ * @param   pResult     The result to print.
+ * @param   iRun        The run (loop in qpc parlance).
+ * @param   uVerbosity  The verbosity level.
+ */
+static void bs3Timing1_PrintResult(BS3TIMING1RESULT const *pResult, unsigned iRun, unsigned uVerbosity)
+{
+    uint64_t uCpuFreq;
+
+    /*
+     * Calc CPU frequency.
+     */
+    if (pResult->cNsElapsed > 0 && pResult->cTicksElapsed > 0)
+    {
+#if 1
+        RTUINT128U Tmp1, Divisor, Result;
+        RTUInt128Div(&Result,
+                     RTUInt128MulU64ByU64(&Tmp1, pResult->cTicksElapsed, RT_NS_1SEC),
+                     RTUInt128AssignU64(&Divisor, pResult->cNsElapsed));
+        uCpuFreq = Result.s.Lo;
+#else
+        unsigned const cShift = pResult->cTicksElapsed < UINT64_C(0x000225C17D04) ? 0
+                              : pResult->cTicksElapsed < UINT64_C(0x00225C17D04D) ? 4
+                              : pResult->cTicksElapsed < UINT64_C(0x0225C17D04DA) ? 8
+                              : pResult->cTicksElapsed < UINT64_C(0x225C1D940BF6) ? 12
+                              :                                            16;
+        uCpuFreq = pResult->cTicksElapsed * ((uint64_t)RT_NS_1SEC >> cShift) / (pResult->cNsElapsed >> cShift);
+#endif
+    }
+    else
+        uCpuFreq = 1;
+
+    /*
+     * Report results.
+     *
+     * Note! in 32-bit and 16-bit mode, values 4G or higher gets formatted as
+     *       hexadecimal to avoid 64-bit division.
+     */
+    Bs3TestPrintf("Loop #%u: %'RU64 tests: ", iRun, pResult->cTotalLoops);
+
+    Bs3TestPrintf("average ");
+    bs3Timing1_PrintTicks(pResult->cTicksSum / pResult->cTotalLoops, uCpuFreq);
+    Bs3TestPrintf(", min ");
+    bs3Timing1_PrintTicks(pResult->cTicksMin, uCpuFreq);
+    Bs3TestPrintf(", max ");
+    bs3Timing1_PrintTicks(pResult->cTicksMax, uCpuFreq);
+    Bs3TestPrintf("\n");
+
+    /* Distribution (tick delta log2-ish). */
+    if (uVerbosity > 0)
+    {
+        unsigned iItem = 0;
+        unsigned i;
+        for (i = uVerbosity > 1 ? 0 : 5; i < RT_ELEMENTS(pResult->aDistribution); i++)
+            if (pResult->aDistribution[i] != 0)
+            {
+                if (iItem >= 6)
+                {
+                    iItem = 0;
+                    Bs3TestPrintf("\n");
+                }
+                iItem++;
+                Bs3TestPrintf("  %'11RU64|2^%-2u", pResult->aDistribution[i], i);
+            }
+        if (uVerbosity > 1)
+            Bs3TestPrintf(iItem < 6 ? " (%'RU64 Hz)\n" : "\n  (%'RU64 Hz)\n", uCpuFreq);
+        else
+            Bs3TestPrintf("\n");
+    }
+    if (pResult->cBackwards != 0)
+        Bs3TestFailedF("TSC went backwards %'RU64 time(s)", pResult->cBackwards);
+}
+
+
+/**
+ * Do one TSC timing iteration.
+ *
+ * @param   iRun        The iteration number (loop).
+ * @param   cSecs       The number of seconds to sample TSCs.
+ * @param   uVerbosity  The noise level.
+ * @param   iMinHistory The threshold level to put stuff in g_auTscHistory.
+ */
+static void bs3Timing1_Tsc_One(unsigned iRun, uint32_t cSecs, unsigned uVerbosity, unsigned iMinHistory)
+{
+    uint64_t const      nsStart     = Bs3TestNow();
+    uint64_t const      uTscStart   = ASMReadTSC();
+    uint64_t const      nsDeadline  = nsStart + cSecs * RT_NS_1SEC_64;
+    uint64_t            cNsElapsed;
+    BS3TIMING1RESULT    Result;
+    unsigned            i;
+
+    Bs3MemZero(&Result, sizeof(Result));
+    Result.cTicksMin = UINT64_MAX;
+
+    /*
+     * Test loop.
+     */
+    do
+    {
+        unsigned cLoops = 100000 + 1;
+        Result.cTotalLoops += cLoops - 1;
+        while (--cLoops != 0)
+        {
+            uint64_t uTscPrev  = ASMReadTSC();
+            uint64_t uTscNow   = ASMReadTSC();
+            uint64_t cTicks    = uTscNow - uTscPrev;
+            unsigned iBit;
+
+            /* check that it doesn't go backwards*/
+            if ((int64_t)cTicks < 0)
+                Result.cBackwards++;
+
+            /* min/max/avg */
+            Result.cTicksSum += cTicks;
+            if (cTicks < Result.cTicksMin)
+                Result.cTicksMin = cTicks;
+            if (cTicks > Result.cTicksMax)
+                Result.cTicksMax = cTicks;
+
+            /* result distribution by most significant bit. */
+            iBit = ASMBitLastSetU64(cTicks);
+            Result.aDistribution[iBit] += 1;
+            if (iBit < iMinHistory)
+            { /* likely */ }
+            else
+            {
+                g_aBigHistory[g_iBigHistory].uTsc        = uTscPrev;
+                g_aBigHistory[g_iBigHistory].cTicksDelta = cTicks;
+                if (++g_iBigHistory >= RT_ELEMENTS(g_aBigHistory))
+                {
+                    g_iBigHistory        = 0;
+                    g_fBigHistoryWrapped = true;
+                }
+            }
+        }
+    } while ((cNsElapsed = Bs3TestNow()) < nsDeadline);
+
+    Result.cTicksElapsed = ASMReadTSC() - uTscStart;
+    Result.cNsElapsed    = cNsElapsed - nsStart;
+
+    bs3Timing1_PrintResult(&Result, iRun, uVerbosity);
+
+    /* Add to total. */
+    g_TotalResult.cNsElapsed        += Result.cNsElapsed;
+    g_TotalResult.cTicksElapsed     += Result.cTicksElapsed;
+    if (Result.cTicksMin < g_TotalResult.cTicksMin || g_TotalResult.cTicksMin == 0)
+        g_TotalResult.cTicksMin      = Result.cTicksMin;
+    if (Result.cTicksMax > g_TotalResult.cTicksMax)
+        g_TotalResult.cTicksMax     += Result.cTicksMax;
+    g_TotalResult.cTicksSum         += Result.cTicksSum;
+    g_TotalResult.cTotalLoops       += Result.cTotalLoops;
+    g_TotalResult.cBackwards        += Result.cBackwards;
+    for (i = 0; i < RT_ELEMENTS(Result.aDistribution); i++)
+        g_TotalResult.aDistribution[i] += Result.aDistribution[i];
+}
+
+
+/**
+ * The TSC test driver.
+ *
+ * @param   cLoops      Number of test iterations.
+ * @param   cSecs       The number of seconds per iteration.
+ * @param   uVerbosity  How noisy we should be.
+ * @param   iMinHistory The threshold for big gap history.
+ */
+static void bs3Timing1_Tsc_Driver(unsigned cLoops, unsigned cSecs, unsigned uVerbosity, unsigned iMinHistory)
+{
+    unsigned iLoop;
+
+#if 1
+    /*
+     * Verify that the first/last bit in U64 works (didn't).
+     */
+    iLoop = ASMBitLastSetU64( UINT64_C(0x1000100010001000)); if (iLoop != 61) Bs3TestFailedF("%d: iLoop=%d\n", __LINE__, iLoop);
+    iLoop = ASMBitFirstSetU64(UINT64_C(0x1000100010001000)); if (iLoop != 13) Bs3TestFailedF("%d: iLoop=%d\n", __LINE__, iLoop);
+    iLoop = ASMBitLastSetU64( UINT64_C(0x000ffff000000000)); if (iLoop != 52) Bs3TestFailedF("%d: iLoop=%d\n", __LINE__, iLoop);
+    iLoop = ASMBitFirstSetU64(UINT64_C(0x000ffff000000000)); if (iLoop != 37) Bs3TestFailedF("%d: iLoop=%d\n", __LINE__, iLoop);
+#endif
+
+    /*
+     * Do the work.
+     */
+    Bs3TestPrintf("Running %u loops, %u second%s each...\n", cLoops, cSecs, cSecs != 1 ? "s" : "");
+    for (iLoop = 1; iLoop <= cLoops; iLoop++)
+        bs3Timing1_Tsc_One(iLoop, cSecs, uVerbosity, iMinHistory);
+
+    /*
+     * Report the total.
+     */
+    Bs3TestPrintf("Total:\n");
+    bs3Timing1_PrintResult(&g_TotalResult, iLoop, uVerbosity + 1);
+
+    /*
+     * Dump the large gap history, if any.
+     */
+    if (g_fBigHistoryWrapped || g_iBigHistory > 0)
+    {
+        uint32_t const  iFirst   = g_fBigHistoryWrapped ? g_iBigHistory : 0;
+        uint32_t const  iEnd     = g_iBigHistory;
+        uint64_t        uTscPrev = g_aBigHistory[iFirst].uTsc;
+        uint32_t        i        = iFirst;
+        Bs3TestPrintf("Big gap history (TSC, prev delta, test delta|level):\n");
+        do
+        {
+            Bs3TestPrintf(" %'RU64: %'14RU64 - %'14RU64|%u\n", g_aBigHistory[i].uTsc, g_aBigHistory[i].uTsc - uTscPrev,
+                          g_aBigHistory[i].cTicksDelta, ASMBitLastSetU64(g_aBigHistory[i].cTicksDelta));
+            uTscPrev = g_aBigHistory[i].uTsc;
+            if (++i >= RT_ELEMENTS(g_aBigHistory))
+                i = 0;
+        } while (i != iEnd);
+    }
+    else
+        Bs3TestPrintf("No big gap history.\n");
+}
+
+
+#ifndef STANDALONE_EXECUTABLE
+BS3_DECL(void) bs3Timing1_Tsc_pe32(void)
+{
+    Bs3TestPrintf("bs3Timing1_Tsc_pe32\n");
+    bs3Timing1_Tsc_Driver(60, 10 /*sec*/, 1 /*uVerbosity*/, 17);
+}
+#endif
+
+/* P.S. don't forget: VBoxManage setextradata bs3-timing-1 VBoxInternal/Devices/VMMDev/0/Config/TestingEnabled 1 */
+

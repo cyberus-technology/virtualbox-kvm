@@ -1,0 +1,89 @@
+# $Id: ZIP.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild Tool Config - The zip/unzip packer/unpacker.
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_ZIP := The zip/unzip packer/unpacker.
+
+# Tool Specific Properties
+ifndef TOOL_ZIP_UNPACK
+ TOOL_ZIP_UNPACK := $(wildcard $(KBUILD_DEVTOOLS_HST)/unzip/v*/unzip$(HOSTSUFF_EXE))
+ ifeq ($(TOOL_ZIP_UNPACK),)
+  TOOL_ZIP_UNPACK := $(wildcard $(KBUILD_DEVTOOLS_HST)/zip/v*/unzip$(HOSTSUFF_EXE))
+ endif
+ ifeq ($(TOOL_ZIP_UNPACK),)
+  TOOL_ZIP_UNPACK := $(wildcard $(KBUILD_DEVTOOLS_HST)/bin/unzip$(HOSTSUFF_EXE))
+ endif
+ ifneq ($(TOOL_ZIP_UNPACK),)
+  TOOL_ZIP_UNPACK := $(lastword $(sort $(TOOL_ZIP_UNPACK)))
+ else
+  TOOL_ZIP_UNPACK := unzip$(HOSTSUFF_EXE)
+ endif
+else
+ TOOL_ZIP_UNPACK := $(TOOL_ZIP_UNPACK)
+endif
+#ifndef TOOL_ZIP_PACK
+# TOOL_ZIP_PACK := $(wildcard $(KBUILD_DEVTOOLS_HST)/zip/v*/zip$(HOSTSUFF_EXE))
+# ifeq ($(TOOL_ZIP_PACK),)
+#  TOOL_ZIP_PACK := $(wildcard $(KBUILD_DEVTOOLS_HST)/unzip/v*/zip$(HOSTSUFF_EXE))
+# endif
+# ifeq ($(TOOL_ZIP_PACK),)
+#  TOOL_ZIP_PACK := $(wildcard $(KBUILD_DEVTOOLS_HST)/bin/zip$(HOSTSUFF_EXE))
+# endif
+# ifneq ($(TOOL_ZIP_PACK),)
+#  TOOL_ZIP_PACK := $(lastword $(sort $(TOOL_ZIP_PACK)))
+# else
+#  TOOL_ZIP_PACK := zip$(HOSTSUFF_EXE)
+# endif
+#else
+# TOOL_ZIP_PACK := $(TOOL_ZIP_PACK)
+#endif
+
+# General Properties used by kBuild
+TOOL_ZIP_UNPACKFLAGS ?=
+
+## UNPACK one file.
+# @param $(zipget)   Normalized main zipget name.
+# @param $(archive)  The file to unpack.
+# @param $(flags)    Flags.
+# @param $(inst)     Where to unpack it.
+# @param $(out)      Where to write the file list.
+TOOL_ZIP_UNPACK_OUTPUT =
+TOOL_ZIP_UNPACK_DEPEND =
+TOOL_ZIP_UNPACK_DEPORD =
+define TOOL_ZIP_UNPACK_CMDS
+	$(QUIET)$(TOOL_ZIP_UNPACK) $(flags) $(archive) -d "$(inst)"
+	$(QUIET)$(TOOL_ZIP_UNPACK) -l $(archive) | $(SED) \
+		-e '/ [0-2][0-9]:[0-6][0-9]/!d' \
+		-e 's/^.* [0-2][0-9]:[0-6][0-9]   //' \
+		> $(out)
+endef
+

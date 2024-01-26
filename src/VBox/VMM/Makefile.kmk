@@ -1,0 +1,839 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for the VMM.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include our Config.kmk if kmk is invoked from a parent directory.
+ifndef VBOX_VMM_CONFIG_KMK_INCLUDED
+ include $(PATH_SUB_CURRENT)/Config.kmk
+endif
+
+# Include sub-makefiles.
+ifndef VBOX_ONLY_EXTPACKS
+ include $(PATH_SUB_CURRENT)/tools/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+endif
+
+
+# Fail on unsupported hosts.
+ifeq ($(KBUILD_TARGET_ARCH),x86)
+ ifeq ($(KBUILD_TARGET),darwin)
+  $(error 32-bit darwin is no longer a supported VirtualBox host. Go back to 4.3 or older for 32-bit host support.)
+ else ifeq ($(KBUILD_TARGET),solaris)
+  $(error 32-bit solaris is no longer a supported VirtualBox host. Go back to 4.2 or older for 32-bit host support.)
+ else ifn1of ($(KBUILD_TARGET_ARCH), $(VBOX_SUPPORTED_HOST_ARCHS))
+  $(error 32-bit builds of the VirtualBox host are no longer supported. Go back to 6.0 or older for 32-bit host support.)
+ endif
+endif
+
+
+#
+# The VMM DLL.
+#
+ifndef VBOX_ONLY_EXTPACKS_USE_IMPLIBS
+ DLLS += VBoxVMM
+endif
+VBoxVMM_TEMPLATE = VBoxR3DllNoPic
+VBoxVMM_SONAME.linux = VBoxVMM.so
+
+VBoxVMM_DEFS     = VBOX_IN_VMM IN_VMM_R3 IN_DIS IN_GMM_R3 IN_DBG $(VMM_COMMON_DEFS)
+## @todo eliminate IN_GMM_R3
+ifdef VBOX_WITH_PREALLOC_RAM_BY_DEFAULT
+ VBoxVMM_DEFS   += VBOX_WITH_PREALLOC_RAM_BY_DEFAULT
+endif
+ifdef VBOX_WITH_VUSB
+ VBoxVMM_DEFS   += VBOX_WITH_USB
+endif
+ifdef VBOX_WITH_PDM_ASYNC_COMPLETION
+ VBoxVMM_DEFS   += VBOX_WITH_PDM_ASYNC_COMPLETION
+endif
+ifdef VBOX_WITH_NETSHAPER
+ VBoxVMM_DEFS   += VBOX_WITH_NETSHAPER
+endif
+ifdef VBOX_WITH_IOMMU_AMD
+ VBoxVMM_DEFS   += VBOX_WITH_IOMMU_AMD
+endif
+ifdef VBOX_WITH_IOMMU_INTEL
+ VBoxVMM_DEFS   += VBOX_WITH_IOMMU_INTEL
+endif
+ifdef VBOX_WITH_DBGF_TRACING
+ VBoxVMM_DEFS   += VBOX_WITH_DBGF_TRACING
+endif
+ifdef VBOX_WITH_DBGF_FLOW_TRACING
+ VBoxVMM_DEFS   += VBOX_WITH_DBGF_FLOW_TRACING
+endif
+if "$(KBUILD_TYPE)" == "debug" && "$(USERNAME)" == "bird" && 0
+ VBoxVMM_DEFS   += RTMEM_WRAP_TO_EF_APIS
+endif
+
+VBoxVMM_SDKS     = VBoxSoftFloatR3Shared
+
+VBoxVMM_INCS     = \
+	include \
+	$(VBoxVMM_0_OUTDIR)/CommonGenIncs
+VBoxVMM_ASINCS   = .
+VBoxVMM_ASFLAGS.amd64  = -Werror
+VBoxVMM_ASFLAGS.x86    = -Werror
+
+VBoxVMM_SOURCES  = \
+	VBoxVMM.d \
+	VMMR3/VMMR3VTable.cpp \
+	VMMR3/APIC.cpp \
+	VMMR3/CFGM.cpp \
+	VMMR3/CPUM.cpp \
+	VMMR3/CPUMR3CpuId.cpp \
+	VMMR3/CPUMR3Db.cpp \
+	VMMR3/CPUMDbg.cpp \
+	VMMR3/DBGF.cpp \
+	VMMR3/DBGFAddr.cpp \
+	VMMR3/DBGFAddrSpace.cpp \
+	VMMR3/DBGFR3Bp.cpp \
+	VMMR3/DBGFR3BugCheck.cpp \
+	VMMR3/DBGFCoreWrite.cpp \
+	VMMR3/DBGFCpu.cpp \
+	VMMR3/DBGFDisas.cpp \
+	VMMR3/DBGFInfo.cpp \
+	VMMR3/DBGFLog.cpp \
+	VMMR3/DBGFMem.cpp \
+	VMMR3/DBGFR3ModInMem.cpp \
+	VMMR3/DBGFOS.cpp \
+	VMMR3/DBGFR3PlugIn.cpp \
+	VMMR3/DBGFReg.cpp \
+	VMMR3/DBGFStack.cpp \
+	VMMR3/DBGFR3Flow.cpp \
+	$(if-expr defined(VBOX_WITH_DBGF_FLOW_TRACING), VMMR3/DBGFR3FlowTrace.cpp,) \
+	VMMR3/DBGFR3Trace.cpp \
+	$(if-expr defined(VBOX_WITH_DBGF_TRACING), VMMR3/DBGFR3Tracer.cpp,) \
+	VMMR3/DBGFR3SampleReport.cpp \
+	VMMR3/DBGFR3Type.cpp \
+	VMMR3/EM.cpp \
+	VMMR3/EMR3Dbg.cpp \
+	VMMR3/EMHM.cpp \
+	VMMR3/EMR3Nem.cpp \
+	VMMR3/GCM.cpp \
+	VMMR3/GIM.cpp \
+	VMMR3/GIMHv.cpp \
+	VMMR3/GIMKvm.cpp \
+	VMMR3/GIMMinimal.cpp \
+	VMMR3/IEMR3.cpp \
+	VMMR3/IOM.cpp \
+	VMMR3/IOMR3IoPort.cpp \
+	VMMR3/IOMR3Mmio.cpp \
+	VMMR3/GMM.cpp \
+	VMMR3/GVMMR3.cpp \
+	VMMR3/MM.cpp \
+	VMMR3/MMHeap.cpp \
+	VMMR3/NEMR3.cpp \
+	VMMR3/PDM.cpp \
+	VMMR3/PDMBlkCache.cpp \
+	VMMR3/PDMDevice.cpp \
+	VMMR3/PDMDevHlp.cpp \
+	$(if-expr defined(VBOX_WITH_DBGF_TRACING), VMMR3/PDMDevHlpTracing.cpp,) \
+	VMMR3/PDMDevMiscHlp.cpp \
+	VMMR3/PDMDriver.cpp \
+	VMMR3/PDMLdr.cpp \
+	VMMR3/PDMCritSect.cpp \
+	VMMR3/PDMQueue.cpp \
+	VMMR3/PDMR3Task.cpp \
+	VMMR3/PDMThread.cpp \
+	VMMR3/PGM.cpp \
+	VMMR3/PGMDbg.cpp \
+	VMMR3/PGMHandler.cpp \
+	VMMR3/PGMPhys.cpp \
+	VMMR3/PGMPool.cpp \
+	VMMR3/PGMSavedState.cpp \
+	VMMR3/PGMSharedPage.cpp \
+	VMMR3/SELM.cpp \
+	VMMR3/SSM.cpp \
+	VMMR3/STAM.cpp \
+	VMMR3/TM.cpp \
+	VMMR3/TRPM.cpp \
+	VMMR3/VM.cpp \
+	VMMR3/VMEmt.cpp \
+	VMMR3/VMReq.cpp \
+	VMMR3/VMM.cpp \
+	VMMR3/VMMGuruMeditation.cpp \
+	VMMR3/VMMTests.cpp \
+	VMMR3/HM.cpp \
+	VMMAll/APICAll.cpp \
+	VMMAll/CPUMAllCpuId.cpp \
+	VMMAll/CPUMAllRegs.cpp \
+	VMMAll/CPUMAllMsrs.cpp \
+	VMMAll/DBGFAll.cpp \
+	VMMAll/DBGFAllBp.cpp \
+	$(if-expr defined(VBOX_WITH_DBGF_TRACING), VMMAll/DBGFAllTracer.cpp,) \
+	VMMAll/HMAll.cpp \
+	VMMAll/HMSVMAll.cpp \
+	VMMAll/HMVMXAll.cpp \
+	VMMAll/IEMAll.cpp \
+	VMMAll/IEMAllInstructionsInterpretOnly.cpp \
+	VMMAll/IEMAllAImplC.cpp \
+	VMMAll/IEMAllCImpl.cpp \
+	VMMAll/IEMAllCImplSvmInstr.cpp \
+	VMMAll/IEMAllCImplVmxInstr.cpp \
+	VMMAll/IOMAll.cpp \
+	VMMAll/IOMAllMmioNew.cpp \
+	VMMAll/MMAll.cpp \
+	VMMAll/NEMAll.cpp \
+	VMMAll/PDMAll.cpp \
+	VMMAll/PDMAllCritSect.cpp \
+	VMMAll/PDMAllCritSectRw.cpp \
+	VMMAll/PDMAllCritSectBoth.cpp \
+	$(if-expr defined(VBOX_WITH_IOMMU_AMD) || defined(VBOX_WITH_IOMMU_INTEL), VMMAll/PDMAllIommu.cpp,) \
+	VMMAll/PDMAllQueue.cpp \
+	VMMAll/PDMAllTask.cpp \
+	VMMAll/PGMAll.cpp \
+	VMMAll/PGMAllHandler.cpp \
+	VMMAll/PGMAllPhys.cpp \
+	VMMAll/PGMAllPool.cpp \
+	VMMAll/SELMAll.cpp \
+	VMMAll/EMAll.cpp \
+	VMMAll/GCMAll.cpp \
+	VMMAll/GIMAll.cpp \
+	VMMAll/GIMAllHv.cpp \
+	VMMAll/GIMAllKvm.cpp \
+	VMMAll/TMAll.cpp \
+	VMMAll/TMAllCpu.cpp \
+	VMMAll/TMAllReal.cpp \
+	VMMAll/TMAllVirtual.cpp \
+	VMMAll/TRPMAll.cpp \
+	VMMAll/VMAll.cpp \
+	VMMAll/VMMAll.cpp
+VBoxVMM_SOURCES.amd64 += \
+	VMMR3/PGMR3DbgA.asm \
+	$(if-expr !defined(IEM_WITHOUT_ASSEMBLY),VMMAll/IEMAllAImpl.asm,) \
+	VMMAll/VMMAllA.asm
+ifdef VBOX_WITH_VUSB
+ VBoxVMM_SOURCES += VMMR3/PDMUsb.cpp
+endif
+ifdef VBOX_WITH_PDM_ASYNC_COMPLETION
+ VBoxVMM_SOURCES += \
+ 	VMMR3/PDMAsyncCompletion.cpp \
+ 	VMMR3/PDMAsyncCompletionFile.cpp \
+ 	VMMR3/PDMAsyncCompletionFileFailsafe.cpp \
+ 	VMMR3/PDMAsyncCompletionFileNormal.cpp
+endif
+ifdef VBOX_WITH_NETSHAPER
+ VBoxVMM_SOURCES += \
+ 	VMMR3/PDMNetShaper.cpp \
+ 	VMMAll/PDMAllNetShaper.cpp
+endif
+
+ifdef VBOX_WITH_NATIVE_NEM
+ VBoxVMM_SOURCES.linux.amd64 += VMMR3/NEMR3Native-linux.cpp
+
+ VBoxVMM_SOURCES.win.amd64 += VMMR3/NEMR3Native-win.cpp
+ VBoxVMM_DEFS.win.amd64   += VBOX_WITH_NATIVE_NEM
+ VBoxVMM_SDKS.win         += VBoxNtDll
+ VMMR3/NEMR3Native-win.cpp_DEFS.amd64 = _AMD64_
+ VMMR3/NEMR3Native-win.cpp_INCS = \
+ 	$(KBUILD_DEVTOOLS)/win.x86/sdk/v10.0.17134.0/include/10.0.17134.0/um \
+ 	$(KBUILD_DEVTOOLS)/win.x86/sdk/v10.0.17134.0/include/10.0.17134.0/shared
+
+ VBoxVMM_SOURCES.darwin.amd64 += \
+ 	VMMR3/NEMR3Native-darwin.cpp
+ VBoxVMM_DEFS.darwin.amd64   += VBOX_WITH_NATIVE_NEM
+endif
+
+VBoxVMM_LIBS = \
+	$(PATH_STAGE_LIB)/DisasmR3$(VBOX_SUFF_LIB)
+ifdef VBOX_WITH_DEBUGGER
+ VBoxVMM_LIBS += \
+ 	$(PATH_STAGE_LIB)/Debugger$(VBOX_SUFF_LIB)
+endif
+VBoxVMM_LIBS += \
+	$(LIB_REM) \
+	$(LIB_RUNTIME)
+
+VBoxVMM_LIBS.win = $(PATH_TOOL_$(VBOX_VCC_TOOL)_LIB)/delayimp.lib
+VBoxVMM_LDFLAGS.linux = $(VBOX_GCC_NO_UNDEFINED)
+VBoxVMM_LDFLAGS.darwin = -install_name $(VBOX_DYLD_EXECUTABLE_PATH)/VBoxVMM.dylib
+VBoxVMM_LDFLAGS.solaris = -mimpure-text
+
+# SSM wish to know the build type, host os and arch.
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ VMMR3/SSM.cpp_DEFS += \
+ 	KBUILD_TYPE="$(KBUILD_TYPE)" \
+ 	KBUILD_TARGET="$(KBUILD_TARGET)" \
+ 	KBUILD_TARGET_ARCH="$(KBUILD_TARGET_ARCH)"
+else
+ VMMR3/SSM.cpp_DEFS += \
+ 	KBUILD_TYPE=\"$(KBUILD_TYPE)\" \
+ 	KBUILD_TARGET=\"$(KBUILD_TARGET)\" \
+ 	KBUILD_TARGET_ARCH=\"$(KBUILD_TARGET_ARCH)\"
+endif
+
+ifdef VBOX_WITH_GCC_SANITIZER
+ VMMR3/PGMPool.cpp_CXXFLAGS.linux += -fno-sanitize=address
+endif
+
+#ifdef VBOX_WITH_PDM_ASYNC_COMPLETION
+# ifeq ($(KBUILD_HOST), linux)
+#VBoxVMM_LIBS += aio
+# endif
+#endif
+
+if "$(USERNAME)" == "bird" && "$(KBUILD_TARGET)" == "win"
+ VBoxVMM_VMMAll/IEMAll.cpp_CXXFLAGS                         = /FAcs /Fa$(subst /,\\,$(outbase).cod)
+ VBoxVMM_VMMAll/IEMAllInstructionsInterpretOnly.cpp_CXXFLAGS = /FAcs /Fa$(subst /,\\,$(outbase).cod)
+ VBoxVMM_VMMAll/IEMAllAImplC.cpp_CXXFLAGS                   = /FAcs /Fa$(subst /,\\,$(outbase).cod)
+ VBoxVMM_VMMAll/PGMAll.cpp_CXXFLAGS                         = /FAcs /Fa$(subst /,\\,$(outbase).cod)
+ VBoxVMM_VMMAll/PDMAllCritSect.cpp_CXXFLAGS                 = /FAcs /Fa$(subst /,\\,$(outbase).cod)
+ VBoxVMM_CLEAN += $(addprefix $(VBoxVMM_0_OUTDIR)/VMMAll/, IEMAll.cod IEMAllAImplC.cod IEMAllInstructionsInterpretOnly.cod PGMAll.cod PDMAllCritSect.cod)
+endif
+
+$(call VBOX_SET_VER_INFO_DLL,VBoxVMM,VirtualBox VMM) # Version info / description.
+
+
+
+#
+# Generate macro template for IEM instruction statistics.
+#
+$(call KB_FN_DO_PASS0_ON_TARGET,VBoxVMM) # Set VBoxVMM_0_OUTDIR
+VBoxVMM_INTERMEDIATES += $(VBoxVMM_0_OUTDIR)/CommonGenIncs/IEMInstructionStatisticsTmpl.h
+VBoxVMM_CLEAN         += \
+	$(VBoxVMM_0_OUTDIR)/CommonGenIncs/IEMInstructionStatisticsTmpl.h.ts \
+	$(VBoxVMM_0_OUTDIR)/CommonGenIncs/IEMInstructionStatisticsTmpl.h
+$(call KB_FN_AUTO_CMD_DEPS,$(VBoxVMM_0_OUTDIR)/CommonGenIncs/IEMInstructionStatisticsTmpl.h.ts)
+$(VBoxVMM_0_OUTDIR)/CommonGenIncs/IEMInstructionStatisticsTmpl.h.ts \
++| $(VBoxVMM_0_OUTDIR)/CommonGenIncs/IEMInstructionStatisticsTmpl.h: \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructionsInterpretOnly.cpp \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructionsOneByte.cpp.h \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructionsTwoByte0f.cpp.h \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructionsThree0f38.cpp.h \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructionsThree0f3a.cpp.h \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructionsVexMap1.cpp.h \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructionsVexMap2.cpp.h \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructionsVexMap3.cpp.h \
+		$(PATH_SUB_CURRENT)/VMMAll/IEMAllInstructions3DNow.cpp.h
+	$(QUIET)$(call MSG_GENERATE,VBoxVMM,$@,VMMAll/IEMAllInstructions*.cpp.h)
+	$(QUIET)$(RM) -f -- "$@.tmp" "$@.tmp" "$@.sorted"
+	$(QUIET)$(MKDIR) -p -- "$(dir $@)"
+	$(call KB_FN_AUTO_CMD_DEPS_COMMANDS)
+	$(QUIET)$(SED) \
+		-e '/IEMOP_MNEMONIC\(\|[01234]\|[01234]EX\)(/!d' \
+		-e '/^ *# *define  *IEMOP_MNEMONIC/d' \
+		-e ':look-for-end-of-invocation' \
+		-e '/)/bend-of-invocation' \
+		-e 'N' \
+		-e 'blook-for-end-of-invocation' \
+		-e ':end-of-invocation' \
+		-e 's/\n/ /g' \
+		-e 's/  */ /g' \
+		-e 's/^.*IEMOP_MNEMONIC\(\|[01234]\|[01234]EX\)(/IEM_DO_INSTR_STAT\1(/' \
+		-e 's/;.*$(DOLLAR)//' \
+		--output "$@.tmp" $(filter %.cpp.h %IEMAllInstructionsInterpretOnly.cpp,$^)
+# Windows sort does some kind of seeking. So, we must use a temporary file and kmk_cat to define and undefine our macros.
+	$(QUIET)$(REDIRECT) -wto "$@.sorted" -- sort "$@.tmp"
+	$(QUIET)$(APPEND) -nt "$@" \
+		'/* Warning autogenerated by VMM/Makefile.kmk. */ ' \
+		'#define IEM_DO_INSTR_STAT0(f,u,l,fd,fi)                   IEM_DO_INSTR_STAT(l,  #l)' \
+		'#define IEM_DO_INSTR_STAT1(f,u,l,o1,fd,fi)                IEM_DO_INSTR_STAT(l ## _ ## o1,                                   #l " " #o1)' \
+		'#define IEM_DO_INSTR_STAT2(f,u,l,o1,o2,fd,fi)             IEM_DO_INSTR_STAT(l ## _ ## o1 ## _ ## o2,                        #l " " #o1 "," #o2)' \
+		'#define IEM_DO_INSTR_STAT3(f,u,l,o1,o2,o3,fd,fi)          IEM_DO_INSTR_STAT(l ## _ ## o1 ## _ ## o2 ## _ ## o3,             #l " " #o1 "," #o2 "," #o3)' \
+		'#define IEM_DO_INSTR_STAT4(f,u,l,o1,o2,o3,o4,fd,fi)       IEM_DO_INSTR_STAT(l ## _ ## o1 ## _ ## o2 ## _ ## o3 ## _ ## o4,  #l " " #o1 "," #o2 "," #o3 "," #o4)' \
+		'#define IEM_DO_INSTR_STAT0EX(s,m,f,u,l,fd,fi)             IEM_DO_INSTR_STAT(s,m)' \
+		'#define IEM_DO_INSTR_STAT1EX(s,m,f,u,l,o1,fd,fi)          IEM_DO_INSTR_STAT(s,m)' \
+		'#define IEM_DO_INSTR_STAT2EX(s,m,f,u,l,o1,o2,fd,fi)       IEM_DO_INSTR_STAT(s,m)' \
+		'#define IEM_DO_INSTR_STAT3EX(s,m,f,u,l,o1,o2,o3,fd,fi)    IEM_DO_INSTR_STAT(s,m)' \
+		'#define IEM_DO_INSTR_STAT4EX(s,m,f,u,l,o1,o2,o3,o4,fd,fi) IEM_DO_INSTR_STAT(s,m)' \
+               ''
+	$(QUIET)$(REDIRECT) -ato "$@" -- $(CAT_EXT) "$@.sorted"
+	$(QUIET)$(APPEND) -n "$@" \
+		'' \
+		'#undef IEM_DO_INSTR_STAT0' \
+		'#undef IEM_DO_INSTR_STAT1' \
+		'#undef IEM_DO_INSTR_STAT2' \
+		'#undef IEM_DO_INSTR_STAT3' \
+		'#undef IEM_DO_INSTR_STAT4' \
+		'#undef IEM_DO_INSTR_STAT0EX' \
+		'#undef IEM_DO_INSTR_STAT1EX' \
+		'#undef IEM_DO_INSTR_STAT2EX' \
+		'#undef IEM_DO_INSTR_STAT3EX' \
+		'#undef IEM_DO_INSTR_STAT4EX' \
+		''
+	$(QUIET)$(RM) -f -- "$@.tmp" "$@.sorted"
+	$(QUIET)$(CP) -v -f --changed -- "$@" "$(patsubst %.ts,%,$@)"
+
+foobar: $(VBoxVMM_0_OUTDIR)/CommonGenIncs/IEMInstructionStatisticsTmpl.h
+
+if "$(KBUILD_TARGET)" == "win" && !defined(VBOX_ONLY_EXTPACKS_USE_IMPLIBS)
+ #
+ # Debug type info hack for VMCPU, VM and similar.
+ #
+ # The microsoft linker seems to be using the last occurence of the structures
+ # when writing the module PDB file.  So, we put the fully complete structures
+ # in a library which is at the end of the library list.
+ #
+ VBoxVMM_LIBS   += $(VBoxVMMPdbTypeHack_1_TARGET)
+ VBoxVMM_LDFLAGS += /Export:PdbTypeHack
+
+ LIBRARIES += VBoxVMMPdbTypeHack
+ VBoxVMMPdbTypeHack_TEMPLATE      = $(VBoxVMM_TEMPLATE)
+ VBoxVMMPdbTypeHack_SOURCES       = VMMAll/AllPdbTypeHack.cpp
+ VBoxVMMPdbTypeHack_DEFS          = $(VBoxVMM_DEFS)
+ VBoxVMMPdbTypeHack_DEFS.win      = $(VBoxVMM_DEFS.win)
+ VBoxVMMPdbTypeHack_DEFS.win.x86  = $(VBoxVMM_DEFS.win.x86)
+ VBoxVMMPdbTypeHack_DEFS.win.amd64 = $(VBoxVMM_DEFS.win.amd64)
+ VBoxVMMPdbTypeHack_INCS          = $(VBoxVMM_INCS)
+ VBoxVMMPdbTypeHack_INTERMEDIATES = $(VBoxVMM_INTERMEDIATES)
+endif
+
+
+if1of ($(VBOX_LDR_FMT), pe lx)
+ #
+ # VMMR0Imp.lib
+ #
+ LIBRARIES += VMMR0Imp
+ VMMR0Imp_TEMPLATE = VBoxR0
+ VMMR0Imp_SOURCES = $(VMMR0Imp_0_OUTDIR)/VMMR0.def
+ VMMR0Imp_CLEAN   = $(VMMR0Imp_0_OUTDIR)/VMMR0.def
+ ifeq ($(KBUILD_TARGET),win) # Experiment: Let's see how blunt the ones messing our NULL_THUNK_DATA entries on W10 are.
+  VMMR0Imp_POST_CMDS = $(KLIBTWEAKER_EXT) --clear-timestamps --fill-null_thunk_data $(out)
+ endif
+ $(call KB_FN_DO_PASS0_ON_TARGET,VMMR0Imp)
+
+ $(call KB_FN_AUTO_CMD_DEPS,$(VMMR0Imp_0_OUTDIR)/VMMR0.def)
+ $(VMMR0Imp_0_OUTDIR)/VMMR0.def: $(VMMR0Imp_DEFPATH)/VMMR0/VMMR0.def | $$(dir $$@)
+	$(call KB_FN_AUTO_CMD_DEPS_COMMANDS)
+ ifeq ($(VBOX_LDR_FMT),lx)
+	$(SED) \
+		-e '/not-os2/d' \
+		-e '/not-amd64/d' \
+		-e 's/^[ \t][ \t]*\([a-zA-Z]\)/    _\1/' \
+		-e 's/[ \t]DATA[ \t]*/ /'  \
+		--output $@ $(VMMR0Imp_DEFPATH)/VMMR0/VMMR0.def
+	$(APPEND) "$@" ""
+	$(APPEND) "$@" "    ___ehInit"
+ else
+	$(SED) \
+		-e '/not-win/d' \
+		-e '/not-$(KBUILD_TARGET_ARCH)/d' \
+		--output $@ $(VMMR0Imp_DEFPATH)/VMMR0/VMMR0.def
+ endif
+endif # R0: pe + lx
+
+
+#
+# VMMR3Imp.lib
+#
+IMPORT_LIBS += VMMR3Imp
+$(call VBOX_GENERATE_IMPORT_TARGET_FN,VMMR3Imp,VBoxVMM,VMMR3/VMMR3.def)
+
+
+#
+# VMMR0.r0
+#
+if defined(VBOX_WITH_R0_MODULES) && !defined(VBOX_ONLY_EXTPACKS)
+ ifdef VBOX_WITH_VBOXR0_AS_DLL
+  DLLS    += VMMR0
+ else
+  SYSMODS += VMMR0
+ endif
+ VMMR0_TEMPLATE  = VBoxR0
+ VMMR0_SYSSUFF   = .r0
+
+ VMMR0_DEFS      = VBOX_IN_VMM IN_VMM_R0 IN_RT_R0 IN_DIS DIS_CORE_ONLY IN_GVMM_R0 IN_GMM_R0 IN_INTNET_R0 \
+ 	$(VMM_COMMON_DEFS) RTASSERT_HAVE_SHOULD_PANIC
+ ## @todo eliminate IN_GVMM_R0 IN_GMM_R0
+ ifdef VBOX_WITH_PCI_PASSTHROUGH
+  VMMR0_DEFS     += IN_PCIRAW_R0
+ endif
+ ifdef VBOX_WITH_TRIPLE_FAULT_HACK
+  VMMR0_DEFS     += VBOX_WITH_TRIPLE_FAULT_HACK
+ endif
+ ifdef VBOX_WITH_IOMMU_AMD
+  VMMR0_DEFS     += VBOX_WITH_IOMMU_AMD
+ endif
+ ifdef VBOX_WITH_DBGF_TRACING
+  VMMR0_DEFS     += VBOX_WITH_DBGF_TRACING
+ endif
+ if1of ($(KBUILD_TARGET), darwin linux win)
+  VMMR0_DEFS     += VMM_R0_TOUCH_FPU
+ endif
+ VMMR0_DEFS.win.amd64  = VBOX_WITH_KERNEL_USING_XMM
+
+ ifeq ($(VBOX_LDR_FMT),elf)
+  VMMR0_CXXFLAGS += -Wunused -Wunused-variable -Wno-unused-parameter
+ endif
+
+ # yasm versions not knowing about -Wno-segreg-in-64bit (including vanilla 1.3.0) would cause build failure.
+ if "$(VBOX_ASTOOL)" != "YASM" || defined("VBOX_YASM_Wno-segreg-in-64bit")
+  VMMR0_ASFLAGS.amd64 := -Werror
+ endif
+ VMMR0_ASFLAGS.x86   := -Werror
+
+ VMMR0_SDKS      = VBoxSoftFloatR0
+
+ VMMR0_INCS      = \
+ 	include \
+ 	$(VBoxVMM_0_OUTDIR)/CommonGenIncs
+
+ VMMR0_SOURCES   = \
+ 	VBoxVMM.d \
+ 	VMMR0/CPUMR0.cpp \
+ 	VMMR0/CPUMR0A.asm \
+ 	VMMR0/DBGFR0.cpp \
+ 	VMMR0/DBGFR0Bp.cpp \
+ 	$(if-expr defined(VBOX_WITH_DBGF_TRACING), VMMR0/DBGFR0Tracer.cpp,) \
+ 	VMMR0/GIMR0.cpp \
+ 	VMMR0/GIMR0Hv.cpp \
+ 	VMMR0/GMMR0.cpp \
+ 	VMMR0/GVMMR0.cpp \
+ 	VMMR0/EMR0.cpp \
+ 	VMMR0/HMR0.cpp \
+ 	VMMR0/HMR0A.asm \
+ 	VMMR0/HMR0UtilA.asm \
+ 	VMMR0/HMVMXR0.cpp \
+ 	VMMR0/HMSVMR0.cpp \
+ 	VMMR0/IEMR0.cpp \
+ 	VMMR0/IOMR0.cpp \
+ 	VMMR0/IOMR0IoPort.cpp \
+ 	VMMR0/IOMR0Mmio.cpp \
+ 	VMMR0/PDMR0Device.cpp \
+ 	VMMR0/PDMR0DevHlp.cpp \
+ 	$(if-expr defined(VBOX_WITH_DBGF_TRACING), VMMR0/PDMR0DevHlpTracing.cpp,) \
+ 	VMMR0/PDMR0Driver.cpp \
+ 	VMMR0/PDMR0Queue.cpp \
+ 	VMMR0/PGMR0.cpp \
+ 	VMMR0/PGMR0Pool.cpp \
+ 	VMMR0/PGMR0SharedPage.cpp \
+ 	VMMR0/TMR0.cpp \
+ 	VMMR0/VMMR0.cpp \
+ 	VMMRZ/CPUMRZ.cpp \
+ 	VMMRZ/CPUMRZA.asm \
+ 	VMMRZ/VMMRZ.cpp \
+ 	VMMAll/APICAll.cpp \
+ 	VMMAll/CPUMAllCpuId.cpp \
+ 	VMMAll/CPUMAllRegs.cpp \
+ 	VMMAll/CPUMAllMsrs.cpp \
+ 	VMMAll/DBGFAll.cpp \
+ 	VMMAll/DBGFAllBp.cpp \
+ 	$(if-expr defined(VBOX_WITH_DBGF_TRACING), VMMAll/DBGFAllTracer.cpp,) \
+ 	VMMAll/EMAll.cpp \
+ 	VMMAll/GCMAll.cpp \
+ 	VMMAll/GIMAll.cpp \
+ 	VMMAll/GIMAllHv.cpp \
+ 	VMMAll/GIMAllKvm.cpp \
+ 	VMMAll/HMAll.cpp \
+ 	VMMAll/HMSVMAll.cpp \
+ 	VMMAll/HMVMXAll.cpp \
+ 	VMMAll/IEMAll.cpp \
+ 	VMMAll/IEMAllInstructionsInterpretOnly.cpp \
+ 	$(if-expr !defined(IEM_WITHOUT_ASSEMBLY),VMMAll/IEMAllAImpl.asm,) \
+ 	VMMAll/IEMAllAImplC.cpp \
+ 	VMMAll/IEMAllCImpl.cpp \
+ 	VMMAll/IEMAllCImplSvmInstr.cpp \
+ 	VMMAll/IEMAllCImplVmxInstr.cpp \
+ 	VMMAll/IOMAll.cpp \
+ 	VMMAll/IOMAllMmioNew.cpp \
+ 	VMMAll/MMAll.cpp \
+ 	VMMAll/NEMAll.cpp \
+ 	VMMAll/PDMAll.cpp \
+ 	VMMAll/PDMAllCritSect.cpp \
+ 	VMMAll/PDMAllCritSectRw.cpp \
+ 	VMMAll/PDMAllCritSectBoth.cpp \
+ 	$(if-expr defined(VBOX_WITH_IOMMU_AMD) || defined(VBOX_WITH_IOMMU_INTEL), VMMAll/PDMAllIommu.cpp,) \
+ 	VMMAll/PDMAllQueue.cpp \
+ 	VMMAll/PDMAllTask.cpp \
+ 	VMMAll/PGMAll.cpp \
+ 	VMMAll/PGMAllHandler.cpp \
+ 	VMMAll/PGMAllPhys.cpp \
+ 	VMMAll/PGMAllPool.cpp \
+ 	VMMAll/SELMAll.cpp \
+ 	VMMAll/TMAll.cpp \
+ 	VMMAll/TMAllCpu.cpp \
+ 	VMMAll/TMAllReal.cpp \
+ 	VMMAll/TMAllVirtual.cpp \
+ 	VMMAll/TRPMAll.cpp \
+ 	VMMAll/VMAll.cpp \
+ 	VMMAll/VMMAll.cpp \
+ 	VMMAll/VMMAllA.asm
+ if1of ($(VBOX_LDR_FMT), pe lx)
+  VMMR0_SOURCES += $(VMMR0Imp_0_OUTDIR)/VMMR0.def
+ endif
+ ifdef VBOX_WITH_TRIPLE_FAULT_HACK
+  VMMR0_SOURCES += \
+  	VMMR0/VMMR0TripleFaultHack.cpp \
+  	VMMR0/VMMR0TripleFaultHackA.asm
+ endif
+ ifdef VBOX_WITH_NETSHAPER
+  VMMR0_SOURCES += \
+  	VMMAll/PDMAllNetShaper.cpp
+ endif
+ VMMR0_SOURCES.amd64 = \
+ 	VMMR0/VMMR0JmpA-amd64.asm
+ VMMR0_SOURCES.x86 = \
+ 	VMMR0/VMMR0JmpA-x86.asm
+
+ VMMR0_LIBS = \
+ 	$(PATH_STAGE_LIB)/ServicesR0$(VBOX_SUFF_LIB) \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(PATH_STAGE_LIB)/DisasmR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ ifdef VBOX_WITH_NATIVE_NEM
+  VMMR0_SOURCES.linux.amd64  += VMMR0/NEMR0Native-stubs.cpp
+  VMMR0_SOURCES.win.amd64    += VMMR0/NEMR0Native-stubs.cpp
+  VMMR0_SOURCES.darwin.amd64 += VMMR0/NEMR0Native-stubs.cpp
+  VMMR0_DEFS.darwin.amd64    += VBOX_WITH_NATIVE_NEM VBOX_WITH_NEM_R0
+ endif
+
+ $(call VBOX_SET_VER_INFO_R0,VMMR0,VirtualBox VMM - ring-0 context parts) # Version info / description.
+
+ if "$(USERNAME)" == "bird" && "$(KBUILD_TARGET)" == "win"
+  VMMR0_VMMAll/IEMAll.cpp_CXXFLAGS       = /FAcs /Fa$(subst /,\\,$(outbase).cod)
+  VMMR0_VMMAll/IEMAllAImplC.cpp_CXXFLAGS = /FAcs /Fa$(subst /,\\,$(outbase).cod)
+  VMMR0_VMMAll/PGMAll.cpp_CXXFLAGS       = /FAcs /Fa$(subst /,\\,$(outbase).cod)
+  VMMR0_CLEAN += $(addprefix $(VMMR0_0_OUTDIR)/VMMAll/, IEMAll.cod IEMAllAImplC.cod PGMAll.cod)
+ endif
+
+ VMMR0_INTERMEDIATES += $(VBoxVMM_0_OUTDIR)/CommonGenIncs/IEMInstructionStatisticsTmpl.h
+
+ if "$(KBUILD_TARGET)" == "win"
+  # Debug type info hack for VMCPU, VM and similar.  See VBoxVMM for details.
+  VMMR0_LIBS    += $(VMMR0PdbTypeHack_1_TARGET)
+  VMMR0_LDFLAGS += /Export:PdbTypeHack
+
+  LIBRARIES += VMMR0PdbTypeHack
+  VMMR0PdbTypeHack_TEMPLATE       = $(VMMR0_TEMPLATE)
+  VMMR0PdbTypeHack_SOURCES        = VMMAll/AllPdbTypeHack.cpp
+  VMMR0PdbTypeHack_DEFS           = $(VMMR0_DEFS)
+  VMMR0PdbTypeHack_DEFS.win       = $(VMMR0_DEFS.win)
+  VMMR0PdbTypeHack_DEFS.win.x86   = $(VMMR0_DEFS.win.x86)
+  VMMR0PdbTypeHack_DEFS.win.amd64 = $(VMMR0_DEFS.win.amd64)
+  VMMR0PdbTypeHack_INCS           = $(VMMR0_INCS)
+  VMMR0PdbTypeHack_INTERMEDIATES  = $(VMMR0_INTERMEDIATES)
+ endif
+
+ ifdef VBOX_WITH_KMOD_WRAPPED_R0_MODS
+  # Wrapper kmod for VMMR0.r0
+  INSTALLS.linux += vbox_vmmr0-src
+  vbox_vmmr0-src_INST = bin/src/vbox_vmmr0/
+  vbox_vmmr0-src_SYMLINKS = \
+  	SUPWrapperMod-linux.c=>../common/SUPWrapperMod-linux.c \
+  	Makefile-wrapper.gmk=>../common/Makefile-wrapper.gmk
+  vbox_vmmr0-src_SOURCES = \
+  	$(PATH_ROOT)/src/VBox/HostDrivers/Support/linux/Makefile-vbox_vmmr0.gmk=>Makefile \
+  	$(VMMR0_0_OUTDIR)/VMMR0.r0=>VMMR0.r0 \
+  	$(VMMR0_0_OUTDIR)/VMMR0.debug=>VMMR0.debug
+ endif
+
+endif # defined(VBOX_WITH_R0_MODULES) && !defined(VBOX_ONLY_EXTPACKS)
+
+
+
+ifndef VBOX_ONLY_EXTPACKS
+ #
+ # SSMStandalone.lib/a for linking with VBoxSVC and other executables.
+ #
+ LIBRARIES += SSMStandalone
+ SSMStandalone_TEMPLATE = VBoxR3Exe
+ SSMStandalone_DEFS    = VBOX_IN_VMM IN_VMM_R3 IN_VMM_STATIC SSM_STANDALONE CPUM_DB_STANDALONE $(VMM_COMMON_DEFS)
+ SSMStandalone_INCS    = include
+ SSMStandalone_SOURCES = \
+ 	VMMR3/SSM.cpp \
+ 	VMMR3/CPUMR3Db.cpp
+endif # !VBOX_ONLY_EXTPACKS
+
+
+if   !defined(VBOX_ONLY_EXTPACKS) \
+  && (   defined(VBOX_WITH_DTRACE_R3) \
+      || defined(VBOX_WITH_DTRACE_R0) \
+  || defined(VBOX_WITH_DTRACE_RC))
+ #
+ # Install the dtrace library files.
+ #
+ INSTALLS += VMMLibDTrace
+ VMMLibDTrace_INST   = $(VBOX_INST_DTRACE_LIB)$(KBUILD_TARGET_ARCH)/
+ VMMLibDTrace_SOURCES = \
+ 	dtrace/lib/vbox-types.d \
+ 	dtrace/lib/$(KBUILD_TARGET_ARCH)/vbox-arch-types.d \
+ 	$(VMMLibDTrace_0_OUTDIR)/vm.d \
+ 	$(VMMLibDTrace_0_OUTDIR)/cpumctx.d \
+ 	$(VMMLibDTrace_0_OUTDIR)/cpum.d \
+ 	$(VMMLibDTrace_0_OUTDIR)/CPUMInternal.d \
+ 	$(VMMLibDTrace_0_OUTDIR)/x86.d
+ $(call KB_FN_DO_PASS0_ON_TARGET,VMMLibDTrace)
+
+
+ ##
+ # Turn the header $2 into the DTrace library script $1.
+ #
+ define def_vmm_lib_dtrace_preprocess
+  $$(call KB_FN_AUTO_CMD_DEPS,$$(VMMLibDTrace_0_OUTDIR)/$1)
+  $$(VMMLibDTrace_0_OUTDIR)/$1: $2 $$(VBOX_VBOXCPP) | $$$$(dir $$$$@)
+	$$(call KB_FN_AUTO_CMD_DEPS_COMMANDS)
+	$$(QUIET)$$(call MSG_GENERATE,VMMLibDTrace,$$@,$2)
+	$$(QUIET)$(VBOX_VBOXCPP) -d \
+		-D VBOX_FOR_DTRACE_LIB \
+		-D VBOX_FOR_DTRACE_LIB_$(toupper $(KBUILD_TARGET_ARCH)) \
+		-D IN_RING0 \
+		-D RT_C_DECLS_BEGIN= \
+		-D RT_C_DECLS_END= \
+		-D RT_GCC_EXTENSION= \
+		-D 'RCPTRTYPE(a_Type)=RTRCPTR' \
+		-D 'R3PTRTYPE(a_Type)=RTR3PTR' \
+		-D 'R0PTRTYPE(a_Type)=a_Type' \
+		-D 'AssertCompile(a_Expr)=' \
+		-D 'AssertCompileSize(a_Stuct, a_Size)=' \
+		-D 'bool=uint8_t' \
+		$$(foreach def,\
+			$$(DEFS) \
+			$$(DEFS.$$(KBUILD_TARGET)) \
+			$$(DEFS.$(KBUILD_TARGET_ARCH)) \
+			$$(VMM_COMMON_DEFS) \
+			$$(ARCH_BITS_DEFS)\
+		   ,-D '$$(def)') \
+		$2 \
+		$$@
+	$$(QUIET)$$(CHMOD) 644 $$@
+
+  VMMLibDTrace_CLEAN += $(VMMLibDTrace_0_OUTDIR)/$1
+ endef
+ $(evalcall2 def_vmm_lib_dtrace_preprocess,vm.d,$(PATH_ROOT)/include/VBox/vmm/vm.h)
+ $(evalcall2 def_vmm_lib_dtrace_preprocess,cpumctx.d,$(PATH_ROOT)/include/VBox/vmm/cpumctx.h)
+ $(evalcall2 def_vmm_lib_dtrace_preprocess,cpum.d,$(PATH_ROOT)/include/VBox/vmm/cpum.h)
+ $(evalcall2 def_vmm_lib_dtrace_preprocess,CPUMInternal.d,$(PATH_SUB_CURRENT)/include/CPUMInternal.h)
+ $(evalcall2 def_vmm_lib_dtrace_preprocess,x86.d,$(PATH_ROOT)/include/iprt/x86.h)
+
+endif
+
+
+
+#
+# For vmmGetSvnRev.
+#
+VMMAll/VMMAll.cpp_DEFS = VBOX_SVN_REV=$(VBOX_SVN_REV)
+
+#
+# Disable annoying warnings about array subscript above array bounds in aPages[]
+#
+ifneq ($(KBUILD_TARGET),win)
+ VMMR3/PGMPool.cpp_CXXFLAGS    = $(VBOX_GCC_Wno-array_bounds)
+ VMMAll/PGMAllPool.cpp_CXXFLAGS = $(VBOX_GCC_Wno-array_bounds)
+ VMMAll/PGMAll.cpp_CXXFLAGS    = -Wno-unused-function
+ VMMAll/IEMAll.cpp_CXXFLAGS    = -Wno-unused-function
+ VMMR0/GMMR0.cpp_CXXFLAGS      = -Wno-unused-value
+endif
+
+#
+# Always optimize the interpreter.
+#
+#if "$(KBUILD_TYPE)" == "release" || ($(USERNAME) != "bird" && $(USERNAME) != "aeichner")
+if "$(KBUILD_TYPE)" == "release" || ($(USERNAME) != "aeichner")
+ if1of ($(KBUILD_TARGET), win)
+  # -noover is recognized despite the statement saying otherwise. It silences these warnings:
+  # cl : Command line warning D9025 : overriding '/Od' with '/O2'
+  # cl : Command line warning D9025 : overriding '/Oy-' with '/Oy'
+  VMMAll/IEMAll.cpp_CXXFLAGS                        += -noover -O2xy
+  VMMAll/IEMAllAImplC.cpp_CXXFLAGS                  += -noover -O2xy
+  VMMAll/IEMAllCImpl.cpp_CXXFLAGS                   += -noover -O2xy
+  VMMAll/IEMAllCImplSvmInstr.cpp_CXXFLAGS           += -noover -O2xy
+  VMMAll/IEMAllCImplVmxInstr.cpp_CXXFLAGS           += -noover -O2xy
+  VMMAll/IEMAllInstructionsInterpretOnly.cpp_CXXFLAGS += -noover -O2xy
+ else
+  # Omitting the frame pointer results in larger code, but it might be worth it. (esp addressing vs ebp?)
+  VMMAll/IEMAll.cpp_CXXFLAGS                        += -O2 -fomit-frame-pointer
+  VMMAll/IEMAllCImpl.cpp_CXXFLAGS                   += -O2 -fomit-frame-pointer
+  VMMAll/IEMAllCImplSvmInstr.cpp_CXXFLAGS           += -O2 -fomit-frame-pointer
+  VMMAll/IEMAllCImplVmxInstr.cpp_CXXFLAGS           += -O2 -fomit-frame-pointer
+  VMMAll/IEMAllInstructionsInterpretOnly.cpp_CXXFLAGS += -O2 -fomit-frame-pointer
+ endif
+endif # bird wants good stacks (aeichner as well)
+
+
+# Alias the CPU database entries.
+$(foreach base,$(notdir $(basename $(wildcard $(PATH_SUB_CURRENT)/VMMR3/cpus/*.h))), $(eval $(base).o $(base).obj: CPUMR3Db.o))
+
+
+#
+# Process python source(s).
+#
+BLDDIRS += $(PATH_TARGET)/pylint
+
+define def_vbox_vmm_py_check
+ $(eval name:=$(basename $(notdir $(py))))
+
+ pylint: $(name)-py-phony.o
+ $(name).o: $(name)-py-phony.o
+ $(PATH_TARGET)/pylint/$(name).o $(name)-py-phony.o:: $(py) | $(PATH_TARGET)/pylint/
+ ifdef VBOX_WITH_PYLINT
+	$(QUIET2)$(call MSG_L1,Subjecting $(py) to pylint...)
+	$(QUIET)$(REDIRECT) -C "$(dir $(py))" -E LC_ALL=C -- \
+		$(VBOX_PYLINT) --rcfile=$(PATH_TARGET)/no-such-pylintrc \
+			$$(VBOX_PYLINT_FLAGS) $$($(py)_VBOX_PYLINT_FLAGS) ./$(notdir $(py))
+ endif
+	$(QUIET)$(APPEND) -t "$(PATH_TARGET)/pylint/$(name).o"
+
+ TESTING += $(name)-py-phony.o
+endef # def_vbox_vmm_py_check
+
+$(foreach py, $(addprefix $(PATH_SUB_CURRENT)/VMMAll/, IEMAllInstructionsPython.py ) , $(eval $(def_vbox_vmm_py_check)))
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+
+
+# Alias the PGM templates to the object in which they are defined.
+PGMInternal.o: PGM.o
+
+PGMAllBth.o PGMAllGst.o PGMAllShw.o \
+PGMAllBth.obj PGMAllGst.obj PGMAllShw.obj: PGMAll.o
+
+PGMRCBth.o PGMRCGst.o PGMRCShw.o \
+PGMRCBth.obj PGMRCGst.obj PGMRCShw.obj: PGMRC.o
+
+PGMPhysRWTmpl.o PGMPhysRWTmpl.obj: PGMPhys.o
+
+PGMInline.o PGMInline.obj: PGMDbg.o
+
+# Alias the IEM templates to the object in which they are instantiated.
+IEMAllInstructions.cpp.o IEMAllInstructions.cpp.obj \
+IEMAllInstructionsOneByte.cpp.o IEMAllInstructionsOneByte.cpp.obj \
+IEMAllInstructionsTwoByte0f.cpp.o IEMAllInstructionsTwoByte0f.cpp.obj \
+IEMAllInstructionsThree0f38.cpp.o IEMAllInstructionsThree0f38.cpp.obj \
+IEMAllInstructionsThree0f3a.cpp.o IEMAllInstructionsThree0f3a.cpp.obj \
+IEMAllInstructionsVexMap1.cpp.o IEMAllInstructionsVexMap1.cpp.obj \
+IEMAllInstructionsVexMap2.cpp.o IEMAllInstructionsVexMap2.cpp.obj \
+IEMAllInstructionsVexMap3.cpp.o IEMAllInstructionsVexMap3.cpp.obj \
+IEMAllInstructions3DNow.cpp.o IEMAllInstructions3DNow.cpp.obj: IEMAllInstructionsInterpretOnly.o
+
+IEMInternal.o IEMInternal.obj: IEMAll.o
+
+IEMAllCImplStrInstr.cpp.o IEMAllCImplStrInstr.cpp.obj: IEMAllCImpl.o
+
+# Alias the NEM template to the objects where it is used:
+NEMAllNativeTemplate-win.cpp.o: NEMR3Native-win.o
+
+# Alias the VMX template onto HMVMXR0 or darwin specific NEM object:
+ifeq ($(KBUILD_TARGET),darwin)
+ VMXAllTemplate.cpp.o: NEMR3Native-darwin.o
+else
+ VMXAllTemplate.cpp.o: HMVMXR0.o
+endif
+

@@ -1,0 +1,96 @@
+=head1 NAME
+
+TPMLIB_MainInit    - Initialize the TPM
+ 
+TPMLIB_Terminate   - Terminate the TPM
+
+=head1 LIBRARY
+
+TPM library (libtpms, -ltpms)
+
+=head1 SYNOPSIS
+
+B<#include <libtpms/tpm_types.h>>
+
+B<#include <libtpms/tpm_library.h>>
+
+B<#include <libtpms/tpm_error.h>>
+
+B<TPM_RESULT TPMLIB_MainInit(void);>
+
+B<TPM_RESULT TPMLIB_Terminate(void);>
+
+=head1 DESCRIPTION
+
+The B<TPMLIB_MainInit()> and B<TPMLIB_Terminate()> functions are used
+to initialize and terminate the TPM respectively. The B<TPMLIB_MainInit()>
+function must be called before the TPM processes any TPM command.
+The B<TPMLIB_Terminate()> function is called to free all the internal 
+resources (memory allocations) the TPM has used and must be called after
+the last TPM command was processed by the TPM. The B<TPMLIB_MainInit()>
+function can then be called again.
+
+Use B<TPMLIB_RegisterCallbacks()> to set callback functions for
+initialization and writing and restoring the internal state in a
+portable format.
+
+=head1 ERRORS
+
+=over 4
+
+=item B<TPM_SUCCESS>
+
+The function completed successfully.
+
+=item B<TPM_FAIL>
+
+General failure.
+
+=back
+
+For a complete list of TPM error codes please consult the include file
+B<libtpms/tpm_error.h>
+
+=head1 EXAMPLE
+
+ #include <stdio.h>
+
+ #include <libtpms/tpm_types.h>
+ #include <libtpms/tpm_library.h>
+ #include <libtpms/tpm_error.h>
+
+ int main(void) {
+     TPM_RESULT res;
+     unsigned char *respbuffer = NULL;
+     uint32_t resp_size = 0;
+     uint32_t respbufsize = 0;
+     unsigned char *command;
+     uint32_t command_size;
+
+     [...]
+
+     if (TPMLIB_MainInit() != TPM_SUCCESS) {
+         fprintf(stderr, "Could not start the TPM.\n");
+         return 1;
+     }
+
+     [...]
+     /* build TPM command */
+     [...]
+
+     res = TPMLIB_Process(&respbuffer, &resp_size,
+                          &respbufsize,
+                          command, command_size);
+     [...]
+
+     TPMLIB_Terminate();
+
+     return 0;
+ }
+
+=head1 SEE ALSO
+
+B<TPMLIB_Process>(3), B<TPMLIB_RegisterCallbacks>(3), B<TPMLIB_GetVersion>(3)
+B<TPMLIB_GetTPMProperty>(3), B<TPMLIB_DecodeBlob>(3)
+
+=cut

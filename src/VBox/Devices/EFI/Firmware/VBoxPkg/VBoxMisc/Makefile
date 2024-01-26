@@ -1,0 +1,66 @@
+# $Id: Makefile $
+## @file
+# Makefile - assembling the iso image for experimenting with EFI.
+#
+
+#
+# Copyright (C) 2009-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+#
+# Here we add modules to be burn on iso-image
+#
+SOURCES += VBoxInterceptorDxe.efi
+SOURCES += VBoxMimicryDxe.efi
+
+ifeq ($(BUILD_ARCH), IA32)
+ARCH_SUFFIX=
+else
+ARCH_SUFFIX=$(BUILD_ARCH)
+endif
+
+BUILD_ARCH ?= IA32
+BUILD_DIR=$(WORKSPACE)/Build/VBoxPkg$(ARCH_SUFFIX)/DEBUG_UNIXGCC/$(BUILD_ARCH)
+
+ISO_DIR=efi-app
+FILES_TO_ISO=$(foreach file, $(SOURCES), $(addprefix $(ISO_DIR)/, $(file)))
+
+DEST=efi-app.iso
+all:${DEST}
+
+$(DEST):$(FILES_TO_ISO)
+	mkisofs -R -o $@ $(basename $@)
+
+$(ISO_DIR)/%.efi:$(BUILD_DIR)/%.efi
+	cp $< $@
+
+clean:
+	$(RM) -rf ${DEST} $(FILES_TO_ISO)
+

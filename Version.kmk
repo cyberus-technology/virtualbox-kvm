@@ -1,0 +1,58 @@
+# $Id: Version.kmk $
+## @file
+# The VirtualBox version.
+#
+# This file gets included by the root Config.kmk.
+#
+
+#
+# Copyright (C) 2017-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# Major version.
+VBOX_VERSION_MAJOR  = 7
+# Minor version.
+VBOX_VERSION_MINOR  = 0
+# This is the current build number. It should be increased every time we publish a
+# new build. The define is available in every source file. Only even build numbers
+# will be published, odd numbers are set during development.
+VBOX_VERSION_BUILD  =  14
+# This can be overridden in LocalConfig.kmk or elsewhere.
+# For the convention, see checks near the end of Config.kmk.
+VBOX_BUILD_PUBLISHER =
+# Just the BETA[n],ALPHA[n],RC[n] indicators. Set to empty string for release.
+VBOX_VERSION_PRERELEASE =
+# Force a release-type build with exactly matching Additions etc, even if
+# our numbering does not say this is a release build, by setting this non-empty.
+VBOX_RELEASE_EXACT_MATCH =
+
+# darwin.arm64 will remain BETA for quite a while.
+if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), darwin.arm64)
+ if $(VBOX_VERSION_BUILD) % 2 == 0
+  ifeq ($(VBOX_VERSION_PRERELEASE),)
+   VBOX_RELEASE_EXACT_MATCH := 1
+  endif
+ endif
+ VBOX_VERSION_PRERELEASE := BETA4
+endif
+
+# Fallback revision when there is no other source. See Config.kmk.
+VBOX_SVN_REV_VERSION_FALLBACK := $(patsubst %:,,  $Rev: 161095 $  )

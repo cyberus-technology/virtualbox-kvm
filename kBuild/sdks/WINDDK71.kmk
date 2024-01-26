@@ -1,0 +1,107 @@
+# $Id: WINDDK71.kmk 3418 2020-08-21 11:02:13Z bird $
+## @file
+# kBuild SDK - The Microsoft Windows 7 DDK, v7.1.
+#              Defaults to $(KBUILD_TARGET_ARCH). Base SDK.
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_WINDDK71 := The Microsoft Windows 7 DDK, v7.1. \
+                Defaults to $(KBUILD_TARGET_ARCH). Base SDK.
+
+# SDK Specific Properties
+ifndef PATH_SDK_WINDDK71
+ PATH_SDK_WINDDK71 := $(wildcard $(KBUILD_DEVTOOLS_TRG)/ddk/7600.16385.1*)
+ ifeq ($(PATH_SDK_WINDDK71),)
+  PATH_SDK_WINDDK71 := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/ddk/7600.16385.1*)
+ endif
+ ifeq ($(PATH_SDK_WINDDK71),)
+  PATH_SDK_WINDDK71 := $(wildcard $(KBUILD_DEVTOOLS)/win.amd64/ddk/7600.16385.1*)
+ endif
+ ifeq ($(PATH_SDK_WINDDK71),)
+  ifeq ($(KBUILD_HOST),win)
+   PATH_SDK_WINDDK71 := $(wildcard C:/WinDDK/7600.16385.1*)
+  endif
+ endif
+ ifneq ($(PATH_SDK_WINDDK71),)
+  PATH_SDK_WINDDK71 := $(lastword $(sort $(PATH_SDK_WINDDK71)))
+ else
+  $(warning kBuild: PATH_SDK_WINDDK71 couldn't be determined!)
+  PATH_SDK_WINDDK71 := $(KBUILD_DEVTOOLS)/win.x86/ddk/7600.16385.1-not-found
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_SDK_WINDDK71 := $(PATH_SDK_WINDDK71)
+endif
+
+PATH_SDK_WINDDK71_INC     ?= $(PATH_SDK_WINDDK71)/inc
+PATH_SDK_WINDDK71_INC_API ?= $(PATH_SDK_WINDDK71_INC)/api
+PATH_SDK_WINDDK71_INC_CRT ?= $(PATH_SDK_WINDDK71_INC)/crt
+PATH_SDK_WINDDK71_INC_DDK ?= $(PATH_SDK_WINDDK71_INC)/ddk
+
+PATH_SDK_WINDDK71_LIB_ROOT      ?= $(PATH_SDK_WINDDK71)/lib
+PATH_SDK_WINDDK71_LIB_WLH_ROOT  ?= $(PATH_SDK_WINDDK71_LIB_ROOT)/wlh
+PATH_SDK_WINDDK71_LIB_WNET_ROOT ?= $(PATH_SDK_WINDDK71_LIB_ROOT)/wnet
+PATH_SDK_WINDDK71_LIB_WXP_ROOT  ?= $(PATH_SDK_WINDDK71_LIB_ROOT)/wxp
+PATH_SDK_WINDDK71_LIB_W2K_ROOT  ?= $(PATH_SDK_WINDDK71_LIB_ROOT)/w2k
+PATH_SDK_WINDDK71_LIB_WDF_ROOT  ?= $(PATH_SDK_WINDDK71_LIB_ROOT)/w2k
+
+PATH_SDK_WINDDK71_LIB_WLH.amd64 ?= $(PATH_SDK_WINDDK71_LIB_WLH_ROOT)/amd64
+PATH_SDK_WINDDK71_LIB_WLH.ia64  ?= $(PATH_SDK_WINDDK71_LIB_WLH_ROOT)/ia64
+PATH_SDK_WINDDK71_LIB_WLH.x86   ?= $(PATH_SDK_WINDDK71_LIB_WLH_ROOT)/i386
+PATH_SDK_WINDDK71_LIB_WLH       ?= $(PATH_SDK_WINDDK71_LIB_WLH.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK71_LIB_WNET.amd64?= $(PATH_SDK_WINDDK71_LIB_WNET_ROOT)/amd64
+PATH_SDK_WINDDK71_LIB_WNET.ia64 ?= $(PATH_SDK_WINDDK71_LIB_WNET_ROOT)/ia64
+PATH_SDK_WINDDK71_LIB_WNET.x86  ?= $(PATH_SDK_WINDDK71_LIB_WNET_ROOT)/i386
+PATH_SDK_WINDDK71_LIB_WNET      ?= $(PATH_SDK_WINDDK71_LIB_WNET.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK71_LIB_WXP.x86   ?= $(PATH_SDK_WINDDK71_LIB_WXP_ROOT)/i386
+PATH_SDK_WINDDK71_LIB_WXP       ?= $(PATH_SDK_WINDDK71_LIB_WXP.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK71_LIB_W2K.x86   ?= $(PATH_SDK_WINDDK71_LIB_W2K_ROOT)/i386
+PATH_SDK_WINDDK71_LIB_W2K       ?= $(PATH_SDK_WINDDK71_LIB_W2K.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK71_LIB.amd64     ?= $(PATH_SDK_WINDDK71_LIB_WLH.amd64)
+PATH_SDK_WINDDK71_LIB.ia64      ?= $(PATH_SDK_WINDDK71_LIB_WLH.ia64)
+PATH_SDK_WINDDK71_LIB.x86       ?= $(PATH_SDK_WINDDK71_LIB_WLH.x86)
+PATH_SDK_WINDDK71_LIB           ?= $(PATH_SDK_WINDDK71_LIB.$(KBUILD_TARGET_ARCH))
+
+# General Properties used by kBuild
+SDK_WINDDK71_DEFS.amd64    ?= _AMD64_ AMD64 _WIN64
+SDK_WINDDK71_DEFS.ia64     ?= _IA64_=1 IA64=1 _WIN64 _MSC_EXTENSIONS
+SDK_WINDDK71_DEFS.x86      ?= _X86_=1 i386=1 STD_CALL
+SDK_WINDDK71_INCS          ?= \
+	$(PATH_SDK_WINDDK71_INC_API) \
+	$(PATH_SDK_WINDDK71_INC_DDK)
+# The compiler tool(s) will have to select the appropriate crt includes.
+SDK_WINDDK71_LIBPATH.amd64 ?= $(PATH_SDK_WINDDK71_LIB_WLH.amd64)
+SDK_WINDDK71_LIBPATH.ia64  ?= $(PATH_SDK_WINDDK71_LIB_WLH.ia64)
+SDK_WINDDK71_LIBPATH.x86   ?= $(PATH_SDK_WINDDK71_LIB_WLH.x86)
+

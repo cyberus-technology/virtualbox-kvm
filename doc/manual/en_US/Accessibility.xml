@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+
+<book>
+  <bookinfo>
+    <title>&VBOX_PRODUCT;</title>
+
+    <subtitle>Accessibility Reference</subtitle>
+
+    <edition>Version &VBOX_VERSION_STRING;</edition>
+
+    <corpauthor>&VBOX_VENDOR;</corpauthor>
+
+    <address>https://www.virtualbox.org</address>
+
+    <copyright>
+      <year>2016-&VBOX_C_YEAR;</year>
+
+      <holder>&VBOX_VENDOR;</holder>
+    </copyright>
+  </bookinfo>
+
+  <chapter>
+    <title>Introduction</title>
+    <para>
+      Welcome to the <emphasis role="bold">VirtualBox Accessibility Support</emphasis> documentation! This document is primarily
+      a reference to help people who are interested in our project accessibility support and will describe how to use VirtualBox
+      user interface step-by-step. Since whole the application navigation will be explained here, this document will also be
+      helpful for those who are not familiar with our product user interface and wish to learn more. It will be written in a bit
+      excessive manner so that many obvious things will be explained too precisely to make it easier to understand by ear for a
+      blind users. The document will be periodically updated with recent changes and test-cases allowing us to more strictly
+      follow the required guidelines and make our product fully accessible.
+    </para>
+    <para>
+      Our application is based on Qt5, a powerful cross-platform library which allows to visualize various user interface ideas
+      the most flexible and native way. This also means that the library we use is responsible for many navigation and
+      accessibility aspects (like fonts, size hints, colors, look&amp;feel patterns and many other things), but not for all of
+      them. Nativity as one of the main ideas of the Qt-based application sometimes brings additional complexity because there is
+      always at least one host which uses unique combination of fonts and colors which breaks accessibility support in an
+      unpredictable way.
+    </para>
+    <para>
+      Independently on platform we are supporting screen-reader applications which can communicate with Qt5 accessibility
+      interface which supports Microsoft Active Accessibility (MSAA), OS X Accessibility, and the Unix/X11 AT-SPI standard.
+    </para>
+    <para>
+      Our application user interface is able to be started in two modes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            First of them is <emphasis role="bold">VirtualBox Manager</emphasis> user interface, the main application window
+            which allows to manage and configure virtual machines and their groups. Besides that, this window provides user with
+            access to various global and machine related tools allowing to administrate some of VirtualBox objects and their
+            settings.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Second application mode is <emphasis role="bold">Virtual Machine</emphasis> user interface, which allows to control
+            virtual machine guest screens as separate application windows. Besides that, this interface allows to access some of
+            machine tools and adjust guest screens up to your needs, by changing their resolution and toggling full-screen,
+            seamless and scaled modes.
+          </para>
+        </listitem>
+      </itemizedlist>
+      But first of all we should start from the <emphasis role="bold">General Concept</emphasis> which is related to whole the
+      GUI and summarizes the navigation and accessibility aspects we are using for whole application.
+    </para>
+  </chapter>
+
+  <chapter>
+    <title>General concept</title>
+    <para>
+      This chapter describes the general navigation and accessibility concept. We should note that not every detail of this
+      concept is already implemented and not every widget in our project already follows that concept. There is still large work
+      to be done in that regard. But in the end whole the project should correspond to this concept.
+    </para>
+    <para>
+      In short, every application window of our project should be navigated using the following approaches:
+      <itemizedlist>
+        <listitem><para>Mouse Navigation</para></listitem>
+        <listitem><para>Keyboard Navigation</para></listitem>
+        <listitem><para>Screen-reader Navigation</para></listitem>
+      </itemizedlist>
+    </para>
+    <sect1>
+      <title>Mouse Navigation</title>
+      <itemizedlist>
+        <listitem>
+          <para>
+            Each interactable widget can be focused with mouse (if that is not restricted by underlying host OS).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each hovered interactable widget causes own tool-tip to appear.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each tool-tip is given either in imperative mood (ex. "Create new virtual machine") or in short form (ex. "New").
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Short tool-tip form is only used if context is obvious for a user.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Tool-tip can contain shortcut mentioned in parentheses.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each hovered menu bar / toolbar action causes own status-tip to appear (if window have status-bar).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each status-tip is given in imperative mood only.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            TBD...
+          </para>
+        </listitem>
+      </itemizedlist>
+    </sect1>
+    <sect1>
+      <title>Keyboard Navigation</title>
+      <itemizedlist>
+        <listitem>
+          <para>
+            Each interactable widget can be focused with keyboard (if that is not restricted by underlying host OS).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Focusing is possible through tabbing or mnemonic navigation.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each button and menu bar / toolbar action can be directly activated with keyboard.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Activation is possible via shortcut or mnemonic.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each shortcut is configurable through application preferences.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Mnemonic mentioned above is underlined alphanumeric character which is a part of widget label (if widget has label).
+            Mnemonic being triggered in conjunction with the Alt key.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each mnemonic is unique within the visible part of current application window, there are no collisions.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            TBD...
+          </para>
+        </listitem>
+      </itemizedlist>
+    </sect1>
+    <sect1>
+      <title>Screen-reader Navigation</title>
+      <itemizedlist>
+        <listitem>
+          <para>
+            Each interactable widget can be focused with screen-reader cursor.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each focused widget have clear name (or full description) in native user language.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each button and menu bar / toolbar action can be directly activated through the screen-reader cursor functionality.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each complex widget which has children (like list, tree, table and similar) is represented as closed group which
+            encapsulates it's children clearly.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            While navigating user is able to skip any group without forcing to be entered inside.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each group child can be a group itself with the same rules as above applicable.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Each text-field can be directly edited through the screen-reader cursor functionality.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            TBD...
+          </para>
+        </listitem>
+      </itemizedlist>
+    </sect1>
+  </chapter>
+</book>
+<!-- vim: set shiftwidth=2 tabstop=2 expandtab: -->

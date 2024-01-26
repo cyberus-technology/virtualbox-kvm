@@ -1,0 +1,254 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the common guest addition code library.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+
+#
+# Target config.
+#
+if defined(VBOX_WITH_ADDITION_DRIVERS) && !defined(VBOX_ONLY_VALIDATIONKIT)
+ LIBRARIES += \
+ 	VBoxGuestR0Lib \
+ 	VBoxGuestR0LibBase
+endif
+LIBRARIES += \
+	VBoxGuestR3Lib \
+	VBoxGuestR3LibShared
+ifndef VBOX_ONLY_VALIDATIONKIT
+ if1of ($(KBUILD_TARGET), freebsd linux netbsd openbsd)
+  ifndef VBOX_USE_SYSTEM_XORG_HEADERS
+   LIBRARIES += \
+   	VBoxGuestR3LibXFree86
+  endif
+ endif
+ if1of ($(KBUILD_TARGET), freebsd linux netbsd openbsd solaris)
+  LIBRARIES += \
+  	VBoxGuestR3LibXOrg
+ endif
+endif
+LIBRARIES.win.amd64 += VBoxGuestR3Lib-x86 VBoxGuestR3LibShared-x86
+
+
+#
+# VBoxGuestR0Lib
+#
+VBoxGuestR0Lib_TEMPLATE     = VBoxGuestR0DrvLib
+VBoxGuestR0Lib_DEFS         = VBOX_WITH_HGCM \
+	$(if $(VBOX_WITH_DRAG_AND_DROP),VBOX_WITH_DRAG_AND_DROP,) \
+	$(if $(VBOX_WITH_DRAG_AND_DROP_GH),VBOX_WITH_DRAG_AND_DROP_GH,)
+VBoxGuestR0Lib_INCS         = \
+	$(VBoxGuestR0Lib_0_OUTDIR)
+VBoxGuestR0Lib_SOURCES      = \
+	VBoxGuestR0LibInit.cpp \
+	VBoxGuestR0LibPhysHeap.cpp \
+	VBoxGuestR0LibGenericRequest.cpp \
+	VBoxGuestR0LibVMMDev.cpp \
+	VBoxGuestR0LibHGCM.cpp \
+	VbglR0CanUsePhysPageList.cpp \
+	\
+	VBoxGuestR0LibIdc.cpp \
+	VBoxGuestR0LibSharedFolders.c \
+	VBoxGuestR0LibCrOgl.cpp \
+	VBoxGuestR0LibMouse.cpp
+VBoxGuestR0Lib_SOURCES.os2     = VBoxGuestR0LibIdc-os2.cpp
+VBoxGuestR0Lib_SOURCES.solaris = VBoxGuestR0LibIdc-solaris.cpp
+VBoxGuestR0Lib_SOURCES.win     = VBoxGuestR0LibIdc-win.cpp
+ifn1of ($(KBUILD_TARGET), os2 solaris win)
+ VBoxGuestR0Lib_SOURCES       += VBoxGuestR0LibIdc-unix.cpp
+endif
+
+#
+# VBoxGuestR0LibBase
+#
+VBoxGuestR0LibBase_TEMPLATE = VBoxGuestR0DrvLib
+VBoxGuestR0LibBase_DEFS     = VBOX_WITH_HGCM VBGL_VBOXGUEST \
+	$(if $(VBOX_WITH_DRAG_AND_DROP),VBOX_WITH_DRAG_AND_DROP,) \
+	$(if $(VBOX_WITH_DRAG_AND_DROP_GH),VBOX_WITH_DRAG_AND_DROP_GH,)
+VBoxGuestR0LibBase_INCS     = $(VBoxGuestR0Lib_INCS)
+VBoxGuestR0LibBase_INCS.win = $(VBoxGuestR0Lib_INCS.win)
+VBoxGuestR0LibBase_SOURCES  = \
+	VBoxGuestR0LibInit.cpp \
+	VBoxGuestR0LibPhysHeap.cpp \
+	VBoxGuestR0LibGenericRequest.cpp \
+	VBoxGuestR0LibVMMDev.cpp \
+	VBoxGuestR0LibHGCMInternal.cpp \
+	VbglR0CanUsePhysPageList.cpp
+
+#
+# VBoxGuestR3Lib
+#
+VBoxGuestR3Lib_TEMPLATE   := VBoxGuestR3Lib
+VBoxGuestR3Lib_DEFS        = \
+	VBOX_WITH_HGCM \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBOX_WITH_GUEST_PROPS,) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD),VBOX_WITH_SHARED_CLIPBOARD,) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS),VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS,) \
+	$(if $(VBOX_WITH_SHARED_FOLDERS),VBOX_WITH_SHARED_FOLDERS,) \
+	$(if $(VBOX_WITH_GUEST_CONTROL),VBOX_WITH_GUEST_CONTROL,)
+VBoxGuestR3Lib_SOURCES     = \
+	VBoxGuestR3Lib.cpp \
+	VBoxGuestR3LibAdditions.cpp \
+	VBoxGuestR3LibAutoLogon.cpp \
+	VBoxGuestR3LibBalloon.cpp \
+	VBoxGuestR3LibCoreDump.cpp \
+	VBoxGuestR3LibCpuHotPlug.cpp \
+	VBoxGuestR3LibCredentials.cpp \
+	VBoxGuestR3LibDrmClient.cpp \
+	VBoxGuestR3LibEvent.cpp \
+	VBoxGuestR3LibGuestUser.cpp \
+	VBoxGuestR3LibGR.cpp \
+	VBoxGuestR3LibHGCM.cpp \
+	VBoxGuestR3LibHostChannel.cpp \
+	VBoxGuestR3LibLog.cpp \
+	VBoxGuestR3LibMisc.cpp \
+	VBoxGuestR3LibStat.cpp \
+	VBoxGuestR3LibTime.cpp \
+	VBoxGuestR3LibModule.cpp \
+	VBoxGuestR3LibPidFile.cpp \
+	VBoxGuestR3LibVrdp.cpp \
+	VBoxGuestR3LibMouse.cpp \
+	VBoxGuestR3LibSeamless.cpp \
+	VBoxGuestR3LibVideo.cpp
+ifneq ($(KBUILD_TARGET),win)
+ VBoxGuestR3Lib_SOURCES   += \
+ 	VBoxGuestR3LibDaemonize.cpp
+endif
+ifdef VBOX_WITH_GUEST_PROPS
+ VBoxGuestR3Lib_SOURCES   += \
+ 	VBoxGuestR3LibGuestProp.cpp \
+ 	VBoxGuestR3LibHostVersion.cpp
+endif
+ifdef VBOX_WITH_SHARED_CLIPBOARD
+ VBoxGuestR3Lib_DEFS      += VBOX_WITH_SHARED_CLIPBOARD_GUEST
+ VBoxGuestR3Lib_SOURCES   += \
+ 	VBoxGuestR3LibClipboard.cpp
+ ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+  VBoxGuestR3Lib_SOURCES  += \
+  	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/ClipboardMIME.cpp
+ endif
+endif
+ifdef VBOX_WITH_SHARED_FOLDERS
+ VBoxGuestR3Lib_SOURCES   += \
+ 	VBoxGuestR3LibSharedFolders.cpp
+endif
+ifdef VBOX_WITH_GUEST_CONTROL
+ VBoxGuestR3Lib_SOURCES   += \
+ 	VBoxGuestR3LibGuestCtrl.cpp
+endif
+ifdef VBOX_WITH_DRAG_AND_DROP
+ VBoxGuestR3Lib_DEFS      += \
+ 	VBOX_WITH_DRAG_AND_DROP \
+ 	$(if $(VBOX_WITH_DRAG_AND_DROP_GH),VBOX_WITH_DRAG_AND_DROP_GH,)
+ VBoxGuestR3Lib_SOURCES   += \
+ 	VBoxGuestR3LibDragAndDrop.cpp
+endif
+
+VBoxGuestR3LibAdditions.cpp_DEFS = VBOX_SVN_REV=$(VBOX_SVN_REV)
+
+#
+# VBoxGuestR3LibShared - a PIC variant of VBoxGuestR3Lib for linking into .so/.dll/.dylib.
+#
+VBoxGuestR3LibShared_TEMPLATE := VBoxGuestR3Dll
+VBoxGuestR3LibShared_DEFS     := $(VBoxGuestR3Lib_DEFS)
+VBoxGuestR3LibShared_SOURCES  := $(VBoxGuestR3Lib_SOURCES)
+VBoxGuestR3LibShared_INST     := $(INST_ADDITIONS_LIB)
+
+
+#
+# VBoxGuestR3Lib-x86 - an x86 (32-bit) variant of VBoxGuestR3Lib for 64-bit Windows.
+#
+VBoxGuestR3Lib-x86_EXTENDS      := VBoxGuestR3Lib
+VBoxGuestR3Lib-x86_BLD_TRG_ARCH := x86
+
+
+#
+# VBoxGuestR3LibShared-x86 - an x86 (32-bit) variant of VBoxGuestR3LibShared for 64-bit Windows.
+#
+VBoxGuestR3LibShared-x86_EXTENDS      := VBoxGuestR3LibShared
+VBoxGuestR3LibShared-x86_BLD_TRG_ARCH := x86
+
+
+#
+# VBoxGuestR3LibXFree86 - a reduced version of the guest library which uses
+# the X server runtime instead of IPRT, for use with old servers where the
+# C library is not available.
+#
+VBoxGuestR3LibXFree86_TEMPLATE = VBoxGuestR3XFree86Lib
+VBoxGuestR3LibXFree86_DEFS     = \
+	VBOX_WITH_HGCM \
+	VBOX_VBGLR3_XFREE86 \
+	RTMEM_NO_WRAP_TO_EF_APIS \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBOX_WITH_GUEST_PROPS,) \
+	$(if $(VBOX_WITH_DRAG_AND_DROP),VBOX_WITH_DRAG_AND_DROP,) \
+	$(if $(VBOX_WITH_DRAG_AND_DROP_GH),VBOX_WITH_DRAG_AND_DROP_GH,) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS),VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS,)
+VBoxGuestR3LibXFree86_SOURCES  = \
+	VBoxGuestR3Lib.cpp \
+	VBoxGuestR3LibGR.cpp \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBoxGuestR3LibGuestProp.cpp,) \
+	VBoxGuestR3LibMouse.cpp \
+	VBoxGuestR3LibMisc.cpp \
+	VBoxGuestR3LibSeamless.cpp \
+	VBoxGuestR3LibVideo.cpp \
+	VBoxGuestR3LibRuntimeXF86.cpp
+VBoxGuestR3LibXFree86_INCS     = \
+	$(VBOX_PATH_X11_ROOT)/XFree86-4.3/Xserver \
+	$(VBOX_PATH_X11_ROOT)/XFree86-4.3 \
+	$(VBOX_PATH_X11_ROOT)/XFree86-4.3/X11
+
+#
+# VBoxGuestR3LibXOrg - a reduced version of the guest library which uses
+# the C server runtime instead of IPRT.
+#
+VBoxGuestR3LibXOrg_TEMPLATE = VBoxGuestR3XOrgLib
+VBoxGuestR3LibXOrg_DEFS     = \
+	VBOX_WITH_HGCM \
+	VBOX_VBGLR3_XORG \
+	RTMEM_NO_WRAP_TO_EF_APIS \
+	IN_RT_STATIC \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBOX_WITH_GUEST_PROPS,) \
+	$(if $(VBOX_WITH_DRAG_AND_DROP),VBOX_WITH_DRAG_AND_DROP,) \
+	$(if $(VBOX_WITH_DRAG_AND_DROP_GH),VBOX_WITH_DRAG_AND_DROP_GH,) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS),VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS,)
+VBoxGuestR3LibXOrg_SOURCES  = $(VBoxGuestR3LibXFree86_SOURCES)
+
+VBoxGuestR3LibRuntimeXF86.cpp_CXXFLAGS = -Wno-shadow
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

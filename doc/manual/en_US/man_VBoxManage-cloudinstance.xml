@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage cloud instance
+-->
+<!--
+    Copyright (C) 2018-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-cloudinstance" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage cloud instance</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-cloudinstance</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-cloudinstance</refname>
+    <refpurpose>Manage the cloud instances</refpurpose>
+    <refclass>Oracle VM VirtualBox</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+     <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-create" sepchar=" ">
+      <command moreinfo="none">VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">instance</arg>
+      <arg choice="plain">create</arg>
+      <arg choice="req">--domain-name=<replaceable>name</replaceable></arg>
+      <group choice="req">
+          <arg choice="req">--image-id=<replaceable>id</replaceable></arg>
+          <arg choice="req">--boot-volume-id=<replaceable>id</replaceable></arg>
+      </group>
+      <arg choice="req">--display-name=<replaceable>name</replaceable></arg>
+      <arg choice="req">--shape=<replaceable>type</replaceable></arg>
+      <arg choice="req">--subnet=<replaceable>id</replaceable></arg>
+      <arg>--boot-disk-size=<replaceable>size in GB</replaceable></arg>
+      <arg>--publicip=<replaceable>true/false</replaceable></arg>
+      <arg>--privateip=<replaceable>IP address</replaceable></arg>
+      <arg rep="repeat">--public-ssh-key=<replaceable>key string</replaceable></arg>
+      <arg>--launch-mode=<replaceable>NATIVE/EMULATED/PARAVIRTUALIZED</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-info" sepchar=" ">
+      <command moreinfo="none">VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">instance</arg>
+      <arg choice="plain">info</arg>
+      <arg choice="req">--id=<replaceable>unique id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-terminate" sepchar=" ">
+      <command moreinfo="none">VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">instance</arg>
+      <arg choice="plain">terminate</arg>
+      <arg choice="req">--id=<replaceable>unique id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-start" sepchar=" ">
+      <command moreinfo="none">VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">instance</arg>
+      <arg choice="plain">start</arg>
+      <arg choice="req">--id=<replaceable>unique id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-pause" sepchar=" ">
+      <command moreinfo="none">VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">instance</arg>
+      <arg choice="plain">pause</arg>
+      <arg choice="req">--id=<replaceable>unique id</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <refsect2 id="vboxmanage-cloudinstance-common-options">
+      <title>Common options</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para>The subcommands of <command>cloudinstance</command> implement the standard operations for a cloud instance
+        like start/pause/show/terminate. The next common options must be placed between the "cloud" and  the following sub-commands:</para>
+      <variablelist>
+        <varlistentry>
+          <term>--provider=<replaceable>name</replaceable></term>
+          <listitem><para>Short cloud provider name.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--profile=<replaceable>name</replaceable></term>
+          <listitem><para>Cloud profile name. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-create">
+      <title>cloud instance create</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Creates new instance in the Cloud.
+        There are two standard ways to create an instance in the Cloud:
+         1. Create an instance from an existing custom image.
+         2. Create an instance from an existing bootable volume. This bootable volume shouldn't  be attached to any instance.
+        For the 1st approach next parameters are required: image-id and  boot-disk-size.
+        For the 2nd approach next parameters are required: boot-volume-id;
+        The rest parameters are common for both cases:
+         display-name, launch-mode, subnet-id, publicIP, privateIP, shape, domain.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--domain-name</option></term><listitem><para>Cloud domain where new instance is created.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--image-id</option></term><listitem><para>Unique identifier which fully identifies a custom image in the Cloud.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--boot-volume-id</option></term><listitem><para>Unique identifier which fully identifies a boot volume in the Cloud.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--display-name</option></term><listitem><para>Name for new instance in the Cloud.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--shape</option></term><listitem><para> The shape of instance, defines the number of CPUs and RAM memory.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--subnet</option></term><listitem><para> Unique identifier which fully identifies an existing subnet in the Cloud which will be used by the instance.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--boot-disk-size</option></term><listitem><para> The size of bootable image in GB. Default is 50GB.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--publicip</option></term><listitem><para>Whether the instance will have a public IP or not.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--privateip</option></term><listitem><para>Private IP address for the created instance.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--public-ssh-key</option></term>
+            <listitem>
+              <para>Public SSH key used to connect to the instance via SSH.
+                This parameter may be repeated if you plan to use more than one key as:
+                "--public-ssh-key=firstSSHKey --public-ssh-key=secondSSHKey".
+              </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--launch-mode</option></term><listitem><para>The most known values here may be EMULATED, NATIVE, PARAVIRTUALIZED. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-info">
+      <title>cloud instance info</title>
+      <para>
+        Display information about a cloud instance with a specified id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Unique identifier which fully identify the instance in the Cloud.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-terminate">
+      <title>cloud instance termination</title>
+      <para>
+        Delete a cloud instance with a specified id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Unique identifier which fully identify the instance in the Cloud.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-start">
+      <title>cloud instance start</title>
+      <para>
+        Start a cloud instance with a specified id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Unique identifier which fully identify the instance in the Cloud.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-pause">
+      <title>cloud instance pause</title>
+      <para>
+        Pause a cloud instance with a specified id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Unique identifier which fully identify the instance in the Cloud.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+</refentry>

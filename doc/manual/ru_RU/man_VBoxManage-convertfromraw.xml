@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage convertfromraw
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-convertfromraw" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage convertfromraw</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-convertfromraw</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-convertfromraw</refname>
+    <refpurpose>преобразует образ raw диска в образ виртуального диска</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+    <cmdsynopsis id="synopsis-vboxmanage-convertfromraw-file">
+      <command>VBoxManage convertfromraw</command>
+      <arg choice="req"><replaceable>входной-файл</replaceable></arg>
+      <arg choice="req"><replaceable>выходной-файл</replaceable></arg>
+      <arg>--format=<group choice="plain">
+          <arg choice="plain">VDI</arg>
+          <arg choice="plain">VMDK</arg>
+          <arg choice="plain">VHD</arg>
+        </group></arg>
+      <arg>--uuid=<replaceable>uuid</replaceable></arg>
+      <arg>--variant=Standard,Fixed,Split2G,Stream,ESX</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-convertfromraw-stdin">
+      <command>VBoxManage convertfromraw stdin</command>
+      <arg choice="req"><replaceable>выходной-файл</replaceable></arg>
+      <arg>--format=<group choice="plain">
+          <arg choice="plain">VDI</arg>
+          <arg choice="plain">VMDK</arg>
+          <arg choice="plain">VHD</arg>
+        </group></arg>
+      <arg>--uuid=<replaceable>uuid</replaceable></arg>
+      <arg>--variant=Standard,Fixed,Split2G,Stream,ESX</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage convertfromraw</command> позволяет
+      преобразовать образ raw диска в образ виртуального диска
+      &product-name; (VDI).
+    </para>
+    <note>
+      <para>
+        Для совместимости с ранними версиями &product-name;, можно
+        использовать команду <command>VBoxManage convertdd</command>
+        вместо команды <command>VBoxManage convertfromraw</command>.
+      </para>
+    </note>
+    <refsect2 id="vboxmanage-convertfromraw-file">
+      <title>Преобразовать файл raw диска в файл образа виртуального диска</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage convertfromraw</command>
+        преобразует указанный входной файл образа raw диска в
+        VDI файл &product-name;
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>входной-файл</replaceable></term>
+          <listitem><para>
+              Указывает имя файла образа raw диска для преобразования.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>выходной-файл</replaceable></term>
+          <listitem><para>
+              Указывает имя файла, куда записывать VDI данные.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--format=VDI | VMDK | VHD</option></term>
+          <listitem><para>
+              Задает формат формат создаваемого образа диска. Допустимыми
+              значениями являются <literal>VDI</literal>,
+              <literal>VMDK</literal>, и <literal>VHD</literal>. Формат
+              по умолчанию <literal>VDI</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uuid=<replaceable>uuid</replaceable></option></term>
+          <listitem><para>
+              Задает Универсальный Уникальный Идентификатор (UUID)
+              выходного файла.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--variant=Standard,Fixed,Split2G,Stream,ESX</option></term>
+          <listitem><para>
+              Задает требуемые варианты формата выходного файла. Это
+              список значений вариантов разделенный запятыми. Далее
+              указаны допустимые значения:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>Standard</literal> - тип образа диска
+                  по умолчанию. Динамически расширяющийся файл.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Fixed</literal> использует файл образа диска
+                  фиксированного размера.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Split2G</literal> показывает что образ диска
+                  разделяется на сегменты по 2 ГБ. Это значение только
+                  для VMDK.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Stream</literal> оптимизирует образ диска
+                  для загрузки. Это значение только для VMDK.
+                </para></listitem>
+              <listitem><para>
+                  <literal>ESX</literal> используется в некоторых
+                  продуктах VMWare. Это значение только для VMDK.
+                </para></listitem>
+            </itemizedlist><para>
+              Заметим, что не все комбинации вариантов допустимы.
+              Указание несовместимых значений вариантов в списке
+              ведет к выдаче сообщения об ошибке.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-convertfromraw-stdin">
+      <title>Преобразовать raw данные из стандартного потока ввода в файл образа виртуального диска</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage convertfromraw stdin</command>
+        читает содержимое образа диска из стандартного потока ввода.
+        Рассматривайте использование команды этой формы в
+        последовательности каналов.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>выходной-файл</replaceable></term>
+          <listitem><para>
+              Указывает имя файла, куда записывать VDI данные.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--format=VDI | VMDK | VHD</option></term>
+          <listitem><para>
+              Задает формат формат создаваемого образа диска. Допустимыми
+              значениями являются <literal>VDI</literal>,
+              <literal>VMDK</literal> и <literal>VHD</literal>. Формат
+              по умолчанию <literal>VDI</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uuid=<replaceable>uuid</replaceable></option></term>
+          <listitem><para>
+              Задает UUID выходного файла.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--variant=Standard,Fixed,Split2G,Stream,ESX</option></term>
+          <listitem><para>
+              Задает требуемые варианты формата выходного файла. Это
+              список значений вариантов разделенный запятыми. Далее
+              указаны допустимые значения:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>Standard</literal> - тип образа диска
+                  по умолчанию. Динамически расширяющийся файл.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Fixed</literal> использует файл образа диска
+                  фиксированного размера.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Split2G</literal> показывает что образ диска
+                  разделяется на сегменты по 2 ГБ. Это значение только
+                  для VMDK.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Stream</literal> оптимизирует образ диска
+                  для загрузки. Это значение только для VMDK.
+                </para></listitem>
+              <listitem><para>
+                  <literal>ESX</literal> используется в некоторых
+                  продуктах VMWare. Это значение только для VMDK.
+                </para></listitem>
+            </itemizedlist><para>
+              Заметим, что не все комбинации вариантов допустимы.
+              Указание несовместимых значений вариантов в списке
+              ведет к выдаче сообщения об ошибке.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда преобразует входной файл образа raw диска
+      <filename>disk01.raw</filename>. Выходной файл - это VDI образ
+      диска называемый <filename>disk02.vdi</filename>.
+    </para>
+<screen>$ VBoxManage convertfromraw disk01.raw disk02.vdi</screen>
+    <para>
+      Следующая команда преобразует входной файл образа raw диска
+      <filename>disk01.raw</filename>. Выходной файл - это VMDK образ
+      диска называемый <filename>disk02.vmdk</filename>.
+    </para>
+<screen>$ VBoxManage convertfromraw disk01.raw disk02.vmdk --format VMDK</screen>
+  </refsect1>
+</refentry>

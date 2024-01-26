@@ -1,0 +1,113 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Solaris Shared folder kernel module.
+#
+
+#
+# Copyright (C) 2008-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#ifneq ($(KBUILD_HOST),solaris)
+#$(error "The Solaris guest additions can only be built on Solaris!")
+#endif
+
+#
+# vboxfs - The Shared Folder Driver
+#
+SYSMODS.solaris      += vboxfs
+vboxfs_TEMPLATE      = VBoxGuestR0Drv
+vboxfs_DEFS          = VBOX_WITH_HGCM VBOX_SVN_REV=$(VBOX_SVN_REV)
+vboxfs_DEPS         += $(VBOX_SVN_REV_KMK)
+vboxfs_INCS         := \
+	.
+vboxfs_SOURCES       = \
+	vboxfs_vfs.c \
+	vboxfs_vnode.c \
+	vboxfs_prov.c
+vboxfs_LIBS          = \
+	$(VBOX_LIB_VBGL_R0)
+ifeq ($(KBUILD_HOST),solaris)
+ vboxfs_LDFLAGS.solaris   += -N drv/vboxguest -N misc/ctf
+else
+ vboxfs_SOURCES           += deps.asm
+ vboxfs_deps.asm_ASFLAGS   = -f bin -g null
+endif
+if   ($(VBOX_SOLARIS_11_UPDATE_VERSION) > 1 \
+  || ($(VBOX_SOLARIS_11_UPDATE_VERSION) == 1 && $(VBOX_SOLARIS_11_BUILD_VERSION) >= 10))
+ vboxfs_DEFS        += VBOX_VFS_EXTENDED_POLICY
+endif
+
+
+ifndef VBOX_OSE
+ #
+ # vboxfs_s10 - The Shared Folder Driver for Solaris 10
+ #
+ SYSMODS.solaris     += vboxfs_s10
+ vboxfs_s10_TEMPLATE     = VBoxGuestR0Drv
+ vboxfs_s10_DEFS         = VBOX_WITH_HGCM VBOX_VFS_SOLARIS_10U6 VBOX_SVN_REV=$(VBOX_SVN_REV)
+ vboxfs_s10_DEPS        += $(VBOX_SVN_REV_KMK)
+ vboxfs_s10_INCS        := solaris10/
+ vboxfs_s10_SOURCES      = \
+ 	vboxfs_vfs.c \
+ 	vboxfs_vnode.c \
+ 	vboxfs_prov.c
+ vboxfs_s10_LIBS         = \
+ 	$(VBOX_LIB_VBGL_R0) \
+ 	$(VBOX_LIB_IPRT_GUEST_R0)
+ ifeq ($(KBUILD_HOST),solaris)
+  vboxfs_s10_LDFLAGS        += -N drv/vboxguest -N misc/ctf
+ else
+  vboxfs_s10_SOURCES        += deps.asm
+  vboxfs_s10_deps.asm_ASFLAGS = -f bin -g null
+ endif
+endif # VBOX_OSE
+
+
+#
+# mount - Userland mount wrapper for vboxfs
+#
+PROGRAMS               += vboxfsmount
+vboxfsmount_TEMPLATE    = VBoxGuestR3Exe
+vboxfsmount_SOURCES     = vboxfs_mount.c
+
+
+#
+# Load script.
+#
+INSTALLS += vboxfsload
+vboxfsload_TEMPLATE = VBoxGuestR0Drv
+vboxfsload_EXEC_SOURCES = loadfs.sh
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,1514 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ *  :tabSize=2:indentSize=2:noTabs=true:
+ *  :folding=explicit:collapseFolds=1:
+ *
+ *  Oracle VM VirtualBox Settings Schema
+ *  Common definitions
+-->
+<!--
+    Copyright (C) 2004-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<xsd:schema
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns="http://www.virtualbox.org/"
+  xmlns:vb="http://www.virtualbox.org/"
+  targetNamespace="http://www.virtualbox.org/"
+  elementFormDefault="qualified"
+>
+
+<xsd:annotation>
+  <xsd:documentation xml:lang="en">
+    Oracle VM VirtualBox Settings Schema (common definitions).
+    Copyright (C) 2004-2023 Oracle and/or its affiliates.
+  </xsd:documentation>
+</xsd:annotation>
+
+<!--
+// Simple types
+/////////////////////////////////////////////////////////////////////////
+-->
+
+<xsd:simpleType name="TUUID">
+  <xsd:restriction base="xsd:token">
+    <xsd:pattern value="\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TNonNullUUID">
+  <xsd:restriction base="TUUID">
+    <xsd:pattern value=".*[1-9A-Fa-f]+.*"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TUInt8">
+  <xsd:union>
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedByte">
+      </xsd:restriction>
+    </xsd:simpleType>
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:string">
+        <xsd:pattern value="0[xX][A-Fa-f0-9]{1,2}"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:union>
+</xsd:simpleType>
+
+<xsd:simpleType name="TUInt16">
+  <xsd:union>
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedShort">
+      </xsd:restriction>
+    </xsd:simpleType>
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:string">
+        <xsd:pattern value="0[xX][A-Fa-f0-9]{1,4}"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:union>
+</xsd:simpleType>
+
+<xsd:simpleType name="TUInt16Hex">
+  <xsd:restriction base="xsd:string">
+    <xsd:pattern value="0x[A-Fa-f0-9]{1,4}"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TUInt16HexNoBase">
+  <xsd:restriction base="xsd:string">
+    <xsd:pattern value="[A-Fa-f0-9]{1,4}"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TUInt32Hex">
+  <xsd:restriction base="xsd:string">
+    <xsd:pattern value="0x[A-Fa-f0-9]{1,8}"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TUInt64Hex">
+  <xsd:restriction base="xsd:string">
+    <xsd:pattern value="0x[A-Fa-f0-9]{1,16}"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TLocalFile">
+  <xsd:restriction base="xsd:string">
+    <xsd:pattern value=".+"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TDeviceType">
+  <xsd:restriction base="xsd:token">
+    <xsd:enumeration value="None"/>
+    <xsd:enumeration value="Floppy"/>
+    <xsd:enumeration value="DVD"/>
+    <xsd:enumeration value="HardDisk"/>
+    <xsd:enumeration value="Network"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TMediumDeviceType">
+  <xsd:restriction base="TDeviceType">
+    <xsd:enumeration value="Floppy"/>
+    <xsd:enumeration value="DVD"/>
+    <xsd:enumeration value="HardDisk"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TMediumType">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="Normal"/>
+    <xsd:enumeration value="Immutable"/>
+    <xsd:enumeration value="Writethrough"/>
+    <xsd:enumeration value="Shareable"/>
+    <xsd:enumeration value="Readonly"/>
+    <xsd:enumeration value="MultiAttach"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TVMProcPriority">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="Invalid"/>
+    <xsd:enumeration value="Default"/>
+    <xsd:enumeration value="Flat"/>
+    <xsd:enumeration value="Low"/>
+    <xsd:enumeration value="Normal"/>
+    <xsd:enumeration value="High"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TMonitorCount">
+  <xsd:restriction base="xsd:unsignedInt">
+    <xsd:minInclusive value="1"/>
+    <!-- This should be in sync with VBOX_VIDEO_MAX_SCREENS in VBoxVideo.h -->
+    <xsd:maxInclusive value="64"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TUSBDeviceFilterAction">
+  <xsd:restriction base="xsd:token">
+    <xsd:enumeration value="Ignore"/>
+    <xsd:enumeration value="Hold"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TNonEmptyString">
+  <xsd:restriction base="xsd:string">
+    <xsd:pattern value=".+"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TPresentDateTimeUTC">
+  <xsd:restriction base="xsd:dateTime">
+    <xsd:minInclusive value="1900-01-01T00:00:00Z"/>
+    <xsd:maxInclusive value="199999999-12-31T23:59:59Z"/>
+    <xsd:pattern value=".+-.+-.+T.+:.+:[0-9]{2}Z"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+
+<xsd:simpleType name="TAuthType">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="null"/> <!-- deprecated -->
+    <xsd:enumeration value="Null"/>
+    <xsd:enumeration value="Guest"/>
+    <xsd:enumeration value="External"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TNetworkAdapterType">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="Am79C970A"/>
+    <xsd:enumeration value="Am79C973"/>
+    <xsd:enumeration value="Am79C960"/>
+    <xsd:enumeration value="82540EM"/>
+    <xsd:enumeration value="82543GC"/>
+    <xsd:enumeration value="82545EM"/>
+    <xsd:enumeration value="virtio"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TTriStateBoolType">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="false"/>
+    <xsd:enumeration value="true"/>
+    <xsd:enumeration value="default"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TBIOSBootMenuModeType">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="Disabled"/>
+    <xsd:enumeration value="MenuOnly"/>
+    <xsd:enumeration value="MessageAndMenu"/>
+    <xsd:enumeration value="messageandmenu"/> <!-- deprecated -->
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TLocalOrUTC">
+  <xsd:restriction base="xsd:token">
+    <xsd:enumeration value="local"/>
+    <xsd:enumeration value="UTC"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TClipboardMode">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="Disabled"/>
+    <xsd:enumeration value="HostToGuest"/>
+    <xsd:enumeration value="GuestToHost"/>
+    <xsd:enumeration value="Bidirectional"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TDragAndDropMode">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="Disabled"/>
+    <xsd:enumeration value="HostToGuest"/>
+    <xsd:enumeration value="GuestToHost"/>
+    <xsd:enumeration value="Bidirectional"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TBandwidthGroupType">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="Disk"/>
+    <xsd:enumeration value="Network"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TPortMode">
+  <xsd:restriction base="xsd:string">
+    <xsd:enumeration value="Disconnected"/>
+    <xsd:enumeration value="RawFile"/>
+    <xsd:enumeration value="HostPipe"/>
+    <xsd:enumeration value="HostDevice"/>
+    <xsd:enumeration value="TCP"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TStorageControllerType">
+  <xsd:restriction base="xsd:token">
+    <xsd:enumeration value="AHCI"/>
+    <xsd:enumeration value="LsiLogic"/>
+    <xsd:enumeration value="BusLogic"/>
+    <xsd:enumeration value="PIIX3"/>
+    <xsd:enumeration value="PIIX4"/>
+    <xsd:enumeration value="ICH6"/>
+    <xsd:enumeration value="LsiLogicSas"/>
+    <xsd:enumeration value="I82078"/>
+    <xsd:enumeration value="USB"/>
+    <xsd:enumeration value="NVMe"/>
+    <xsd:enumeration value="VirtioSCSI"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="TDisplayControllerType">
+  <xsd:restriction base="xsd:token">
+    <xsd:enumeration value="VBoxVGA"/>
+    <xsd:enumeration value="VMSVGA"/>
+    <xsd:enumeration value="VBoxSVGA"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<!--
+// Complex types
+/////////////////////////////////////////////////////////////////////////
+-->
+<xsd:complexType name="TDHCPServer">
+  <xsd:sequence>
+    <xsd:element name="Options" minOccurs="0">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="Option" type="TDHCPOption" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:sequence>
+  <xsd:attribute name="networkName" type="xsd:string"  use="required"/>
+  <xsd:attribute name="lowerIP"     type="xsd:string"  use="required"/>
+  <xsd:attribute name="upperIP"     type="xsd:string"  use="required"/>
+  <xsd:attribute name="IPAddress"   type="xsd:string"  use="required"/>
+  <xsd:attribute name="networkMask" type="xsd:string"  use="required"/>
+  <xsd:attribute name="enabled"     type="xsd:boolean" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TDHCPOption">
+  <xsd:attribute name="name" type="xsd:string" use="required"/>
+  <xsd:attribute name="value" type="xsd:string" use="required"/>
+  <xsd:attribute name="encoding" type="xsd:integer" default="0"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNATNetwork">
+  <xsd:sequence>
+    <xsd:element name="PortForwarding4" minOccurs="0">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="Forwarding" type="TNATPortForwarding" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="PortForwarding6" minOccurs="0">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="Forwarding" type="TNATPortForwarding" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="Mappings" minOccurs="0">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="Loopback4" type="TNATLoopback4" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:sequence>
+  <xsd:attribute name="networkName" type="xsd:string"  use="required"/>
+  <xsd:attribute name="enabled"     type="xsd:boolean" use="required"/>
+  <xsd:attribute name="network"     type="xsd:string"  use="required"/>
+  <xsd:attribute name="ipv6"        type="xsd:boolean" use="required"/>
+  <xsd:attribute name="ipv6prefix"  type="xsd:string"  use="required"/>
+  <xsd:attribute name="advertiseDefaultIPv6Route" type="xsd:boolean" use="required"/>
+  <xsd:attribute name="needDhcp"    type="xsd:boolean" use="required"/>
+  <xsd:attribute name="loopback6"   type="xsd:integer" default="0"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNATLoopback4">
+  <xsd:attribute name="address" type="xsd:string" use="required"/>
+  <xsd:attribute name="offset" type="xsd:integer" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNATPortForwarding">
+  <xsd:attribute name="name" type="xsd:string" use="required"/>
+  <xsd:attribute name="proto" type="xsd:integer" use="required"/>
+  <xsd:attribute name="hostip" type="xsd:string" default=""/>
+  <xsd:attribute name="hostport" type="xsd:integer" use="required"/>
+  <xsd:attribute name="guestip" type="xsd:string" use="required"/>
+  <xsd:attribute name="guestport" type="xsd:integer" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TProperty">
+  <xsd:attribute name="name" type="xsd:token" use="required"/>
+  <xsd:attribute name="value" type="xsd:string" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="THardDiskBase">
+  <xsd:sequence>
+    <xsd:element name="Description" type="xsd:string" minOccurs="0"/>
+    <xsd:element name="Property" type="TProperty" minOccurs="0" maxOccurs="unbounded"/>
+    <xsd:element name="HardDisk" type="TDiffHardDisk" minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+  <xsd:attribute name="uuid" type="TNonNullUUID" use="required"/>
+  <xsd:attribute name="location" type="TLocalFile" use="required"/>
+  <xsd:attribute name="format" type="TNonEmptyString" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TDiffHardDisk">
+  <xsd:complexContent>
+    <xsd:extension base="THardDiskBase">
+      <xsd:attribute name="autoReset" type="xsd:boolean" default="false"/>
+    </xsd:extension>
+  </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="THardDisk">
+  <xsd:complexContent>
+    <xsd:extension base="THardDiskBase">
+      <xsd:attribute name="type" type="TMediumType" use="required"/>
+    </xsd:extension>
+  </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="TImage2">
+  <xsd:sequence>
+    <xsd:element name="Description" type="xsd:string" minOccurs="0"/>
+  </xsd:sequence>
+  <xsd:attribute name="uuid" type="TNonNullUUID" use="required"/>
+  <xsd:attribute name="location" type="TLocalFile" use="required"/>
+  <xsd:attribute name="type" type="TMediumType"/>
+</xsd:complexType>
+
+<xsd:complexType name="TImageRef">
+  <xsd:attribute name="uuid" type="TNonNullUUID" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="THostDrive">
+  <xsd:attribute name="src" type="TLocalFile" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TUSBDeviceFilter">
+  <xsd:attribute name="name" type="TNonEmptyString" use="required"/>
+  <xsd:attribute name="active" type="xsd:boolean" use="required"/>
+  <xsd:attribute name="vendorId" type="xsd:token"/>
+  <xsd:attribute name="productId" type="xsd:token"/>
+  <xsd:attribute name="revision" type="xsd:token"/>
+  <xsd:attribute name="manufacturer" type="xsd:token"/>
+  <xsd:attribute name="product" type="xsd:token"/>
+  <xsd:attribute name="serialNumber" type="xsd:token"/>
+  <xsd:attribute name="port" type="xsd:token"/>
+  <xsd:attribute name="remote" type="xsd:token"/>
+  <xsd:attribute name="maskedInterfaces" type="xsd:unsignedInt" default="0"/>
+</xsd:complexType>
+
+<xsd:complexType name="TUSBDeviceFilters">
+  <xsd:sequence>
+    <xsd:element name="DeviceFilter" type="TUSBDeviceFilter" minOccurs="0"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="THostUSBDeviceFilter">
+  <xsd:complexContent>
+    <xsd:extension base="TUSBDeviceFilter">
+      <xsd:attribute name="action" type="TUSBDeviceFilterAction" use="required"/>
+    </xsd:extension>
+  </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="TSystemProperties">
+  <xsd:attribute name="defaultMachineFolder" type="TLocalFile"/>
+  <xsd:attribute name="defaultHardDiskFolder" type="TLocalFile"/>
+  <xsd:attribute name="defaultHardDiskFormat" type="TNonEmptyString"/>
+  <xsd:attribute name="VRDEAuthLibrary" type="TLocalFile"/>
+  <xsd:attribute name="webServiceAuthLibrary" type="TLocalFile"/>
+  <xsd:attribute name="defaultVRDELibrary" type="TLocalFile"/>
+  <xsd:attribute name="HWVirtExEnabled" type="xsd:boolean"/>
+  <xsd:attribute name="LogHistoryCount" type="xsd:unsignedInt" default="3"/>
+  <xsd:attribute name="defaultVRDEExtPack" type="xsd:string"/>
+  <xsd:attribute name="exclusiveHwVirt" type="xsd:boolean"/>
+  <xsd:attribute name="proxyMode" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="TExtraData">
+  <xsd:sequence>
+    <xsd:element name="ExtraDataItem" minOccurs="0" maxOccurs="unbounded">
+      <xsd:complexType>
+        <xsd:attribute name="name" type="xsd:token" use="required"/>
+        <xsd:attribute name="value" type="xsd:string" use="required"/>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TMediaRegistry">
+  <xsd:all>
+    <xsd:element name="HardDisks" minOccurs="0">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="HardDisk" type="THardDisk" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="DVDImages" minOccurs="0">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="Image" type="TImage2" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="FloppyImages" minOccurs="0">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="Image" type="TImage2" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="TGlobal">
+  <xsd:all>
+    <xsd:element name="MachineRegistry">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="MachineEntry" minOccurs="0" maxOccurs="unbounded">
+            <xsd:complexType>
+              <xsd:attribute name="src" type="TLocalFile" use="required"/>
+              <xsd:attribute name="uuid" type="TNonNullUUID" use="required"/>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="MediaRegistry" type="TMediaRegistry" minOccurs="0"/>
+    <xsd:element name="NetserviceRegistry" minOccurs="0">
+      <xsd:complexType>
+        <xsd:all>
+          <xsd:element name="DHCPServers" minOccurs="0">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="DHCPServer" type="TDHCPServer" minOccurs="0" maxOccurs="unbounded"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="NATNetworks" minOccurs="0">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="NATNetwork" type="TNATNetwork" minOccurs="0" maxOccurs="unbounded"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:all>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="USBDeviceFilters">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="DeviceFilter" type="THostUSBDeviceFilter"
+                       minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="SystemProperties" type="TSystemProperties"/>
+    <xsd:element name="ExtraData" type="TExtraData" minOccurs="0"/>
+  </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="THWVirtExType">
+  <xsd:attribute name="enabled" type="TTriStateBoolType"/>
+  <xsd:attribute name="exclusive" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:complexType name="THWVirtExNestedPagingType">
+  <xsd:attribute name="enabled" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:complexType name="THWVirtExVPIDType">
+  <xsd:attribute name="enabled" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:complexType name="THWVirtExUXType">
+  <xsd:attribute name="enabled" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:complexType name="TSyntheticCpuType">
+  <xsd:attribute name="enabled" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:complexType name="TPAEType">
+  <xsd:attribute name="enabled" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:complexType name="TLongModeType">
+  <xsd:attribute name="enabled" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:complexType name="THardwareVirtExLargePages">
+  <xsd:attribute name="enabled" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:complexType name="THardwareVirtForce">
+  <xsd:attribute name="enabled" type="xsd:boolean"/>
+</xsd:complexType>
+
+<xsd:simpleType name="TCPUCount">
+  <xsd:restriction base="xsd:unsignedInt">
+    <xsd:minInclusive value="1"/>
+    <xsd:maxInclusive value="64"/>
+  </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="TCpuIdLeaf">
+  <xsd:attribute name="id"        type="xsd:unsignedInt"       use="required"/>
+  <xsd:attribute name="eax"       type="xsd:unsignedInt"       use="required"/>
+  <xsd:attribute name="ebx"       type="xsd:unsignedInt"       use="required"/>
+  <xsd:attribute name="ecx"       type="xsd:unsignedInt"       use="required"/>
+  <xsd:attribute name="edx"       type="xsd:unsignedInt"       use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TCpuIdTree">
+  <xsd:sequence>
+    <xsd:element name="CpuIdLeaf" type="TCpuIdLeaf"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TCPU">
+  <xsd:sequence>
+    <xsd:element name="HardwareVirtEx" type="THWVirtExType" minOccurs="0"/>
+    <xsd:element name="HardwareVirtExNestedPaging" type="THWVirtExNestedPagingType" minOccurs="0"/>
+    <xsd:element name="HardwareVirtExVPID" type="THWVirtExVPIDType" minOccurs="0"/>
+    <xsd:element name="HardwareVirtExUX" type="THWVirtExUXType" minOccurs="0"/>
+    <xsd:element name="PAE" type="TPAEType" minOccurs="0"/>
+    <xsd:element name="LongMode" type="TLongModeType" minOccurs="0"/>
+    <xsd:element name="HardwareVirtExLargePages" type="THardwareVirtExLargePages" minOccurs="0"/>
+    <xsd:element name="HardwareVirtForce" type="THardwareVirtForce" minOccurs="0"/>
+    <xsd:element name="SyntheticCpu" type="TSyntheticCpuType" minOccurs="0"/>
+    <xsd:element name="CpuIdTree" type="TCpuIdTree" minOccurs="0">
+      <xsd:unique name="TCPU-CpuIdTree-CpuIdLeaf">
+        <xsd:selector xpath="vb:CpuIdLeaf"/>
+        <xsd:field xpath="@id"/>
+      </xsd:unique>
+    </xsd:element>
+  </xsd:sequence>
+  <xsd:attribute name="count" type="TCPUCount" default="1"/>
+  <xsd:attribute name="hotplug" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TBoot">
+  <xsd:sequence>
+    <xsd:element name="Order" minOccurs="0" maxOccurs="unbounded">
+      <xsd:complexType>
+        <xsd:attribute name="position" use="required">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:unsignedInt">
+              <xsd:minInclusive value="1"/>
+              <xsd:maxInclusive value="4"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:attribute>
+        <xsd:attribute name="device" type="TDeviceType" use="required"/>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TDisplay">
+  <xsd:attribute name="VRAMSize" default="8">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedInt">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="256"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="monitorCount" type="TMonitorCount" default="1"/>
+  <xsd:attribute name="MonitorCount" type="TMonitorCount"/> <!-- deprecated -->
+  <xsd:attribute name="accelerate3D" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="accelerate2DVideo" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="controller" type="TDisplayControllerType" default="VBoxSVGA"/>
+</xsd:complexType>
+
+<xsd:complexType name="TVideoRecording">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="file" type="xsd:string"/>
+  <xsd:attribute name="horzRes">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedInt">
+        <xsd:minInclusive value="4"/>
+        <xsd:maxInclusive value="2097152"/>
+       </xsd:restriction>
+     </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="vertRes" type="xsd:unsignedInt"/>
+</xsd:complexType>
+
+<xsd:complexType name="TVideoCapture">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="file" type="xsd:string"/>
+  <xsd:attribute name="screens" type="xsd:unsignedLong"/> <!-- todo: fix writing of settings (writes -1) -->
+  <xsd:attribute name="horzRes">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedInt">
+        <xsd:minInclusive value="4"/>
+        <xsd:maxInclusive value="2097152"/>
+       </xsd:restriction>
+     </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="vertRes" type="xsd:unsignedInt"/>
+  <xsd:attribute name="rate" type="xsd:unsignedInt"/>
+  <xsd:attribute name="fps" type="xsd:unsignedInt"/>
+  <xsd:attribute name="maxTime" type="xsd:unsignedInt"/>
+  <xsd:attribute name="maxSize" type="xsd:unsignedInt"/>
+  <xsd:attribute name="options" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="TVRDEProperties">
+  <xsd:sequence>
+    <xsd:element name="Property" type="TProperty" minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TVideoChannel">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="quality" type="xsd:unsignedByte" default="75"/>
+</xsd:complexType>
+
+<xsd:complexType name="TRemoteDisplay">
+  <xsd:sequence>
+    <xsd:element name="VideoChannel" type="TVideoChannel" minOccurs="0"/> <!-- deprecated -->
+    <xsd:choice minOccurs="0">
+      <xsd:element name="VRDEProperties" type="TVRDEProperties"/>
+    </xsd:choice>
+  </xsd:sequence>
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="port" type="xsd:string" default="3389"/> <!-- deprecated -->
+  <xsd:attribute name="authType" type="TAuthType" default="Null"/>
+  <xsd:attribute name="authTimeout" type="xsd:unsignedInt" default="5000"/>
+  <xsd:attribute name="allowMultiConnection" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="reuseSingleConnection" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TBIOS">
+  <xsd:all>
+    <xsd:element name="ACPI" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="enabled" type="xsd:boolean" use="required"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="IOAPIC" minOccurs="0">
+      <xsd:complexType>
+          <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="Logo" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="fadeIn" type="xsd:boolean" default="true"/>
+        <xsd:attribute name="fadeOut" type="xsd:boolean" default="true"/>
+        <xsd:attribute name="displayTime" type="xsd:unsignedInt" default="0"/>
+        <xsd:attribute name="imagePath" type="TLocalFile"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="BootMenu" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="mode" type="TBIOSBootMenuModeType" default="MessageAndMenu"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="TimeOffset" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="value" type="xsd:integer" default="0"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="PXEDebug" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="NVRAM" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+        <xsd:attribute name="path" type="xsd:string"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="SmbiosUuidLittleEndian" minOccurs="0">
+      <xsd:complexType>
+          <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="IDEController" minOccurs="0"> <!-- deprecated -->
+      <xsd:complexType>
+        <xsd:attribute name="type">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:token">
+            <xsd:enumeration value="PIIX3"/>
+            <xsd:enumeration value="PIIX4"/>
+            <xsd:enumeration value="ICH6"/>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:attribute>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="TStorageControllerDevice">
+  <xsd:choice minOccurs="0">
+    <xsd:element name="Image" type="TImageRef"/>
+    <xsd:element name="HostDrive" type="THostDrive"/>
+  </xsd:choice>
+  <xsd:attribute name="type" type="TMediumDeviceType"/>
+  <xsd:attribute name="port" type="xsd:unsignedInt" default="0"/>
+  <xsd:attribute name="device" type="xsd:unsignedInt" default="0"/>
+  <xsd:attribute name="passthrough" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="tempeject" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="nonrotational" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="discard" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="hotpluggable" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TStorageController">
+  <xsd:sequence>
+    <xsd:element name="AttachedDevice" type="TStorageControllerDevice"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+  <xsd:attribute name="name" type="xsd:string" use="required"/>
+  <xsd:attribute name="type" type="TStorageControllerType" use="required"/>
+  <xsd:attribute name="PortCount"   type="xsd:unsignedInt" use="required"/>
+  <xsd:attribute name="useHostIOCache" type="xsd:boolean"  use="optional" default="true"/>
+  <xsd:attribute name="Bootable"    type="xsd:boolean"     use="optional"/>
+  <xsd:attribute name="PCIBus"      type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="PCIDevice"   type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="PCIFunction" type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="IDE0MasterEmulationPort" type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="IDE0SlaveEmulationPort"  type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="IDE1MasterEmulationPort" type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="IDE1SlaveEmulationPort"  type="xsd:unsignedInt" use="optional"/>
+</xsd:complexType>
+
+<xsd:complexType name="TSATAController"> <!-- deprecated -->
+  <xsd:sequence>
+    <xsd:element name="AttachedDevice" type="TStorageControllerDevice"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+  <xsd:attribute name="enabled"     type="xsd:boolean"     default="false"/>
+  <xsd:attribute name="PortCount"   type="xsd:unsignedInt" use="required"/>
+  <xsd:attribute name="IDE0MasterEmulationPort" type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="IDE0SlaveEmulationPort"  type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="IDE1MasterEmulationPort" type="xsd:unsignedInt" use="optional"/>
+  <xsd:attribute name="IDE1SlaveEmulationPort"  type="xsd:unsignedInt" use="optional"/>
+</xsd:complexType>
+
+<xsd:complexType name="TStorageControllers">
+  <xsd:sequence>
+    <xsd:element name="StorageController" type="TStorageController"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="THardDiskAttachment">
+  <xsd:attribute name="hardDisk" type="TNonNullUUID"/>
+  <xsd:attribute name="bus" default="IDE">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+        <xsd:enumeration value="IDE"/>
+        <xsd:enumeration value="SATA"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="channel" type="xsd:unsignedInt" default="0"/>
+  <xsd:attribute name="device" type="xsd:unsignedInt" default="0"/>
+</xsd:complexType>
+
+<xsd:complexType name="THardDiskAttachments"> <!-- deprecated -->
+  <xsd:sequence>
+    <xsd:element name="HardDiskAttachment" type="THardDiskAttachment"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TDVDDrive">
+  <xsd:choice minOccurs="0">
+    <xsd:element name="Image" type="TImageRef"/>
+    <xsd:element name="HostDrive" type="THostDrive"/>
+  </xsd:choice>
+  <xsd:attribute name="passthrough" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TFloppyDrive">
+  <xsd:choice minOccurs="0">
+    <xsd:element name="Image" type="TImageRef"/>
+    <xsd:element name="HostDrive" type="THostDrive"/>
+  </xsd:choice>
+  <xsd:attribute name="enabled" type="xsd:boolean" default="true"/>
+</xsd:complexType>
+
+<xsd:complexType name="TUSBController">
+  <xsd:sequence>
+    <xsd:element name="DeviceFilter" type="TUSBDeviceFilter"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+  <xsd:attribute name="enabled" type="xsd:boolean" use="required"/>
+  <xsd:attribute name="enabledEhci" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TUSBController2">
+  <xsd:attribute name="name" type="xsd:string" use="required"/>
+  <xsd:attribute name="type" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="OHCI"/>
+      <xsd:enumeration value="EHCI"/>
+      <xsd:enumeration value="XHCI"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+</xsd:complexType>
+
+<xsd:complexType name="TUSBControllers">
+  <xsd:sequence>
+    <xsd:element name="Controller" type="TUSBController2"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TUSB">
+  <xsd:sequence>
+    <xsd:element name="Controllers" type="TUSBControllers" minOccurs="0"/>
+    <xsd:element name="DeviceFilters" type="TUSBDeviceFilters" minOccurs="0"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+
+<xsd:complexType name="TAudioAdapter">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="enabledIn" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="enabledOut" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="controller" default="AC97">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+        <xsd:enumeration value="AC97"/>
+        <xsd:enumeration value="SB16"/>
+        <xsd:enumeration value="HDA"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="driver" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+        <xsd:enumeration value="null"/> <!-- deprecated -->
+        <xsd:enumeration value="Null"/> <!-- all platforms -->
+        <xsd:enumeration value="OSS"/> <!-- Linux, Solaris, FreeBSD -->
+        <xsd:enumeration value="ALSA"/> <!-- Linux, FreeBSD -->
+        <xsd:enumeration value="Pulse"/> <!-- Linux -->
+        <xsd:enumeration value="CoreAudio"/> <!-- Mac OS X -->
+        <xsd:enumeration value="MMPM"/> <!-- OS/2 -->
+        <xsd:enumeration value="SolAudio"/> <!-- Solaris -->
+        <xsd:enumeration value="WinMM"/> <!-- Windows -->
+        <xsd:enumeration value="DirectSound"/> <!-- Windows -->
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+</xsd:complexType>
+
+<xsd:complexType name="TNetNAT">
+  <xsd:choice minOccurs="0" maxOccurs="unbounded">
+    <xsd:element name="DNS" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="pass-domain" type="xsd:boolean" default="true"/>
+        <xsd:attribute name="use-proxy" type="xsd:boolean" default="false"/>
+        <xsd:attribute name="use-host-resolver" type="xsd:boolean" default="false"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="Alias" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="logging" type="xsd:boolean" default="false"/>
+        <xsd:attribute name="proxy-only" type="xsd:boolean" default="false"/>
+        <xsd:attribute name="use-same-ports" type="xsd:boolean" default="false"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="TFTP" minOccurs="0">
+      <xsd:complexType>
+        <xsd:attribute name="prefix" type="xsd:string"/>
+        <xsd:attribute name="boot-file" type="xsd:string"/>
+        <xsd:attribute name="next-server" type="xsd:string"/>
+      </xsd:complexType>
+    </xsd:element>
+    <xsd:element name="Forwarding" minOccurs="0" maxOccurs="unbounded">
+      <xsd:complexType>
+        <xsd:attribute name="name" type="xsd:string"/>
+        <xsd:attribute name="proto" type="xsd:unsignedInt"/>
+        <xsd:attribute name="hostip" type="xsd:string"/>
+        <xsd:attribute name="hostport" type="xsd:unsignedInt"/>
+        <xsd:attribute name="guestip" type="xsd:string"/>
+        <xsd:attribute name="guestport" type="xsd:unsignedInt"/>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:choice>
+  <xsd:attribute name="network" type="xsd:string"/>
+  <xsd:attribute name="hostip" type="xsd:string"/>
+  <xsd:attribute name="mtu" type="xsd:unsignedInt"/>
+  <xsd:attribute name="sockrcv" type="xsd:unsignedInt"/>
+  <xsd:attribute name="socksnd" type="xsd:unsignedInt"/>
+  <xsd:attribute name="tcprcv" type="xsd:unsignedInt"/>
+  <xsd:attribute name="tcpsnd" type="xsd:unsignedInt"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNetNATNetwork">
+  <xsd:attribute name="name" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNetBridged">
+  <xsd:attribute name="name" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNetInternal">
+  <xsd:attribute name="name" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNetHostOnly">
+  <xsd:attribute name="name" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNetGeneric">
+  <xsd:sequence>
+    <xsd:element name="Property" type="TProperty" minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+  <xsd:attribute name="driver" type="xsd:string" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TNetworkConfig">
+  <xsd:choice maxOccurs="2">
+    <xsd:choice minOccurs="0">
+      <xsd:element name="NAT" type="TNetNAT"/>
+      <xsd:element name="NATNetwork" type="TNetNATNetwork"/>
+      <xsd:element name="HostInterface" type="TNetBridged"/>
+      <xsd:element name="BridgedInterface" type="TNetBridged"/>
+      <xsd:element name="InternalNetwork" type="TNetInternal"/>
+      <xsd:element name="HostOnlyInterface" type="TNetHostOnly"/>
+      <xsd:element name="GenericInterface" type="TNetGeneric"/>
+    </xsd:choice>
+    <xsd:element name="DisabledModes">
+      <xsd:complexType>
+        <xsd:all>
+          <xsd:element name="NAT" type="TNetNAT" minOccurs="0"/>
+          <xsd:element name="NATNetwork" type="TNetNATNetwork" minOccurs="0"/>
+          <xsd:element name="HostInterface" type="TNetBridged" minOccurs="0"/>
+          <xsd:element name="BridgedInterface" type="TNetBridged" minOccurs="0"/>
+          <xsd:element name="InternalNetwork" type="TNetInternal" minOccurs="0"/>
+          <xsd:element name="HostOnlyInterface" type="TNetHostOnly" minOccurs="0"/>
+          <xsd:element name="GenericInterface" type="TNetGeneric" minOccurs="0"/>
+        </xsd:all>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="TNetworkAdapter">
+  <xsd:complexContent>
+    <xsd:extension base="TNetworkConfig">
+      <xsd:attribute name="type" type="TNetworkAdapterType" default="Am79C973"/>
+      <xsd:attribute name="slot" type="xsd:unsignedInt" use="required"/>
+      <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+      <xsd:attribute name="MACAddress">
+        <xsd:simpleType>
+          <xsd:restriction base="xsd:hexBinary">
+            <xsd:pattern value="[0-9A-Fa-f][02468ACEace][0-9A-Fa-f]{10}"/>
+          </xsd:restriction>
+        </xsd:simpleType>
+      </xsd:attribute>
+      <xsd:attribute name="cable" type="xsd:boolean" default="true"/>
+      <xsd:attribute name="speed" type="xsd:unsignedInt" default="1000000"/>
+      <xsd:attribute name="bootPriority" type="xsd:unsignedInt"/>
+      <xsd:attribute name="trace" type="xsd:boolean" default="false"/>
+      <xsd:attribute name="tracefile" type="xsd:string"/>
+      <xsd:attribute name="bandwidthGroup" type="xsd:string"/>
+      <xsd:attribute name="promiscuousModePolicy" default="Deny">
+        <xsd:simpleType>
+          <xsd:restriction base="xsd:token">
+            <xsd:enumeration value="Deny"/>
+            <xsd:enumeration value="AllowNetwork"/>
+            <xsd:enumeration value="AllowAll"/>
+          </xsd:restriction>
+        </xsd:simpleType>
+      </xsd:attribute>
+    </xsd:extension>
+  </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="TNetwork">
+  <xsd:sequence>
+    <xsd:element name="Adapter" type="TNetworkAdapter"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TUARTPort">
+  <xsd:attribute name="slot" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedInt">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxExclusive value="4"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="enabled" type="xsd:boolean" use="required"/>
+  <xsd:attribute name="IRQ" type="TUInt8" use="required"/>
+  <xsd:attribute name="IOBase" type="TUInt16" use="required"/>
+  <xsd:attribute name="hostMode" type="TPortMode" use="required"/>
+  <xsd:attribute name="path" type="TLocalFile"/>
+  <xsd:attribute name="server" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TUART">
+  <xsd:sequence>
+    <xsd:element name="Port" type="TUARTPort"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TUartPort"> <!-- deprecated -->
+  <xsd:attribute name="slot" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedInt">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxExclusive value="4"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="enabled" type="xsd:boolean" use="required"/>
+  <xsd:attribute name="IRQ" type="TUInt8" use="required"/>
+  <xsd:attribute name="IOBase" type="TUInt16HexNoBase" use="required"/>
+  <xsd:attribute name="hostMode" type="TPortMode" use="required"/>
+  <xsd:attribute name="path" type="TLocalFile"/>
+  <xsd:attribute name="server" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TUart"> <!-- deprecated -->
+  <xsd:sequence>
+    <xsd:element name="Port" type="TUartPort"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TLPTPort">
+  <xsd:attribute name="slot" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedInt">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxExclusive value="2"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="enabled" type="xsd:boolean" use="required"/>
+  <xsd:attribute name="IRQ" type="TUInt8" use="required"/>
+  <xsd:attribute name="IOBase" type="TUInt16" use="required"/>
+  <xsd:attribute name="path" type="TLocalFile"/>
+</xsd:complexType>
+
+<xsd:complexType name="TLPT">
+  <xsd:sequence>
+    <xsd:element name="Port" type="TLPTPort"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TLptPort"> <!-- deprecated -->
+  <xsd:attribute name="slot" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedInt">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxExclusive value="2"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="enabled" type="xsd:boolean" use="required"/>
+  <xsd:attribute name="IRQ" type="TUInt8" use="required"/>
+  <xsd:attribute name="IOBase" type="TUInt16HexNoBase" use="required"/>
+  <xsd:attribute name="path" type="TLocalFile"/>
+</xsd:complexType>
+
+<xsd:complexType name="TLpt">
+  <xsd:sequence>
+    <xsd:element name="Port" type="TLptPort"
+                 minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TRTC">
+  <xsd:attribute name="localOrUTC" type="TLocalOrUTC" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TSharedFolder">
+  <xsd:attribute name="name" type="TNonEmptyString" use="required"/>
+  <xsd:attribute name="hostPath" type="TLocalFile" use="required"/>
+  <xsd:attribute name="writable" type="xsd:boolean" default="true"/>
+  <xsd:attribute name="autoMount" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TSharedFolders">
+  <xsd:sequence>
+    <xsd:element name="SharedFolder" type="TSharedFolder" minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TClipboard">
+  <xsd:attribute name="mode" type="TClipboardMode" default="Disabled"/>
+</xsd:complexType>
+
+<xsd:complexType name="TDragAndDrop">
+  <xsd:attribute name="mode" type="TDragAndDropMode" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TIoCache">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="true"/>
+  <xsd:attribute name="size" type="xsd:unsignedLong"/>
+</xsd:complexType>
+
+<xsd:complexType name="TBandwidthGroup">
+  <xsd:attribute name="name" type="xsd:token" use="required"/>
+  <xsd:attribute name="type" type="TBandwidthGroupType" use="required"/>
+  <xsd:attribute name="maxBytesPerSec" type="xsd:unsignedLong"/>
+  <xsd:attribute name="maxMbPerSec" type="xsd:unsignedLong"/>
+</xsd:complexType>
+
+<xsd:complexType name="TBandwidthGroups">
+  <xsd:sequence>
+    <xsd:element name="BandwidthGroup" type="TBandwidthGroup" minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TIO">
+  <xsd:sequence>
+    <xsd:element name="IoCache" type="TIoCache" minOccurs="0"/>
+    <xsd:element name="BandwidthGroups" type="TBandwidthGroups" minOccurs="0"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="THostPciDevice">
+  <xsd:attribute name="host" type="xsd:unsignedInt" use="required"/>
+  <xsd:attribute name="guest" type="xsd:unsignedInt" use="required"/>
+  <xsd:attribute name="name" type="xsd:token"/>
+</xsd:complexType>
+
+<xsd:complexType name="THostPciDevices">
+  <xsd:sequence>
+    <xsd:element name="Device" type="THostPciDevice" minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="THostPci">
+  <xsd:sequence>
+    <xsd:element name="Devices" type="THostPciDevices" minOccurs="0"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TCardReader">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TWebcam">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TEmulatedUSB">
+  <xsd:sequence>
+    <xsd:element name="CardReader" type="TCardReader" minOccurs="0"/>
+    <xsd:element name="Webcam" type="TWebcam" minOccurs="0"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TGuest">
+  <xsd:attribute name="memoryBalloonSize"        type="xsd:unsignedInt" default="0"/>
+  <xsd:attribute name="MemoryBalloonSize"        type="xsd:unsignedInt" default="0"/> <!-- deprecated -->
+  <xsd:attribute name="statisticsUpdateInterval" type="xsd:unsignedInt" default="0"/>
+  <xsd:attribute name="StatisticsUpdateInterval" type="xsd:unsignedInt" default="0"/> <!-- deprecated -->
+</xsd:complexType>
+
+<xsd:complexType name="TGuestProperty">
+  <xsd:attribute name="name"      type="xsd:string"       use="required"/>
+  <xsd:attribute name="value"     type="xsd:string"       use="required"/>
+  <xsd:attribute name="timestamp" type="xsd:unsignedLong" default="0"/>
+  <xsd:attribute name="flags"     type="xsd:string"       default=""/>
+</xsd:complexType>
+
+<xsd:complexType name="TGuestProperties">
+  <xsd:sequence>
+    <xsd:element name="GuestProperty" type="TGuestProperty" minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+  <xsd:attribute name="notificationPatterns" type="xsd:string" default=""/>
+</xsd:complexType>
+
+<xsd:complexType name="TMemory">
+  <xsd:attribute name="RAMSize" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:unsignedInt">
+        <xsd:minInclusive value="4"/>
+        <xsd:maxInclusive value="2097152"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="PageFusion" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TFirmware">
+  <xsd:attribute name="type" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+        <xsd:enumeration value="BIOS"/>
+        <xsd:enumeration value="EFI"/>
+        <xsd:enumeration value="EFI32"/>
+        <xsd:enumeration value="EFI64"/>
+        <xsd:enumeration value="EFIDUAL"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+</xsd:complexType>
+
+<xsd:complexType name="THID">
+  <xsd:attribute name="Pointing" default="PS2Mouse">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+        <xsd:enumeration value="USBMouse"/>
+        <xsd:enumeration value="USBTablet"/>
+        <xsd:enumeration value="PS2Mouse"/>
+        <xsd:enumeration value="ComboMouse"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="Keyboard" default="PS2Keyboard">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+        <xsd:enumeration value="USBKeyboard"/>
+        <xsd:enumeration value="PS2Keyboard"/>
+        <xsd:enumeration value="ComboKeyboard"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+</xsd:complexType>
+
+<xsd:complexType name="THPET">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+</xsd:complexType>
+
+<xsd:complexType name="TChipset">
+  <xsd:attribute name="type" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+        <xsd:enumeration value="PIIX3"/>
+        <xsd:enumeration value="ICH9"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+</xsd:complexType>
+
+<xsd:complexType name="TParavirt">
+  <xsd:attribute name="provider" use="required">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:token">
+        <xsd:enumeration value="None"/>
+        <xsd:enumeration value="Default"/>
+        <xsd:enumeration value="Legacy"/>
+        <xsd:enumeration value="Minimal"/>
+        <xsd:enumeration value="HyperV"/>
+        <xsd:enumeration value="KVM"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+  <xsd:attribute name="debug" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="TTeleporter">
+  <xsd:attribute name="enabled" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="port" type="xsd:unsignedShort"/>
+  <xsd:attribute name="address" type="xsd:string"/>
+  <xsd:attribute name="password" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="THardware">
+  <xsd:all>
+    <xsd:element name="CPU" type="TCPU" minOccurs="0"/>
+    <xsd:element name="Memory" type="TMemory"/>
+    <xsd:element name="Firmware" type="TFirmware" minOccurs="0"/>
+    <xsd:element name="HID" type="THID" minOccurs="0"/>
+    <xsd:element name="HPET" type="THPET" minOccurs="0"/>
+    <xsd:element name="Chipset" type="TChipset" minOccurs="0"/>
+    <xsd:element name="Paravirt" type="TParavirt" minOccurs="0"/>
+    <xsd:element name="Boot" type="TBoot" minOccurs="0">
+      <xsd:unique name="THardware-Boot-Order">
+        <xsd:selector xpath="vb:Order"/>
+        <xsd:field xpath="@position"/>
+      </xsd:unique>
+    </xsd:element>
+    <xsd:element name="Display" type="TDisplay" minOccurs="0"/>
+    <xsd:element name="VideoRecording" type="TVideoRecording" minOccurs="0"/>
+    <xsd:element name="VideoCapture" type="TVideoCapture" minOccurs="0"/>
+    <xsd:element name="RemoteDisplay" type="TRemoteDisplay" minOccurs="0"/>
+    <xsd:element name="BIOS" type="TBIOS" minOccurs="0"/>
+    <xsd:element name="DVDDrive" type="TDVDDrive" minOccurs="0"/>
+    <xsd:element name="FloppyDrive" type="TFloppyDrive" minOccurs="0"/>
+    <xsd:element name="USBController" type="TUSBController" minOccurs="0"/>
+    <xsd:element name="USB" type="TUSB" minOccurs="0"/>
+    <xsd:element name="SATAController" type="TSATAController" minOccurs="0"/> <!-- deprecated -->
+    <xsd:element name="Network" type="TNetwork" minOccurs="0">
+      <xsd:unique name="THardware-Network-Adapter">
+        <xsd:selector xpath="vb:Adapter"/>
+        <xsd:field xpath="@slot"/>
+      </xsd:unique>
+    </xsd:element>
+    <xsd:element name="UART" type="TUART" minOccurs="0">
+      <xsd:unique name="THardware-UART-Port">
+        <xsd:selector xpath="vb:Port"/>
+        <xsd:field xpath="@slot"/>
+      </xsd:unique>
+    </xsd:element>
+    <xsd:element name="Uart" type="TUart" minOccurs="0"> <!-- deprecated -->
+      <xsd:unique name="THardware-Uart-Port">
+        <xsd:selector xpath="vb:Port"/>
+        <xsd:field xpath="@slot"/>
+      </xsd:unique>
+    </xsd:element>
+    <xsd:element name="LPT" type="TLPT" minOccurs="0">
+      <xsd:unique name="THardware-LPT-Port">
+        <xsd:selector xpath="vb:Port"/>
+        <xsd:field xpath="@slot"/>
+      </xsd:unique>
+    </xsd:element>
+    <xsd:element name="Lpt" type="TLpt" minOccurs="0"> <!-- deprecated -->
+      <xsd:unique name="THardware-Lpt-Port">
+        <xsd:selector xpath="vb:Port"/>
+        <xsd:field xpath="@slot"/>
+      </xsd:unique>
+    </xsd:element>
+    <xsd:element name="AudioAdapter" type="TAudioAdapter" minOccurs="0"/>
+    <xsd:element name="RTC" type="TRTC" minOccurs="0"/>
+    <xsd:element name="SharedFolders" type="TSharedFolders" minOccurs="0">
+      <xsd:unique name="THardware-SharedFolders-SharedFolder">
+        <xsd:selector xpath="vb:SharedFolder"/>
+        <xsd:field xpath="@name"/>
+      </xsd:unique>
+    </xsd:element>
+    <xsd:element name="Clipboard" type="TClipboard" minOccurs="0"/>
+    <xsd:element name="DragAndDrop" type="TDragAndDrop" minOccurs="0"/>
+    <xsd:element name="IO" type="TIO" minOccurs="0"/>
+    <xsd:element name="HostPci" type="THostPci" minOccurs="0"/>
+    <xsd:element name="EmulatedUSB" type="TEmulatedUSB" minOccurs="0"/>
+    <xsd:element name="Guest" type="TGuest" minOccurs="0"/>
+    <xsd:element name="GuestProperties" type="TGuestProperties" minOccurs="0">
+      <xsd:unique name="THardware-GuestProperties-GuestProperty">
+        <xsd:selector xpath="vb:GuestProperty"/>
+        <xsd:field xpath="@name"/>
+      </xsd:unique>
+    </xsd:element>
+    <xsd:element name="StorageControllers" type="TStorageControllers" minOccurs="0"/>
+  </xsd:all>
+  <xsd:attribute name="version" type="xsd:string" default="2"/>
+</xsd:complexType>
+
+<xsd:complexType name="TGroup">
+  <xsd:attribute name="name" type="xsd:string" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="TGroups">
+  <xsd:sequence>
+    <xsd:element name="Group" type="TGroup" minOccurs="0" maxOccurs="unbounded"/>
+  </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="TMachine">
+  <xsd:all>
+    <xsd:element name="MediaRegistry" type="TMediaRegistry" minOccurs="0"/>
+    <xsd:element name="Description" type="xsd:string" minOccurs="0"/>
+    <xsd:element name="Teleporter" type="TTeleporter" minOccurs="0"/>
+    <xsd:element name="Hardware" type="THardware"/>
+    <xsd:element name="StorageControllers" type="TStorageControllers" minOccurs="0"/>
+    <xsd:element name="HardDiskAttachments" type="THardDiskAttachments" minOccurs="0"/> <!-- deprecated -->
+    <xsd:element name="Groups" type="TGroups" minOccurs="0"/>
+    <xsd:element name="ExtraData" type="TExtraData" minOccurs="0"/>
+    <xsd:element name="Snapshot" type="TSnapshot" minOccurs="0"/>
+  </xsd:all>
+  <xsd:attribute name="name" type="TNonEmptyString" use="required"/>
+  <xsd:attribute name="nameSync" type="xsd:boolean" default="true"/>
+  <xsd:attribute name="directoryIncludesUUID" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="OSType" type="TNonEmptyString" use="required"/>
+  <xsd:attribute name="uuid" type="TNonNullUUID" use="required"/>
+  <xsd:attribute name="stateFile" type="TLocalFile"/>
+  <xsd:attribute name="currentSnapshot" type="TNonNullUUID"/>
+  <xsd:attribute name="snapshotFolder" type="TLocalFile"/>
+  <xsd:attribute name="lastStateChange" type="TPresentDateTimeUTC"/>
+  <xsd:attribute name="aborted" type="xsd:boolean" default="false"/>
+  <xsd:attribute name="currentStateModified" type="xsd:boolean" default="true"/>
+  <xsd:attribute name="version" type="xsd:string" default="1.15"/> <!-- Used for OVF files only, must not be present in normal settings files. The default corresponds to settings created by 5.0, which covers many older versions but not newer ones. -->
+  <xsd:attribute name="VMProcessPriority" type="TVMProcPriority"/>
+</xsd:complexType>
+
+<xsd:complexType name="TSnapshot">
+  <xsd:all>
+    <xsd:element name="Description" type="xsd:string" minOccurs="0"/>
+    <xsd:element name="Hardware" type="THardware"/>
+    <xsd:element name="StorageControllers" type="TStorageControllers" minOccurs="0"/>
+    <xsd:element name="Snapshots" minOccurs="0">
+      <xsd:complexType>
+        <xsd:sequence>
+          <xsd:element name="Snapshot" type="TSnapshot" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:all>
+  <xsd:attribute name="name" type="xsd:token" use="required"/>
+  <xsd:attribute name="uuid" type="TNonNullUUID" use="required"/>
+  <xsd:attribute name="timeStamp" type="TPresentDateTimeUTC" use="required"/>
+  <xsd:attribute name="stateFile" type="TLocalFile"/>
+</xsd:complexType>
+
+<xsd:complexType name="TVirtualBox">
+  <xsd:choice>
+    <xsd:element name="Global" type="TGlobal"/>
+    <xsd:element name="Machine" type="TMachine">
+      <!-- @currentSnapshot must refer to an existing Snapshot/@uuid -->
+      <xsd:key name="snapshot">
+        <xsd:selector xpath=".//vb:Snapshot"/>
+        <xsd:field xpath="@uuid"/>
+      </xsd:key>
+      <xsd:keyref name="currentSnapshot" refer="vb:snapshot">
+        <xsd:selector xpath="."/>
+        <xsd:field xpath="@currentSnapshot"/>
+      </xsd:keyref>
+    </xsd:element>
+  </xsd:choice>
+  <xsd:attribute name="version" type="xsd:string" use="required"/>
+</xsd:complexType>
+
+<!-- Root element for all VirtualBox config files -->
+<xsd:element name="VirtualBox" type="TVirtualBox"/>
+
+</xsd:schema>

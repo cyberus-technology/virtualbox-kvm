@@ -1,0 +1,63 @@
+DEPTH = ../..
+include ../header.kmk
+
+TXTFILES = \
+	QuickReference-kmk.txt \
+	QuickReference-kBuild.txt
+
+define genrule
+all: $(name).html
+clean::
+	kmk_rm -f $(name).html
+$(name).html: $(name).txt
+	LC_ALL=C rst2html.py --no-generator $$< $$@
+$(name).o: $(name).html
+.PHONY: $(name).o
+endef
+
+$(foreach name, $(basename $(TXTFILES)), $(eval $(genrule)))
+
+
+#
+# For generating the basis for the target properties table.
+#
+my_tp.1 = BLDPROGS PROGRAMS
+my_tp.2 = LIBRARIES
+my_tp.3 = IMPORT_LIBS DLLS
+my_tp.4 = DLLS
+my_tp.5 = PROGRAMS
+my_tp.6 = SYSMODS
+my_tp.7 = MISCBINS
+my_tp.8 = INSTALLS
+my_tp.9 = FETCHES
+my_tp.a = OTHERS
+my_tp = 1 2 3 4 5 6 7 8 9 a
+tpc := $(translate $(my_tp),$(SP))
+
+define def_target_prop_rule
+target-properties::
+	@$$(PRINTF) '|%-2s| %-18s| %-6s|%$(expr 79-33)s|\n' "$(kind)" "``$(prop)``" "$(my_tmp_which)" ""
+	@$$(ECHO) '+--+-------------------+-------+----------------------------------------------+'
+endef
+define def_target_prop_doit
+my_tmp_which := $(foreach x,$(my_tp),$(if $(intersects \
+                     $(prop),\
+                     $(foreach nm,$(my_tp.$(x)),$(foreach suff,SINGLE DEFERRED ACCUMULATE_R ACCUMULATE_L,$(PROPS_$(nm)_$(suff)))))\
+                ,$(x),))
+my_tmp_which := $(translate $(my_tmp_which),$(SP))
+$(for local i = 1, $i < 10, local i := $(expr $i + 1),$(for local l = $(expr 10 - $i + 1), $l > 3, local l := $(expr $l - 1), \
+	$(eval my_tmp_which:=$(subst $(substr $(tpc), $i, $l),$i-$(substr $(tpc),$(expr $i + $l - 1),1),$(my_tmp_which)))\
+) )
+$(eval $(def_target_prop_rule))
+endef
+kind := S
+$(foreach prop,$(sort $(PROPS_SINGLE)),$(evalcall def_target_prop_doit))
+kind := D
+$(foreach prop,$(sort $(PROPS_DEFERRED)),$(evalcall def_target_prop_doit))
+kind := Ar
+$(foreach prop,$(sort $(PROPS_ACCUMULATE_R)),$(evalcall def_target_prop_doit))
+kind := Al
+$(foreach prop,$(sort $(PROPS_ACCUMULATE_L)),$(evalcall def_target_prop_doit))
+#kind := To
+#$(foreach prop,$(sort $(PROPS_TOOLS_ONLY)),$(evalcall def_target_prop_doit))
+

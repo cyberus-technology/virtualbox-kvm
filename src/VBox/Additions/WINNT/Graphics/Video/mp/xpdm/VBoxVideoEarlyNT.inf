@@ -1,0 +1,108 @@
+; $Id: VBoxVideoEarlyNT.inf $
+;; @file
+; VirtualBox Video miniport driver, Windows 2000 and NT4 edition.
+;
+
+;
+; Copyright (C) 2011-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; SPDX-License-Identifier: GPL-3.0-only
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Provider=%ORACLE%
+ClassGUID={4D36E968-E325-11CE-BFC1-08002BE10318}
+Class=Display
+DriverPackageType=PlugAndPlay
+;edit-DriverVer=08/26/2008,2.00.0000
+;cat CatalogFile = VBoxVideoEarlyNT.cat
+
+[DestinationDirs]
+DefaultDestDir=11
+VBoxVideo.Miniport = 12 ; drivers
+VBoxVideo.Display  = 11 ; system32
+
+; Windows 2000 and NT4 treats entries here as pure 'name=section' and will not
+; split the value on commas. Newer InfVerif.exe requires the comma stuff here.
+[Manufacturer]
+%ORACLE%=Model
+
+; For Windows 2000 and NT4, this section must be called 'Model' it seems.
+; Calling it VBoxVideo like VBoxVideo.inf does, results in
+; ERROR_NON_WINDOWS_NT_DRIVER (0xe000022d). See r155932.
+[Model]
+%VBoxVideo.SvcDesc% = VBoxVideo, PCI\VEN_80EE&DEV_BEEF
+
+[VBoxVideo]
+;amd64 FeatureScore = F8
+CopyFiles = VBoxVideo.Miniport, VBoxVideo.Display
+
+[VBoxVideo.Miniport]
+VBoxVideo.sys,,,0x100
+
+[VBoxVideo.Display]
+VBoxDisp.dll,,,0x00004000  ; COPYFLG_IN_USE_TRY_RENAME
+
+[VBoxVideo.Services]
+AddService=VBoxVideo, 0x00000002, vboxvideo_Service_Inst, vboxvideo_EventLog_Inst
+
+[vboxvideo_Service_Inst]
+ServiceType=1                   ; SERVICE_KERNEL_DRIVER
+StartType=1                     ; SERVICE_SYSTEM_START (required, old non-PnP Windows versions need it)
+ErrorControl=0                  ; SERVICE_ERROR_IGNORE
+LoadOrderGroup=Video
+ServiceBinary=%12%\VBoxVideo.sys
+
+[vboxvideo_EventLog_Inst]
+AddReg = vboxvideo_EventLog_AddReg
+
+[vboxvideo_EventLog_AddReg]
+HKR,,EventMessageFile,0x00020000,"%%SystemRoot%%\System32\IoLogMsg.dll;%%SystemRoot%%\System32\drivers\VBoxVideo.sys"
+HKR,,TypesSupported,0x00010001,7
+
+[VBoxVideo.SoftwareSettings]
+AddReg = vboxvideo_SoftwareDeviceSettings
+
+[vboxvideo_SoftwareDeviceSettings]
+HKR,, InstalledDisplayDrivers, %REG_MULTI_SZ%, VBoxDisp
+; Set 'Full' hardware acceleration up. On W2003 the level is by default None=5, leading to software mouse cursor
+HKR,, Acceleration.Level, %REG_DWORD%, 0
+HKR,, VgaCompatible, %REG_DWORD%, 0
+
+[VBoxVideo.OpenGLSoftwareSettings]
+
+;x86   [SourceDisksNames]
+;amd64 [SourceDisksNames.amd64]
+1 = %VBoxVideo.Disk%,,,""
+
+[SourceDisksFiles]
+VBoxVideo.sys = 1
+VBoxDisp.dll = 1
+
+[Strings]
+REG_SZ = 0x00000000
+REG_MULTI_SZ = 0x00010000
+REG_EXPAND_SZ = 0x00020000
+REG_BINARY = 0x00000001
+REG_DWORD = 0x00010001
+
+ORACLE = "Oracle Corporation"
+VBoxVideo.Disk = "VirtualBox Video Driver Disk"
+VBoxVideo.SvcDesc = "VirtualBox Graphics Adapter"

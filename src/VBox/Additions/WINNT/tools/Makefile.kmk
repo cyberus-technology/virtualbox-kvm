@@ -1,0 +1,54 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Windows NT Additions Tools.
+#
+
+#
+# Copyright (C) 2012-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Certificate utility.
+#
+PROGRAMS += VBoxCertUtil
+VBoxCertUtil_TEMPLATE = VBoxGuestR3Exe
+VBoxCertUtil_SOURCES = \
+	VBoxCertUtil.cpp
+VBoxCertUtil_LIBS = \
+	crypt32.lib
+VBoxCertUtil_VBOX_IMPORT_CHECKER.win.x86 = w2k
+
+$(call VBOX_SET_VER_INFO_EXE,VBoxCertUtil,VirtualBox Certificate Utility,$(VBOX_WINDOWS_ADDITIONS_ICON_FILE))
+
+
+#
+# Install the registry file for bypassing the Windows 11 installer checks.
+#
+INSTALLS += AdditionsInstW11Bypass
+AdditionsInstW11Bypass_INST = $(INST_ADDITIONS)
+AdditionsInstW11Bypass_MODE = a+r,u+w
+AdditionsInstW11Bypass_SOURCES = windows11-bypass.reg
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

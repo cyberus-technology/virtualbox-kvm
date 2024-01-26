@@ -1,0 +1,1619 @@
+; $Id: bootsector2-common-init-traps.mac $
+;; @file
+; Common bootsector code init, traps.
+;
+; This is included from bootsector2-common-init-code.mac and was split out of
+; that file to keep the size manageable.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef BS2_WITH_TRAPS
+ %error "huh? BS2_WITH_TRAPS is not defined!"
+%endif
+
+
+;*******************************************************************************
+;*      Header Files                                                           *
+;*******************************************************************************
+%include "bootsector2-structures.mac"
+%include "bootsector2-api.mac"
+
+
+;*******************************************************************************
+;*      Global Variables                                                       *
+;*******************************************************************************
+BEGINCODELOW
+ALIGNDATA(8)
+;; Where to resume execution after a trap (if g_fTrapPrepared is set).
+; @internal
+g_TrapResumeRIP:
+        dq      0
+;; Set if we've prepared for a trap.
+; @internal
+g_fTrapPrepared:
+        db      0
+;; Benchmark indicator.
+; This is set to the expected trap number when we're benchmarking and 0ffh when
+; we aren't benchmarking.
+; @internal
+g_u8TrapBenchmarkNo:
+        db      0ffh
+        db      0                       ; alignment padding.
+;; The last trap number.
+GLOBALNAME g_u8LastTrapNo
+        db      0
+;; The number of traps since last call to Bs2TrapReset.
+GLOBALNAME g_u32cTraps
+        dd      0
+;; The last trap error code.
+GLOBALNAME g_u64LastTrapErr
+        dq      0
+;; The register frame of the last trap (BS2REGS).
+GLOBALNAME g_LastTrapRegs
+        times (BS2REGS_size) db 0
+
+;; The RFLAGS/EFLAGS inside last invoked trap handler.
+GLOBALNAME g_u64LastTrapHandlerRFlags
+        dq      0
+;; The CS inside last invoked trap handler.
+GLOBALNAME g_u16LastTrapHandlerCS
+        dw      0
+;; The SS inside last invoked trap handler.
+GLOBALNAME g_u16LastTrapHandlerSS
+        dw      0
+        dw  0,0 ; alignment
+;; The RSP inside the last invoked trap handler, i.e. when bs2Trap_XX_32bit is
+; entered, so including fake error code and vector number.
+GLOBALNAME g_u64LastTrapHandlerRSP
+        dq      0
+
+;;
+; Pointer to an array of BS2TRAPREC1 records.
+GLOBALNAME g_paTrapRecs
+        dq      0
+;; Number of entries in the array g_paTrapRecs points to.
+GLOBALNAME g_cTrapRecs
+        dd      0
+;; The index of the last BS2TRAPREC1 we hit.
+GLOBALNAME g_iTrapRecLast
+        dd      0
+;; The base address the BS2TRAPREC.offWhere values are relative to.
+GLOBALNAME g_pTrapRecBase
+        dq      0
+
+
+;;
+; Reset all the trap globals to default.
+;
+; This undos the effect of any previous Bs2TrapPrepare call.
+;
+; @uses     nothing.
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2TrapReset_rm16
+        push    xBP
+        mov     xBP, xSP
+        push    ds
+        push    word 0
+        pop     ds
+
+        mov     dword [g_u32cTraps],          0
+        mov     byte  [g_u8LastTrapNo],       0ffh
+        mov     dword [g_u64LastTrapErr],     0
+        mov     dword [g_u64LastTrapErr + 4], 0
+        mov     dword [g_TrapResumeRIP],      0
+        mov     dword [g_TrapResumeRIP + 4],  0
+        mov     byte  [g_u8TrapBenchmarkNo],  0ffh
+        mov     byte  [g_fTrapPrepared],      0
+
+        pop     ds
+        leave
+        ret
+ENDPROC   Bs2TrapReset_rm16
+
+
+;;
+; Reset all the trap globals to default.
+;
+; This undos the effect of any previous Bs2TrapPrepare call.
+;
+; @uses     nothing.
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2TrapReset_p16
+        push    ds
+        push    BS2_SEL_DS16
+        pop     ds
+
+        mov     dword [g_u32cTraps],          0
+        mov     byte  [g_u8LastTrapNo],       0ffh
+        mov     dword [g_u64LastTrapErr],     0
+        mov     dword [g_u64LastTrapErr + 4], 0
+        mov     dword [g_TrapResumeRIP],      0
+        mov     dword [g_TrapResumeRIP + 4],  0
+        mov     byte  [g_u8TrapBenchmarkNo],  0ffh
+        mov     byte  [g_fTrapPrepared],      0
+
+        pop     ds
+        ret
+ENDPROC   Bs2TrapReset_p16
+
+
+
+;;
+; Reset all the trap globals to default.
+;
+; This undos the effect of any previous Bs2TrapPrepare call.
+;
+; @uses     nothing.
+;
+BEGINCODEHIGH
+BITS 32
+BEGINPROC Bs2TrapReset_p32
+        push    ds
+        push    BS2_SEL_DS32
+        pop     ds
+
+        mov     dword [g_u32cTraps],          0
+        mov     byte  [g_u8LastTrapNo],       0ffh
+        mov     dword [g_u64LastTrapErr],     0
+        mov     dword [g_u64LastTrapErr + 4], 0
+        mov     dword [g_TrapResumeRIP],      0
+        mov     dword [g_TrapResumeRIP + 4],  0
+        mov     byte  [g_u8TrapBenchmarkNo],  0ffh
+        mov     byte  [g_fTrapPrepared],      0
+
+        pop     ds
+        ret
+ENDPROC   Bs2TrapReset_p32
+
+
+;;
+; Reset all the trap globals to default.
+;
+; This undos the effect of any previous Bs2TrapPrepare call.
+;
+; @uses     nothing.
+;
+BEGINCODEHIGH
+BITS 64
+BEGINPROC Bs2TrapReset_p64
+        mov     dword [g_u32cTraps],          0
+        mov     byte  [g_u8LastTrapNo],       0ffh
+        mov     qword [g_u64LastTrapErr],     0
+        mov     qword [g_TrapResumeRIP],      0
+        mov     byte  [g_u8TrapBenchmarkNo],  0ffh
+        mov     byte  [g_fTrapPrepared],      0
+        ret
+ENDPROC   Bs2TrapReset_p64
+
+
+
+;;
+; Prepare for a test that will trap.
+;
+; @param    xAX         Where to resume after the trap.
+; @param    dl          Set to 0ffh for tests and the expected trap number when
+;                       preparing a benchmark.
+; @uses     nothing.
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2TrapPrepare_rm16
+        push    xBP
+        mov     xBP, xSP
+        push    ds
+        push    word 0
+        pop     ds
+
+        mov     dword [g_u32cTraps],          0
+        mov     byte  [g_u8LastTrapNo],       0ffh
+        mov     dword [g_u64LastTrapErr],     0
+        mov     dword [g_u64LastTrapErr + 4], 0
+        mov     word [g_TrapResumeRIP],       ax
+        mov     word  [g_TrapResumeRIP + 2],  0
+        mov     dword [g_TrapResumeRIP + 4],  0
+        mov     byte  [g_u8TrapBenchmarkNo],  dl
+        mov     byte  [g_fTrapPrepared],      1
+
+        pop     ds
+        leave
+        ret
+ENDPROC   Bs2TrapPrepare_rm16
+
+
+;;
+; Prepare for a test that will trap.
+;
+; @param    ax          Where to resume after the trap.
+; @param    dl          Set to 0ffh for tests and the expected trap number when
+;                       preparing a benchmark.
+; @uses     nothing.
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2TrapPrepare_p16
+        push    ds
+        push    BS2_SEL_DS16
+        pop     ds
+
+        mov     dword [g_u32cTraps],          0
+        mov     byte  [g_u8LastTrapNo],       0ffh
+        mov     dword [g_u64LastTrapErr],     0
+        mov     dword [g_u64LastTrapErr + 4], 0
+        mov     word [g_TrapResumeRIP],       ax
+        mov     word  [g_TrapResumeRIP + 2],  0
+        mov     dword [g_TrapResumeRIP + 4],  0
+        mov     byte  [g_u8TrapBenchmarkNo],  dl
+        mov     byte  [g_fTrapPrepared],      1
+
+        pop     ds
+        ret
+ENDPROC   Bs2TrapPrepare_p16
+
+
+;;
+; Prepare for a test that will trap.
+;
+; @param    eax         Where to resume after the trap.
+; @param    dl          Set to 0ffh for tests and the expected trap number when
+;                       preparing a benchmark.
+; @uses     nothing.
+;
+BEGINCODEHIGH
+BITS 32
+BEGINPROC Bs2TrapPrepare_p32
+        push    ds
+        push    BS2_SEL_DS32
+        pop     ds
+
+        mov     dword [g_u32cTraps],          0
+        mov     byte  [g_u8LastTrapNo],       0ffh
+        mov     dword [g_u64LastTrapErr],     0
+        mov     dword [g_u64LastTrapErr + 4], 0
+        mov     dword [g_TrapResumeRIP],      eax
+        mov     dword [g_TrapResumeRIP + 4],  0
+        mov     byte  [g_u8TrapBenchmarkNo],  dl
+        mov     byte  [g_fTrapPrepared],      1
+
+        pop     ds
+        ret
+ENDPROC   Bs2TrapPrepare_p32
+
+
+;;
+; Prepare for a test that will trap.
+;
+; @param    rax         Where to resume after the trap.
+; @param    dl          Set to 0ffh for tests and the expected trap number when
+;                       preparing a benchmark.
+; @uses     nothing.
+;
+BEGINCODEHIGH
+BITS 64
+BEGINPROC Bs2TrapPrepare_p64
+        mov     dword [g_u32cTraps],          0
+        mov     byte  [g_u8LastTrapNo],       0ffh
+        mov     qword [g_u64LastTrapErr],     0
+        mov     qword [g_TrapResumeRIP],      rax
+        mov     byte  [g_u8TrapBenchmarkNo],  dl
+        mov     byte  [g_fTrapPrepared],      1
+        ret
+ENDPROC   Bs2TrapPrepare_p64
+
+
+BEGINCODELOW ; The TSSes, IDTs and handlers must be 16-bit addressable.
+
+%ifdef BS2_INC_CMN_PM
+;
+; 32-bit TSS (X86TSS32).
+;
+ALIGNDATA(16)
+bs2Tss32Bit:
+        dw      07fffh                  ; selPrev - Back link to previous task. (static)
+        dw      0h                      ; padding1;
+        dd      BS2_R0_STACK_ADDR       ; esp0    - Ring-0 stack pointer. (static)
+        dw      BS2_SEL_SS32            ; ss0
+        dw      0                       ; padding
+        dd      BS2_R1_STACK_ADDR       ; esp1    - Ring-1 stack pointer. (static)
+        dw      0                       ; ss1
+        dw      0                       ; padding
+        dd      BS2_R2_STACK_ADDR       ; esp2    - Ring-1 stack pointer. (static)
+        dw      0                       ; ss2
+        dw      0                       ; padding
+        dd      0ffffffffh              ; cr3     - Page directory for the task. (static)
+        dd      0                       ; eip     - EIP before task switch.
+        dd      0                       ; eflags  - EFLAGS before task switch.
+        dd      0                       ; eax     - EAX before task switch.
+        dd      0                       ; ecx     - ECX before task switch.
+        dd      0                       ; edx     - EDX before task switch.
+        dd      0                       ; ebx     - EBX before task switch.
+        dd      0                       ; esp     - ESP before task switch.
+        dd      0                       ; ebp     - EBP before task switch.
+        dd      0                       ; esi     - ESI before task switch.
+        dd      0                       ; edi     - EDI before task switch.
+        dw      0, 0                    ; es,pad  - ES before task switch.
+        dw      0, 0                    ; cs,pad  - CS before task switch.
+        dw      0, 0                    ; ss,pad  - SS before task switch.
+        dw      0, 0                    ; ds,pad  - DS before task switch.
+        dw      0, 0                    ; fs,pad  - FS before task switch.
+        dw      0, 0                    ; gs,pad  - GS before task switch.
+        dw      0, 0                    ; ldt,pad - LDTR before task switch.
+        dw      0                       ; fDebugTrap - Debug trap flag.
+        dw      7fffh                   ; offIoBitmap - Offset relative to the TSS of the
+                                        ; start of the I/O Bitmap and the end of the
+                                        ; interrupt redirection bitmap.
+        ; IntRedirBitmap - 32 bytes for the virtual interrupt redirection bitmap. (VME)
+bs2Tss32BitEnd:
+times (68h - (bs2Tss32BitEnd - bs2Tss32Bit)) db 0
+times ((bs2Tss32BitEnd - bs2Tss32Bit) - 68h) db 0
+
+
+;
+; 32-bit TSS for #DF (X86TSS32).
+;
+ALIGNDATA(16)
+bs2Tss32BitDf:
+        dw      07fffh                  ; selPrev - Back link to previous task. (static)
+        dw      0h                      ; padding1;
+        dd      BS2_DF_R0_STACK_ADDR    ; esp0    - Ring-0 stack pointer. (static)
+        dw      BS2_SEL_SS32            ; ss0
+        dw      0                       ; padding
+        dd      0                       ; esp1    - Ring-1 stack pointer. (static)
+        dw      0                       ; ss1
+        dw      0                       ; padding
+        dd      0                       ; esp2    - Ring-1 stack pointer. (static)
+        dw      0                       ; ss2
+        dw      0                       ; padding
+        dd      0ffffffffh              ; cr3     - Page directory for the task. (static)
+        dd      bs2Trap_08h_32bit       ; eip    - EIP before task switch. */
+        dd      0                       ; eflags - EFLAGS before task switch. */
+        dd      0                       ; eax    - EAX before task switch. */
+        dd      0                       ; ecx    - ECX before task switch. */
+        dd      0                       ; edx    - EDX before task switch. */
+        dd      0                       ; ebx    - EBX before task switch. */
+        dd      BS2_DF_R0_STACK_ADDR    ; esp    - ESP before task switch. */
+        dd      0                       ; ebp    - EBP before task switch. */
+        dd      0                       ; esi    - ESI before task switch. */
+        dd      0                       ; edi    - EDI before task switch. */
+        dw      BS2_SEL_DS32, 0         ; es,pad - ES before task switch. */
+        dw      BS2_SEL_CS32, 0         ; cs,pad - CS before task switch. */
+        dw      BS2_SEL_SS32, 0         ; ss,pad - SS before task switch. */
+        dw      BS2_SEL_DS32, 0         ; ds,pad - DS before task switch. */
+        dw      BS2_SEL_DS32, 0         ; fs,pad - FS before task switch. */
+        dw      BS2_SEL_DS32, 0         ; gs,pad - GS before task switch. */
+        dw      0, 0                    ; ldt,pad- LDTR before task switch. */
+        dw      0                       ; fDebugTrap - Debug trap flag.
+        dw      7fffh                   ; offIoBitmap - Offset relative to the TSS of the
+                                        ; start of the I/O Bitmap and the end of the
+                                        ; interrupt redirection bitmap.
+        ; IntRedirBitmap - 32 bytes for the virtual interrupt redirection bitmap. (VME)
+bs2Tss32BitDfEnd:
+times (68h - (bs2Tss32BitDfEnd - bs2Tss32BitDf)) db 0
+times ((bs2Tss32BitDfEnd - bs2Tss32BitDf) - 68h) db 0
+
+
+;
+; 32-bit IDT (X86DESCGATE).
+;
+ALIGNDATA(16)
+bs2Idt32bit:
+        dw bs2Trap_00h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_01h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_02h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+bs2Idt32bit_BP:
+        dw bs2Trap_03h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_04h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_05h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_06h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_07h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw             0, BS2_SEL_TSS32_DF, 08500h, 00000h ; p=1 dpl=0 type=taskgate
+        dw bs2Trap_09h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_0ah_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_0bh_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_0ch_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_0dh_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_0eh_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_0fh_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_10h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_11h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_12h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_13h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_14h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_15h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_16h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_17h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_18h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_19h_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_1ah_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_1bh_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_1ch_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_1dh_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_1eh_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2Trap_1fh_32bit, BS2_SEL_CS32, 08e00h, 00000h ; p=1 dpl=0 type=int32gate
+        dw bs2TrapService32bit,BS2_SEL_CS32,0ee00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=3 type=int32gate
+%define BS2_TRAP_SERVICE_NO     30h
+;; @todo
+bs2Idt32bitEnd
+
+;
+; 32-bit trap handlers.
+;
+BITS 32
+%macro bs2Trap_XX_32bit_macro 1
+bs2Trap_ %+ %1 %+ _32bit:
+        push    %1
+        jmp     bs2Trap_XX_32bit
+%endmacro
+%macro bs2Trap_XX_32bit_macro_no_err 1
+bs2Trap_ %+ %1 %+ _32bit:
+        push    0
+        push    %1
+        jmp     bs2Trap_XX_32bit
+%endmacro
+        bs2Trap_XX_32bit_macro_no_err 00h
+        bs2Trap_XX_32bit_macro_no_err 01h
+        bs2Trap_XX_32bit_macro_no_err 02h
+        bs2Trap_XX_32bit_macro_no_err 03h
+        bs2Trap_XX_32bit_macro_no_err 04h
+        bs2Trap_XX_32bit_macro_no_err 05h
+        bs2Trap_XX_32bit_macro_no_err 06h
+        bs2Trap_XX_32bit_macro_no_err 07h
+        bs2Trap_XX_32bit_macro        08h
+        bs2Trap_XX_32bit_macro_no_err 09h
+        bs2Trap_XX_32bit_macro        0ah
+        bs2Trap_XX_32bit_macro        0bh
+        bs2Trap_XX_32bit_macro        0ch
+        bs2Trap_XX_32bit_macro        0dh
+        bs2Trap_XX_32bit_macro        0eh
+        bs2Trap_XX_32bit_macro_no_err 0fh
+        bs2Trap_XX_32bit_macro_no_err 10h
+        bs2Trap_XX_32bit_macro        11h
+        bs2Trap_XX_32bit_macro_no_err 12h
+        bs2Trap_XX_32bit_macro_no_err 13h
+        bs2Trap_XX_32bit_macro_no_err 14h
+        bs2Trap_XX_32bit_macro_no_err 15h
+        bs2Trap_XX_32bit_macro_no_err 16h
+        bs2Trap_XX_32bit_macro_no_err 17h
+        bs2Trap_XX_32bit_macro_no_err 18h
+        bs2Trap_XX_32bit_macro_no_err 19h
+        bs2Trap_XX_32bit_macro_no_err 1ah
+        bs2Trap_XX_32bit_macro_no_err 1bh
+        bs2Trap_XX_32bit_macro_no_err 1ch
+        bs2Trap_XX_32bit_macro_no_err 1dh
+        bs2Trap_XX_32bit_macro_no_err 1eh
+        bs2Trap_XX_32bit_macro_no_err 1fh
+
+;;
+; Common 32-bit trap handler.
+;
+;       return GS                         ebp + 2ch - v86
+;       return FS                         ebp + 28h - v86
+;       return DS                         ebp + 24h - v86
+;       return ES                         ebp + 20h - v86
+;       return SS                         ebp + 1ch - higher privilege
+;       return ESP                        ebp + 18h - higher privilege
+;       return EFLAGS                     ebp + 14h
+;       return CS                         ebp + 10h
+;       return EIP                        ebp + 0ch
+;       error code                        ebp + 08h
+;       vector #                          ebp + 04h
+BITS 32
+BEGINCODEHIGH
+BEGINPROC bs2Trap_XX_32bit
+        push    ebp                     ; ebp + 00h
+        mov     ebp, esp
+        pushfd                          ; ebp - 04h
+        push    eax                     ; ebp - 08h
+        push    ebx                     ; ebp - 0ch
+        push    ecx                     ; ebp - 10h
+        push    ds                      ; ebp - 14h
+
+        mov     eax, ss                 ; load flat DS. Using SS here because of conforming IDTE.CS tests.
+        mov     ds, ax
+
+        pushfd                          ; Clear the AC flag.
+        and     dword [esp], ~X86_EFL_AC
+        popfd
+
+        ;
+        ; Benchmark mode? Then resume the action right away!
+        ;
+        mov     eax, [ebp + 04h]
+        cmp     [g_u8TrapBenchmarkNo], al
+        jne     .test_mode
+        cmp     byte [g_fTrapPrepared], 0
+        je      .test_mode
+        mov     eax, [g_TrapResumeRIP]
+        mov     [ebp + 0ch], eax
+
+        pop     ds
+        pop     ecx
+        pop     ebx
+        ;pop     eax
+        ;popfd
+        leave
+        add     esp, 08h                ; Skip the vector # and  error code.
+        xor     eax, eax
+        iret
+
+
+        ;
+        ; Update the globals.
+        ;
+.test_mode:
+        xor     ecx, ecx                ; zero register
+        inc     dword [g_u32cTraps]
+        mov     eax, [ebp + 04h]
+        mov     [g_u8LastTrapNo], al
+        mov     eax, [ebp + 08h]
+        mov     [g_u64LastTrapErr],     eax
+        mov     [g_u64LastTrapErr + 4], ecx
+        mov     eax, [ebp - 04h]
+        mov     [g_u64LastTrapHandlerRFlags], eax
+        mov     dword [g_u64LastTrapHandlerRFlags + 4], ecx
+        mov     ax, cs
+        mov     [g_u16LastTrapHandlerCS], ax
+        mov     ax, ss
+        mov     [g_u16LastTrapHandlerSS], ax
+        lea     eax, [ebp + 4]
+        mov     [g_u64LastTrapHandlerRSP], eax
+        mov     [g_u64LastTrapHandlerRSP + 4], ecx
+
+        ;
+        ; Save the registers.
+        ;
+        lea     ebx, [g_LastTrapRegs]
+        mov     eax, [ebp - 08h]
+        mov     [ebx + BS2REGS.rax],     eax
+        mov     [ebx + BS2REGS.rax + 4], ecx
+        mov     eax, [ebp - 0ch]
+        mov     [ebx + BS2REGS.rbx],     eax
+        mov     [ebx + BS2REGS.rbx + 4], ecx
+        mov     eax, [ebp - 10h]
+        mov     [ebx + BS2REGS.rcx],     eax
+        mov     [ebx + BS2REGS.rcx + 4], ecx
+        mov     [ebx + BS2REGS.rdx],     edx
+        mov     [ebx + BS2REGS.rdx + 4], ecx
+        mov     [ebx + BS2REGS.rdi],     edi
+        mov     [ebx + BS2REGS.rdi + 4], ecx
+        mov     [ebx + BS2REGS.rsi],     esi
+        mov     [ebx + BS2REGS.rsi + 4], ecx
+        mov     eax, [ebp]
+        mov     [ebx + BS2REGS.rbp],     eax
+        mov     [ebx + BS2REGS.rbp + 4], ecx
+        mov     eax, [ebp + 0ch]
+        mov     [ebx + BS2REGS.rip],     eax
+        mov     [ebx + BS2REGS.rip + 4], ecx
+        mov     [ebx + BS2REGS.r8],      ecx
+        mov     [ebx + BS2REGS.r8  + 4], ecx
+        mov     [ebx + BS2REGS.r9],      ecx
+        mov     [ebx + BS2REGS.r9  + 4], ecx
+        mov     [ebx + BS2REGS.r10],     ecx
+        mov     [ebx + BS2REGS.r10 + 4], ecx
+        mov     [ebx + BS2REGS.r11],     ecx
+        mov     [ebx + BS2REGS.r11 + 4], ecx
+        mov     [ebx + BS2REGS.r12],     ecx
+        mov     [ebx + BS2REGS.r12 + 4], ecx
+        mov     [ebx + BS2REGS.r13],     ecx
+        mov     [ebx + BS2REGS.r13 + 4], ecx
+        mov     [ebx + BS2REGS.r14],     ecx
+        mov     [ebx + BS2REGS.r14 + 4], ecx
+        mov     [ebx + BS2REGS.r15],     ecx
+        mov     [ebx + BS2REGS.r15 + 4], ecx
+        mov     eax, [ebp + 14h]
+        mov     [ebx + BS2REGS.rflags],  eax
+        mov     [ebx + BS2REGS.rflags+4],ecx
+        mov     eax, [ebp + 10h]
+        mov     [ebx + BS2REGS.cs],      ax
+        mov     [ebx + BS2REGS.cBits], byte 32
+
+        ; Part of the stack varies depending on the trap context.
+        test    dword [ebx + BS2REGS.rflags], X86_EFL_VM
+        jnz     .v86
+        test    ax, 7h
+        jz      .ring0
+
+.ring0:
+        lea     eax, [ebp + 18h]
+        mov     [ebx + BS2REGS.rsp],     eax
+        mov     [ebx + BS2REGS.rsp + 4], ecx
+        mov     [ebx + BS2REGS.ss], ss
+        mov     eax, [ebp - 14h]
+        mov     [ebx + BS2REGS.ds], ax
+        mov     [ebx + BS2REGS.es], es
+        mov     [ebx + BS2REGS.fs], fs
+        mov     [ebx + BS2REGS.gs], gs
+        jmp     .do_crX
+
+.higher_privilege:
+        mov     eax, [ebp + 18h]
+        mov     [ebx + BS2REGS.rsp],     eax
+        mov     [ebx + BS2REGS.rsp + 4], ecx
+        mov     eax, [ebp + 20h]
+        mov     [ebx + BS2REGS.ss], ax
+        mov     eax, [ebp - 14h]
+        mov     [ebx + BS2REGS.ds], ax
+        mov     [ebx + BS2REGS.es], es
+        mov     [ebx + BS2REGS.fs], fs
+        mov     [ebx + BS2REGS.gs], gs
+        jmp     .do_crX
+
+.v86:
+        mov     eax, [ebp + 18h]
+        mov     [ebx + BS2REGS.rsp],     eax
+        mov     [ebx + BS2REGS.rsp + 4], ecx
+        mov     eax, [ebp + 1ch]
+        mov     [ebx + BS2REGS.ss], ax
+        mov     eax, [ebp + 24h]
+        mov     [ebx + BS2REGS.ds], ax
+        mov     eax, [ebp + 20h]
+        mov     [ebx + BS2REGS.es], ax
+        mov     eax, [ebp + 28h]
+        mov     [ebx + BS2REGS.fs], ax
+        mov     eax, [ebp + 2ch]
+        mov     [ebx + BS2REGS.gs], ax
+        ;jmp     .do_crX
+
+.do_crX:
+        ; The CRx registers are only accessible from ring-0 (CS=conforming, CPL < 0)
+        test    byte [ebx + BS2REGS.ss], 3
+        jnz     .skip_crX
+        mov     eax, cr0
+        mov     [ebx + BS2REGS.cr0],     eax
+        mov     [ebx + BS2REGS.cr0 + 4], ecx
+        mov     eax, cr2
+        mov     [ebx + BS2REGS.cr2],     eax
+        mov     [ebx + BS2REGS.cr2 + 4], ecx
+        mov     eax, cr3
+        mov     [ebx + BS2REGS.cr3],     eax
+        mov     [ebx + BS2REGS.cr3 + 4], ecx
+        mov     eax, cr4
+        mov     [ebx + BS2REGS.cr4],     eax
+        mov     [ebx + BS2REGS.cr4 + 4], ecx
+        mov     [ebx + BS2REGS.cr8],     ecx
+        mov     [ebx + BS2REGS.cr8 + 4], ecx
+.skip_crX:
+
+        ;
+        ; Advance to a prepared resume position or panic.
+        ;
+        cmp     byte [g_fTrapPrepared], 0
+        je      .no_resume_pos
+        mov     byte [g_fTrapPrepared], 0
+        mov     eax, [g_TrapResumeRIP]
+        mov     [ebp + 0ch], eax
+
+.resume:
+%ifdef BS2_WITH_XCPT_DB_CLEARING_TF
+        cmp     byte [ebp + 04h], X86_XCPT_DB ; make sure we won't trap again due to a TF.
+        jne     .resume_no_clear_trap_flags
+        and     word [ebp + 14h], ~X86_EFL_TF
+.resume_no_clear_trap_flags:
+%endif
+        pop     ds
+        pop     ecx
+        pop     ebx
+        pop     eax
+        ;popfd
+        leave
+        add     esp, 8h
+        iret
+
+
+.no_resume_pos:
+        ;
+        ; Look for a trap record.
+        ;
+        mov     ecx, [g_cTrapRecs]      ; the number of records.
+        test    ecx, ecx
+        jz      .panic
+        mov     eax, [g_LastTrapRegs + BS2REGS.rip]
+        sub     eax, [g_pTrapRecBase]   ; the offWhere we're looking for.
+        jb      .panic
+
+        ; Look starting at the previous record first.
+        mov     ebx, [g_iTrapRecLast]
+        sub     ecx, ebx
+        jbe     .traprec_loop2          ; g_iTrapRecLast is out of range.
+        shl     ebx, BS2TRAPREC_SIZE_SHIFT
+        add     ebx, [g_paTrapRecs]     ; ebx points to the record we hit last time.
+.traprec_loop1_next:
+        cmp     [ebx + BS2TRAPREC.offWhere], eax
+        je      .traprec_found
+        add     ebx, BS2TRAPREC_size
+        dec     ecx
+        jnz     .traprec_loop1_next
+
+        ; Start searching from the start, stopping at the previous record.
+.traprec_loop2:
+        mov     ecx, [g_iTrapRecLast]
+        or      ecx, ecx
+        jz      .panic                  ; not found.
+        mov     ebx, [g_paTrapRecs]
+.traprec_loop2_next:
+        cmp     [ebx + BS2TRAPREC.offWhere], eax
+        je      .traprec_found
+        add     ebx, BS2TRAPREC_size
+        dec     ecx
+        jnz     .traprec_loop2_next
+        jmp     .panic                  ; not found
+
+.traprec_found:
+        ; Remember the hit for the next trap.
+        mov     eax, ebx
+        sub     eax, [g_paTrapRecs]
+        shr     eax, BS2TRAPREC_SIZE_SHIFT
+        mov     [g_iTrapRecLast], eax
+
+        ;
+        ; Fail the test if we got the wrong trap or error code.
+        ;
+        mov     al, [g_u8LastTrapNo]
+        cmp     al, [ebx + BS2TRAPREC.u8TrapNo]
+        je      .traprec_ok_trap
+        push    eax
+        movzx   eax, byte [ebx + BS2TRAPREC.u8TrapNo]
+        push    eax
+        push    .s_szWrongTrap
+        call    NAME(TestFailedF_p32)
+        add     esp, 12
+
+.traprec_ok_trap:
+        mov     ax, [g_u64LastTrapErr]
+        cmp     ax, [ebx + BS2TRAPREC.u16ErrCd]
+        je      .traprec_ok_err_cd
+        push    eax
+        movzx   eax, word [ebx + BS2TRAPREC.u16ErrCd]
+        push    eax
+        push    .s_szWrongErrCd
+        call    NAME(TestFailedF_p32)
+        add     esp, 12
+
+.traprec_ok_err_cd:
+        ;
+        ; Advance the EIP and resume execution.
+        ;
+        movzx   eax, byte [ebx + BS2TRAPREC.offResumeAddend]
+        add     eax, [g_LastTrapRegs + BS2REGS.rip]
+        mov     [ebp + 0ch], eax
+        jmp     .resume
+
+
+        ;
+        ; Write panic message and then halt.
+        ;
+.panic:
+        push    dword [g_LastTrapRegs + BS2REGS.rflags]
+        push    dword [g_LastTrapRegs + BS2REGS.ss]
+        push    dword [g_LastTrapRegs + BS2REGS.gs]
+        push    dword [g_LastTrapRegs + BS2REGS.fs]
+        push    dword [g_LastTrapRegs + BS2REGS.es]
+        push    dword [g_LastTrapRegs + BS2REGS.ds]
+        push    dword [g_LastTrapRegs + BS2REGS.cs]
+        ; line break
+        push    dword [g_LastTrapRegs + BS2REGS.cr4]
+        push    dword [g_LastTrapRegs + BS2REGS.cr3]
+        push    dword [g_LastTrapRegs + BS2REGS.cr0]
+        push    dword [g_LastTrapRegs + BS2REGS.rbp]
+        push    dword [g_LastTrapRegs + BS2REGS.rsp]
+        push    dword [g_LastTrapRegs + BS2REGS.rip]
+        ; line break
+        push    dword [g_LastTrapRegs + BS2REGS.rdi]
+        push    dword [g_LastTrapRegs + BS2REGS.rsi]
+        push    dword [g_LastTrapRegs + BS2REGS.rdx]
+        push    dword [g_LastTrapRegs + BS2REGS.rcx]
+        push    dword [g_LastTrapRegs + BS2REGS.rbx]
+        push    dword [g_LastTrapRegs + BS2REGS.rax]
+        ; line break
+        mov     eax, [ebp + 08h]
+        push    eax
+        mov     eax, cr2
+        push    eax
+        mov     eax, [ebp + 0ch]
+        push    eax
+        movzx   eax, word [ebp + 10h]
+        push    eax
+        movzx   eax, byte [ebp + 04h]
+        push    eax
+        push    .s_szPanicMsg
+        call    NAME(TestFailedF_p32)
+
+        call    Bs2Panic
+        jmp     .panic                  ; paranoia
+
+.s_szPanicMsg:
+        db 'trap #%RX8 at %RX16:%RX32 cr2=%RX32 err=%RX32', 13, 10
+        db 'eax=%RX32 ebx=%RX32 ecx=%RX32 edx=%RX32 esi=%RX32 edi=%RX32', 13, 10
+        db 'eip=%RX32 esp=%RX32 ebp=%RX32 cr0=%RX32 cr3=%RX32 cr4=%RX32', 13, 10
+        db 'cs=%RX16 ds=%RX16 es=%RX16 fs=%RX16 gs=%RX16 ss=%RX16               eflags=%RX32', 13, 10
+        db 0
+.s_szWrongTrap:
+        db 'Expected trap %RX8 got %RX8', 13, 10, 0
+.s_szWrongErrCd:
+        db 'Expected errcd %RX16 got %RX16', 13, 10, 0
+ENDPROC   bs2Trap_XX_32bit
+
+;;
+; Service IRQ handler, 32-bit version.
+;
+; Takes requests in eax and later maybe parameters in other registers.
+;
+;       return GS                         ebp + 24h - v86
+;       return FS                         ebp + 20h - v86
+;       return DS                         ebp + 1ch - v86
+;       return ES                         ebp + 18h - v86
+;       return SS                         ebp + 14h - higher privilege
+;       return ESP                        ebp + 10h - higher privilege
+;       return EFLAGS                     ebp + 0ch
+;       return CS                         ebp + 08h
+;       return EIP                        ebp + 04h
+BEGINCODELOW
+BEGINPROC bs2TrapService32bit
+        jmp     .highsegment
+BEGINCODEHIGH
+.highsegment:
+        push    ebp                     ; ebp
+        mov     ebp, esp
+        push    eax                     ; ebp - 04h
+        push    edx                     ; ebp - 08h
+        push    ecx                     ; ebp - 0ch
+        push    ebx                     ; ebp - 10h
+        push    ds                      ; ebp - 14h
+
+        mov     dx, ss
+        mov     ds, dx
+
+        ;
+        ; Classify the caller context in cl.
+        ;; @todo What if CS on the stack is conforming?
+        ;
+%define BS2_TRP_SRV_CALLER_SAME_RING    0
+%define BS2_TRP_SRV_CALLER_OTHER_RING   1
+%define BS2_TRP_SRV_CALLER_VM           2
+        test    dword [ebp + 0ch], X86_EFL_VM
+        jnz     .vm_ctx
+
+        mov     cx, ss
+        mov     ch, [ebp + 08h]         ; cs
+        and     cx, 00303h
+        cmp     ch, cl
+        jz      .same_ctx
+        mov     cl, BS2_TRP_SRV_CALLER_OTHER_RING
+        jmp     .done_ctx
+.vm_ctx:
+        mov     cl, BS2_TRP_SRV_CALLER_VM
+        jmp     .done_ctx
+.same_ctx:
+        mov     cl, BS2_TRP_SRV_CALLER_SAME_RING
+.done_ctx:
+
+        ;
+        ; Switch (eax).
+        ;
+        cmp     eax, BS2_SYSCALL_TO_RING3
+        jbe     .to_ringX
+
+        ; Unknown request.
+.failure:
+        mov     eax, -1
+.return:                                ; careful with ebp here!
+        pop     ds
+        pop     ebx
+        pop     ecx
+        pop     edx
+        ;pop     eax
+        leave
+        iretd
+
+        ;
+        ; Switching to the ring specified by eax.
+        ; Annoying that ss:esp isn't always restored.
+        ;
+.to_ringX:
+        cmp     cl, BS2_TRP_SRV_CALLER_VM
+        je      .failure
+        sub     al, BS2_SYSCALL_TO_RING0
+
+        ; Fake missing stack registers if necessary.
+        cmp     cl, BS2_TRP_SRV_CALLER_SAME_RING
+        jnz     .have_stack_regs
+
+        sub     esp, 8h
+        sub     ebp, 8h
+        xor     ebx, ebx
+.move_more:
+        mov     edx, [esp + 8 + ebx]
+        mov     [esp + ebx], edx
+        add     ebx, 4
+        cmp     ebx, 9*4
+        jb      .move_more
+
+        mov     dx, ss
+        mov     [ebp + 14h], edx
+        lea     edx, [ebp + 18h]
+        mov     [ebp + 10h], edx
+
+.have_stack_regs:
+        ; Translate the selector registers
+        mov     dx, [ebp - 14h]
+        call    bs2SRegToRing
+        mov     [ebp - 14h], dx
+
+        mov     dx, es
+        call    bs2SRegToRing
+        mov     es, dx
+
+        mov     dx, fs
+        call    bs2SRegToRing
+        mov     fs, dx
+
+        mov     dx, gs
+        call    bs2SRegToRing
+        mov     gs, dx
+
+        mov     dx, [ebp + 08h]         ; cs
+        call    bs2SRegToRing
+        mov     [ebp + 08h], dx
+
+        mov     dx, [ebp + 14h]         ; ss
+        call    bs2SRegToRing
+        mov     [ebp + 14h], dx
+
+        or      dword [ebp + 0ch], X86_EFL_IOPL ; set IOPL=3
+
+        ; If the desired target is ring-0 we cannot use iret.
+        cmp     al, 0
+        je      .iret_to_ring_with_stack
+
+.done_success:
+        xor     eax, eax
+        jmp     .return
+
+.iret_to_ring_with_stack:
+        ;
+        ; Move the iret-to-same-ring to the desired return position. By also
+        ; moving the saved ebp we make the leave instruction do stack
+        ; adjusting/switching for us.
+        ;
+        cli                             ; paranoia, it's disable already.
+        mov     eax, [ebp + 10h]
+        lea     edx, [ebp + 18h]
+        cmp     eax, edx
+        lea     ecx, [ebp + 08h]        ; same stack, just shifted 8 bytes
+        je      .move_iret_and_ebp
+        mov     ecx, [ebp + 10h]        ; different stack.
+        sub     ecx, 10h
+.move_iret_and_ebp:
+        mov     edx, [ebp + 0ch]
+        mov     eax, [ebp + 08h]
+        mov     [ecx + 0ch], edx
+        mov     [ecx + 08h], eax
+        mov     edx, [ebp + 04h]
+        mov     eax, [ebp + 00h]
+        mov     [ecx + 04h], edx
+        mov     [ecx + 00h], eax
+        mov     ebp, ecx
+        xor     eax, eax
+        jmp     .return
+
+ENDPROC   bs2TrapService32bit
+
+%endif ; BS2_INC_CMN_PM
+
+
+%ifdef BS2_INC_CMN_LM
+;
+; 64-bit TSS (X86TSS64).
+;
+BEGINCODELOW
+ALIGNDATA(16)
+bs2Tss64Bit:
+        dd      0                       ; 00h - u32Reserved - Reserved.
+        dq      BS2_R0_STACK_ADDR       ; 04h - rsp0  - Ring-0 stack pointer. (static)
+        dq      BS2_R1_STACK_ADDR       ; 1ch - rsp1  - Ring-1 stack pointer. (static)
+        dq      BS2_R2_STACK_ADDR       ; 14h - rsp2  - Ring-2 stack pointer. (static)
+        dq      0                       ; 2ch - reserved
+        dq      BS2_DF_R0_STACK_ADDR    ; 24h - ist1;
+        dq      BS2_R0_STACK_ADDR       ; 3ch - ist2;
+        dq      BS2_R0_STACK_ADDR       ; 34h - ist3;
+        dq      BS2_R0_STACK_ADDR       ; 4ch - ist4;
+        dq      BS2_R0_STACK_ADDR       ; 44h - ist5;
+        dq      BS2_R0_STACK_ADDR       ; 5ch - ist6;
+        dq      BS2_R0_STACK_ADDR       ; 54h - ist7;
+        dw      0,0,0,0,0               ; 6ch - reserved
+        dw      0                       ; 76h - offIoBitmap - Offset relative to the TSS of the
+                                        ; 00h - start of the I/O Bitmap and the end of the
+                                        ; 00h - interrupt redirection bitmap.
+bs2Tss64BitEnd:
+times (68h - (bs2Tss64BitEnd - bs2Tss64Bit)) db 0
+times ((bs2Tss64BitEnd - bs2Tss64Bit) - 68h) db 0
+
+;
+; 64-bit IDT (X86DESC64GATE).
+;
+BEGINCODELOW
+ALIGNDATA(16)
+bs2Idt64bit:
+        dw bs2Trap_00h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_01h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_02h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+bs2Idt64bit_BP:
+        dw bs2Trap_03h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_04h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_05h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_06h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_07h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_08h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_09h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_0ah_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_0bh_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_0ch_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_0dh_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_0eh_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_0fh_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_10h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_11h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_12h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_13h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_14h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_15h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_16h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_17h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_18h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_19h_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_1ah_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_1bh_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_1ch_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_1dh_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_1eh_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2Trap_1fh_64bit, BS2_SEL_CS64, 08e00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=0 type=int64gate
+        dw bs2TrapService64bit,BS2_SEL_CS64,0ee00h, 00000h, 0, 0, 0, 0 ; p=1 dpl=3 type=int64gate
+bs2Idt64bitEnd
+
+
+;
+; 64-bit trap handlers.
+;
+BITS 64
+%macro bs2Trap_XX_64bit_macro 1
+BEGINCODELOW
+bs2Trap_ %+ %1 %+ _64bit:
+        push    %1
+        jmp     bs2Trap_XX_64bit
+%endmacro
+%macro bs2Trap_XX_64bit_macro_no_err 1
+bs2Trap_ %+ %1 %+ _64bit:
+        push    0
+        push    %1
+        jmp     bs2Trap_XX_64bit
+%endmacro
+        bs2Trap_XX_64bit_macro_no_err 00h
+        bs2Trap_XX_64bit_macro_no_err 01h
+        bs2Trap_XX_64bit_macro_no_err 02h
+        bs2Trap_XX_64bit_macro_no_err 03h
+        bs2Trap_XX_64bit_macro_no_err 04h
+        bs2Trap_XX_64bit_macro_no_err 05h
+        bs2Trap_XX_64bit_macro_no_err 06h
+        bs2Trap_XX_64bit_macro_no_err 07h
+        bs2Trap_XX_64bit_macro        08h
+        bs2Trap_XX_64bit_macro_no_err 09h
+        bs2Trap_XX_64bit_macro        0ah
+        bs2Trap_XX_64bit_macro        0bh
+        bs2Trap_XX_64bit_macro        0ch
+        bs2Trap_XX_64bit_macro        0dh
+        bs2Trap_XX_64bit_macro        0eh
+        bs2Trap_XX_64bit_macro_no_err 0fh
+        bs2Trap_XX_64bit_macro_no_err 10h
+        bs2Trap_XX_64bit_macro        11h
+        bs2Trap_XX_64bit_macro_no_err 12h
+        bs2Trap_XX_64bit_macro_no_err 13h
+        bs2Trap_XX_64bit_macro_no_err 14h
+        bs2Trap_XX_64bit_macro_no_err 15h
+        bs2Trap_XX_64bit_macro_no_err 16h
+        bs2Trap_XX_64bit_macro_no_err 17h
+        bs2Trap_XX_64bit_macro_no_err 18h
+        bs2Trap_XX_64bit_macro_no_err 19h
+        bs2Trap_XX_64bit_macro_no_err 1ah
+        bs2Trap_XX_64bit_macro_no_err 1bh
+        bs2Trap_XX_64bit_macro_no_err 1ch
+        bs2Trap_XX_64bit_macro_no_err 1dh
+        bs2Trap_XX_64bit_macro_no_err 1eh
+        bs2Trap_XX_64bit_macro_no_err 1fh
+
+;;
+; Common 64-bit trap handler.
+;
+;       return SS                         rbp + 38h
+;       return RSP                        rbp + 30h
+;       return RFLAGS                     rbp + 28h
+;       return CS                         rbp + 20h
+;       return RIP                        rbp + 18h
+;       error code                        rbp + 10h
+;       vector #                          rbp + 08h
+BEGINCODEHIGH
+BEGINPROC bs2Trap_XX_64bit
+        push    rbp                     ; rbp + 00h
+        mov     rbp, rsp
+        pushfq                          ; rbp - 08h
+        push    rax                     ; rbp - 10h
+        push    rbx                     ; rbp - 18h
+
+        ;
+        ; Benchmark mode? Then resume the action right away!
+        ;
+        mov     rax, [rbp + 08h]
+        cmp     [g_u8TrapBenchmarkNo], al
+        jne     .test_mode
+        cmp     byte [g_fTrapPrepared], 0
+        je      .test_mode
+        mov     rax, [g_TrapResumeRIP]
+        mov     [rbp + 18h], rax
+
+        pop     rbx
+        ;pop     rax
+        ;popfq
+        leave
+        add     rsp, 10h                ; Skip the vector # and  error code.
+        xor     rax, rax
+        iretq
+
+        ;
+        ; Save the trap information
+        ;
+.test_mode:
+        inc     dword [g_u32cTraps]
+        mov     rax, [rbp + 08h]
+        mov     [g_u8LastTrapNo], al
+        mov     rax, [rbp + 10h]
+        mov     [g_u64LastTrapErr], rax
+        mov     rax, [rbp - 08h]
+        mov     [g_u64LastTrapHandlerRFlags], rax
+        mov     ax, cs
+        mov     [g_u16LastTrapHandlerCS], ax
+        mov     ax, ss
+        mov     [g_u16LastTrapHandlerSS], ax
+        lea     rax, [rbp + 8]
+        mov     [g_u64LastTrapHandlerRSP], rax
+
+        ; Save the registers.
+        lea     rbx, [g_LastTrapRegs]
+        mov     rax, [rbp - 10h]
+        mov     [rbx + BS2REGS.rax], rax
+        mov     rax, [rbp - 18h]
+        mov     [rbx + BS2REGS.rbx], rax
+        mov     [rbx + BS2REGS.rcx], rcx
+        mov     [rbx + BS2REGS.rdx], rdx
+        mov     [rbx + BS2REGS.rdi], rdi
+        mov     [rbx + BS2REGS.rsi], rsi
+        mov     rax, [rbp]
+        mov     [rbx + BS2REGS.rbp], rax
+        mov     rax, [rbp + 30h]
+        mov     [rbx + BS2REGS.rsp], rax
+        mov     rax, [rbp + 18h]
+        mov     [rbx + BS2REGS.rip], rax
+        mov     [rbx + BS2REGS.r8],  r8
+        mov     [rbx + BS2REGS.r9],  r9
+        mov     [rbx + BS2REGS.r10], r10
+        mov     [rbx + BS2REGS.r11], r11
+        mov     [rbx + BS2REGS.r12], r12
+        mov     [rbx + BS2REGS.r13], r13
+        mov     [rbx + BS2REGS.r14], r14
+        mov     [rbx + BS2REGS.r15], r15
+        mov     rax, [rbp + 28h]
+        mov     [rbx + BS2REGS.rflags], rax
+        mov     rax, [rbp + 20h]
+        mov     [rbx + BS2REGS.cs], ax
+        mov     [rbx + BS2REGS.ds], ds
+        mov     [rbx + BS2REGS.es], es
+        mov     [rbx + BS2REGS.fs], fs
+        mov     [rbx + BS2REGS.gs], gs
+        mov     rax, [rbp + 38h]
+        mov     [rbx + BS2REGS.ss], ax
+        mov     [rbx + BS2REGS.cBits], byte 64
+
+        ; The CRx registers are only accessible from ring-0 (CS=conforming, CPL < 0)
+        test    byte [rbx + BS2REGS.ss], 3
+        jnz     .skip_crX
+        mov     rax, cr0
+        mov     [rbx + BS2REGS.cr0], rax
+        mov     rax, cr2
+        mov     [rbx + BS2REGS.cr2], rax
+        mov     rax, cr3
+        mov     [rbx + BS2REGS.cr3], rax
+        mov     rax, cr4
+        mov     [rbx + BS2REGS.cr4], rax
+        mov     rax, cr8
+        mov     [rbx + BS2REGS.cr8], rax
+.skip_crX:
+
+        ;
+        ; Advance to a prepared resume position or panic.
+        ;
+        cmp     byte [g_fTrapPrepared], 0
+        je      .no_resume_pos
+        mov     byte [g_fTrapPrepared], 0
+        mov     rax, [g_TrapResumeRIP]
+        mov     [rbp + 18h], rax
+        jmp     .resume
+
+.resume:
+%ifdef BS2_WITH_XCPT_DB_CLEARING_TF
+        cmp     byte [rbp + 08h], X86_XCPT_DB ; make sure we won't trap again due to a TF.
+        jne     .resume_no_clear_trap_flags
+        and     word [rbp + 28h], ~X86_EFL_TF
+.resume_no_clear_trap_flags:
+%endif
+        pop     rbx
+        pop     rax
+        ;popfq
+        leave
+        add     rsp, 10h
+        iretq
+
+
+.no_resume_pos:
+        ;
+        ; Look for a trap record.
+        ;
+        push    rcx
+
+        mov     ecx, [g_cTrapRecs]      ; the number of records.
+        test    ecx, ecx
+        jz      .panic
+        mov     rax, [g_LastTrapRegs + BS2REGS.rip]
+        sub     rax, [g_pTrapRecBase]   ; the offWhere we're looking for.
+        jb      .panic
+        mov     rbx, _4G
+        cmp     rax, rbx
+        jae     .panic                  ; out of range.
+
+        ; Look starting at the previous record first.
+        mov     ebx, [g_iTrapRecLast]
+        sub     ecx, ebx
+        jbe     .traprec_loop2          ; g_iTrapRecLast is out of range.
+        shl     rbx, BS2TRAPREC_SIZE_SHIFT
+        add     rbx, [g_paTrapRecs]     ; ebx points to the record we hit last time.
+.traprec_loop1_next:
+        cmp     [rbx + BS2TRAPREC.offWhere], eax
+        je      .traprec_found
+        add     rbx, BS2TRAPREC_size
+        dec     ecx
+        jnz     .traprec_loop1_next
+
+        ; Start searching from the start, stopping at the previous record.
+.traprec_loop2:
+        mov     ecx, [g_iTrapRecLast]
+        or      ecx, ecx
+        jz      .panic                  ; not found.
+        mov     rbx, [g_paTrapRecs]
+.traprec_loop2_next:
+        cmp     [rbx + BS2TRAPREC.offWhere], eax
+        je      .traprec_found
+        add     rbx, BS2TRAPREC_size
+        dec     ecx
+        jnz     .traprec_loop2_next
+        jmp     .panic                  ; not found
+
+.traprec_found:
+        ; Remember the hit for the next trap.
+        mov     rax, rbx
+        sub     rax, [g_paTrapRecs]
+        shr     rax, BS2TRAPREC_SIZE_SHIFT
+        mov     [g_iTrapRecLast], eax
+
+        ;
+        ; Fail the test if we got the wrong trap or error code.
+        ;
+        mov     al, [g_u8LastTrapNo wrt rip]
+        cmp     al, [rbx + BS2TRAPREC.u8TrapNo]
+        je      .traprec_ok_trap
+        push    rax
+        movzx   rax, byte [rbx + BS2TRAPREC.u8TrapNo]
+        push    rax
+        push    .s_szWrongTrap
+        call    NAME(TestFailedF_p64)
+        add     rsp, 24
+
+.traprec_ok_trap:
+        mov     ax, [g_u64LastTrapErr wrt rip]
+        cmp     ax, [rbx + BS2TRAPREC.u16ErrCd]
+        je      .traprec_ok_err_cd
+        push    rax
+        movzx   rax, word [rbx + BS2TRAPREC.u16ErrCd]
+        push    rax
+        push    .s_szWrongErrCd
+        call    NAME(TestFailedF_p64)
+        add     rsp, 24
+
+.traprec_ok_err_cd:
+        ;
+        ; Advance the EIP and resume execution.
+        ;
+        movzx   rax, byte [rbx + BS2TRAPREC.offResumeAddend]
+        add     rax, [g_LastTrapRegs + BS2REGS.rip]
+        mov     [rbp + 18h], rax
+
+        pop     rcx
+        jmp     .resume
+
+
+        ;
+        ; Format a panic message and halt.
+        ;
+.panic:
+        lea     rbx, [g_LastTrapRegs]
+        ; line break
+        movzx   eax, word [rbx + BS2REGS.ss]
+        push    rax
+        movzx   eax, word [rbx + BS2REGS.gs]
+        push    rax
+        movzx   eax, word [rbx + BS2REGS.fs]
+        push    rax
+        movzx   eax, word [rbx + BS2REGS.es]
+        push    rax
+        movzx   eax, word [rbx + BS2REGS.ds]
+        push    rax
+        movzx   eax, word [rbx + BS2REGS.cs]
+        push    rax
+        ; line break
+        push    qword [rbx + BS2REGS.rbp]
+        push    qword [rbx + BS2REGS.rsp]
+        push    qword [rbx + BS2REGS.rip]
+        ; line break
+        push    qword [rbx + BS2REGS.rflags]
+        push    qword [rbx + BS2REGS.r15]
+        push    qword [rbx + BS2REGS.r14]
+        ; line break
+        push    qword [rbx + BS2REGS.r13]
+        push    qword [rbx + BS2REGS.r12]
+        push    qword [rbx + BS2REGS.r11]
+        ; line break
+        push    qword [rbx + BS2REGS.r10]
+        push    qword [rbx + BS2REGS.r9]
+        push    qword [rbx + BS2REGS.r8]
+        ; line break
+        push    qword [rbx + BS2REGS.rdi]
+        push    qword [rbx + BS2REGS.rsi]
+        push    qword [rbx + BS2REGS.rdx]
+        ; line break
+        push    qword [rbx + BS2REGS.rcx]
+        push    qword [rbx + BS2REGS.rbx]
+        push    qword [rbx + BS2REGS.rax]
+        ; line break
+        mov     eax, [rbx + BS2REGS.cr8]
+        push    rax
+        mov     eax, [rbx + BS2REGS.cr4]
+        push    rax
+        mov     eax, [rbx + BS2REGS.cr3]
+        push    rax
+        mov     eax, [rbx + BS2REGS.cr0]
+        push    rax
+        ; line break
+        push    qword [rbp + 10h]
+        push    qword [rbx + BS2REGS.cr2]
+        push    qword [rbx + BS2REGS.rip]
+        movzx   eax, word [rbp + BS2REGS.ss]
+        push    rax
+        movzx   eax, byte [rbp + 08h]
+        push    rax
+        push    .s_szPanicMsg
+        call    NAME(TestFailedF_p64)
+
+        call    Bs2Panic
+        jmp     .panic                  ; paranoia
+
+.s_szPanicMsg:
+        db      'trap #%RX8 at %RX16:%RX64 cr2=%RX64 err=%RX64', 13, 10
+        db      'cr0=%RX64 cr3=%RX64 cr4=%RX64 cr8=%RX16', 13, 10
+        db      'rax=%RX64 rbx=%RX64 rcx=%RX64', 13, 10
+        db      'rdx=%RX64 rsi=%RX64 rdi=%RX64', 13, 10
+        db      'r8 =%RX64 r9 =%RX64 r10=%RX64', 13, 10
+        db      'r11=%RX64 r12=%RX64 r13=%RX64', 13, 10
+        db      'r14=%RX64 r15=%RX64 rfl=%RX64', 13, 10
+        db      'rip=%RX64 rsp=%RX64 rbp=%RX64 ', 13, 10
+        db      'cs=%RX16 ds=%RX16 es=%RX16 fs=%RX16 gs=%RX16 ss=%RX16', 13, 10
+        db      0
+.s_szWrongTrap:
+        db 'Expected trap %RX8 got %RX8', 13, 10, 0
+.s_szWrongErrCd:
+        db 'Expected errcd %RX16 got %RX16', 13, 10, 0
+ENDPROC   bs2Trap_XX_64bit
+
+
+;;
+; Service IRQ handler.
+;
+; Takes requests in eax and later maybe parameters in other registers.
+;
+;       return SS                         rbp + 28h
+;       return RSP                        rbp + 20h
+;       return RFLAGS                     rbp + 18h
+;       return CS                         rbp + 10h
+;       return RIP                        rbp + 08h
+BEGINCODELOW
+BEGINPROC bs2TrapService64bit
+        jmp     .highsegment
+BEGINCODEHIGH
+.highsegment:
+        push    rbp
+        mov     rbp, rsp
+        push    rax
+        push    rdx
+        push    rcx
+
+
+        ;
+        ; Switch (eax).
+        ;
+        cmp     eax, BS2_SYSCALL_TO_RING3
+        jbe     .to_ringX
+
+        ; Unknown request.
+        mov     rax, -1
+.return:
+        pop     rcx
+        pop     rdx
+        ;pop     rax
+        leave
+        iretq
+
+        ;
+        ; Switching to the ring specified by eax.
+        ;
+.to_ringX:
+        sub     eax, BS2_SYSCALL_TO_RING0 ; al = new ring number.
+
+        mov     dx, ds
+        call    bs2SRegToRing
+        mov     ds, dx
+
+        mov     dx, es
+        call    bs2SRegToRing
+        mov     es, dx
+
+        mov     dx, fs
+        call    bs2SRegToRing
+        mov     fs, dx
+
+        mov     dx, gs
+        call    bs2SRegToRing
+        mov     gs, dx
+
+        mov     dx, [rbp + 10h]         ; cs
+        call    bs2SRegToRing
+        mov     [rbp + 10h], dx
+
+        mov     dx, [rbp + 28h]         ; ss
+        call    bs2SRegToRing
+        mov     [rbp + 28h], dx
+
+        or      dword [ebp + 18h], X86_EFL_IOPL ; set IOPL=3
+
+        jmp     .done_success
+
+.done_success:
+        xor     eax, eax
+        jmp     .return
+
+ENDPROC   bs2TrapService64bit
+
+%endif ; BS2_INC_CMN_LM
+
+
+;;
+; Converts a segment value (dx) to the ring specified by al.
+;
+; If the selector isn't a known CS, DS or SS selector it will be set to null.
+;
+; @returns      dx
+; @param        al              The desired ring.
+; @param        dx              The segment to convert.
+;
+; @remarks  WARNING! This has to work exactly the same both in 32-bit and 64-bit mode.
+;
+BEGINCODEHIGH
+BITS 32
+BEGINPROC bs2SRegToRing
+        ;
+        ; Classify the incoming selector.
+        ;
+        cmp     dx, BS2_SEL_R0_BASE
+        jb      .null
+        cmp     dx, BS2_SEL_R0_BASE + BS2_SEL_GRP_SIZE
+        jb      .ring0
+
+        cmp     dx, BS2_SEL_R1_BASE
+        jb      .miss
+        cmp     dx, BS2_SEL_R1_BASE + BS2_SEL_GRP_SIZE
+        jb      .ring1
+
+        cmp     dx, BS2_SEL_R2_BASE
+        jb      .miss
+        cmp     dx, BS2_SEL_R2_BASE + BS2_SEL_GRP_SIZE
+        jb      .ring2
+
+        cmp     dx, BS2_SEL_R3_BASE
+        jb      .miss
+        cmp     dx, BS2_SEL_R3_BASE + BS2_SEL_GRP_SIZE
+        jb      .ring3
+        jmp     .miss
+
+        ;
+        ; Convert the incoming selector to ring-0 and then from ring-0 to the
+        ; desired one.
+        ;
+.ring0:
+        cmp     al, 0
+        je      .done
+
+        add     dx, BS2_SEL_R1_BASE - BS2_SEL_R0_BASE
+        cmp     al, 1
+        je      .done
+
+        add     dx, BS2_SEL_R2_BASE - BS2_SEL_R1_BASE
+        cmp     al, 2
+        je      .done
+
+        add     dx, BS2_SEL_R3_BASE - BS2_SEL_R2_BASE
+        cmp     al, 3
+        je      .done
+.panic:
+        hlt
+        jmp     .panic
+
+.ring1:
+        sub     dx, BS2_SEL_R1_BASE - BS2_SEL_R0_BASE
+        jmp     .ring0
+.ring2:
+        sub     dx, BS2_SEL_R2_BASE - BS2_SEL_R0_BASE
+        jmp     .ring0
+.ring3:
+        sub     dx, BS2_SEL_R3_BASE - BS2_SEL_R0_BASE
+        jmp     .ring0
+
+.done:
+        and     dl, ~3h
+        or      dl, al                  ; set the RPL
+        ret
+
+.miss:
+.null:
+        xor     dx, dx
+        ret
+ENDPROC   bs2SRegToRing
+
+BEGINCODELOW
+

@@ -1,0 +1,962 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<chapter id="TechnicalBackground">
+
+  <title>Technical Background</title>
+
+  <para>
+    This chapter provides additional information for readers who are
+    familiar with computer architecture and technology and wish to find
+    out more about how &product-name; works <emphasis>under the
+    hood</emphasis>. The contents of this chapter are not required
+    reading in order to use &product-name; successfully.
+  </para>
+
+  <sect1 id="vboxconfigdata">
+
+    <title>Where &product-name; Stores its Files</title>
+
+    <para>
+      In &product-name;, a virtual machine and its settings are
+      described in a virtual machine settings file in XML format. In
+      addition, most virtual machines have one or more virtual hard
+      disks. These are typically represented by disk images, such as
+      those in VDI format. The location of these files may vary,
+      depending on the host operating system. See
+      <xref linkend="vboxconfigdata-machine-folder"/>.
+    </para>
+
+    <para>
+      Global configuration data for &product-name; is maintained in
+      another location on the host. See
+      <xref linkend="vboxconfigdata-global"/>.
+    </para>
+
+    <sect2 id="vboxconfigdata-machine-folder">
+
+      <title>The Machine Folder</title>
+
+      <para>
+        By default, each virtual machine has a directory on your host
+        computer where all the files of that machine are stored: the XML
+        settings file, with a <filename>.vbox</filename> file extension,
+        and its disk images. This is called the <emphasis>machine
+        folder</emphasis>.
+      </para>
+
+      <para>
+        By default, this machine folder is located in a common folder
+        called <filename>VirtualBox VMs</filename>, which &product-name;
+        creates in the current system user's home directory. The
+        location of this home directory depends on the conventions of
+        the host operating system, as follows:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            On Windows, this is the location returned by the
+            <literal>SHGetFolderPath</literal> function of the Windows
+            system library Shell32.dll, asking for the user profile. A
+            typical location is
+            <filename>C:\Users\<replaceable>username</replaceable></filename>.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            On Linux, macOS, and Oracle Solaris, this is generally
+            taken from the environment variable
+            <filename>$HOME</filename>, except for the user
+            <literal>root</literal> where it is taken from the account
+            database. This is a workaround for the frequent trouble
+            caused by users using &product-name; in combination with the
+            tool <command>sudo</command>, which by default does not
+            reset the environment variable <filename>$HOME</filename>.
+          </para>
+
+          <para>
+            A typical location on Linux and Oracle Solaris is
+            <filename>/home/<replaceable>username</replaceable></filename>
+            and on macOS is
+            <filename>/Users/<replaceable>username</replaceable></filename>.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        For simplicity, we abbreviate the location of the home directory
+        as <filename>$HOME</filename>. Using that convention, the common
+        folder for all virtual machines is <filename>$HOME/VirtualBox
+        VMs</filename>.
+      </para>
+
+      <para>
+        As an example, when you create a virtual machine called "Example
+        VM", &product-name; creates the following:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            A machine folder: <filename>$HOME/VirtualBox VMs/Example
+            VM/</filename>
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            In the machine folder, a settings file: <filename>Example
+            VM.vbox</filename>
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            In the machine folder, a virtual disk image:
+            <filename>Example VM.vdi</filename>.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        This is the default layout if you use the
+        <emphasis role="bold">Create New Virtual Machine</emphasis>
+        wizard described in <xref linkend="create-vm-wizard" />. Once you
+        start working with the VM, additional files are added. Log files
+        are in a subfolder called <filename>Logs</filename>, and if you
+        have taken snapshots, they are in a
+        <filename>Snapshots</filename> subfolder. For each VM, you can
+        change the location of its snapshots folder in the VM settings.
+      </para>
+
+      <para>
+        You can change the default machine folder by selecting
+        <emphasis role="bold">Preferences</emphasis> from the
+        <emphasis role="bold">File</emphasis> menu in the &product-name;
+        main window. Then, in the displayed window, click on the
+        <emphasis role="bold">General</emphasis> tab. Alternatively, use
+        the <command>VBoxManage setproperty machinefolder</command>
+        command. See <xref linkend="vboxmanage-setproperty" />.
+      </para>
+
+    </sect2>
+
+    <sect2 id="vboxconfigdata-global">
+
+      <title>Global Settings</title>
+
+      <para>
+        In addition to the files for the virtual machines,
+        &product-name; maintains global configuration data in the
+        following directory:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Linux and Oracle Solaris:</emphasis>
+            <filename>$HOME/.config/VirtualBox</filename>.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Windows:</emphasis>
+            <filename>$HOME/.VirtualBox</filename>.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">macOS:</emphasis>
+            <filename>$HOME/Library/VirtualBox</filename>.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        &product-name; creates this configuration directory
+        automatically, if necessary. You can specify an alternate
+        configuration directory by either setting the
+        <literal>VBOX_USER_HOME</literal> environment variable, or on
+        Linux or Oracle Solaris by using the standard
+        <literal>XDG_CONFIG_HOME</literal> variable. Since the global
+        <filename>VirtualBox.xml</filename> settings file points to all
+        other configuration files, this enables switching between
+        several &product-name; configurations.
+      </para>
+
+      <para>
+        In this configuration directory, &product-name; stores its
+        global settings file, an XML file called
+        <filename>VirtualBox.xml</filename>. This file includes global
+        configuration options and a list of registered virtual machines
+        with pointers to their XML settings files.
+      </para>
+
+    </sect2>
+
+    <sect2 id="vboxconfigdata-summary-locations">
+
+      <title>Summary of Configuration Data Locations</title>
+
+      <para>
+        The following table gives a brief overview of the configuration
+        data locations on an &product-name; host.
+      </para>
+
+      <table id="table-config-summary" tabstyle="oracle-all">
+        <title>Configuration File Locations</title>
+        <tgroup cols="2">
+          <thead>
+            <row>
+              <entry><para>
+                  <emphasis role="bold">Setting</emphasis>
+                </para></entry>
+              <entry><para>
+                  <emphasis role="bold">Location</emphasis>
+                </para></entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><para>
+                  Default machines folder
+                </para></entry>
+              <entry><para>
+                  <filename>$HOME/VirtualBox VMs</filename>
+                </para></entry>
+            </row>
+            <row>
+              <entry><para>
+                  Default disk image location
+                </para></entry>
+              <entry><para>
+                  In each machine's folder
+                </para></entry>
+            </row>
+            <row>
+              <entry><para>
+                  Machine settings file extension
+                </para></entry>
+              <entry><para>
+                  <filename>.vbox</filename>
+                </para></entry>
+            </row>
+            <row>
+              <entry><para>
+                  Media registry
+                </para></entry>
+              <entry><para>
+                  Each machine settings file
+                </para>
+
+
+
+                <para>
+                  Media registration is done automatically when a
+                  storage medium is attached to a VM
+                </para></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+    </sect2>
+
+    <sect2 id="vboxconfigdata-XML-files">
+
+      <title>&product-name; XML Files</title>
+
+      <para>
+        &product-name; uses XML for both the machine settings files and
+        the global configuration file,
+        <filename>VirtualBox.xml</filename>.
+      </para>
+
+      <para>
+        All &product-name; XML files are versioned. When a new settings
+        file is created, for example because a new virtual machine is
+        created, &product-name; automatically uses the settings format
+        of the current &product-name; version. These files may not be
+        readable if you downgrade to an earlier version of
+        &product-name;. However, when &product-name; encounters a
+        settings file from an earlier version, such as after upgrading
+        &product-name;, it attempts to preserve the settings format as
+        much as possible. It will only silently upgrade the settings
+        format if the current settings cannot be expressed in the old
+        format, for example because you enabled a feature that was not
+        present in an earlier version of &product-name;.
+      </para>
+
+      <para>
+        In such cases, &product-name; backs up the old settings file in
+        the virtual machine's configuration directory. If you need to go
+        back to the earlier version of &product-name;, then you will
+        need to manually copy these backup files back.
+      </para>
+
+      <para>
+        We intentionally do not document the specifications of the
+        &product-name; XML files, as we must reserve the right to modify
+        them in the future. We therefore strongly suggest that you do
+        not edit these files manually. &product-name; provides complete
+        access to its configuration data through its the
+        <command>VBoxManage</command> command line tool, see
+        <xref linkend="vboxmanage" /> and its API, see
+        <xref linkend="VirtualBoxAPI" />.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="technical-components">
+
+    <title>&product-name; Executables and Components</title>
+
+    <para>
+      &product-name; was designed to be modular and flexible. When the
+      &product-name; graphical user interface (GUI) is opened and a VM
+      is started, at least the following three processes are running:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          <command>VBoxSVC</command>, the &product-name; service process
+          which always runs in the background. This process is started
+          automatically by the first &product-name; client process and
+          exits a short time after the last client exits. The first
+          &product-name; service can be &vbox-mgr;,
+          <command>VBoxManage</command>,
+          <command>VBoxHeadless</command>, the web service amongst
+          others. The service is responsible for bookkeeping,
+          maintaining the state of all VMs, and for providing
+          communication between &product-name; components. This
+          communication is implemented using COM/XPCOM.
+        </para>
+
+        <note>
+          <para>
+            When we refer to <emphasis>clients</emphasis> here, we mean
+            the local clients of a particular <command>VBoxSVC</command>
+            server process, not clients in a network. &product-name;
+            employs its own client/server design to allow its processes
+            to cooperate, but all these processes run under the same
+            user account on the host operating system, and this is
+            totally transparent to the user.
+          </para>
+        </note>
+      </listitem>
+
+      <listitem>
+        <para>
+          The GUI process, <command>VirtualBoxVM</command>, a client
+          application based on the cross-platform Qt library. When
+          started without the <option>--startvm</option> option, this
+          application acts as &vbox-mgr;, displaying the VMs and their
+          settings. It then communicates settings and state changes to
+          <command>VBoxSVC</command> and also reflects changes effected
+          through other means, such as the <command>VBoxManage</command>
+          command.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          If the <command>VirtualBoxVM</command> client application is
+          started with the <option>--startvm</option> argument, it loads
+          the VMM library which includes the actual hypervisor and then
+          runs a virtual machine and provides the input and output for
+          the guest.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      Any &product-name; front-end, or client, will communicate with the
+      service process and can both control and reflect the current
+      state. For example, either the VM selector or the VM window or
+      VBoxManage can be used to pause the running VM, and other
+      components will always reflect the changed state.
+    </para>
+
+    <para>
+      The &product-name; GUI application, called &vbox-mgr;, is only one
+      of several available front ends, or clients. The complete list
+      shipped with &product-name; is as follows:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          <command>VirtualBoxVM</command>: The Qt front end implementing
+          &vbox-mgr; and running VMs.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <command>VBoxManage</command>: A less user-friendly but more
+          powerful alternative. See <xref linkend="vboxmanage" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <command>VBoxHeadless</command>: A VM front end which does not
+          directly provide any video output and keyboard or mouse input,
+          but enables redirection through the VirtualBox Remote Desktop
+          Extension. See <xref linkend="vboxheadless" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <command>vboxwebsrv</command>: The &product-name; web service
+          process which enables control of an &product-name; host
+          remotely. This is described in detail in the &product-name;
+          Software Development Kit (SDK) reference. See
+          <xref linkend="VirtualBoxAPI" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          The &product-name; Python shell: A Python alternative to
+          <command>VBoxManage</command>. This is also described in the
+          SDK reference.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      Internally, &product-name; consists of many more or less separate
+      components. You may encounter these when analyzing &product-name;
+      internal error messages or log files. These include the following:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          IPRT: A portable runtime library which abstracts file access,
+          threading, and string manipulation. Whenever &product-name;
+          accesses host operating features, it does so through this
+          library for cross-platform portability.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          VMM (Virtual Machine Monitor): The heart of the hypervisor.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          EM (Execution Manager): Controls execution of guest code.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          TRPM (Trap Manager): Intercepts and processes guest traps and
+          exceptions.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          HM (Hardware Acceleration Manager): Provides support for VT-x
+          and AMD-V.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          GIM (Guest Interface Manager): Provides support for various
+          paravirtualization interfaces to the guest.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          PDM (Pluggable Device Manager): An abstract interface between
+          the VMM and emulated devices which separates device
+          implementations from VMM internals and makes it easy to add
+          new emulated devices. Through PDM, third-party developers can
+          add new virtual devices to &product-name; without having to
+          change &product-name; itself.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          PGM (Page Manager): A component that controls guest paging.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          TM (Time Manager): Handles timers and all aspects of time
+          inside guests.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          CFGM (Configuration Manager): Provides a tree structure which
+          holds configuration settings for the VM and all emulated
+          devices.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          SSM (Saved State Manager): Saves and loads VM state.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          VUSB (Virtual USB): A USB layer which separates emulated USB
+          controllers from the controllers on the host and from USB
+          devices. This component also enables remote USB.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          DBGF (Debug Facility): A built-in VM debugger.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          &product-name; emulates a number of devices to provide the
+          hardware environment that various guests need. Most of these
+          are standard devices found in many PC compatible machines and
+          widely supported by guest operating systems. For network and
+          storage devices in particular, there are several options for
+          the emulated devices to access the underlying hardware. These
+          devices are managed by PDM.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Guest Additions for various guest operating systems. This is
+          code that is installed from within a virtual machine. See
+          <xref linkend="guestadditions" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          The "Main" component is special. It ties all the above bits
+          together and is the only public API that &product-name;
+          provides. All the client processes listed above use only this
+          API and never access the hypervisor components directly. As a
+          result, third-party applications that use the &product-name;
+          Main API can rely on the fact that it is always well-tested
+          and that all capabilities of &product-name; are fully exposed.
+          It is this API that is described in the &product-name; SDK.
+          See <xref linkend="VirtualBoxAPI" />.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+  </sect1>
+
+  <sect1 id="hwvirt">
+
+    <title>Hardware Virtualization</title>
+
+    <para>
+      &product-name; enables software in the virtual machine to run
+      directly on the processor of the host, but an array of complex
+      techniques is employed to intercept operations that would
+      interfere with your host. Whenever the guest attempts to do
+      something that could be harmful to your computer and its data,
+      &product-name; steps in and takes action. In particular, for lots
+      of hardware that the guest believes to be accessing,
+      &product-name; simulates a certain <emphasis>virtual</emphasis>
+      environment according to how you have configured a virtual
+      machine. For example, when the guest attempts to access a hard
+      disk, &product-name; redirects these requests to whatever you have
+      configured to be the virtual machine's virtual hard disk. This is
+      normally an image file on your host.
+    </para>
+
+    <para>
+      Unfortunately, the x86 platform was never designed to be
+      virtualized. Detecting situations in which &product-name; needs to
+      take control over the guest code that is executing, as described
+      above, is difficult. To achieve this, &product-name; uses
+      <emphasis>hardware virtualization</emphasis>.
+    </para>
+
+    <para>
+      Intel and AMD processors have support for hardware virtualization.
+      This means that these processors can help &product-name; to
+      intercept potentially dangerous operations that a guest operating
+      system may be attempting and also makes it easier to present
+      virtual hardware to a virtual machine.
+    </para>
+
+    <para>
+      These hardware features differ between Intel and AMD processors.
+      Intel named its technology VT-x, AMD calls theirs AMD-V. The Intel
+      and AMD support for virtualization is very different in detail,
+      but not very different in principle.
+    </para>
+
+    <note>
+      <para>
+        On many systems, the hardware virtualization features first need
+        to be enabled in the BIOS before &product-name; can use them.
+      </para>
+    </note>
+
+    <para>
+      Enabling hardware virtualization is <emphasis>required</emphasis>
+      in the following scenarios:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          Certain rare guest operating systems like OS/2 make use of
+          very esoteric processor instructions. For virtual machines
+          that are configured to use such an operating system, hardware
+          virtualization is enabled automatically.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          &product-name;'s 64-bit guest and multiprocessing (SMP)
+          support both require hardware virtualization to be enabled.
+          This is not much of a limitation since the vast majority of
+          64-bit and multicore CPUs ship with hardware virtualization.
+          The exceptions to this rule are some legacy Intel and AMD
+          CPUs.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <warning>
+      <para>
+        Do not run other hypervisors, either open source or commercial
+        virtualization products, together with &product-name;. While
+        several hypervisors can normally be
+        <emphasis>installed</emphasis> in parallel, do not attempt to
+        <emphasis>run</emphasis> several virtual machines from competing
+        hypervisors at the same time. &product-name; cannot track what
+        another hypervisor is currently attempting to do on the same
+        host, and especially if several products attempt to use hardware
+        virtualization features such as VT-x, this can crash the entire
+        host.
+      </para>
+    </warning>
+
+    <para>
+      See <xref linkend="hwvirt-details"/> for a technical discussion of
+      hardware virtualization.
+    </para>
+
+  </sect1>
+
+  <sect1 id="hwvirt-details">
+
+    <title>Details About Hardware Virtualization</title>
+
+    <para>
+      With Intel VT-x, there are two distinct modes of CPU operation:
+      VMX root mode and non-root mode.
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          In root mode, the CPU operates much like older generations of
+          processors without VT-x support. There are four privilege
+          levels, called rings, and the same instruction set is
+          supported, with the addition of several virtualization
+          specific instruction. Root mode is what a host operating
+          system without virtualization uses, and it is also used by a
+          hypervisor when virtualization is active.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          In non-root mode, CPU operation is significantly different.
+          There are still four privilege rings and the same instruction
+          set, but a new structure called VMCS (Virtual Machine Control
+          Structure) now controls the CPU operation and determines how
+          certain instructions behave. Non-root mode is where guest
+          systems run.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      Switching from root mode to non-root mode is called "VM entry",
+      the switch back is "VM exit". The VMCS includes a guest and host
+      state area which is saved/restored at VM entry and exit. Most
+      importantly, the VMCS controls which guest operations will cause
+      VM exits.
+    </para>
+
+    <para>
+      The VMCS provides fairly fine-grained control over what the guests
+      can and cannot do. For example, a hypervisor can allow a guest to
+      write certain bits in shadowed control registers, but not others.
+      This enables efficient virtualization in cases where guests can be
+      allowed to write control bits without disrupting the hypervisor,
+      while preventing them from altering control bits over which the
+      hypervisor needs to retain full control. The VMCS also provides
+      control over interrupt delivery and exceptions.
+    </para>
+
+    <para>
+      Whenever an instruction or event causes a VM exit, the VMCS
+      contains information about the exit reason, often with
+      accompanying detail. For example, if a write to the CR0 register
+      causes an exit, the offending instruction is recorded, along with
+      the fact that a write access to a control register caused the
+      exit, and information about source and destination register. Thus
+      the hypervisor can efficiently handle the condition without
+      needing advanced techniques such as CSAM and PATM described above.
+    </para>
+
+    <para>
+      VT-x inherently avoids several of the problems which software
+      virtualization faces. The guest has its own completely separate
+      address space not shared with the hypervisor, which eliminates
+      potential clashes. Additionally, guest OS kernel code runs at
+      privilege ring 0 in VMX non-root mode, obviating the problems by
+      running ring 0 code at less privileged levels. For example the
+      SYSENTER instruction can transition to ring 0 without causing
+      problems. Naturally, even at ring 0 in VMX non-root mode, any I/O
+      access by guest code still causes a VM exit, allowing for device
+      emulation.
+    </para>
+
+    <para>
+      The biggest difference between VT-x and AMD-V is that AMD-V
+      provides a more complete virtualization environment. VT-x requires
+      the VMX non-root code to run with paging enabled, which precludes
+      hardware virtualization of real-mode code and non-paged
+      protected-mode software. This typically only includes firmware and
+      OS loaders, but nevertheless complicates VT-x hypervisor
+      implementation. AMD-V does not have this restriction.
+    </para>
+
+    <para>
+      Of course hardware virtualization is not perfect. Compared to
+      software virtualization, the overhead of VM exits is relatively
+      high. This causes problems for devices whose emulation requires
+      high number of traps. One example is a VGA device in 16-color
+      mode, where not only every I/O port access but also every access
+      to the framebuffer memory must be trapped.
+    </para>
+
+  </sect1>
+
+  <sect1 id="gimproviders">
+
+    <title>Paravirtualization Providers</title>
+
+    <para>
+      &product-name; enables the exposure of a paravirtualization
+      interface, to facilitate accurate and efficient execution of
+      software within a virtual machine. These interfaces require the
+      guest operating system to recognize their presence and make use of
+      them in order to leverage the benefits of communicating with the
+      &product-name; hypervisor.
+    </para>
+
+    <para>
+      Most modern, mainstream guest operating systems, including Windows
+      and Linux, ship with support for one or more paravirtualization
+      interfaces. Hence, there is typically no need to install
+      additional software in the guest to take advantage of this
+      feature.
+    </para>
+
+    <para>
+      Exposing a paravirtualization provider to the guest operating
+      system does not rely on the choice of host platforms. For example,
+      the <emphasis>Hyper-V</emphasis> paravirtualization provider can
+      be used for VMs to run on any host platform supported by
+      &product-name; and not just Windows.
+    </para>
+
+    <para>
+      &product-name; provides the following interfaces:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Minimal</emphasis>: Announces the
+          presence of a virtualized environment. Additionally, reports
+          the TSC and APIC frequency to the guest operating system. This
+          provider is mandatory for running any Mac OS X guests.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">KVM</emphasis>: Presents a Linux KVM
+          hypervisor interface which is recognized by Linux kernels
+          version 2.6.25 or later. &product-name;'s implementation
+          currently supports paravirtualized clocks and SMP spinlocks.
+          This provider is recommended for Linux guests.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Hyper-V</emphasis>: Presents a Microsoft
+          Hyper-V hypervisor interface which is recognized by Windows 7
+          and newer operating systems. &product-name;'s implementation
+          currently supports paravirtualized clocks, APIC frequency
+          reporting, guest debugging, guest crash reporting and relaxed
+          timer checks. This provider is recommended for Windows guests.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+  </sect1>
+
+  <sect1 id="nestedpaging">
+
+    <title>Nested Paging and VPIDs</title>
+
+    <para>
+      In addition to normal hardware virtualization, your processor may
+      also support the following additional sophisticated techniques:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          Nested paging implements some memory management in hardware,
+          which can greatly accelerate hardware virtualization since
+          these tasks no longer need to be performed by the
+          virtualization software.
+        </para>
+
+        <para>
+          With nested paging, the hardware provides another level of
+          indirection when translating linear to physical addresses.
+          Page tables function as before, but linear addresses are now
+          translated to "guest physical" addresses first and not
+          physical addresses directly. A new set of paging registers now
+          exists under the traditional paging mechanism and translates
+          from guest physical addresses to host physical addresses,
+          which are used to access memory.
+        </para>
+
+        <para>
+          Nested paging eliminates the overhead caused by VM exits and
+          page table accesses. In essence, with nested page tables the
+          guest can handle paging without intervention from the
+          hypervisor. Nested paging thus significantly improves
+          virtualization performance.
+        </para>
+
+        <para>
+          On AMD processors, nested paging has been available starting
+          with the Barcelona (K10) architecture. They now call it rapid
+          virtualization indexing (RVI). Intel added support for nested
+          paging, which they call extended page tables (EPT), with their
+          Core i7 (Nehalem) processors.
+        </para>
+
+        <para>
+          If nested paging is enabled, the &product-name; hypervisor can
+          also use <emphasis>large pages</emphasis> to reduce TLB usage
+          and overhead. This can yield a performance improvement of up
+          to 5%. To enable this feature for a VM, you use the
+          <command>VBoxManage modifyvm --large-pages</command> command.
+          See <xref linkend="vboxmanage-modifyvm" />.
+        </para>
+
+        <para>
+          If you have an Intel CPU with EPT, please consult
+          <xref linkend="sec-rec-cve-2018-3646" /> for security concerns
+          regarding EPT.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          On Intel CPUs, a hardware feature called Virtual Processor
+          Identifiers (VPIDs) can greatly accelerate context switching
+          by reducing the need for expensive flushing of the processor's
+          Translation Lookaside Buffers (TLBs).
+        </para>
+
+        <para>
+          To enable these features for a VM, you use the
+          <command>VBoxManage modifyvm --vtx-vpid</command> and
+          <command>VBoxManage modifyvm --large-pages</command> commands.
+          See <xref linkend="vboxmanage-modifyvm" />.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+  </sect1>
+
+</chapter>

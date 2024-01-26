@@ -1,0 +1,48 @@
+# $Id: Makefile.kmk $
+## @file
+# VBoxBalloonCtrl - Memory balloon control.
+#
+
+#
+# Copyright (C) 2011-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+PROGRAMS += VBoxBalloonCtrl
+VBoxBalloonCtrl_TEMPLATE   = VBoxMainClientExe
+VBoxBalloonCtrl_DEFS       = VBOX_WATCHDOG_GLOBAL_PERFCOL
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ VBoxBalloonCtrl_DEFS     += VBOX_BUILD_TARGET="$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)"
+else
+ VBoxBalloonCtrl_DEFS     += VBOX_BUILD_TARGET=\"$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)\"
+endif
+VBoxBalloonCtrl_DEFS.win   = _WIN32_WINNT=0x0500
+VBoxBalloonCtrl_SOURCES    = \
+	VBoxWatchdog.cpp \
+	VBoxWatchdogUtils.cpp \
+	VBoxModAPIMonitor.cpp \
+	VBoxModBallooning.cpp
+VBoxBalloonCtrl_SOURCES.win = \
+	VBoxBalloonCtrl.rc
+
+include $(FILE_KBUILD_SUB_FOOTER)

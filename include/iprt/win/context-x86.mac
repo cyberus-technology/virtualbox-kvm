@@ -1,0 +1,101 @@
+;; @file
+; IPRT - Windows - X86 CPU Context Record for NASM/YASM.
+;
+
+;
+; Copyright (C) 2022-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___iprt_win_context_x86_mac
+%define ___iprt_win_context_x86_mac
+
+%include "iprt/asmdefs.mac"
+
+struc CONTEXT
+        .ContextFlags           resd 1
+
+         ; CONTEXT_DEBUG_REGISTERS:
+        .Dr0                    resd 1
+        .Dr1                    resd 1
+        .Dr2                    resd 1
+        .Dr3                    resd 1
+        .Dr6                    resd 1
+        .Dr7                    resd 1
+
+        ; CONTEXT_FLOATING_POINT:
+        .FloatSave              resb 112        ; X86FPUSTATE + 4 bytes
+
+        ; CONTEXT_SEGMENTS:
+        .SegGs                  resd 1
+        .SegFs                  resd 1
+        .SegEs                  resd 1
+        .SegDs                  resd 1
+
+        ; CONTEXT_INTEGER:
+        .Edi                    resd 1
+        .Esi                    resd 1
+        .Ebx                    resd 1
+        .Edx                    resd 1
+        .Ecx                    resd 1
+        .Eax                    resd 1
+
+        ; CONTEXT_CONTROL:
+        .Ebp                    resd 1
+        .Eip                    resd 1
+        .SegCs                  resd 1
+        .EFlags                 resd 1
+        .Esp                    resd 1
+        .SegSs                  resd 1
+
+        ; CONTEXT_EXTENDED_REGISTERS:
+        .ExtendedRegisters      resb 512
+endstruc
+%define CONTEXT_SIZE            (0x2cc)
+AssertCompileSize(CONTEXT, CONTEXT_SIZE)
+
+%define CONTEXT_i386                (0x00010000)
+%define CONTEXT_CONTROL             (0x00000001 | CONTEXT_i386)
+%define CONTEXT_INTEGER             (0x00000002 | CONTEXT_i386)
+%define CONTEXT_SEGMENTS            (0x00000004 | CONTEXT_i386)
+%define CONTEXT_FLOATING_POINT      (0x00000008 | CONTEXT_i386)
+%define CONTEXT_DEBUG_REGISTERS     (0x00000010 | CONTEXT_i386)
+%define CONTEXT_EXTENDED_REGISTERS  (0x00000020 | CONTEXT_i386)
+%define CONTEXT_FULL                (0x00000007 | CONTEXT_i386)
+%define CONTEXT_ALL                 (0x0000003f | CONTEXT_i386)
+
+%define CONTEXT_XSTATE              (0x00000040 | CONTEXT_i386)
+%define CONTEXT_EXCEPTION_ACTIVE    (0x08000000)
+%define CONTEXT_SERVICE_ACTIVE      (0x10000000)
+; 0x20000000 = CONTEXT_UNWOUND_TO_CALL ?
+%define CONTEXT_EXCEPTION_REQUEST   (0x40000000)
+%define CONTEXT_EXCEPTION_REPORTING (0x80000000)
+
+%endif
+

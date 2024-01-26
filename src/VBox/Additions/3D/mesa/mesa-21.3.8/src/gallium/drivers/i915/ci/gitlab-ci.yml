@@ -1,0 +1,41 @@
+# Manual test rules for using anholt's shared g33.
+.anholt-g33-test:
+  extends:
+    - .i915g-rules
+    - .test-gl
+    - .test-manual-mr
+  tags:
+    - anholt-g33
+  variables:
+    GPU_VERSION: i915-g33
+
+i915-g33-deqp:
+  extends:
+    - .anholt-g33-test
+    - .deqp-test
+  variables:
+    DEQP_SUITE: i915g
+
+i915-g33-piglit:
+  extends:
+    - .anholt-g33-test
+    - .piglit-test
+  variables:
+    PIGLIT_PROFILES: gpu
+    PIGLIT_PLATFORM: gbm
+  artifacts:
+    paths:
+      - results/
+    reports:
+      junit: results/junit.xml
+  script:
+    - install/piglit/piglit-runner.sh
+
+i915-g33-traces:
+  extends:
+    - .anholt-g33-test
+    - .piglit-traces-test
+  variables:
+    EGL_PLATFORM: "surfaceless"
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-i915.yml"
+    PIGLIT_REPLAY_DEVICE_NAME: "i915-g33"

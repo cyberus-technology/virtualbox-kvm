@@ -1,0 +1,118 @@
+;; @file
+; GVM - The Global VM Data.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___VBox_vmm_gvm_mac
+%define ___VBox_vmm_gvm_mac
+
+%include "VBox/vmm/vm.mac"
+
+struc GVMCPU
+        .s                  resb VMCPU_size
+
+        .idCpu              resd 1
+
+        alignb 8
+        .hEMT               RTR0PTR_RES 1
+        .pGVM               RTR0PTR_RES 1
+        .pVMR0              RTR0PTR_RES 1
+        .pVCpuR3            RTR3PTR_RES 1
+
+        alignb 64
+        .idHostCpu          resd 1
+        .iHostCpuSet        resd 1
+
+        alignb 64
+        .gvmm               resb 256
+        alignb 64
+        .hmr0               resb 1024
+%ifdef VBOX_WITH_NEM_R0
+        .nemr0              resb 64
+%endif
+        alignb 64
+        .vmmr0              resb 896
+        alignb 64
+        .pgmr0              resb 64
+        alignb 16384
+endstruc
+
+
+struc GVM
+        .s                  resb VM_size
+
+        .u32Magic           resd 1
+        .hSelf              resd 1
+        alignb 8
+        .pSelf              RTR0PTR_RES 1
+        .pVMR3              RTR3PTR_RES 1
+        .pSession           RTR0PTR_RES 1
+        .cCpus              resd 1
+
+        alignb 64
+        .gvmm               resb 4352
+        alignb 64
+        .gmm                resb 1024
+        alignb 64
+        .hmr0               resb 256
+%ifdef VBOX_WITH_NEM_R0
+        alignb 64
+        .nemr0              resb 256
+%endif
+        alignb 64
+        .rawpci             resb 64
+        alignb 64
+        .pdmr0              resb 3008
+        alignb 64
+        .pgmr0              resb 1920
+        alignb 64
+        .iomr0              resb 512
+        alignb 64
+        .apicr0             resb 64
+        alignb 64
+        .dbgfr0             resb 1024
+        alignb 64
+        .tmr0               resb 128
+
+        times ((($ + VMM_MAX_CPU_COUNT * RTR0PTR_CB + 16383) & ~16383) - ($ + VMM_MAX_CPU_COUNT * RTR0PTR_CB)) resb 1
+        .apCpusR0           RTR0PTR_RES VMM_MAX_CPU_COUNT
+
+        alignb 16384
+        .aCpus              resb GVMCPU_size
+endstruc
+
+%define GVM_MAGIC       0x19330825
+
+
+%endif
+

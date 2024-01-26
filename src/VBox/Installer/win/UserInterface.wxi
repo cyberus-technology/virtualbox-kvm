@@ -1,0 +1,1247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    User interface include for VirtualBox WiX script.
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <UI>
+        <!-- This dialog will be shown when the user cancels the installation -->
+        <Dialog Id="VBoxCancelDlg" Width="260" Height="85" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="No" Type="PushButton" X="132" Y="57" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_No)">
+                <Publish Event="EndDialog" Value="Return">1</Publish>
+            </Control>
+            <Control Id="Yes" Type="PushButton" X="72" Y="57" Width="56" Height="17" Text="!(loc.ButtonText_Yes)">
+                <Publish Event="EndDialog" Value="Exit">1</Publish>
+            </Control>
+            <Control Id="Text" Type="Text" X="48" Y="15" Width="194" Height="30">
+                <Text>!(loc.CancelDlg_Question)</Text>
+            </Control>
+            <Control Id="Icon" Type="Icon" X="15" Y="15" Width="24" Height="24" ToolTip="Information icon" FixedSize="yes" IconSize="32" Text="[InfoIcon]" />
+        </Dialog>
+
+        <!-- This is the very first page the user will see -->
+        <Dialog Id="VBoxWelcomeDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <!-- The wizard has a bitmap as background. The source is defined as a property below. -->
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+
+            <!-- Title text drawn on the background -->
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgVerdanaBold13}!(loc.WelcomeDlg_Header)</Text>
+            </Control>
+
+            <!-- Text saying what we gonna do -->
+            <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.WelcomeDlg_Body)</Text>
+            </Control>
+
+            <!-- And a line for looking nice... -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Next)" />
+
+            <!-- Canceling will bring up a confirmation dialog ('SpawnDialog' attribute) -->
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+        </Dialog>
+
+        <!-- The radio button group used for the license agreement page -->
+        <RadioButtonGroup Property="IAgree">
+            <RadioButton Text="{\DlgFont8}!(loc.LicenseAgreementDlg_Accept)" Value="Yes" X="5" Y="0" Width="250" Height="15" />
+            <RadioButton Text="{\DlgFont8}!(loc.LicenseAgreementDlg_Decline)" Value="No" X="5" Y="20" Width="250" Height="15" />
+        </RadioButtonGroup>
+
+        <!-- The dialog page showing the license. The user has to set the appropriate check box to proceed -->
+        <Dialog Id="VBoxLicenseAgreementDlg" Width="370" Height="270" Title="[ProductName] License Agreement" NoMinimize="yes">
+            <!-- The bitmap at the top of the dialog. This dialog doesn't have a background -->
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+
+            <!-- The font used here is defined below -->
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.LicenseAgreementDlg_Header)</Text>
+            </Control>
+
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.LicenseAgreementDlg_Body)</Text>
+            </Control>
+
+            <!-- The line directly below of the banner bmp -->
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+
+            <!-- The license text should be a RTF text so we have formatting -->
+            <Control Id="AgreementText" Type="ScrollableText" X="20" Y="60" Width="330" Height="120" Sunken="yes" TabSkip="no" Text="!(loc.LicenseText)"/>
+
+            <!-- This radio button group is defined below -->
+            <Control Id="Buttons" Type="RadioButtonGroup" X="20" Y="187" Width="330" Height="40" Property="IAgree" />
+
+            <!-- And a line for looking nice... -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Back)" />
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Next)">
+                <!-- 'Next' button is only enabled when 'I agree' radio button is selected -->
+                <Condition Action="disable"><![CDATA[IAgree <> "Yes"]]></Condition>
+                <Condition Action="enable"><![CDATA[IAgree = "Yes"]]></Condition>
+            </Control>
+
+            <!-- Canceling will bring up a confirmation dialog ('SpawnDialog' attribute) -->
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+        </Dialog>
+
+        <Dialog Id="VBoxCheckSerialDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <!-- The wizard has a bitmap as background. The source is defined as a property below. -->
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgVerdanaBold13}!(loc.CheckSerialDlg_Header)</Text>
+            </Control>
+
+            <!-- Text saying what we gonna do -->
+            <Control Id="Description" Type="Text" X="135" Y="50" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.CheckSerialDlg_Body)</Text>
+            </Control>
+
+            <Control Id="Serial1Edit" Type="Edit" X="135" Y="90" Width="30" Height="18" Property="Serial1" Text="{5}">
+                <!--<Publish Event="DoAction" Value="CheckSerial">1</Publish>-->
+            </Control>
+            <Control Id="Serial2Edit" Type="Edit" X="170" Y="90" Width="30" Height="18" Property="Serial2" Text="{5}">
+                <!--<Publish Event="DoAction" Value="CheckSerial">1</Publish>-->
+            </Control>
+            <Control Id="Serial3Edit" Type="Edit" X="205" Y="90" Width="30" Height="18" Property="Serial3" Text="{5}">
+                <!--<Publish Event="DoAction" Value="CheckSerial">1</Publish>-->
+            </Control>
+            <Control Id="Serial4Edit" Type="Edit" X="240" Y="90" Width="30" Height="18" Property="Serial4" Text="{5}">
+                <!--<Publish Event="DoAction" Value="CheckSerial">1</Publish>-->
+            </Control>
+            <Control Id="Serial5Edit" Type="Edit" X="275" Y="90" Width="30" Height="18" Property="Serial5" Text="{5}">
+                <!--<Publish Event="DoAction" Value="CheckSerial">1</Publish>-->
+            </Control>
+
+            <Control Id="Description3" Type="Text" X="135" Y="120" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.CheckSerialDlg_Footer)</Text>
+            </Control>
+
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Back)" />
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Check)" />
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+
+            <!-- And a line for looking nice... -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+        </Dialog>
+
+        <Dialog Id="VBoxWrongSerialDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+
+            <!-- The wizard has a bitmap as background. The source is defined as a property below. -->
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+
+            <!-- Title text drawn on the background -->
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgInvalidSerial}!(loc.WrongSerialDlg_Header)</Text>
+            </Control>
+
+            <!-- Text saying what we gonna do -->
+            <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.WrongSerialDlg_Desc1)</Text>
+            </Control>
+
+            <Control Id="Description2" Type="Text" X="135" Y="95" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.WrongSerialDlg_Desc2)</Text>
+            </Control>
+
+            <!-- And a line for looking nice... -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Back" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Back)" />
+
+            <!-- Canceling will bring up a confirmation dialog ('SpawnDialog' attribute) -->
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+
+        </Dialog>
+
+        <!-- Dialog used to set another installation path. This is taken from the tutorial template on the web and can also be
+             used for package selection etc. if necessary after some tweaking. -->
+        <Dialog Id="VBoxCustomizeDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes" TrackDiskSpace="yes">
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.CustomizeDlg_CustomSetup)</Text>
+            </Control>
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.CustomizeDlg_SelFeatures)</Text>
+            </Control>
+            <Control Id="Text" Type="Text" X="25" Y="55" Width="320" Height="20">
+                <Text>!(loc.CustomizeDlg_IconTree)</Text>
+            </Control>
+            <Control Id="Tree" Type="SelectionTree" X="25" Y="85" Width="175" Height="95" Property="_BrowseProperty"
+                     Sunken="yes" TabSkip="no" Text="Tree of selections" />
+            <Control Id="Browse" Type="PushButton" X="304" Y="200" Width="56" Height="17" Text="!(loc.ButtonText_Browse)">
+                <Publish Event="SelectionBrowse" Value="VBoxBrowseDlg">1</Publish>
+                <Condition Action="hide">Installed</Condition>
+            </Control>
+            <Control Id="DiskCost" Type="PushButton" X="111" Y="243" Width="56" Height="17">
+                <Text>!(loc.CustomizeDlg_DiskUsage)</Text>
+                <Publish Event="SpawnDialog" Value="VBoxDiskCostDlg">1</Publish>
+                <Subscribe Event="SelectionNoItems" Attribute="Enabled" />
+            </Control>
+            <Control Id="Box" Type="GroupBox" X="210" Y="81" Width="140" Height="98" />
+            <Control Id="ItemDescription" Type="Text" X="215" Y="90" Width="131" Height="30">
+                <Text>!(loc.CustomizeDlg_SelItemDesc)</Text>
+                <Subscribe Event="SelectionDescription" Attribute="Text" />
+            </Control>
+            <Control Id="ItemSize" Type="Text" X="215" Y="130" Width="131" Height="45">
+                <Text>!(loc.CustomizeDlg_SelItemSize)</Text>
+                <Subscribe Event="SelectionSize" Attribute="Text" />
+            </Control>
+            <Control Id="Location" Type="Text" X="75" Y="200" Width="215" Height="20">
+                <Text>!(loc.CustomizeDlg_SelItemPath)</Text>
+                <Subscribe Event="SelectionPath" Attribute="Text" />
+                <Subscribe Event="SelectionPathOn" Attribute="Visible" />
+                <Condition Action="hide">Installed</Condition>
+            </Control>
+            <Control Id="LocationLabel" Type="Text" X="25" Y="200" Width="50" Height="10" Text="!(loc.CustomizeDlg_Location)">
+                <Subscribe Event="SelectionPathOn" Attribute="Visible" />
+                <Condition Action="hide">Installed</Condition>
+            </Control>
+
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Back)" />
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Next)">
+                <Subscribe Event="SelectionNoItems" Attribute="Enabled" />
+            </Control>
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+        </Dialog>
+
+        <!-- Dialog for selection network adapters type (NDIS5 or NDIS6) -->
+        <RadioButtonGroup Property="NETWORKTYPE">
+          <RadioButton Text="!(loc.SelectionNetworkTypeDlg_RadioButtonNDIS5)" Value="NDIS5" X="5" Y="0" Width="120" Height="20" />
+          <RadioButton Text="!(loc.SelectionNetworkTypeDlg_RadioButtonNDIS6)" Value="NDIS6" X="5" Y="20" Width="120" Height="20" />
+        </RadioButtonGroup>
+
+        <Dialog Id="VBoxSelectionNetworkTypeDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="220" Height="40" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.CustomizeDlg_CustomSetup)</Text>
+            </Control>
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="220" Height="20" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.CustomizeDlg_SelFeatures)</Text>
+            </Control>
+
+            <Control Id="CommonDescription" Type="Text" X="25" Y="55" Width="325" Height="20" Transparent="yes" NoPrefix="yes">
+              <Text>!(loc.SelectionNetworkTypeDlg_CommonDescription)</Text>
+            </Control>
+
+            <!-- The radio button group used for choosing NDIS5 or NDIS6 network drivers -->
+            <Control Id="Buttons" Type="RadioButtonGroup" X="25" Y="100" Width="130" Height="60" Property="NETWORKTYPE" />
+
+            <!-- Description text -->
+            <Control Id="DescriptionNDIS5" Type="Text" X="200" Y="105" Width="150" Height="60" Transparent="yes" NoPrefix="yes">
+              <Text>!(loc.SelectionNetworkTypeDlg_DescriptionNDIS5)</Text>
+              <Condition Action="hide"> NETWORKTYPE = "NDIS6"</Condition>
+              <Condition Action="show"> NETWORKTYPE = "NDIS5"</Condition>
+            </Control>
+            <Control Id="DescriptionNDIS6" Type="Text" X="200" Y="105" Width="150" Height="60" Transparent="yes" NoPrefix="yes">
+              <Text>!(loc.SelectionNetworkTypeDlg_DescriptionNDIS6)</Text>
+              <Condition Action="hide"> NETWORKTYPE = "NDIS5"</Condition>
+              <Condition Action="show"> NETWORKTYPE = "NDIS6"</Condition>
+            </Control>
+
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_Next)"/>
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Back)"/>
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17"
+                Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+        </Dialog>
+
+        <Dialog Id="VBoxCustomize2Dlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="220" Height="40" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.CustomizeDlg_CustomSetup)</Text>
+            </Control>
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="220" Height="20" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.CustomizeDlg_SelFeatures)</Text>
+            </Control>
+            <Control Id="Text" Type="Text" X="25" Y="70" Width="320" Height="20">
+                <Text>!(loc.Customize2Dlg_Desc)</Text>
+            </Control>
+<?if $(env.VBOX_WITH_QTGUI) = "yes" ?>
+            <!-- Note the gray background behind the checkboxes. Unfortunately there's no easy way to
+                 fix this, without fixing it in the WiX source code. Because the control's background
+                 uses the default dialog background color, changing the background image for the dialog to
+                 match won't really solve anything. It would still look out of place on different versions
+                 of Windows that use other default background colors, and on the machines of users that
+                 change their Windows color scheme.
+                 Also see: http://osdir.com/ml/windows.devel.wix.user/2005-02/msg00300.html -->
+            <Control Id="StartMenuEntriesCheckBox" Type="CheckBox" X="25" Y="95" Width="200" Height="17"
+                     Property="VBOX_INSTALLSTARTMENUENTRIES" CheckBoxValue="1" Default="no">
+                <Text>!(loc.Customize2Dlg_CreateStartMenuEntries)</Text>
+            </Control>
+            <Control Id="DesktopShortcutCheckBox" Type="CheckBox" X="25" Y="115" Width="200" Height="17"
+                     Property="VBOX_INSTALLDESKTOPSHORTCUT" CheckBoxValue="1" Default="no">
+                <Text>!(loc.Customize2Dlg_CreateDesktopShortcut)</Text>
+            </Control>
+            <Control Id="QuicklaunchShortcutCheckBox" Type="CheckBox" X="25" Y="135" Width="200" Height="17"
+                     Property="VBOX_INSTALLQUICKLAUNCHSHORTCUT" CheckBoxValue="1" Default="no">
+                <Text>!(loc.Customize2Dlg_CreateQuickLaunch)</Text>
+            </Control>
+            <Control Id="RegisterFileExtensionsCheckBox" Type="CheckBox" X="25" Y="155" Width="200" Height="17"
+                     Property="VBOX_REGISTERFILEEXTENSIONS" CheckBoxValue="1" Default="no">
+                <Text>!(loc.Customize2Dlg_RegisterFileExtensions)</Text>
+            </Control>
+<?endif?> <!-- VBOX_WITH_QTGUI -->
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Next)" />
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Back)" />
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+        </Dialog>
+
+        <Dialog Id="VBoxWarnDisconNetIfacesDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
+
+            <!-- The wizard has a bitmap as background. The source is defined as a property below. -->
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+
+            <!-- Title text drawn on the background -->
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgWarnDisconNetIfaces}!(loc.WarnDisconNetIfacesDlg_Title)</Text>
+            </Control>
+
+            <Control Id="Title2" Type="Text" X="135" Y="40" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgWarnDisconNetIfaces}!(loc.WarnDisconNetIfacesDlg_Title2)</Text>
+            </Control>
+
+            <!-- Text saying what we gonna do -->
+            <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.WarnDisconNetIfacesDlg_Desc)</Text>
+            </Control>
+
+            <Control Id="Description2" Type="Text" X="135" Y="115" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.WarnDisconNetIfacesDlg_Question)</Text>
+            </Control>
+
+            <!-- And a line for looking nice... -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Yes)" />
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_No)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+
+        </Dialog>
+
+        <Dialog Id="VBoxWarnPythonDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
+
+            <!-- The wizard has a bitmap as background. The source is defined as a property below. -->
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+
+            <!-- Title text drawn on the background -->
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgWarnPython}!(loc.WarnPythonDlg_Title)</Text>
+            </Control>
+
+            <Control Id="Title2" Type="Text" X="135" Y="40" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgWarnPython}!(loc.WarnPythonDlg_Title2)</Text>
+            </Control>
+
+            <!-- Text saying what we gonna do -->
+            <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.WarnPythonDlg_Desc)</Text>
+            </Control>
+
+            <Control Id="Description2" Type="Text" X="135" Y="115" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.WarnPythonDlg_Desc2)</Text>
+            </Control>
+
+            <Control Id="Description3" Type="Text" X="135" Y="160" Width="220" Height="130" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.WarnPythonDlg_Question)</Text>
+            </Control>
+
+            <!-- And a line for looking nice... -->
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Yes)" />
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_No)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+
+        </Dialog>
+
+        <Dialog Id="VBoxDiskCostDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="OK" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_OK)">
+                <Publish Event="EndDialog" Value="Return">1</Publish>
+            </Control>
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Description" Type="Text" X="20" Y="20" Width="280" Height="20" Transparent="yes" NoPrefix="yes">
+              <Text>!(loc.DiskCostDlg_SpaceRequired)</Text>
+            </Control>
+            <Control Id="Text" Type="Text" X="20" Y="53" Width="330" Height="40">
+                <Text>!(loc.DiskCostDlg_NotEnoughSpace)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.DiskCostDlg_SpaceRequirements)</Text>
+            </Control>
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="VolumeList" Type="VolumeCostList" X="20" Y="100" Width="330" Height="120" Sunken="yes" Fixed="yes" Remote="yes">
+                <Text>!(loc.DiskCostDlg_VolumeList)</Text>
+            </Control>
+        </Dialog>
+
+        <!-- Dialog used to change the installation directory -->
+        <Dialog Id="VBoxBrowseDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="PathEdit" Type="PathEdit" X="84" Y="202" Width="261" Height="18" Property="_BrowseProperty" Indirect="yes" />
+            <Control Id="OK" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_OK)">
+                <Publish Event="SetTargetPath" Value="[_BrowseProperty]">1</Publish>
+                <Publish Event="EndDialog" Value="Return">1</Publish>
+            </Control>
+            <Control Id="Cancel" Type="PushButton" X="240" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="Reset" Value="0">1</Publish>
+                <Publish Event="EndDialog" Value="Return">1</Publish>
+            </Control>
+            <Control Id="ComboLabel" Type="Text" X="25" Y="58" Width="44" Height="10" TabSkip="no" Text="!(loc.BrowseDlg_LookIn)" />
+            <Control Id="DirectoryCombo" Type="DirectoryCombo" X="70" Y="55" Width="220" Height="80"
+                     Property="_BrowseProperty" Indirect="yes" Fixed="yes" Remote="yes">
+                <Subscribe Event="IgnoreChange" Attribute="IgnoreChange" />
+            </Control>
+            <Control Id="Up" Type="PushButton" X="298" Y="55" Width="19" Height="19" ToolTip="!(loc.BrowseDlg_UpOneLevelTooltip)" Icon="yes" FixedSize="yes" IconSize="16" Text="[FolderUp]">
+                <Publish Event="DirectoryListUp" Value="0">1</Publish>
+            </Control>
+            <Control Id="NewFolder" Type="PushButton" X="325" Y="55" Width="19" Height="19"
+                     ToolTip="!(loc.BrowseDlg_CreateNewFolderTooltip)" Icon="yes" FixedSize="yes" IconSize="16" Text="[FolderNew]">
+                <Publish Event="DirectoryListNew" Value="0">1</Publish>
+            </Control>
+            <Control Id="DirectoryList" Type="DirectoryList" X="25" Y="83" Width="320" Height="110"
+                     Property="_BrowseProperty" Sunken="yes" Indirect="yes" TabSkip="no" />
+            <Control Id="PathLabel" Type="Text" X="25" Y="205" Width="59" Height="10" TabSkip="no" Text="!(loc.BrowseDlg_FolderName)" />
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.BrowseDlg_BrowseDestFolder)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.BrowseDlg_ChangeCurFolder)</Text>
+            </Control>
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        </Dialog>
+
+        <Dialog Id="VBoxPrepareDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" Modeless="yes">
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+        </Dialog>
+
+        <Dialog Id="VBoxVerifyReadyDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes" TrackDiskSpace="yes">
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.VerifyReadyDlg_ReadyToInstall)</Text>
+            </Control>
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.VerifyReadyDlg_ReadyToBegin)</Text>
+            </Control>
+            <Control Id="Text" Type="Text" X="25" Y="70" Width="320" Height="80">
+                <Text>!(loc.VerifyReadyDlg_ClickInstall)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Install" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Install)">
+                <Publish Event="EndDialog" Value="Return"><![CDATA[OutOfDiskSpace <> 1]]></Publish>
+                <Publish Event="SpawnDialog" Value="VBoxOutOfRbDiskDlg"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST="P" OR NOT PROMPTROLLBACKCOST)]]></Publish>
+                <Publish Event="EndDialog" Value="Return"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"]]></Publish>
+                <Publish Event="EnableRollback" Value="False"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"]]></Publish>
+                <Publish Event="SpawnDialog" Value="VBoxOutOfDiskDlg"><![CDATA[(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST="F")]]></Publish>
+            </Control>
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Back)" />
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+        </Dialog>
+
+        <!-- This dialog is called after successful installation -->
+        <Dialog Id="VBoxExitDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_Finish)">
+<?if $(env.VBOX_WITH_QTGUI) = "yes" ?> <!-- Only expose action to start VirtualBox if we also ship FE/Qt with it. -->
+                <Publish Event="DoAction" Value="ca_StartVBox"><![CDATA[VBOX_START]]></Publish>
+<?endif ?>
+                <Publish Event="EndDialog" Value="Return">1</Publish>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Cancel)" />
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Back)" />
+            <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="20" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.ExitDlg_ClickFinish)</Text>
+            </Control>
+
+            <!-- Only show the checkbox to start VirtualBox if we also ship FE/Qt with it. -->
+<?if $(env.VBOX_WITH_QTGUI) = "yes" ?>
+            <!-- Note the gray background behind the checkboxes. Unfortunately there's no easy way to
+                 fix this, without fixing it in the WiX source code. Because the control's background
+                 uses the default dialog background color, changing the background image for the dialog to
+                 match won't really solve anything. It would still look out of place on different versions
+                 of Windows that use other default background colors, and on the machines of users that
+                 change their Windows color scheme.
+                 Also see: http://osdir.com/ml/windows.devel.wix.user/2005-02/msg00300.html -->
+            <Control Id="StartVBoxCheckBox" Type="CheckBox" X="135" Y="115" Width="200" Height="17"
+                     Property="VBOX_START" CheckBoxValue="1" Default="no">
+                <Text>!(loc.ExitDlg_StartVBox)</Text>
+                <Condition Action="hide">
+                    <![CDATA[(InstallMode="Repair") OR (InstallMode="Remove") OR
+                      (InstallMode="Change")]]>
+                </Condition>
+            </Control>
+<?endif ?>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgVerdanaBold13}!(loc.ExitDlg_InstComplete)</Text>
+            </Control>
+        </Dialog>
+
+        <!-- This dialog is called via the ErrorDialog property on an installation error. -->
+        <Dialog Id="VBoxErrorDlg" ErrorDialog="yes" Width="270" Height="150" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <!-- Do *not* change the control IDs in the dialog! -->
+            <Control Id="ErrorText" Type="Text" X="75" Y="20" Width="155" Height="80" TabSkip="no" NoPrefix="yes" Text="Error information text" />
+            <Control Id="Y" Type="PushButton" X="20" Y="110" Width="80" Height="18" TabSkip="yes" Text="!(loc.ButtonText_Yes)">
+                <Publish Event="EndDialog" Value="ErrorYes">1</Publish>
+            </Control>
+            <Control Id="A" Type="PushButton" X="20" Y="110" Width="80" Height="18" TabSkip="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="EndDialog" Value="ErrorAbort">1</Publish>
+            </Control>
+            <Control Id="C" Type="PushButton" X="20" Y="110" Width="80" Height="18" TabSkip="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="EndDialog" Value="ErrorCancel">1</Publish>
+            </Control>
+            <Control Id="ErrorIcon" Type="Icon" X="15" Y="15" Width="24" Height="24" ToolTip="Information icon" FixedSize="yes" IconSize="32" Text="[InfoIcon]" />
+            <Control Id="I" Type="PushButton" X="20" Y="110" Width="80" Height="18" TabSkip="yes" Text="!(loc.ButtonText_Ignore)">
+                <Publish Event="EndDialog" Value="ErrorIgnore">1</Publish>
+            </Control>
+            <Control Id="N" Type="PushButton" X="20" Y="110" Width="80" Height="18" TabSkip="yes" Text="!(loc.ButtonText_No)">
+                <Publish Event="EndDialog" Value="ErrorNo">1</Publish>
+            </Control>
+            <Control Id="O" Type="PushButton" X="20" Y="110" Width="80" Height="18" TabSkip="yes" Text="!(loc.ButtonText_OK)">
+                <Publish Event="EndDialog" Value="ErrorOk">1</Publish>
+            </Control>
+            <Control Id="R" Type="PushButton" X="20" Y="110" Width="80" Height="18" TabSkip="yes" Text="!(loc.ButtonText_Retry)">
+                <Publish Event="EndDialog" Value="ErrorRetry">1</Publish>
+            </Control>
+        </Dialog>
+
+        <!-- Used to signal a fatal error in the 'OnExit="error"' fashion. -->
+        <Dialog Id="VBoxFatalErrorDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_Finish)">
+                <Publish Event="EndDialog" Value="Exit">1</Publish>
+            </Control>
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Cancel)" />
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Back)" />
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.FatalErrorTitle)" />
+            <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="80" Transparent="yes" NoPrefix="yes" Text="!(loc.FatalErrorDescription1) !(loc.FatalErrorDescription2)" />
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+        </Dialog>
+
+        <Dialog Id="FilesInUse" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" KeepModeless="yes">
+            <Control Id="Retry" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_Retry)">
+                <Publish Event="EndDialog" Value="Retry">1</Publish>
+            </Control>
+            <!-- Currently we don't want to let the users ignore a running VirtualBox installation, as this
+                 will result in an unstable mix of the old and new installation until a reboot is performed. See #9139.
+            <Control Id="Ignore" Type="PushButton" X="235" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Ignore)">
+                <Publish Event="EndDialog" Value="Ignore">1</Publish>
+            </Control>
+            -->
+            <Control Id="Exit" Type="PushButton" X="235" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Exit)">
+                <Publish Event="EndDialog" Value="Exit">1</Publish>
+            </Control>
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Text" Type="Text" X="20" Y="55" Width="330" Height="50" Text="!(loc.FilesInUse_Text)" />
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Description" Type="Text" X="20" Y="23" Width="280" Height="20" Transparent="yes" NoPrefix="yes" Text="!(loc.FilesInUse_Description)" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="[DlgTitleFont]!(loc.FilesInUse_Title)" />
+            <Control Id="List" Type="ListBox" X="20" Y="107" Width="330" Height="130" Property="FileInUseProcess" Sunken="yes" TabSkip="yes" />
+        </Dialog>
+
+        <!-- This dialog is shown if the user interrupts the installation process -->
+        <Dialog Id="VBoxUserExitDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_Finish)">
+                <Publish Event="EndDialog" Value="Exit">1</Publish>
+            </Control>
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Cancel)" />
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Back)" />
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgVerdanaBold13}!(loc.UserExitDlg_Header)</Text>
+            </Control>
+            <Control Id="Description1" Type="Text" X="135" Y="70" Width="220" Height="40" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.UserExitDlg_Desc)</Text>
+            </Control>
+            <Control Id="Description2" Type="Text" X="135" Y="115" Width="220" Height="20" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.UserExitDlg_Footer)</Text>
+            </Control>
+        </Dialog>
+
+        <!-- Progress dialog shown during file copying and other lengthy operations -->
+        <Dialog Id="VBoxProgressDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" Modeless="yes">
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Back)" />
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Next)" />
+            <Control Id="ActionText" Type="Text" X="70" Y="100" Width="265" Height="10">
+                <Subscribe Event="ActionText" Attribute="Text" />
+            </Control>
+            <Control Id="Text" Type="Text" X="35" Y="65" Width="300" Height="20">
+                <Text>!(loc.ProgressDlg_PleaseWait)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="20" Y="15" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont][Progress1] [ProductName]</Text>
+            </Control>
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="ProgressBar" Type="ProgressBar" X="35" Y="115" Width="300" Height="10" ProgressBlocks="yes" Text="Progress done">
+                <Subscribe Event="SetProgress" Attribute="Progress" />
+            </Control>
+            <Control Id="StatusLabel" Type="Text" X="35" Y="100" Width="35" Height="10" Text="Status:" />
+        </Dialog>
+
+        <Dialog Id="VBoxResumeDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="Install" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Install)">
+                <Publish Event="SpawnWaitDialog" Value="VBoxWaitForCostingDlg">CostingComplete = 1</Publish>
+                <Publish Event="EndDialog" Value="Return"><![CDATA[OutOfDiskSpace <> 1]]></Publish>
+                <Publish Event="SpawnDialog" Value="VBoxOutOfRbDiskDlg">
+                    <![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST="P" OR NOT PROMPTROLLBACKCOST)]]>
+                </Publish>
+                <Publish Event="EndDialog" Value="Return"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"]]></Publish>
+                <Publish Event="EnableRollback" Value="False"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"]]></Publish>
+                <Publish Event="SpawnDialog" Value="VBoxOutOfDiskDlg">
+                    <![CDATA[(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST="F")]]>
+                </Publish>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Back)" />
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgVerdanaBold13}!(loc.ResumeDlg_Header)</Text>
+            </Control>
+            <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="30" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.ResumeDlg_Desc)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+        </Dialog>
+
+        <!-- This dialog is shown after the welcome page if the user restarts the MSI package on a system where the product is already installed. The user
+             may choose to repair the installation or remove it. -->
+        <Dialog Id="VBoxMaintenanceTypeDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="RepairLabel" Type="Text" X="105" Y="90" Width="100" Height="10" TabSkip="no">
+                <Text>[DlgTitleFont]!(loc.MaintenanceTypeDlg_Repair)</Text>
+            </Control>
+            <Control Id="RepairButton" Type="PushButton" X="50" Y="90" Width="38" Height="38" ToolTip="!(loc.MaintenanceTypeDlg_RepairTooltip)"
+                     Icon="yes" FixedSize="yes" IconSize="32" Text="[RepairIcon]">
+                <Publish Property="InstallMode" Value="Repair">1</Publish>
+                <Publish Property="Progress1" Value="!(loc.MaintenanceTypeDlg_RepairProgress1)">1</Publish>
+                <Publish Property="Progress2" Value="!(loc.MaintenanceTypeDlg_RepairProgress2)">1</Publish>
+                <Publish Event="NewDialog" Value="VBoxVerifyRepairDlg">1</Publish>
+            </Control>
+            <Control Id="RemoveLabel" Type="Text" X="105" Y="163" Width="100" Height="10" TabSkip="no">
+                <Text>[DlgTitleFont]!(loc.MaintenanceTypeDlg_Remove)</Text>
+            </Control>
+            <Control Id="RemoveButton" Type="PushButton" X="50" Y="163" Width="38" Height="38" ToolTip="!(loc.MaintenanceTypeDlg_RemoveTooltip)"
+                     Icon="yes" FixedSize="yes" IconSize="32" Text="[RemoveIcon]">
+                <Publish Property="InstallMode" Value="Remove">1</Publish>
+                <Publish Property="Progress1" Value="!(loc.MaintenanceTypeDlg_RemoveProgress1)">1</Publish>
+                <Publish Property="Progress2" Value="!(loc.MaintenanceTypeDlg_RemoveProgress2)">1</Publish>
+                <Publish Event="NewDialog" Value="VBoxVerifyRemoveDlg">1</Publish>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Back)">
+                <Publish Event="NewDialog" Value="VBoxMaintenanceWelcomeDlg">1</Publish>
+            </Control>
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Next)" />
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="20" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.MaintenanceTypeDlg_SelOption)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="240" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.MaintenanceTypeDlg_Header)</Text>
+            </Control>
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="RemoveText" Type="Text" X="105" Y="176" Width="230" Height="20">
+                <Text>!(loc.MaintenanceTypeDlg_RemoveText)</Text>
+            </Control>
+            <Control Id="RepairText" Type="Text" X="105" Y="102" Width="230" Height="30">
+                <Text>!(loc.MaintenanceTypeDlg_RepairText)</Text>
+            </Control>
+        </Dialog>
+
+        <!-- This dialog is shown if the app is installed and the installation package is started again. It's the welcome
+             screen for maintenance -->
+        <Dialog Id="VBoxMaintenanceWelcomeDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>{\DlgVerdanaBold13}!(loc.MaintenanceWelcomeDlg_Header)</Text>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Next)">
+                <Publish Event="SpawnWaitDialog" Value="VBoxWaitForCostingDlg">CostingComplete = 1</Publish>
+                <Publish Event="NewDialog" Value="VBoxMaintenanceTypeDlg">1</Publish>
+            </Control>
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+            <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="[DialogBitmap]" />
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ButtonText_Back)" />
+            <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="60" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.MaintenanceWelcomeDlg_Desc)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        </Dialog>
+
+        <!-- Out of disk error dialog -->
+        <Dialog Id="VBoxOutOfDiskDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="OK" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_OK)">
+                <Publish Event="EndDialog" Value="Return">1</Publish>
+            </Control>
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Description" Type="Text" X="20" Y="20" Width="280" Height="20" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.OutOfDiskDlg_InstallationExceeds)</Text>
+            </Control>
+            <Control Id="Text" Type="Text" X="20" Y="53" Width="330" Height="40">
+                <Text>!(loc.OutOfDiskDlg_NotEnoughDiskSpace)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.OutOfDiskDlg_OutOfDiskSpace)</Text>
+            </Control>
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="VolumeList" Type="VolumeCostList" X="20" Y="100" Width="330" Height="120" Sunken="yes" Fixed="yes" Remote="yes">
+                <Text>{120}{70}{70}{70}{70}</Text>
+            </Control>
+        </Dialog>
+
+        <Dialog Id="VBoxOutOfRbDiskDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="No" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.ButtonText_No)">
+                <Publish Event="EndDialog" Value="Return">1</Publish>
+            </Control>
+            <Control Id="Yes" Type="PushButton" X="240" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Yes)">
+                <Publish Event="EnableRollback" Value="False">1</Publish>
+                <Publish Event="EndDialog" Value="Return">1</Publish>
+            </Control>
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Description" Type="Text" X="20" Y="20" Width="280" Height="20" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.OutOfRbDiskDlg_InstallationExceeds)</Text>
+            </Control>
+            <Control Id="Text" Type="Text" X="20" Y="53" Width="330" Height="40">
+                <Text>!(loc.OutOfRbDiskDlg_NotEnoughDiskSpace)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.OutOfRbDiskDlg_OutOfDiskSpace)</Text>
+            </Control>
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+            <Control Id="VolumeList" Type="VolumeCostList" X="20" Y="140" Width="330" Height="80" Sunken="yes" Fixed="yes" Remote="yes" ShowRollbackCost="yes">
+                <Text>{120}{70}{70}{70}{70}</Text>
+            </Control>
+            <Control Id="Text2" Type="Text" X="20" Y="94" Width="330" Height="40">
+                <Text>!(loc.OutOfRbDiskDlg_Desc)</Text>
+            </Control>
+        </Dialog>
+
+        <Dialog Id="VBoxVerifyRemoveDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes" TrackDiskSpace="yes">
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Back)">
+                <Publish Event="NewDialog" Value="VBoxMaintenanceTypeDlg">1</Publish>
+            </Control>
+            <Control Id="Remove" Type="PushButton" X="236" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Remove)">
+                <Publish Event="Remove" Value="All"><![CDATA[OutOfDiskSpace <> 1]]></Publish>
+                <Publish Event="EndDialog" Value="Return"><![CDATA[OutOfDiskSpace <> 1]]></Publish>
+                <Publish Event="SpawnDialog" Value="VBoxOutOfRbDiskDlg"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST="P" OR NOT PROMPTROLLBACKCOST)]]></Publish>
+                <Publish Event="EndDialog" Value="Return"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"]]></Publish>
+                <Publish Event="EnableRollback" Value="False"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"]]></Publish>
+                <Publish Event="SpawnDialog" Value="VBoxOutOfDiskDlg"><![CDATA[(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST="F")]]></Publish>
+            </Control>
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.VerifyRemoveDlg_Desc)</Text>
+            </Control>
+            <Control Id="Text" Type="Text" X="25" Y="70" Width="320" Height="30">
+                <Text>!(loc.VerifyRemoveDlg_ClickRemove)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.VerifyRemoveDlg_Header)</Text>
+            </Control>
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        </Dialog>
+
+        <Dialog Id="VBoxVerifyRepairDlg" Width="370" Height="270" Title="[ProductName] !(loc.Setup)" NoMinimize="yes" TrackDiskSpace="yes">
+            <Control Id="Repair" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ButtonText_Repair)">
+                <Publish Event="ReinstallMode" Value="ecmus"><![CDATA[OutOfDiskSpace <> 1]]></Publish>
+                <Publish Event="Reinstall" Value="All"><![CDATA[OutOfDiskSpace <> 1]]></Publish>
+                <Publish Event="EndDialog" Value="Return"><![CDATA[OutOfDiskSpace <> 1]]></Publish>
+                <Publish Event="SpawnDialog" Value="VBoxOutOfRbDiskDlg"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST="P" OR NOT PROMPTROLLBACKCOST)]]></Publish>
+                <Publish Event="EndDialog" Value="Return"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"]]></Publish>
+                <Publish Event="EnableRollback" Value="False"><![CDATA[OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"]]></Publish>
+                <Publish Event="SpawnDialog" Value="VBoxOutOfDiskDlg"><![CDATA[(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST="F")]]></Publish>
+            </Control>
+
+            <!-- Build number text drawn left bottom -->
+            <Control Id="Build" Type="Text" X="20" Y="247" Width="220" Height="10" Transparent="yes" NoPrefix="yes">
+                <Text>[Version_text] $(var.Property_Version)</Text>
+            </Control>
+
+            <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ButtonText_Cancel)">
+                <Publish Event="SpawnDialog" Value="VBoxCancelDlg">1</Publish>
+            </Control>
+            <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="[BannerBitmap]" />
+            <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.ButtonText_Back)">
+                <Publish Event="NewDialog" Value="VBoxMaintenanceTypeDlg">1</Publish>
+            </Control>
+            <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>!(loc.VerifyRepairDlg_ReadyToBegin)</Text>
+            </Control>
+            <Control Id="Text" Type="Text" X="25" Y="70" Width="320" Height="30">
+                <Text>!(loc.VerifyRepairDlg_ClickRepair)</Text>
+            </Control>
+            <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+            <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+                <Text>[DlgTitleFont]!(loc.VerifyRepairDlg_Header)</Text>
+            </Control>
+            <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        </Dialog>
+
+        <Dialog Id="VBoxWaitForCostingDlg" Width="260" Height="85" Title="[ProductName] !(loc.Setup)" NoMinimize="yes">
+            <Control Id="Return" Type="PushButton" X="102" Y="57" Width="56" Height="17" Default="yes" Cancel="yes" Text="[ButtonText_Return]">
+                <Publish Event="EndDialog" Value="Exit">1</Publish>
+            </Control>
+            <Control Id="Text" Type="Text" X="48" Y="15" Width="194" Height="30">
+                <Text>!(loc.WaitForCostingDlg_PleaseWait)</Text>
+            </Control>
+            <Control Id="Icon" Type="Icon" X="15" Y="15" Width="24" Height="24" ToolTip="Exclamation icon" FixedSize="yes" IconSize="32" Text="[ExclamationIcon]" />
+        </Dialog>
+
+        <!-- Dialog property table. -->
+        <Property Id="ErrorDialog" Value="VBoxErrorDlg"/>
+
+        <!-- Define some textstyles used for formatting dialog items. -->
+        <Property Id="DefaultUIFont">DlgFont8</Property>
+        <TextStyle Id="DlgFont8" FaceName="Tahoma" Size="8" />
+        <TextStyle Id="DlgFontBold8" FaceName="Tahoma" Size="8" Bold="yes" />
+        <TextStyle Id="DlgVerdanaBold13" FaceName="Verdana" Size="13" Bold="yes" />
+        <TextStyle Id="DlgInvalidSerial" FaceName="Verdana" Size="13" Bold="yes" Red="255" />
+        <TextStyle Id="DlgWarnDisconNetIfaces" FaceName="Verdana" Size="13" Bold="yes" Red="255" />
+        <TextStyle Id="DlgWarnPython" FaceName="Verdana" Size="13" Bold="yes" />
+
+        <!-- The UIText table contains the localized versions of some of the strings used in the user interface.
+               These strings are not part of any other table. The UIText table is for strings that have no logical place in any other table. -->
+        <ProgressText Action="CostFinalize">!(loc.ProgressTextCostFinalize)</ProgressText>
+        <ProgressText Action="CostInitialize">!(loc.ProgressTextCostInitialize)</ProgressText>
+        <ProgressText Action="FileCost">!(loc.ProgressTextFileCost)</ProgressText>
+        <ProgressText Action="InstallValidate">!(loc.ProgressTextInstallValidate)</ProgressText>
+        <ProgressText Action="InstallFiles" Template="File: [1],  Directory: [9],  Size: [6]">!(loc.ProgressTextInstallFiles)</ProgressText>
+        <ProgressText Action="InstallAdminPackage" Template="File: [1], Directory: [9], Size: [6]">!(loc.ProgressTextInstallAdminPackage)</ProgressText>
+        <ProgressText Action="CreateShortcuts" Template="Shortcut: [1]">!(loc.ProgressTextCreateShortcuts)</ProgressText>
+        <ProgressText Action="PublishComponents" Template="Component ID: [1], Qualifier: [2]">!(loc.ProgressTextPublishComponents)</ProgressText>
+        <ProgressText Action="PublishFeatures" Template="Feature: [1]">!(loc.ProgressTextPublishFeatures)</ProgressText>
+        <ProgressText Action="PublishProduct">!(loc.ProgressTextPublishProduct)</ProgressText>
+        <ProgressText Action="RegisterClassInfo" Template="Class Id: [1]">!(loc.ProgressTextRegisterClassInfo)</ProgressText>
+        <ProgressText Action="RegisterExtensionInfo" Template="Extension: [1]">!(loc.ProgressTextRegisterExtensionInfo)</ProgressText>
+        <ProgressText Action="RegisterMIMEInfo" Template="MIME Content Type: [1], Extension: [2]">!(loc.ProgressTextRegisterMIMEInfo)</ProgressText>
+        <ProgressText Action="RegisterProgIdInfo" Template="ProgId: [1]">!(loc.ProgressTextRegisterProgIdInfo)</ProgressText>
+        <ProgressText Action="AllocateRegistrySpace" Template="Free space: [1]">!(loc.ProgressTextAllocateRegistrySpace)</ProgressText>
+        <ProgressText Action="AppSearch" Template="Property: [1], Signature: [2]">!(loc.ProgressTextAppSearch)</ProgressText>
+        <ProgressText Action="BindImage" Template="File: [1]">!(loc.ProgressTextBindImage)</ProgressText>
+        <ProgressText Action="CCPSearch">!(loc.ProgressTextCCPSearch)</ProgressText>
+        <ProgressText Action="CreateFolders" Template="Folder: [1]">!(loc.ProgressTextCreateFolders)</ProgressText>
+        <ProgressText Action="DeleteServices" Template="Service: [1]">!(loc.ProgressTextDeleteServices)</ProgressText>
+        <ProgressText Action="DuplicateFiles" Template="File: [1],  Directory: [9],  Size: [6]">!(loc.ProgressTextDuplicateFiles)</ProgressText>
+        <ProgressText Action="FindRelatedProducts" Template="Found application: [1]">!(loc.ProgressTextFindRelatedProducts)</ProgressText>
+        <ProgressText Action="InstallODBC">!(loc.ProgressTextInstallODBC)</ProgressText>
+        <ProgressText Action="InstallServices" Template="Service: [2]">!(loc.ProgressTextInstallServices)</ProgressText>
+        <ProgressText Action="LaunchConditions">!(loc.ProgressTextLaunchConditions)</ProgressText>
+        <ProgressText Action="MigrateFeatureStates" Template="Application: [1]">!(loc.ProgressTextMigrateFeatureStates)</ProgressText>
+        <ProgressText Action="MoveFiles" Template="File: [1],  Directory: [9],  Size: [6]">!(loc.ProgressTextMoveFiles)</ProgressText>
+        <ProgressText Action="PatchFiles" Template="File: [1],  Directory: [2],  Size: [3]">!(loc.ProgressTextPatchFiles)</ProgressText>
+        <ProgressText Action="ProcessComponents">!(loc.ProgressTextProcessComponents)</ProgressText>
+        <ProgressText Action="RegisterComPlus" Template="AppId: [1]{{, AppType: [2], Users: [3], RSN: [4]}}">!(loc.ProgressTextRegisterComPlus)</ProgressText>
+        <ProgressText Action="RegisterFonts" Template="Font: [1]">!(loc.ProgressTextRegisterFonts)</ProgressText>
+        <ProgressText Action="RegisterProduct" Template="[1]">!(loc.ProgressTextRegisterProduct)</ProgressText>
+        <ProgressText Action="RegisterTypeLibraries" Template="LibID: [1]">!(loc.ProgressTextRegisterTypeLibraries)</ProgressText>
+        <ProgressText Action="RegisterUser" Template="[1]">!(loc.ProgressTextRegisterUser)</ProgressText>
+        <ProgressText Action="RemoveDuplicateFiles" Template="File: [1], Directory: [9]">!(loc.ProgressTextRemoveDuplicateFiles)</ProgressText>
+        <ProgressText Action="RemoveEnvironmentStrings" Template="Name: [1], Value: [2], Action [3]">!(loc.ProgressTextRemoveEnvironmentStrings)</ProgressText>
+        <ProgressText Action="RemoveExistingProducts" Template="Application: [1], Command line: [2]">!(loc.ProgressTextRemoveExistingProducts)</ProgressText>
+        <ProgressText Action="RemoveFiles" Template="File: [1], Directory: [9]">!(loc.ProgressTextRemoveFiles)</ProgressText>
+        <ProgressText Action="RemoveFolders" Template="Folder: [1]">!(loc.ProgressTextRemoveFolders)</ProgressText>
+        <ProgressText Action="RemoveIniValues" Template="File: [1],  Section: [2],  Key: [3], Value: [4]">!(loc.ProgressTextRemoveIniValues)</ProgressText>
+        <ProgressText Action="RemoveODBC">!(loc.ProgressTextRemoveODBC)</ProgressText>
+        <ProgressText Action="RemoveRegistryValues" Template="Key: [1], Name: [2]">!(loc.ProgressTextRemoveRegistryValues)</ProgressText>
+        <ProgressText Action="RemoveShortcuts" Template="Shortcut: [1]">!(loc.ProgressTextRemoveShortcuts)</ProgressText>
+        <ProgressText Action="RMCCPSearch">!(loc.ProgressTextRMCCPSearch)</ProgressText>
+        <ProgressText Action="SelfRegModules" Template="File: [1], Folder: [2]">!(loc.ProgressTextSelfRegModules)</ProgressText>
+        <ProgressText Action="SelfUnregModules" Template="File: [1], Folder: [2]">!(loc.ProgressTextSelfUnregModules)</ProgressText>
+        <ProgressText Action="SetODBCFolders">!(loc.ProgressTextSetODBCFolders)</ProgressText>
+        <ProgressText Action="StartServices" Template="Service: [1]">!(loc.ProgressTextStartServices)</ProgressText>
+        <ProgressText Action="StopServices" Template="Service: [1]">!(loc.ProgressTextStopServices)</ProgressText>
+        <ProgressText Action="UnpublishComponents" Template="Component ID: [1], Qualifier: [2]">!(loc.ProgressTextUnpublishComponents)</ProgressText>
+        <ProgressText Action="UnpublishFeatures" Template="Feature: [1]">!(loc.ProgressTextUnpublishFeatures)</ProgressText>
+        <ProgressText Action="UnregisterClassInfo" Template="Class Id: [1]">!(loc.ProgressTextUnregisterClassInfo)</ProgressText>
+        <ProgressText Action="UnregisterComPlus" Template="AppId: [1]{{, AppType: [2]}}">!(loc.ProgressTextUnregisterComPlus)</ProgressText>
+        <ProgressText Action="UnregisterExtensionInfo" Template="Extension: [1]">!(loc.ProgressTextUnregisterExtensionInfo)</ProgressText>
+        <ProgressText Action="UnregisterFonts" Template="Font: [1]">!(loc.ProgressTextUnregisterFonts)</ProgressText>
+        <ProgressText Action="UnregisterMIMEInfo" Template="MIME Content Type: [1], Extension: [2]">!(loc.ProgressTextUnregisterMIMEInfo)</ProgressText>
+        <ProgressText Action="UnregisterProgIdInfo" Template="ProgId: [1]">!(loc.ProgressTextUnregisterProgIdInfo)</ProgressText>
+        <ProgressText Action="UnregisterTypeLibraries" Template="LibID: [1]">!(loc.ProgressTextUnregisterTypeLibraries)</ProgressText>
+        <ProgressText Action="WriteEnvironmentStrings" Template="Name: [1], Value: [2], Action [3]">!(loc.ProgressTextWriteEnvironmentStrings)</ProgressText>
+        <ProgressText Action="WriteIniValues" Template="File: [1],  Section: [2],  Key: [3], Value: [4]">!(loc.ProgressTextWriteIniValues)</ProgressText>
+        <ProgressText Action="WriteRegistryValues" Template="Key: [1], Name: [2], Value: [3]">!(loc.ProgressTextWriteRegistryValues)</ProgressText>
+        <ProgressText Action="Advertise">!(loc.ProgressTextAdvertise)</ProgressText>
+        <ProgressText Action="GenerateScript" Template="[1]">!(loc.ProgressTextGenerateScript)</ProgressText>
+        <ProgressText Action="InstallSFPCatalogFile" Template="File: [1],  Dependencies: [2]">!(loc.ProgressTextInstallSFPCatalogFile)</ProgressText>
+        <ProgressText Action="MsiPublishAssemblies" Template="Application Context:[1], Assembly Name:[2]">!(loc.ProgressTextMsiPublishAssemblies)</ProgressText>
+        <ProgressText Action="MsiUnpublishAssemblies" Template="Application Context:[1], Assembly Name:[2]">!(loc.ProgressTextMsiUnpublishAssemblies)</ProgressText>
+        <ProgressText Action="Rollback" Template="[1]">!(loc.ProgressTextRollback)</ProgressText>
+        <ProgressText Action="RollbackCleanup" Template="File: [1]">!(loc.ProgressTextRollbackCleanup)</ProgressText>
+        <ProgressText Action="UnmoveFiles" Template="File: [1], Directory: [9]">!(loc.ProgressTextUnmoveFiles)</ProgressText>
+        <ProgressText Action="UnpublishProduct">!(loc.ProgressTextUnpublishProduct)</ProgressText>
+
+        <UIText Id="bytes">!(loc.UITextbytes)</UIText>
+        <UIText Id="GB">!(loc.UITextGB)</UIText>
+        <UIText Id="KB">!(loc.UITextKB)</UIText>
+        <UIText Id="MB">!(loc.UITextMB)</UIText>
+        <UIText Id="AbsentPath"><![CDATA[-]]></UIText>
+        <UIText Id="MenuAbsent">!(loc.UITextMenuAbsent)</UIText>
+        <UIText Id="MenuAdvertise">!(loc.UITextMenuAdvertise)</UIText>
+        <UIText Id="MenuAllCD">!(loc.UITextMenuAllCD)</UIText>
+        <UIText Id="MenuAllLocal">!(loc.UITextMenuAllLocal)</UIText>
+        <UIText Id="MenuAllNetwork">!(loc.UITextMenuAllNetwork)</UIText>
+        <UIText Id="MenuCD">!(loc.UITextMenuCD)</UIText>
+        <UIText Id="MenuLocal">!(loc.UITextMenuLocal)</UIText>
+        <UIText Id="MenuNetwork">!(loc.UITextMenuNetwork)</UIText>
+        <UIText Id="ScriptInProgress">!(loc.UITextScriptInProgress)</UIText>
+        <UIText Id="SelAbsentAbsent">!(loc.UITextSelAbsentAbsent)</UIText>
+        <UIText Id="SelAbsentAdvertise">!(loc.UITextSelAbsentAdvertise)</UIText>
+        <UIText Id="SelAbsentCD">!(loc.UITextSelAbsentCD)</UIText>
+        <UIText Id="SelAbsentLocal">!(loc.UITextSelAbsentLocal)</UIText>
+        <UIText Id="SelAbsentNetwork">!(loc.UITextSelAbsentNetwork)</UIText>
+        <UIText Id="SelAdvertiseAbsent">!(loc.UITextSelAdvertiseAbsent)</UIText>
+        <UIText Id="SelAdvertiseAdvertise">!(loc.UITextSelAdvertiseAdvertise)</UIText>
+        <UIText Id="SelAdvertiseCD">!(loc.UITextSelAdvertiseCD)</UIText>
+        <UIText Id="SelAdvertiseLocal">!(loc.UITextSelAdvertiseLocal)</UIText>
+        <UIText Id="SelAdvertiseNetwork">!(loc.UITextSelAdvertiseNetwork)</UIText>
+        <UIText Id="SelCDAbsent">!(loc.UITextSelCDAbsent)</UIText>
+        <UIText Id="SelCDAdvertise">!(loc.UITextSelCDAdvertise)</UIText>
+        <UIText Id="SelCDCD">!(loc.UITextSelCDCD)</UIText>
+        <UIText Id="SelCDLocal">!(loc.UITextSelCDLocal)</UIText>
+        <UIText Id="SelChildCostNeg">!(loc.UITextSelChildCostNeg)</UIText>
+        <UIText Id="SelChildCostPos">!(loc.UITextSelChildCostPos)</UIText>
+        <UIText Id="SelCostPending">!(loc.UITextSelCostPending)</UIText>
+        <UIText Id="SelLocalAbsent">!(loc.UITextSelLocalAbsent)</UIText>
+        <UIText Id="SelLocalAdvertise">!(loc.UITextSelLocalAdvertise)</UIText>
+        <UIText Id="SelLocalCD">!(loc.UITextSelLocalCD)</UIText>
+        <UIText Id="SelLocalLocal">!(loc.UITextSelLocalLocal)</UIText>
+        <UIText Id="SelLocalNetwork">!(loc.UITextSelLocalNetwork)</UIText>
+        <UIText Id="SelNetworkAbsent">!(loc.UITextSelNetworkAbsent)</UIText>
+        <UIText Id="SelNetworkAdvertise">!(loc.UITextSelNetworkAdvertise)</UIText>
+        <UIText Id="SelNetworkLocal">!(loc.UITextSelNetworkLocal)</UIText>
+        <UIText Id="SelNetworkNetwork">!(loc.UITextSelNetworkNetwork)</UIText>
+        <UIText Id="SelParentCostNegNeg">!(loc.UITextSelParentCostNegNeg)</UIText>
+        <UIText Id="SelParentCostNegPos">!(loc.UITextSelParentCostNegPos)</UIText>
+        <UIText Id="SelParentCostPosNeg">!(loc.UITextSelParentCostPosNeg)</UIText>
+        <UIText Id="SelParentCostPosPos">!(loc.UITextSelParentCostPosPos)</UIText>
+        <UIText Id="TimeRemaining">!(loc.UITextTimeRemaining)</UIText>
+        <UIText Id="VolumeCostAvailable">!(loc.UITextVolumeCostAvailable)</UIText>
+        <UIText Id="VolumeCostDifference">!(loc.UITextVolumeCostDifference)</UIText>
+        <UIText Id="VolumeCostRequired">!(loc.UITextVolumeCostRequired)</UIText>
+        <UIText Id="VolumeCostSize">!(loc.UITextVolumeCostSize)</UIText>
+        <UIText Id="VolumeCostVolume">!(loc.UITextVolumeCostVolume)</UIText>
+
+        <!-- Own error messages -->
+        <Error Id="25001">!(loc.Error25001)</Error>
+
+        <!-- The text used in front of the build number -->
+        <Property Id="Version_text">Version</Property>
+
+        <!-- Define an alias for the font to be used in dialogs -->
+        <Property Id="DlgTitleFont">{&amp;DlgFontBold8}</Property>
+
+        <!-- This property preselects the "Don't agree" radio button in the license page -->
+        <Property Id="IAgree">No</Property>
+
+        <!-- Icon files used for the UI -->
+        <Binary Id="infoico" SourceFile="$(env.VBOX_PATH_WIN_INST_SRC)\Binary\Info.ico" />
+        <Binary Id="exclico" SourceFile="$(env.VBOX_PATH_WIN_INST_SRC)\Binary\Exclamation.ico" />
+        <Binary Id="folderupico" SourceFile="$(env.VBOX_PATH_WIN_INST_SRC)\Binary\Up.ico" />
+        <Binary Id="foldernewico" SourceFile="$(env.VBOX_PATH_WIN_INST_SRC)\Binary\New.ico" />
+        <Binary Id="removico" SourceFile="$(env.VBOX_PATH_WIN_INST_SRC)\Binary\Remove.ico" />
+        <Binary Id="repairic" SourceFile="$(env.VBOX_PATH_WIN_INST_SRC)\Binary\Repair.ico" />
+
+        <!-- Graphic files used for the UI -->
+        <!-- See: http://wix.sourceforge.net/manual-wix3/WixUI_customizations.htm -->
+        <Binary Id="bannerjpg" SourceFile="$(env.VBOX_PATH_WIN_INST_SRC)\Binary\Banner.jpg" />
+        <Binary Id="dlgjpg" SourceFile="$(env.VBOX_BRAND_WIN_INST_DLGJPG)" />
+
+        <!-- Aliases for the graphic files -->
+        <Property Id="InfoIcon">infoico</Property>
+        <Property Id="ExclamationIcon">exclico</Property>
+        <Property Id="RemoveIcon">removico</Property>
+        <Property Id="RepairIcon">repairic</Property>
+        <Property Id="DialogBitmap">dlgjpg</Property>
+        <Property Id="BannerBitmap">bannerjpg</Property>
+        <Property Id="FolderUp">folderupico</Property>
+        <Property Id="FolderNew">foldernewico</Property>
+
+        <!-- Property which defines if we need to show the customization dialog or not.
+             We only show the dialog on new installs to let the users choose the components to install. -->
+        <Property Id="VBOX_SHOW_CUSTOMIZE_DLG">
+            <![CDATA[((PREVIOUSVERSIONSINSTALLED OR NEWERVERSIONDETECTED) OR ((NOT PREVIOUSVERSIONSINSTALLED) AND (NOT NEWERVERSIONDETECTED)))]]>
+        </Property>
+<?if $(env.VBOX_WITH_LICENSE_DISPLAY) = "yes" ?>
+        <!-- Property which defines whether the license dialog will be shown or not. -->
+        <Property Id="VBOX_SHOW_LICENSE_DLG">1</Property>
+<?endif?>
+<?if $(env.VBOX_WITH_SERIALNUMBER_INSTALL) = "yes2" ?>
+        <!-- Property which defines whether the installer checks the serial number or not. -->
+        <Property Id="VBOX_SHOW_SERIAL_CHECK_DLG">1</Property>
+<?endif?>
+<?if $(env.VBOX_WITH_QTGUI) = "no" ?>
+        <!-- Property which defines whether to show the second customization dialog. This second customization
+             dialog only is needed for GUI-based options, so skip if we either don't ship FE/Qt or don't show
+             the (first) customization dialog. -->
+        <Property Id="VBOX_SHOW_CUSTOMIZE2_DLG"><![CDATA[VBOX_SHOW_CUSTOMIZE_DLG]]></Property>
+<?endif?>
+
+
+        <!-- In graphical (attended) mode we always choose a custom installation to let the user chose. -->
+        <Property Id="InstallMode" Value="!(loc.InstallModeCustom)" />
+
+        <!-- Dialog routing table (sort-of truth table).
+             Here (and only here!) the routing for the customized dialogs are defined, e.g.
+             what happens next when pressing the "Next" or "Back" buttons on a dialog.
+
+             This can vary based on the defines we (don't) set above or custom actions in our
+             install helper DLL. -->
+
+        <!-- Note: All values except 0 and "" (empty string) are interpreted as TRUE. -->
+
+        <Publish Dialog="VBoxWelcomeDlg" Control="Next" Event="NewDialog" Value="VBoxLicenseAgreementDlg"><![CDATA[VBOX_SHOW_LICENSE_DLG]]></Publish>
+        <Publish Dialog="VBoxWelcomeDlg" Control="Next" Event="NewDialog" Value="VBoxCheckSerialDlg"><![CDATA[(NOT VBOX_SHOW_LICENSE_DLG) AND VBOX_SHOW_SERIAL_CHECK_DLG]]></Publish>
+        <Publish Dialog="VBoxWelcomeDlg" Control="Next" Event="NewDialog" Value="VBoxCustomizeDlg"><![CDATA[VBOX_SHOW_CUSTOMIZE_DLG AND (NOT VBOX_SHOW_LICENSE_DLG) AND (NOT VBOX_SHOW_SERIAL_CHECK_DLG)]]></Publish>
+        <Publish Dialog="VBoxWelcomeDlg" Control="Next" Event="NewDialog" Value="VBoxVerifyReadyDlg"><![CDATA[NOT VBOX_SHOW_CUSTOMIZE_DLG AND (NOT VBOX_SHOW_LICENSE_DLG) AND (NOT VBOX_SHOW_SERIAL_CHECK_DLG)]]></Publish>
+
+        <Publish Dialog="VBoxLicenseAgreementDlg" Control="Next" Event="NewDialog" Value="VBoxCheckSerialDlg"><![CDATA[VBOX_SHOW_SERIAL_CHECK_DLG]]></Publish>
+        <Publish Dialog="VBoxLicenseAgreementDlg" Control="Next" Event="NewDialog" Value="VBoxCustomizeDlg"><![CDATA[(NOT VBOX_SHOW_SERIAL_CHECK_DLG) AND (VBOX_SHOW_CUSTOMIZE_DLG)]]></Publish>
+        <Publish Dialog="VBoxLicenseAgreementDlg" Control="Next" Event="NewDialog" Value="VBoxVerifyReadyDlg"><![CDATA[(NOT VBOX_SHOW_SERIAL_CHECK_DLG) AND (NOT VBOX_SHOW_CUSTOMIZE_DLG)]]></Publish>
+        <Publish Dialog="VBoxLicenseAgreementDlg" Control="Back" Event="NewDialog" Value="VBoxWelcomeDlg">1</Publish>
+
+        <Publish Dialog="VBoxCheckSerialDlg" Control="Back" Event="NewDialog" Value="VBoxLicenseAgreementDlg"><![CDATA[VBOX_SHOW_LICENSE_DLG]]></Publish>
+        <Publish Dialog="VBoxCheckSerialDlg" Control="Back" Event="NewDialog" Value="VBoxWelcomeDlg"><![CDATA[NOT VBOX_SHOW_LICENSE_DLG]]></Publish>
+        <Publish Dialog="VBoxCheckSerialDlg" Control="Next" Event="DoAction" Value="ca_CheckSerial" Order="1">1</Publish>
+        <Publish Dialog="VBoxCheckSerialDlg" Control="Next" Event="NewDialog" Value="VBoxCustomizeDlg"><![CDATA[(PREVIOUSVERSIONSINSTALLED OR NEWERVERSIONDETECTED) AND (VBOX_SERIAL_IS_VALID="1")]]></Publish>
+        <Publish Dialog="VBoxCheckSerialDlg" Control="Next" Event="NewDialog" Value="VBoxCustomizeDlg"><![CDATA[(NOT PREVIOUSVERSIONSINSTALLED) AND (NOT NEWERVERSIONDETECTED) AND (VBOX_SERIAL_IS_VALID="1")]]></Publish>
+        <Publish Dialog="VBoxCheckSerialDlg" Control="Next" Event="NewDialog" Value="VBoxWrongSerialDlg"><![CDATA[VBOX_SERIAL_IS_VALID="0"]]></Publish>
+
+        <Publish Dialog="VBoxWrongSerialDlg" Control="Back" Event="NewDialog" Value="VBoxCheckSerialDlg">1</Publish>
+
+        <!-- Note: We have to set (1) or unset ({}) the properties first (see order #), as those will be needed for further routing. -->
+        <Publish Dialog="VBoxCustomizeDlg" Control="Next" Property="VBOX_SHOW_WARN_PYTHONAPI_DLG" Value="1" Order="1"><![CDATA[(&VBoxPython=3) AND (VBOX_PYTHON_DEPS_INSTALLED="0")]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Next" Property="VBOX_SHOW_WARN_PYTHONAPI_DLG" Value="{}" Order="2"><![CDATA[(&VBoxPython<3)]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Next" Property="VBOX_SHOW_WARN_DISCONNECTIFACES_DLG" Value="1" Order="3"><![CDATA[&VBoxNetworkFlt=3]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Next" Property="VBOX_SHOW_WARN_DISCONNECTIFACES_DLG" Value="{}" Order="4"><![CDATA[&VBoxNetworkFlt<3]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Next" Event="NewDialog" Value="VBoxWarnDisconNetIfacesDlg" Order="10"><![CDATA[VBOX_SHOW_WARN_DISCONNECTIFACES_DLG]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Next" Event="NewDialog" Value="VBoxWarnPythonDlg" Order="11"><![CDATA[VBOX_SHOW_WARN_PYTHONAPI_DLG AND (NOT VBOX_SHOW_WARN_DISCONNECTIFACES_DLG)]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Next" Event="NewDialog" Value="VBoxCustomize2Dlg" Order="12"><![CDATA[VBOX_SHOW_CUSTOMIZE2_DLG AND (NOT VBOX_SHOW_WARN_DISCONNECTIFACES_DLG) AND (NOT VBOX_SHOW_WARN_PYTHONAPI_DLG)]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Next" Event="NewDialog" Value="VBoxVerifyReadyDlg" Order="13"><![CDATA[(NOT VBOX_SHOW_CUSTOMIZE2_DLG) AND (NOT VBOX_SHOW_WARN_DISCONNECTIFACES_DLG) AND (NOT VBOX_SHOW_WARN_PYTHONAPI_DLG)]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Back" Event="NewDialog" Value="VBoxCheckSerialDlg"><![CDATA[VBOX_SHOW_SERIAL_CHECK_DLG]]></Publish>
+        <Publish Dialog="VBoxCustomizeDlg" Control="Back" Event="NewDialog" Value="VBoxLicenseAgreementDlg"><![CDATA[NOT VBOX_SHOW_SERIAL_CHECK_DLG]]></Publish>
+
+        <Publish Dialog="VBoxWarnDisconNetIfacesDlg" Control="Next" Event="NewDialog" Value="VBoxVerifyReadyDlg"><![CDATA[(NOT VBOX_SHOW_CUSTOMIZE2_DLG) AND (NOT VBOX_SHOW_WARN_PYTHONAPI_DLG)]]></Publish>
+        <Publish Dialog="VBoxWarnDisconNetIfacesDlg" Control="Next" Event="NewDialog" Value="VBoxCustomize2Dlg"><![CDATA[VBOX_SHOW_CUSTOMIZE2_DLG AND (NOT VBOX_SHOW_WARN_PYTHONAPI_DLG)]]></Publish>
+        <Publish Dialog="VBoxWarnDisconNetIfacesDlg" Control="Next" Event="NewDialog" Value="VBoxWarnPythonDlg"><![CDATA[VBOX_SHOW_WARN_PYTHONAPI_DLG]]></Publish>
+        <!-- Note: VBoxWarnDisconNetIfacesDlg only has a "Cancel" button which aborts the installation. -->
+
+        <Publish Dialog="VBoxWarnPythonDlg" Control="Next" Event="NewDialog" Value="VBoxCustomize2Dlg"><![CDATA[VBOX_SHOW_CUSTOMIZE2_DLG]]></Publish>
+        <Publish Dialog="VBoxWarnPythonDlg" Control="Next" Event="NewDialog" Value="VBoxVerifyReadyDlg"><![CDATA[NOT VBOX_SHOW_CUSTOMIZE2_DLG]]></Publish>
+        <!-- Note: VBoxWarnPythonDlg only has a "Cancel" button which aborts the installation. -->
+
+        <Publish Dialog="VBoxCustomize2Dlg" Control="Back" Event="NewDialog" Value="VBoxCustomizeDlg">1</Publish>
+        <Publish Dialog="VBoxCustomize2Dlg" Control="Next" Event="NewDialog" Value="VBoxVerifyReadyDlg">1</Publish>
+
+        <Publish Dialog="VBoxVerifyReadyDlg" Control="Back" Event="NewDialog" Value="VBoxCustomize2Dlg"><![CDATA[VBOX_SHOW_CUSTOMIZE2_DLG]]></Publish>
+        <Publish Dialog="VBoxVerifyReadyDlg" Control="Back" Event="NewDialog" Value="VBoxCustomizeDlg"><![CDATA[NOT VBOX_SHOW_CUSTOMIZE2_DLG]]></Publish>
+        <Publish Dialog="VBoxVerifyReadyDlg" Control="Next" Event="NewDialog" Value="VBoxVerifyReadyDlg">1</Publish>
+
+        <!-- This defines the order in which the GUI panels will be shown to the user. -->
+        <InstallUISequence>
+
+<?if $(env.VBOX_WITH_CRT_PACKING) = "no" ?>
+            <Custom Action="ca_IsMSCRTInstalled" After="AppSearch" />
+<?endif?>
+            <Custom Action="ca_OriginalTargetDir" After="FileCost"><![CDATA[(NOT INSTALLDIR) AND (NOT EXISTINGINSTALLDIR)]]></Custom>
+            <Custom Action="ca_DefaultTargetDir" After="FileCost"><![CDATA[NOT Installed AND (NOT INSTALLDIR) AND EXISTINGINSTALLDIR]]></Custom>
+            <Custom Action="ca_IsWindows10" After="CostFinalize" />
+
+<?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+            <!-- Check for the Python core package and other dependencies first.
+                 The install helper code will set the public properties VBOX_PYTHON_INSTALLED / VBOX_PYTHON_DEPS_INSTALLED. -->
+            <Custom Action="ca_IsPythonInstalled" After="CostFinalize">1</Custom>
+            <Custom Action="ca_ArePythonAPIDepsInstalled" After="CostFinalize">1</Custom>
+<?endif?>
+            <FindRelatedProducts Suppress="no">1</FindRelatedProducts>
+
+            <Show Dialog="VBoxFatalErrorDlg" OnExit="error" />
+            <Show Dialog="VBoxUserExitDlg" OnExit="cancel" />
+            <Show Dialog="VBoxPrepareDlg" After="LaunchConditions" />
+            <Show Dialog="VBoxWelcomeDlg" After="MigrateFeatureStates">NOT Installed</Show>
+            <Show Dialog="VBoxResumeDlg" After="VBoxWelcomeDlg">Installed AND (RESUME OR Preselected)</Show>
+            <Show Dialog="VBoxMaintenanceWelcomeDlg" After="VBoxResumeDlg">Installed AND (NOT RESUME) AND (NOT Preselected)</Show>
+            <Show Dialog="VBoxExitDlg" OnExit="success">1</Show>
+            <Show Dialog="VBoxProgressDlg" After="VBoxMaintenanceWelcomeDlg" />
+
+        </InstallUISequence>
+
+        <!-- The AdminUISequence table lists actions that the installer calls in sequence when the top-level ADMIN
+             action is executed and the internal user interface level is set to full UI or reduced UI. The installer
+             skips the actions in this table if the user interface level is set to basic UI or no UI. -->
+         <AdminUISequence>
+            <Show Dialog="VBoxFatalErrorDlg" OnExit="error" />
+            <Show Dialog="VBoxUserExitDlg" OnExit="cancel" />
+            <Show Dialog="VBoxExitDlg" OnExit="success" />
+         </AdminUISequence>
+    </UI>
+
+</Include>

@@ -1,0 +1,348 @@
+# $Id: GCC3OMF.kmk 3567 2022-06-26 20:00:02Z bird $
+## @file
+# kBuild Tool Config - GCC v3 targeting OS/2 OMF.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_GCC3OMF := GCC v3 targeting OS/2 OMF.
+
+# Tool Specific Properties
+ifndef TOOL_GCC3OMF_PREFIX
+ TOOL_GCC3OMF_PREFIX :=
+endif
+ifndef TOOL_GCC3OMF_SUFFIX
+ TOOL_GCC3OMF_SUFFIX := $(HOSTSUFF_EXE)
+endif
+TOOL_GCC3OMF_PREFIX2   ?=
+TOOL_GCC3OMF_SUFFIX2   ?= $(HOSTSUFF_EXE)
+TOOL_GCC3OMF_PREFIX3   ?=
+TOOL_GCC3OMF_SUFFIX3   ?= $(HOSTSUFF_EXE)
+TOOL_GCC3OMF_CC        ?= $(TOOL_GCC3OMF_PREFIX)gcc$(TOOL_GCC3OMF_SUFFIX)
+TOOL_GCC3OMF_CXX       ?= $(TOOL_GCC3OMF_PREFIX)g++$(TOOL_GCC3OMF_SUFFIX)
+TOOL_GCC3OMF_AS        ?= $(TOOL_GCC3OMF_PREFIX)gcc$(TOOL_GCC3OMF_SUFFIX)
+TOOL_GCC3OMF_AR        ?= $(TOOL_GCC3OMF_PREFIX2)emxomfar$(TOOL_GCC3OMF_SUFFIX2)
+TOOL_GCC3OMF_AR_IMP    ?= $(TOOL_GCC3OMF_PREFIX2)emximp$(TOOL_GCC3OMF_SUFFIX2)
+TOOL_GCC3OMF_LD        ?= $(TOOL_GCC3OMF_PREFIX)gcc$(TOOL_GCC3OMF_SUFFIX)
+TOOL_GCC3OMF_LD_SYSMOD ?= $(TOOL_GCC3OMF_PREFIX)gcc$(TOOL_GCC3OMF_SUFFIX)
+TOOL_GCC3OMF_LDFLAGS.dll ?= -shared -Zdll
+TOOL_GCC3OMF_LDFLAGS.sysmod ?= -nostdlib
+TOOL_GCC3OMF_LD_MAP ?= -Zmap=$(1)
+TOOL_GCC3OMF_LD_SYSMOD_MAP ?= -Zmap=$(1)
+
+TOOL_GCC3OMF_RC = $(TOOL_GCC3OMF_PREFIX3)rc$(TOOL_GCC3OMF_SUFFIX3)
+
+# General Properties used by kBuild
+TOOL_GCC3OMF_COBJSUFF         ?= .o
+TOOL_GCC3OMF_CFLAGS           ?= -Zomf
+TOOL_GCC3OMF_CFLAGS.debug     ?= -g
+TOOL_GCC3OMF_CFLAGS.profile   ?= -O2 #-g -pg
+TOOL_GCC3OMF_CFLAGS.release   ?= -O2
+TOOL_GCC3OMF_CINCS            ?=
+TOOL_GCC3OMF_CDEFS            ?=
+
+TOOL_GCC3OMF_CXXOBJSUFF       ?= .o
+TOOL_GCC3OMF_CXXOBJSUFF       ?= .o
+TOOL_GCC3OMF_CXXFLAGS         ?= -Zomf
+TOOL_GCC3OMF_CXXFLAGS.debug   ?= -g
+TOOL_GCC3OMF_CXXFLAGS.profile ?= -O2 #-g -pg
+TOOL_GCC3OMF_CXXFLAGS.release ?= -O2
+TOOL_GCC3OMF_CXXINCS          ?=
+TOOL_GCC3OMF_CXXDEFS          ?=
+
+TOOL_GCC3OMF_ASFLAGS          ?= -x assembler-with-cpp -Zomf
+TOOL_GCC3OMF_ASFLAGS.debug    ?= -g
+TOOL_GCC3OMF_ASFLAGS.profile  ?= -g
+TOOL_GCC3OMF_ASOBJSUFF        ?= .obj
+
+TOOL_GCC3OMF_RCOBJSUFF        ?= .res
+TOOL_GCC3OMF_RCFLAGS          ?= -n
+TOOL_GCC3OMF_RCINCS           ?= $(shell $(TOOL_GCC3OMF_CXX) -E -x c++ - 2>&1 < /dev/null \
+	| $(SED_EXT) -e "/search starts here/,/[Ee]nd of search list/!d" -e "/^ /!d")
+
+TOOL_GCC3OMF_ARFLAGS          ?= cr
+TOOL_GCC3OMF_ARLIBSUFF        ?= .lib
+
+TOOL_GCC3OMF_LDFLAGS          ?= -Zomf
+TOOL_GCC3OMF_LDFLAGS.debug    ?= -g
+TOOL_GCC3OMF_LDFLAGS.profile  ?= -g
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC3OMF_COMPILE_C_DEPEND =
+TOOL_GCC3OMF_COMPILE_C_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC3OMF_COMPILE_C_USES_KOBJCACHE = 1
+TOOL_GCC3OMF_COMPILE_C_OUTPUT = $(outbase).i
+define TOOL_GCC3OMF_COMPILE_C_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).i\
+		$(TOOL_GCC3OMF_CC) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC3OMF_CC) -c\
+		$(flags) -fpreprocessed -x c\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else # !KBUILD_USE_KOBJCACHE
+TOOL_GCC3OMF_COMPILE_C_OUTPUT =
+define TOOL_GCC3OMF_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_GCC3OMF_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP \
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC3OMF_COMPILE_CXX_DEPEND =
+TOOL_GCC3OMF_COMPILE_CXX_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC3OMF_COMPILE_CXX_USES_KOBJCACHE = 1
+TOOL_GCC3OMF_COMPILE_CXX_OUTPUT = $(outbase).ii
+define TOOL_GCC3OMF_COMPILE_CXX_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).ii\
+		$(TOOL_GCC3OMF_CXX) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC3OMF_CXX) -c\
+		$(flags) -fpreprocessed -x c++\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else # !KBUILD_USE_KOBJCACHE
+TOOL_GCC3OMF_COMPILE_CXX_OUTPUT =
+define TOOL_GCC3OMF_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_GCC3OMF_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP \
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_GCC3OMF_COMPILE_AS_OUTPUT =
+TOOL_GCC3OMF_COMPILE_AS_DEPEND =
+TOOL_GCC3OMF_COMPILE_AS_DEPORD =
+define TOOL_GCC3OMF_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_GCC3OMF_AS) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Compile resource source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC3OMF_COMPILE_RC_OUTPUT =
+TOOL_GCC3OMF_COMPILE_RC_DEPEND =
+TOOL_GCC3OMF_COMPILE_RC_DEPORD =
+define TOOL_GCC3OMF_COMPILE_RC_CMDS
+	$(QUIET)$(REDIRECT) -E 'INCLUDE=' -- $(TOOL_GCC3OMF_RC) -r \
+		$(flags) $(addprefix -i, $(subst /,\\,$(subst /@unixroot,$(UNIXROOT),$(incs)))) $(addprefix -d, $(defs))\
+		$(subst /,\\,$(abspath $(source))) \
+		$(obj)
+endef
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC3OMF_LINK_LIBRARY_OUTPUT = $(outbase).rsp
+TOOL_GCC3OMF_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_GCC3OMF_LINK_LIBRARY_DEPORD =
+define TOOL_GCC3OMF_LINK_LIBRARY_CMDS
+	$(if $(filter %.def %.imp %.dll,$(othersrc))\
+		,$(QUIET)$(APPEND) -n $(outbase).rsp $(filter %.def %.imp %.dll,$(othersrc))\
+		 $(NL)$(TAB)$(QUIET)$(QUIET)$(TOOL_GCC3OMF_AR_IMP) -o $(out) @$(outbase).rsp\
+		 $(NL)$(TAB)$(QUIET)$(RM) -f $(outbase).rsp)
+	$(QUIET)$(APPEND) -n $(outbase).rsp $(flags) $(out) $(objs) $(filter-out %.def %.imp %.dll,$(othersrc))
+	$(QUIET)$(TOOL_GCC3OMF_AR) @$(outbase).rsp
+endef
+
+
+## Link program
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC3OMF_LINK_PROGRAM_OUTPUT = $(outbase).map $(outbase).rsp
+TOOL_GCC3OMF_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_GCC3OMF_LINK_PROGRAM_DEPORD =
+define TOOL_GCC3OMF_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp\
+		$(flags)\
+		-o $(out)\
+		$(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(othersrc)\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
+		-Zmap=$(outbase).map
+	$(QUIET)$(TOOL_GCC3OMF_LD) @$(outbase).rsp
+endef
+
+
+## Link DLL
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC3OMF_LINK_DLL_OUTPUT = $(outbase).map $(outbase).rsp
+TOOL_GCC3OMF_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_GCC3OMF_LINK_DLL_DEPORD =
+define TOOL_GCC3OMF_LINK_DLL_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp\
+		$(TOOL_GCC3OMF_LDFLAGS.dll)\
+		$(flags)\
+		-o $(out)\
+		$(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(othersrc)\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
+		-Zmap=$(outbase).map
+	$(QUIET)$(TOOL_GCC3OMF_LD) @$(outbase).rsp
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		System module name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC3OMF_LINK_SYSMOD_OUTPUT = $(outbase).map $(outbase).rsp
+TOOL_GCC3OMF_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_GCC3OMF_LINK_SYSMOD_DEPORD =
+define TOOL_GCC3OMF_LINK_SYSMOD_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp\
+		$(TOOL_GCC3OMF_LDFLAGS.sysmod)\
+		$(flags)\
+		-o $(out)\
+		$(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(othersrc)\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
+		-Zmap=$(outbase).map
+	$(QUIET)$(TOOL_GCC3OMF_LD_SYSMOD) @$(outbase).rsp
+endef
+

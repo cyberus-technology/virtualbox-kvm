@@ -1,0 +1,57 @@
+#!/bin/sh
+# $Id: postrm $
+## @file
+# VirtualBox post remove.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# we can be called with the following arguments (6.5 of Debian policy):
+#  remove:            (our version): remove our package
+#  purge:             (our version): purge our package
+#  upgrade:           (our version): upgrade to a new version
+#  failed-upgrade     (old version): failed to upgrade to a new version
+#  abort-install      (our version): aborted install
+#  abort-upgrade      (old version): aborted upgrade
+
+if [ "$1" = "purge" -a ! -f /etc/init.d/vboxdrv ] ; then
+  update-rc.d vboxdrv remove >/dev/null || exit $?
+fi
+if [ "$1" = "purge" -a ! -f /etc/init.d/vboxnet ] ; then
+  update-rc.d vboxnet remove >/dev/null || exit $?
+fi
+if [ "$1" = "purge" -a ! -f /etc/init.d/vboxweb-service ] ; then
+  update-rc.d vboxweb-service remove >/dev/null || exit $?
+fi
+if [ "$1" = "purge" -a ! -f /etc/init.d/vboxballoonctrl-service ] ; then
+  update-rc.d vboxballoonctrl-service remove >/dev/null || exit $?
+fi
+
+# remove installed extension packs
+if [ "$1" = "purge" ]; then
+  rm -rf /usr/lib/virtualbox/ExtensionPacks/*
+fi
+
+#DEBHELPER#
+
+exit 0

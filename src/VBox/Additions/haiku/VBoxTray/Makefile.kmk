@@ -1,0 +1,128 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for VBoxTray, Haiku Guest Additions.
+#
+
+#
+# Copyright (C) 2012-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+#
+# This code is based on:
+#
+# VirtualBox Guest Additions for Haiku.
+# Copyright (c) 2011 Mike Smith <mike@scgtrp.net>
+#                    François Revol <revol@free.fr>
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation
+# files (the "Software"), to deal in the Software without
+# restriction, including without limitation the rights to use,
+# copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following
+# conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
+
+SUB_DEPTH = ../../../../..
+include	$(KBUILD_PATH)/subheader.kmk
+
+# @todo split the tray code,
+# single bin will cause problems loading gcc4 binary from a gcc2-built Deskbar!
+
+PROGRAMS += VBoxTray
+VBoxTray_TEMPLATE = VBoxGuestR3Exe
+VBoxTray_DEFS     = VBOX_WITH_HGCM LOG_TO_BACKDOOR
+VBoxTray_DEFS    += LOG_ENABLED
+VBoxTray_INCS     = ../include
+VBoxTray_SOURCES  = \
+	VBoxClipboard.cpp \
+	VBoxDisplay.cpp \
+	VBoxGuestApplication.cpp \
+	VBoxGuestDeskbarView.cpp
+
+VBoxTray_SOURCES += \
+	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-helper.cpp
+
+VBoxTray_LIBS     = \
+	be translation \
+	$(VBOX_LIB_VBGL_R3) \
+	$(VBOX_LIB_IPRT_GUEST_R3) \
+	$(VBOX_LIB_VBGL_R3)
+
+VBoxTray_RSRCS   += $(VBoxTray_0_OUTDIR)/VBoxTray.rsrc
+VBoxTray_DEPS    += $(VBoxTray_0_OUTDIR)/VBoxTray.rsrc
+VBoxTray_CLEAN   += $(VBoxTray_0_OUTDIR)/VBoxTray.rsrc
+
+# VBoxGuestApplication.cpp uses VBOX_SVN_REV.
+VBoxGuestApplication.cpp_DEFS += VBOX_SVN_REV=$(VBOX_SVN_REV)
+VBoxGuestApplication.cpp_DEPS = $(VBOX_SVN_REV_KMK)
+VBoxGuestDeskbarView.cpp_DEFS += VBOX_SVN_REV=$(VBOX_SVN_REV)
+VBoxGuestDeskbarView.cpp_DEPS = $(VBOX_SVN_REV_KMK)
+
+## The icon location is configurable.
+VBoxTray.rdef_INCS = $(VBoxTray_0_OUTDIR)
+VBoxTray.rdef_DEFS += VBOX_SVN_REV=$(VBOX_SVN_REV) \
+	VBOX_HAIKU_DESKBAR_ICON_PNG=\"$(VBOX_BRAND_GUI_VBOX_16PX_PNG)\"
+VBoxTray.rdef_DEPS = $(VBOX_SVN_REV_KMK)
+
+VBoxTray.rsrc_DEPS = VBoxTray.rdef
+VBoxTray.rsrc_CLEAN = VBoxTray.rdef
+
+
+
+#XXX: cleanup!
+#XXX: handle deps correctly
+#XXX: -I / is due to a bug in rc with absolute paths
+## Resource file.
+$$(VBoxTray_0_OUTDIR)/VBoxTray.rsrc: $$(VBoxTray_DEFPATH)/VBoxTray.rdef $$(VBoxTray_DEFPATH)/Makefile.kmk | $$(dir $$@)
+	$(call MSG_TOOL,$(VBOX_HAIKU_RCTOOL),HaikuResources,$<,$@)
+	$(QUIET)cat $< | gcc -E -I $(dir $<) -I $(dir $<)/../include $(foreach name, $(INCS), -I $(name)) $(foreach dname, $(VBoxTray.rdef_DEFS), -D$(dname)) - | grep -v '^#' | $(VBOX_HAIKU_RCTOOL) -I / -I $(dir $<) -I $(dir $<)/../include -o "$@" -
+
+
+#	rc -I $(VBoxTray_DEFPATH)/../include -o $@ $<
+#	$(RM) -f $@
+#	$(APPEND) $@ 'IDI_VIRTUALBOX ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ADDITIONS_ICON_FILE))"'
+
+## The icon location is configurable.
+#VBoxTray.rc_INCS = $(VBoxTray_0_OUTDIR)
+#VBoxTray.rc_DEPS = $(VBoxTray_0_OUTDIR)/VBoxTray-icon.rc
+#VBoxTray.rc_CLEAN = $(VBoxTray_0_OUTDIR)/VBoxTray-icon.rc
+
+## Icon include file.
+#$$(VBoxTray_0_OUTDIR)/VBoxTray-icon.rc: $(VBOX_WINDOWS_ADDITIONS_ICON_FILE) $$(VBoxTray_DEFPATH)/Makefile.kmk | $$(dir $$@)
+#	$(RM) -f $@
+#	$(APPEND) $@ 'IDI_VIRTUALBOX ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ADDITIONS_ICON_FILE))"'
+
+include	$(KBUILD_PATH)/subfooter.kmk
+

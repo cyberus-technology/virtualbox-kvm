@@ -1,0 +1,61 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for liblzf.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+LIBRARIES += VBox-liblzf
+if1of ($(KBUILD_TARGET), os2 win)
+ # only required for vbox-img
+ LIBRARIES += VBox-liblzf-static
+endif
+VBox-liblzf_TEMPLATE = VBoxR3RuntimeDllNonPedanticFast
+VBox-liblzf_BLD_TYPE = release # WARNING! Always optimizing this lib.
+VBox-liblzf_DEFS = ULTRA_FAST=1 HLOG=12
+VBox-liblzf_DEFS.x86 = STRICT_ALIGN=0
+VBox-liblzf_DEFS.amd64 = STRICT_ALIGN=0
+VBox-liblzf_CFLAGS.freebsd = -std=gnu99
+VBox-liblzf_SOURCES = \
+	lzf_c.c \
+	lzf_d.c
+
+VBox-liblzf-static_TEMPLATE   = VBoxR3StaticNonPedantic
+VBox-liblzf-static_EXTENDS    = VBox-liblzf
+ifdef VBOX_WITH_NOCRT_STATIC
+ VBox-liblzf-static_DEFS      = $(VBox-liblzf_DEFS) IPRT_NO_CRT_FOR_3RD_PARTY
+endif
+
+ifdef VBOX_WITH_32_ON_64_MAIN_API # 32-bit edition.
+ LIBRARIES += VBox-liblzf-x86
+ VBox-liblzf-x86_TEMPLATE = VBoxR3DllNonPedantic-x86
+ VBox-liblzf-x86_EXTENDS = VBox-liblzf
+endif
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,324 @@
+# $Id: GCC3PLAIN.kmk 3567 2022-06-26 20:00:02Z bird $
+## @file
+# kBuild Tool Config - Generic GCC v3.2.x or later Using The System GCC, any Unix Linker and Unix Archiver.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_GCC3PLAIN := Generic GCC v3.2.x or later Using The System GCC, any Unix Linker and Unix Archiver.
+
+# Tool Specific Properties
+ifndef TOOL_GCC3PLAIN_PREFIX
+ TOOL_GCC3PLAIN_PREFIX :=
+endif
+ifndef TOOL_GCC3PLAIN_SUFFIX
+ TOOL_GCC3PLAIN_SUFFIX := $(HOSTSUFF_EXE)
+endif
+TOOL_GCC3PLAIN_PREFIX2 ?= $(TOOL_GCC3PLAIN_PREFIX)
+TOOL_GCC3PLAIN_SUFFIX2 ?= $(TOOL_GCC3PLAIN_SUFFIX)
+TOOL_GCC3PLAIN_CC            ?= $(TOOL_GCC3PLAIN_PREFIX)gcc$(TOOL_GCC3PLAIN_SUFFIX)
+TOOL_GCC3PLAIN_CXX           ?= $(TOOL_GCC3PLAIN_PREFIX)g++$(TOOL_GCC3PLAIN_SUFFIX)
+TOOL_GCC3PLAIN_AS            ?= $(TOOL_GCC3PLAIN_PREFIX)gcc$(TOOL_GCC3PLAIN_SUFFIX)
+TOOL_GCC3PLAIN_AR            ?= $(TOOL_GCC3PLAIN_PREFIX2)ar$(TOOL_GCC3PLAIN_SUFFIX2)
+TOOL_GCC3PLAIN_RANLIB        ?= $(TOOL_GCC3PLAIN_PREFIX2)ranlib$(TOOL_GCC3PLAIN_SUFFIX2)
+TOOL_GCC3PLAIN_LD            ?= $(TOOL_GCC3PLAIN_PREFIX)gcc$(TOOL_GCC3PLAIN_SUFFIX)
+TOOL_GCC3PLAIN_LD_SYSMOD     ?= $(TOOL_GCC3PLAIN_PREFIX2)ld$(TOOL_GCC3PLAIN_SUFFIX2)
+TOOL_GCC3PLAIN_LD_SYSMOD.os2 ?= $(TOOL_GCC3PLAIN_PREFIX)g++$(TOOL_GCC3PLAIN_SUFFIX)
+TOOL_GCC3PLAIN_LDFLAGS.dll.os2 ?= -Zdll
+TOOL_GCC3PLAIN_LDFLAGS.dll.darwin ?= -dynamiclib
+ifndef TOOL_GCC3PLAIN_LDFLAGS.$(KBUILD_TARGET)
+ TOOL_GCC3PLAIN_LDFLAGS.dll ?= -shared
+else
+ TOOL_GCC3PLAIN_LDFLAGS.dll ?= $(TOOL_GCC3PLAIN_LDFLAGS.$(KBUILD_TARGET))
+endif
+TOOL_GCC3PLAIN_LD_SONAME.darwin  ?= $(NO_SUCH_VARIABLE)
+TOOL_GCC3PLAIN_LD_SONAME.os2     ?= $(NO_SUCH_VARIABLE)
+TOOL_GCC3PLAIN_LD_SONAME.solaris ?= -Wl,-h,$(firstword $($(1)_SONAME.$(KBUILD_TARGET).$(KBUILD_TYPE)) $($(1)_SONAME.$(KBUILD_TARGET)) $($(1)_SONAME.$(KBUILD_TYPE)) $($(1)_SONAME) $(notdir $(2)))
+TOOL_GCC3PLAIN_LD_SONAME.win     ?= $(NO_SUCH_VARIABLE)
+ifndef TOOL_GCC3PLAIN_LD_SONAME.$(KBUILD_TARGET)
+ TOOL_GCC3PLAIN_LD_SONAME ?= -Wl,-soname=$(firstword $($(1)_SONAME.$(KBUILD_TARGET).$(KBUILD_TYPE)) $($(1)_SONAME.$(KBUILD_TARGET)) $($(1)_SONAME.$(KBUILD_TYPE)) $($(1)_SONAME) $(notdir $(2)))
+else
+ TOOL_GCC3PLAIN_LD_SONAME ?= $(TOOL_GCC3PLAIN_LD_SONAME.$(KBUILD_TARGET))
+endif
+
+# General Properties used by kBuild
+TOOL_GCC3PLAIN_COBJSUFF         ?= .o
+TOOL_GCC3PLAIN_CFLAGS           ?=
+TOOL_GCC3PLAIN_CFLAGS.debug     ?= -g
+TOOL_GCC3PLAIN_CFLAGS.profile   ?= -O2 #-g -pg
+TOOL_GCC3PLAIN_CFLAGS.release   ?= -O2
+TOOL_GCC3PLAIN_CINCS            ?=
+TOOL_GCC3PLAIN_CDEFS            ?=
+
+TOOL_GCC3PLAIN_CXXOBJSUFF       ?= .o
+TOOL_GCC3PLAIN_CXXOBJSUFF       ?= .o
+TOOL_GCC3PLAIN_CXXFLAGS         ?=
+TOOL_GCC3PLAIN_CXXFLAGS.debug   ?= -g
+TOOL_GCC3PLAIN_CXXFLAGS.profile ?= -O2 #-g -pg
+TOOL_GCC3PLAIN_CXXFLAGS.release ?= -O2
+TOOL_GCC3PLAIN_CXXINCS          ?=
+TOOL_GCC3PLAIN_CXXDEFS          ?=
+
+TOOL_GCC3PLAIN_ASFLAGS          ?= -x assembler-with-cpp
+TOOL_GCC3PLAIN_ASFLAGS.debug    ?= -g
+TOOL_GCC3PLAIN_ASFLAGS.profile  ?= -g
+TOOL_GCC3PLAIN_ASOBJSUFF        ?= .o
+
+TOOL_GCC3PLAIN_ARFLAGS          ?= cr
+TOOL_GCC3PLAIN_ARLIBSUFF        ?= .a
+
+TOOL_GCC3PLAIN_LDFLAGS          ?=
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC3PLAIN_COMPILE_C_DEPEND =
+TOOL_GCC3PLAIN_COMPILE_C_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC3PLAIN_COMPILE_C_USES_KOBJCACHE = 1
+TOOL_GCC3PLAIN_COMPILE_C_OUTPUT = $(outbase).i
+define TOOL_GCC3PLAIN_COMPILE_C_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).i\
+		$(TOOL_GCC3PLAIN_CC) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC3PLAIN_CC) -c\
+		$(flags) -fpreprocessed -x c\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else # !KBUILD_USE_KOBJCACHE
+TOOL_GCC3PLAIN_COMPILE_C_OUTPUT =
+define TOOL_GCC3PLAIN_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_GCC3PLAIN_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC3PLAIN_COMPILE_CXX_DEPEND =
+TOOL_GCC3PLAIN_COMPILE_CXX_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC3PLAIN_COMPILE_CXX_USES_KOBJCACHE = 1
+TOOL_GCC3PLAIN_COMPILE_CXX_OUTPUT = $(outbase).ii
+define TOOL_GCC3PLAIN_COMPILE_CXX_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).ii\
+		$(TOOL_GCC3PLAIN_CXX) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC3PLAIN_CXX) -c\
+		$(flags) -fpreprocessed -x c++\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else # !KBUILD_USE_KOBJCACHE
+TOOL_GCC3PLAIN_COMPILE_CXX_OUTPUT =
+define TOOL_GCC3PLAIN_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_GCC3PLAIN_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_GCC3PLAIN_COMPILE_AS_OUTPUT =
+TOOL_GCC3PLAIN_COMPILE_AS_DEPEND =
+TOOL_GCC3PLAIN_COMPILE_AS_DEPORD =
+define TOOL_GCC3PLAIN_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_GCC3PLAIN_AS) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC3PLAIN_LINK_LIBRARY_OUTPUT =
+TOOL_GCC3PLAIN_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_GCC3PLAIN_LINK_LIBRARY_DEPORD =
+define TOOL_GCC3PLAIN_LINK_LIBRARY_CMDS
+	$(call xargs,$(QUIET)$(TOOL_GCC3PLAIN_AR) $(flags) $(out),$(objs))
+	$(foreach lib,$(othersrc)\
+		,$(NL)$(TAB)$(call MSG_AR_MERGE,$(target),$(out),$(lib)) \
+		$(NL)$(TAB)$(QUIET)$(RM_EXT) -f $(dir $(outbase))ar.tmp.dir/* \
+		$(NL)$(TAB)$(QUIET)$(MKDIR) -p $(dir $(outbase))/ar.tmp.dir/ \
+		$(NL)$(TAB)$(QUIET)(cd $(dir $(outbase))ar.tmp.dir/ \
+			&& $(TOOL_GCC3PLAIN_AR) x $(abspath $(lib)) \
+			&& $(TOOL_GCC3PLAIN_AR) $(flags) $(out) *) \
+		$(NL)$(TAB)$(QUIET)$(RM_EXT) -f $(dir $(outbase))/ar.tmp.dir/* \
+		$(NL)$(TAB)$(QUIET)$(RMDIR) $(dir $(outbase))ar.tmp.dir/)
+	$(QUIET)$(TOOL_GCC3PLAIN_RANLIB) $(out)
+endef
+
+
+## Link program
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC3PLAIN_LINK_PROGRAM_OUTPUT =
+TOOL_GCC3PLAIN_LINK_PROGRAM_OUTPUT_MAYBE = $(outbase).map
+TOOL_GCC3PLAIN_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))\
+		$(filter %.def, $(othersrc))
+TOOL_GCC3PLAIN_LINK_PROGRAM_DEPORD =
+define TOOL_GCC3PLAIN_LINK_PROGRAM_CMDS
+	$(QUIET)$(TOOL_GCC3PLAIN_LD) $(flags) -o $(out) $(objs)\
+		$(filter %.def, $(othersrc))\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+endef
+
+
+## Link DLL
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC3PLAIN_LINK_DLL_OUTPUT =
+TOOL_GCC3PLAIN_LINK_DLL_OUTPUT_MAYBE = $(outbase).map
+TOOL_GCC3PLAIN_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))\
+		$(filter %.def, $(othersrc))
+TOOL_GCC3PLAIN_LINK_DLL_DEPORD =
+define TOOL_GCC3PLAIN_LINK_DLL_CMDS
+	$(QUIET)$(TOOL_GCC3PLAIN_LD) $(TOOL_GCC3PLAIN_LDFLAGS.dll) $(flags) -o $(out)\
+		$(if $(filter-out win32 os2, $(KBUILD_TARGET)),$(call TOOL_GCC3PLAIN_LD_SONAME,$(target),$(out)))\
+		$(objs)\
+		$(filter %.def, $(othersrc))\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# This tool target might not work everywhere, but is provided for the
+# platforms where it works (Solaris, etc).
+#
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      System module name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC3PLAIN_LINK_SYSMOD_OUTPUT =
+TOOL_GCC3PLAIN_LINK_SYSMOD_OUTPUT_MAYBE = $(outbase).map
+TOOL_GCC3PLAIN_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))\
+		$(filter %.def, $(othersrc))
+TOOL_GCC3PLAIN_LINK_SYSMOD_DEPORD =
+define TOOL_GCC3PLAIN_LINK_SYSMOD_CMDS
+	$(QUIET)$(if $(TOOL_GCC3PLAIN_LD_SYSMOD.$(bld_trg)),$(TOOL_GCC3PLAIN_LD_SYSMOD.$(bld_trg)),$(TOOL_GCC3PLAIN_LD_SYSMOD))\
+		$(TOOL_GCC3PLAIN_LDFLAGS_SYSMOD.$(bld_trg))  $(flags) -o $(out)\
+		$(objs)\
+		$(filter %.def, $(othersrc))\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+endef
+

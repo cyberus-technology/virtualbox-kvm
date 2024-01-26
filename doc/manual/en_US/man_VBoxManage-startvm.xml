@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage startvm
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-startvm" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage startvm</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-startvm</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-startvm</refname>
+    <refpurpose>start a virtual machine</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-startvm">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage startvm</command>
+      <group choice="req" rep="repeat">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg>--putenv=<replaceable>name</replaceable>[=<replaceable>value</replaceable>]</arg>
+      <arg>--type=<group>
+          <arg choice="plain">gui</arg>
+          <arg choice="plain">headless</arg>
+          <arg choice="plain">sdl</arg>
+          <arg choice="plain">separate</arg>
+        </group></arg>
+      <arg choice="plain">--password <replaceable>file</replaceable></arg>
+      <arg choice="plain">--password-id <replaceable>password identifier</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage startvm</command> command starts an
+      &product-name; virtual machine (VM) that is in the Powered Off or
+      Saved state.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>vmname</replaceable></term>
+        <listitem><para>
+            Specifies the name or Universally Unique Identifier (UUID)
+            of the VM.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--putenv=<replaceable>name</replaceable>=<replaceable>value</replaceable></option></term>
+        <listitem><para>
+            Assigns a value to an environment variable as a name-value
+            pair. For example, VBOX_DISABLE_HOST_DISK_CACHE=1.
+          </para><para>
+            The short form of this option is <option>-E</option>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--type=gui | headless | sdl | separate</option></term>
+        <listitem><para>
+            Specifies the frontend used to start the VM.
+          </para><para>
+            You can use the <command>VBoxManage setproperty</command>
+            command to set a global default value for the frontend.
+            Alternatively, you can use the <command>VBoxManage
+            modifyvm</command> command to specify a default frontend
+            value for a specific VM. If neither a global or per-VM
+            default value is set and you do not specify the
+            <option>--type</option> option, then the VM opens in a
+            window on the host desktop.
+          </para><para>
+            The <option>--type</option> option accepts the following
+            values:
+          </para><variablelist>
+            <varlistentry>
+              <term><literal>gui</literal></term>
+              <listitem><para>
+                  Starts a VM in a graphical user interface (GUI)
+                  window. This is the default.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>headless</literal></term>
+              <listitem><para>
+                  Starts a VM for remote display only.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>sdl</literal></term>
+              <listitem><para>
+                  Starts a VM using the VBoxSDL frontend.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>separate</literal></term>
+              <listitem><para>
+                  Starts a VM with a detachable user interface (UI),
+                  which means that the VM runs headless with the UI in a
+                  separate process.
+                </para><para>
+                  This is an experimental feature that lacks certain
+                  functionality, such as 3D acceleration.
+                </para></listitem>
+            </varlistentry>
+          </variablelist></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--password</option></term>
+        <listitem>
+          <para>
+            Use the <option>--password</option> to supply the encryption
+            password. Either specify the absolute pathname of a password file
+            on the host operating system, or <literal>-</literal> to prompt
+            you for the password on the command line.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--password-id</option></term>
+        <listitem>
+          <para>
+            Use the <option>--password-id</option> option to specify the
+            id the password is supplied for.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <note>
+      <para>
+        If a VM fails to start with a particular frontend and the error
+        information is inconclusive, consider starting the VM directly
+        by running the frontend. This workaround might provide
+        additional error information.
+      </para>
+    </note>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command starts the <literal>ol7u6</literal> VM:
+    </para>
+<screen>$ VBoxManage startvm ol7u6</screen>
+    <para>
+      The following command starts the
+      <literal>ol7u6-mininstall</literal> VM in headless mode.
+    </para>
+<screen>$ VBoxManage startvm ol7u6-mininstall --type headless</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+<!--<xref linkend="vboxmanage-vboxheadless" />-->
+      <xref linkend="vboxheadless" />,
+      <xref linkend="vboxmanage-setproperty" />,
+      <xref linkend="vboxmanage-modifyvm" />.
+    </para>
+  </refsect1>
+</refentry>

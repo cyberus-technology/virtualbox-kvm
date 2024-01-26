@@ -1,0 +1,83 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the audio testcases.
+#
+
+#
+# Copyright (C) 2014-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+if defined(VBOX_WITH_TESTCASES) && !defined(VBOX_ONLY_ADDITIONS) && !defined(VBOX_ONLY_SDK)
+
+ PROGRAMS += tstAudioMixBuffer
+ TESTING  += $(tstAudioMixBuffer_0_OUTDIR)/tstAudioMixBuffer.run
+
+ tstAudioMixBuffer_TEMPLATE = VBoxR3TstExe
+ tstAudioMixBuffer_DEFS = TESTCASE VBOX_AUDIO_MIX_BUFFER_TESTCASE
+ tstAudioMixBuffer_DEFS.debug  = VBOX_WITH_EF_WRAPS
+ tstAudioMixBuffer_SOURCES = \
+ 	tstAudioMixBuffer.cpp \
+ 	../AudioMixBuffer.cpp \
+ 	../AudioHlp.cpp
+ tstAudioMixBuffer_LIBS = $(LIB_RUNTIME)
+
+ $$(tstAudioMixBuffer_0_OUTDIR)/tstAudioMixBuffer.run: $$(tstAudioMixBuffer_1_STAGE_TARGET)
+	export VBOX_LOG_DEST=nofile; $(tstAudioMixBuffer_1_STAGE_TARGET) quiet
+	$(QUIET)$(APPEND) -t "$@" "done"
+
+ ifeq ($(KBUILD_TARGET),win.amd64) # Note: Only runs on Windows 8 or newer.
+  tstAudioClient3_TEMPLATE = VBoxR3TstExe
+  tstAudioClient3_DEFS = TESTCASE
+  tstAudioClient3_DEFS.debug = VBOX_WITH_EF_WRAPS
+  tstAudioClient3_SOURCES = tstAudioClient3.cpp
+  tstAudioClient3_LIBS = $(LIB_RUNTIME)
+  tstAudioClient3_INCS = \
+  	$(KBUILD_DEVTOOLS)/win.x86/sdk/v10.0.17134.0/Include/10.0.17134.0/um \
+  	$(KBUILD_DEVTOOLS)/win.x86/sdk/v10.0.17134.0/include/10.0.17134.0/shared
+
+  # Requires manual execution / verification.
+  PROGRAMS += tstAudioClient3
+ endif
+
+ PROGRAMS += tstAudioTestService
+ TESTING  += $(tstAudioTestService_0_OUTDIR)/tstAudioTestService.run
+
+ tstAudioTestService_TEMPLATE = VBoxR3TstExe
+ tstAudioTestService_DEFS = TESTCASE
+ tstAudioTestService_DEFS.debug  = VBOX_WITH_EF_WRAPS
+ tstAudioTestService_SOURCES = \
+ 	tstAudioTestService.cpp \
+ 	../AudioTestService.cpp \
+ 	../AudioTestServiceProtocol.cpp \
+ 	../AudioTestServiceTcp.cpp \
+ 	../AudioTestServiceClient.cpp
+ tstAudioTestService_LIBS = $(LIB_RUNTIME)
+
+ $$(tstAudioTestService_0_OUTDIR)/tstAudioTestService.run: $$(tstAudioTestService_1_STAGE_TARGET)
+	export VBOX_LOG_DEST=nofile; $(tstAudioTestService_1_STAGE_TARGET) quiet
+	$(QUIET)$(APPEND) -t "$@" "done"
+
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)

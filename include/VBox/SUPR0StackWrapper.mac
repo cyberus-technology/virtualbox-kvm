@@ -1,0 +1,180 @@
+; $Id: SUPR0StackWrapper.mac $
+;; @file
+; SUP - Support Library, ring-0 stack switching wrappers.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___VBox_SUPR0StackWrapper_mac
+%define ___VBox_SUPR0StackWrapper_mac
+
+%include "VBox/asmdefs.mac"
+
+;; VBox's own Stack
+%define SUPR0STACKINFO_MAGIC0 0786f4256h    ; VBox
+%define SUPR0STACKINFO_MAGIC1 06f207327h    ; 's o
+%define SUPR0STACKINFO_MAGIC2 053206e77h    ; wn S
+%define SUPR0STACKINFO_MAGIC3 06b636174h    ; tack
+
+;;
+; Stack info located before the start of the stack, at the top of the page.
+;
+struc SUPR0STACKINFO
+        .magic0             resd   1
+        .magic1             resd   1
+        .magic2             resd   1
+        .magic3             resd   1
+        .pResumeKernelStack resq   1
+        .pSelf              resq   1
+endstruc
+
+;;
+; Number of parameters in GPRs and the spill area size.
+%ifdef RT_ARCH_AMD64
+ %ifdef ASM_CALL64_MSC
+  %define SUPR0_GRP_PARAMS      4
+  %define SUPR0_SPILL_AREA      4
+ %else
+  %define SUPR0_GRP_PARAMS      6
+  %define SUPR0_SPILL_AREA      0
+ %endif
+%else
+ %define SUPR0_GRP_PARAMS       0
+ %define SUPR0_SPILL_AREA       0
+%endif
+
+;;
+; Generic stack switching wrapper.
+;
+; @param %1     The name
+; @param %2     Number of arguments.
+;
+%macro SUPR0StackWrapperGeneric 2
+BEGINCODE
+extern NAME(StkBack_ %+ %1)
+
+BEGINPROC %1
+%ifdef RT_ARCH_AMD64 ; Only for amd64 for now.
+        ;
+        ; Check for the stack info.
+        ;
+        mov     rax, rsp
+        or      rax, 0fffh
+        sub     rax, SUPR0STACKINFO_size - 1
+
+        ; Check for the magic.
+        cmp     dword [rax + SUPR0STACKINFO.magic0], SUPR0STACKINFO_MAGIC0
+        jne     .regular
+        cmp     dword [rax + SUPR0STACKINFO.magic1], SUPR0STACKINFO_MAGIC1
+        jne     .regular
+        cmp     dword [rax + SUPR0STACKINFO.magic2], SUPR0STACKINFO_MAGIC2
+        jne     .regular
+        cmp     dword [rax + SUPR0STACKINFO.magic3], SUPR0STACKINFO_MAGIC3
+        jne     .regular
+
+        ; Verify the self pointer.
+        cmp     [rax + SUPR0STACKINFO.pSelf], rax
+        jne     .regular
+
+        ;
+        ; Perform a stack switch.  We set up a RBP frame on the old stack so we
+        ; can use leave to restore the incoming stack upon return.
+        ;
+        push    rbp
+        mov     rbp, rsp
+
+        ; The actual switch.
+        mov     r10, 0ffffffffffffffe0h ; shuts up warning on 'and rsp, 0ffffffffffffffe0h'
+        and     r10, [rax + SUPR0STACKINFO.pResumeKernelStack]
+        mov     rsp, r10
+
+        ;
+        ; Copy over stack arguments.
+        ;
+        ; Note! We always copy 2-3 extra arguments (%2 + 2) just in case someone got
+        ;       the argument count wrong.
+        ;
+%if (%2 + 2) > SUPR0_GRP_PARAMS + 18
+ %error too many parameters
+ %fatal too many parameters
+%endif
+%if (%2 + 2) > SUPR0_GRP_PARAMS + 16
+        push    qword [rbp + 98h]
+        push    qword [rbp + 90h]
+%endif
+%if (%2 + 2) > SUPR0_GRP_PARAMS + 14
+        push    qword [rbp + 88h]
+        push    qword [rbp + 80h]
+%endif
+%if (%2 + 2) > SUPR0_GRP_PARAMS + 12
+        push    qword [rbp + 78h]
+        push    qword [rbp + 70h]
+%endif
+%if (%2 + 2) > SUPR0_GRP_PARAMS + 10
+        push    qword [rbp + 68h]
+        push    qword [rbp + 60h]
+%endif
+%if (%2 + 2) > SUPR0_GRP_PARAMS + 8
+        push    qword [rbp + 58h]
+        push    qword [rbp + 50h]
+%endif
+%if (%2 + 2) > SUPR0_GRP_PARAMS + 6
+        push    qword [rbp + 48h]
+        push    qword [rbp + 40h]
+%endif
+%if (%2 + 2) > SUPR0_GRP_PARAMS + 4
+        push    qword [rbp + 38h]
+        push    qword [rbp + 30h]
+%endif
+%if ((%2 + 2) > SUPR0_GRP_PARAMS + 2) || (SUPR0_SPILL_AREA > 2)
+        push    qword [rbp + 28h]
+        push    qword [rbp + 20h]
+%endif
+%if ((%2 + 2) > SUPR0_GRP_PARAMS)     || (SUPR0_SPILL_AREA > 0)
+        push    qword [rbp + 18h]
+        push    qword [rbp + 10h]
+%endif
+
+        call    NAME(StkBack_ %+ %1)
+
+        leave
+        ret
+
+.regular:
+%endif ; RT_ARCH_AMD64
+        jmp     NAME(StkBack_ %+ %1)
+ENDPROC   %1
+%endmacro
+
+
+%endif
+

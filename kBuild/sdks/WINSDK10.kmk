@@ -1,0 +1,256 @@
+# $Id: WINSDK10.kmk 3511 2021-12-16 12:00:28Z bird $
+## @file
+# kBuild SDK - The Microsoft Windows SDK v10.
+#
+
+#
+# Copyright (c) 2006-2020 knut st. osmundsen <bird-kBuild-spam-xx@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_WINSDK10 := The Windows Platform SDK v10, targeting (KBUILD_TARGET).
+
+ifndef INCLUDED_WIN_COMMON_KMK
+ include $(KBUILD_PATH)/win-common.kmk
+endif
+
+#
+# SDK Specific Properties
+#
+
+## @def PATH_SDK_WINSDK10
+## The base path of the Windows 10 SDK.
+## @def SDK_WINSDK10_VERSION
+## The SDK version for subdirectories.
+ifndef PATH_SDK_WINSDK10
+ ifndef SDK_WINSDK10_VERSION
+  PATH_SDK_WINSDK10 := $(firstfile $(foreachfile toolsdir, \
+  	$(KBUILD_DEVTOOLS_BLD) $(KBUILD_DEVTOOLS_TRG) $(KBUILD_DEVTOOLS)/win.x86 $(KBUILD_DEVTOOLS)/win.amd64 \
+       , $(rsortfiles $(qwildcard ,$(toolsdir)/sdk/v10*/[Ii][Nn][Cc][Ll][Uu][Dd][Ee]/10.0.*))))
+  ifeq ($(PATH_SDK_WINSDK10),)
+   PATH_SDK_WINSDK10 := $(firstfile $(foreachfile progfilesdir,$(WINCMN_PROGRAM_FILES_LIST)\
+   	,$(rsortfiles $(qwildcard ,$(progfilesdir)/Windows\ Kits/10/[Ii][Nn][Cc][Ll][Uu][Dd][Ee]/10.0.*)) ))
+   ifeq ($(PATH_SDK_WINSDK10),)
+    $(warning kBuild: PATH_SDK_WINSDK10 couldn't be determined!)
+    PATH_SDK_WINSDK10 := $(KBUILD_DEVTOOLS_BLD)/sdk/v10-not-found/Include/10.0.10240.0
+   endif
+  endif
+  SDK_WINSDK10_VERSION := $(qnotdir ,$(PATH_SDK_WINSDK10))
+ else
+  PATH_SDK_WINSDK10 := $(firstfile $(foreachfile toolsdir, \
+  	$(KBUILD_DEVTOOLS_BLD) $(KBUILD_DEVTOOLS_TRG) $(KBUILD_DEVTOOLS)/win.x86 $(KBUILD_DEVTOOLS)/win.amd64 \
+       , $(rsortfiles $(qwildcard ,$(toolsdir)/sdk/v10*/[Ii][Nn][Cc][Ll][Uu][Dd][Ee]/$(SDK_WINSDK10_VERSION)))))
+  ifeq ($(PATH_SDK_WINSDK10),)
+   PATH_SDK_WINSDK10 := $(firstfile $(foreachfile progfilesdir,$(WINCMN_PROGRAM_FILES_LIST)\
+   	,$(rsortfiles $(qwildcard ,$(progfilesdir)/Windows\ Kits/10/[Ii][Nn][Cc][Ll][Uu][Dd][Ee]/$(SDK_WINSDK10_VERSION))) ))
+   ifeq ($(PATH_SDK_WINSDK10),)
+    $(warning kBuild: PATH_SDK_WINSDK10 couldn't be determined!)
+    PATH_SDK_WINSDK10 := $(KBUILD_DEVTOOLS_BLD)/sdk/v10-not-found/Include/$(SDK_WINSDK10_VERSION)
+   endif
+  endif
+  SDK_WINSDK10_VERSION := $(qnotdir ,$(PATH_SDK_WINSDK10))
+ endif
+  PATH_SDK_WINSDK10    := $(substr $(qdir ,$(PATH_SDK_WINSDK10)),1,-9)
+else
+ PATH_SDK_WINSDK10 := $(PATH_SDK_WINSDK10)
+ ifndef SDK_WINSDK10_VERSION
+  SDK_WINSDK10_VERSION := $(qnotdir ,$(firstfile $(rsortfiles $(qwildcard ,$(PATH_SDK_WINSDK10)/[Ii][Nn][Cc][Ll][Uu][Dd][Ee]/10.0.*))))
+  ifeq ($(SDK_WINSDK10_VERSION),)
+   $(warning kBuild: SDK_WINSDK10_VERSION could not be determined for PATH_SDK_WINSDK10=$(PATH_SDK_WINSDK10))
+   SDK_WINSDK10_VERSION := 10.0.10240.0
+  endif
+ endif
+endif
+
+# Non-versioned base directory paths:
+ifndef PATH_SDK_WINSDK10_BASE_INC
+PATH_SDK_WINSDK10_BASE_INC := $(firstfile $(qwildcard ,$(PATH_SDK_WINSDK10)/[Ii][Nn][Cc][Ll][Uu][Dd][Ee]) $(PATH_SDK_WINSDK10)/Include)
+endif
+ifndef PATH_SDK_WINSDK10_BASE_LIB
+PATH_SDK_WINSDK10_BASE_LIB := $(firstfile $(qwildcard ,$(PATH_SDK_WINSDK10)/[Ll][Ii][Bb]) $(PATH_SDK_WINSDK10)/lib)
+endif
+ifndef PATH_SDK_WINSDK10_BASE_BIN
+PATH_SDK_WINSDK10_BASE_BIN := $(firstfile $(qwildcard ,$(PATH_SDK_WINSDK10)/[Bb][Ii][Nn]) $(PATH_SDK_WINSDK10)/bin)
+endif
+
+# Universal CRT (UCRT).
+ifndef PATH_SDK_WINSDK10_UCRT_INC
+PATH_SDK_WINSDK10_UCRT_INC := $(PATH_SDK_WINSDK10_BASE_INC)/$(SDK_WINSDK10_VERSION)/ucrt
+endif
+ifndef PATH_SDK_WINSDK10_UCRT_LIB.amd64
+PATH_SDK_WINSDK10_UCRT_LIB.amd64 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/ucrt/x64
+endif
+ifndef PATH_SDK_WINSDK10_UCRT_LIB.arm32
+PATH_SDK_WINSDK10_UCRT_LIB.arm32 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/ucrt/arm
+endif
+ifndef PATH_SDK_WINSDK10_UCRT_LIB.arm64
+PATH_SDK_WINSDK10_UCRT_LIB.arm64 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/ucrt/arm64
+endif
+ifndef PATH_SDK_WINSDK10_UCRT_LIB.x86
+PATH_SDK_WINSDK10_UCRT_LIB.x86   := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/ucrt/x86
+endif
+PATH_SDK_WINSDK10_UCRT_LIB = $(PATH_SDK_WINSDK10_UCRT_LIB.$(KBUILD_TARGET_ARCH))
+SDK_WINSDK10_UCRT_IMPLIB_NAME     := ucrt.lib
+SDK_WINSDK10_UCRT_IMPLIB_DBG_NAME := ucrtd.lib
+SDK_WINSDK10_UCRT_STATIC_NAME     := libucrt.lib
+SDK_WINSDK10_UCRT_STATIC_DBG_NAME := libucrtd.lib
+
+# Shared API headers
+ifndef PATH_SDK_WINSDK10_SHARED_INC
+PATH_SDK_WINSDK10_SHARED_INC := $(PATH_SDK_WINSDK10_BASE_INC)/$(SDK_WINSDK10_VERSION)/shared
+endif
+
+# User-mode API (MS WIN SDK)
+ifndef PATH_SDK_WINSDK10_UM_INC
+PATH_SDK_WINSDK10_UM_INC := $(PATH_SDK_WINSDK10_BASE_INC)/$(SDK_WINSDK10_VERSION)/um
+endif
+ifndef PATH_SDK_WINSDK10_UM_LIB.amd64
+PATH_SDK_WINSDK10_UM_LIB.amd64 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/um/x64
+endif
+ifndef PATH_SDK_WINSDK10_UM_LIB.arm32
+PATH_SDK_WINSDK10_UM_LIB.arm32 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/um/arm
+endif
+ifndef PATH_SDK_WINSDK10_UM_LIB.arm64
+PATH_SDK_WINSDK10_UM_LIB.arm64 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/um/arm64
+endif
+ifndef PATH_SDK_WINSDK10_UM_LIB.x86
+PATH_SDK_WINSDK10_UM_LIB.x86   := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/um/x86
+endif
+PATH_SDK_WINSDK10_UM_LIB = $(PATH_SDK_WINSDK10_UM_LIB.$(KBUILD_TARGET_ARCH))
+ifndef SDK_WINSDK10_UM_LIB_NAMES
+SDK_WINSDK10_UM_LIB_NAMES := \
+	Kernel32.Lib \
+	User32.Lib \
+	Gdi32.Lib \
+	AdvAPI32.Lib \
+	shell32.lib \
+	ShLwApi.Lib \
+	SetupAPI.Lib \
+	Uuid.Lib \
+	Version.Lib \
+	WS2_32.Lib \
+	\
+	Ole32.Lib \
+	OleAut32.Lib \
+	OleDlg.Lib \
+	RpcRT4.Lib \
+	DbgHelp.Lib \
+	\
+	ImageHlp.Lib \
+	IPHlpApi.Lib \
+	ComCtl32.Lib \
+	ComDlg32.Lib \
+	WinSpool.Lib \
+	WinMM.Lib
+endif
+
+# Kernel-mode API headers (WDK).
+ifndef PATH_SDK_WINSDK10_KM_INC
+PATH_SDK_WINSDK10_KM_INC := $(PATH_SDK_WINSDK10_BASE_INC)/$(SDK_WINSDK10_VERSION)/km
+endif
+
+# Kernel-mode API libraries (WDK).
+ifndef PATH_SDK_WINSDK10_KM_LIB.amd64
+PATH_SDK_WINSDK10_KM_LIB.amd64 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/km/x64
+endif
+ifndef PATH_SDK_WINSDK10_KM_LIB.arm32
+PATH_SDK_WINSDK10_KM_LIB.arm32 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/km/arm
+endif
+ifndef PATH_SDK_WINSDK10_KM_LIB.arm64
+PATH_SDK_WINSDK10_KM_LIB.arm64 := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/km/arm64
+endif
+ifndef PATH_SDK_WINSDK10_KM_LIB.x86
+PATH_SDK_WINSDK10_KM_LIB.x86   := $(PATH_SDK_WINSDK10_BASE_LIB)/$(SDK_WINSDK10_VERSION)/km/x86
+endif
+PATH_SDK_WINSDK10_KM_LIB = $(PATH_SDK_WINSDK10_KM_LIB.$(KBUILD_TARGET_ARCH))
+
+# Kernel-mode API libraries for Windows 7 (WDK).
+ifndef PATH_SDK_WINSDK10_KM_LIB_W7.amd64
+PATH_SDK_WINSDK10_KM_LIB_W7.amd64 := $(PATH_SDK_WINSDK10_BASE_LIB)/win7/km/x64
+endif
+ifndef PATH_SDK_WINSDK10_KM_LIB_W7.x86
+PATH_SDK_WINSDK10_KM_LIB_W7.x86 := $(PATH_SDK_WINSDK10_BASE_LIB)/win7/km/x86
+endif
+PATH_SDK_WINSDK10_KM_LIB_W7 = $(PATH_SDK_WINSDK10_KM_LIB_W7.$(KBUILD_TARGET_ARCH))
+
+# Kernel-mode API libraries for Windows 8 (WDK).
+ifndef PATH_SDK_WINSDK10_KM_LIB_W8.amd64
+PATH_SDK_WINSDK10_KM_LIB_W8.amd64 := $(PATH_SDK_WINSDK10_BASE_LIB)/win8/km/x64
+endif
+ifndef PATH_SDK_WINSDK10_KM_LIB_W8.arm32
+PATH_SDK_WINSDK10_KM_LIB_W8.arm32 := $(PATH_SDK_WINSDK10_BASE_LIB)/win8/km/arm
+endif
+ifndef PATH_SDK_WINSDK10_KM_LIB_W8.x86
+PATH_SDK_WINSDK10_KM_LIB_W8.x86 := $(PATH_SDK_WINSDK10_BASE_LIB)/win8/km/x86
+endif
+PATH_SDK_WINSDK10_KM_LIB_W8 = $(PATH_SDK_WINSDK10_KM_LIB_W8.$(KBUILD_TARGET_ARCH))
+
+# Kernel-mode API libraries for Windows 8.1 (WDK).
+ifndef PATH_SDK_WINSDK10_KM_LIB_W81.amd64
+PATH_SDK_WINSDK10_KM_LIB_W81.amd64 := $(PATH_SDK_WINSDK10_BASE_LIB)/winv6.3/km/x64
+endif
+ifndef PATH_SDK_WINSDK10_KM_LIB_W81.arm32
+PATH_SDK_WINSDK10_KM_LIB_W81.arm32 := $(PATH_SDK_WINSDK10_BASE_LIB)/winv6.3/km/arm
+endif
+ifndef PATH_SDK_WINSDK10_KM_LIB_W81.x86
+PATH_SDK_WINSDK10_KM_LIB_W81.x86 := $(PATH_SDK_WINSDK10_BASE_LIB)/winv6.3/km/x86
+endif
+PATH_SDK_WINSDK10_KM_LIB_W81 = $(PATH_SDK_WINSDK10_KM_LIB_W81.$(KBUILD_TARGET_ARCH))
+
+# Binary directory for host.
+ifndef PATH_SDK_WINSDK10_BIN
+ ifeq ($(KBUILD_HOST_ARCH),amd64)
+PATH_SDK_WINSDK10_BIN := $(PATH_SDK_WINSDK10_BASE_BIN)/$(SDK_WINSDK10_VERSION)/x64
+ else ifeq ($(KBUILD_HOST_ARCH),arm)
+PATH_SDK_WINSDK10_BIN := $(PATH_SDK_WINSDK10_BASE_BIN)/$(SDK_WINSDK10_VERSION)/arm
+ else
+PATH_SDK_WINSDK10_BIN := $(PATH_SDK_WINSDK10_BASE_BIN)/$(SDK_WINSDK10_VERSION)/$(KBUILD_HOST_ARCH)
+ endif
+endif
+
+#
+# Properties used by kBuild.
+#
+SDK_WINSDK10_INCS ?= \
+	$(PATH_SDK_WINSDK10_UM_INC) \
+	$(PATH_SDK_WINSDK10_SHARED_INC)
+SDK_WINSDK10_LIBPATH.amd64 ?= $(PATH_SDK_WINSDK10_UM_LIB.amd64)
+SDK_WINSDK10_LIBPATH.arm32 ?= $(PATH_SDK_WINSDK10_UM_LIB.arm32)
+SDK_WINSDK10_LIBPATH.arm64 ?= $(PATH_SDK_WINSDK10_UM_LIB.arm64)
+SDK_WINSDK10_LIBPATH.x86   ?= $(PATH_SDK_WINSDK10_UM_LIB.x86)
+ifndef SDK_WINSDK10_LIBS.amd64
+SDK_WINSDK10_LIBS.amd64 := $(addprefix $(PATH_SDK_WINSDK10_UM_LIB.amd64)/,$(SDK_WINSDK10_UM_LIB_NAMES))
+endif
+ifndef SDK_WINSDK10_LIBS.arm32
+SDK_WINSDK10_LIBS.arm32 := $(addprefix $(PATH_SDK_WINSDK10_UM_LIB.arm32)/,$(SDK_WINSDK10_UM_LIB_NAMES))
+endif
+ifndef SDK_WINSDK10_LIBS.arm64
+SDK_WINSDK10_LIBS.arm64 := $(addprefix $(PATH_SDK_WINSDK10_UM_LIB.arm64)/,$(SDK_WINSDK10_UM_LIB_NAMES))
+endif
+ifndef SDK_WINSDK10_LIBS.x86
+SDK_WINSDK10_LIBS.x86 := $(addprefix $(PATH_SDK_WINSDK10_UM_LIB.x86)/,$(SDK_WINSDK10_UM_LIB_NAMES))
+endif
+

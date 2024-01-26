@@ -1,0 +1,63 @@
+# $Id: .scm-settings $
+## @file
+# Source code massager settings for the VMM.
+#
+
+#
+# Copyright (C) 2017-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+
+/VMMAll/IEMAllInstructionsPython.py: --license-ose-dual
+
+--filter-out-files /testcase/dev.tar.gz
+
+/include/PGMGstDefs.h: --no-fix-header-guards
+/include/PGMSlatDefs.h: --no-fix-header-guards
+/VMMR0/PGMR0Bth.h: --no-fix-header-guards
+/VMMR3/PGMPhysRWTmpl.h: --no-fix-header-guards
+/VMMRC/PGMRCBth.h: --no-fix-header-guards
+/VMMRC/PGMRCShw.h: --no-fix-header-guards
+/VMMRC/PGMRCGst.h: --no-fix-header-guards
+/VMMAll/PGMAllBth.h: --no-fix-header-guards
+/VMMAll/PGMAllGst.h: --no-fix-header-guards
+/VMMAll/PGMAllShw.h: --no-fix-header-guards
+/testcase/tstVMStruct.h: --no-fix-header-guards
+/testcase/tstIEMAImplData.h: --no-fix-header-guards
+
+/*.h: --guard-relative-to-dir . --guard-prefix VMM_INCLUDED_SRC_
+/VMMR3/cpus/*.h: --guard-relative-to-dir VMMR3/cpus --guard-prefix VBOX_CPUDB_
+
+# Forbid PAGE_SIZE, PAGE_SIZE and PAGE_OFFSET_MASK w/o GUEST_ or HOST_ prefix.
+/*.cpp: --only-guest-host-page
+/*.h:   --only-guest-host-page
+# Except in the pool where more care/work is needed.
+/VMMAll/PGMAllPool.cpp: --no-page-restrictions
+/VMMR3/PGMPool.cpp:     --no-page-restrictions
+/testcase/tstVMStructSize.cpp:     --no-page-restrictions
+
+# Forbit ASMMemIsZeroPage and ASMMemZeroPage.
+/*.cpp: --no-ASMMemPage-use
+/*.h:   --no-ASMMemPage-use
+# Except in the pool where more care/work is needed.
+/VMMR3/PGMPool.cpp:     --unrestricted-ASMMemPage-use
+/VMMAll/PGMAllPool.cpp: --unrestricted-ASMMemPage-use
+

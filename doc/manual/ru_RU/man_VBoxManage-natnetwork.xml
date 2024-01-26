@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage natnetwork
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-natnetwork" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage natnetwork</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-natnetwork</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-natnetwork</refname>
+    <refpurpose>создает, изменяет или управляет сетью NAT</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-add">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage natnetwork add</command>
+      <group>
+        <arg choice="plain">--disable</arg>
+        <arg choice="plain">--enable</arg>
+      </group>
+      <arg choice="req">--netname=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--network=<replaceable>сеть</replaceable></arg>
+      <arg>--dhcp=on|off</arg>
+      <arg>--ipv6=on|off</arg>
+      <arg>--loopback-4=<replaceable>правило</replaceable></arg>
+      <arg>--loopback-6=<replaceable>правило</replaceable></arg>
+      <arg>--port-forward-4=<replaceable>правило</replaceable></arg>
+      <arg>--port-forward-6=<replaceable>правило</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-list">
+      <command>VBoxManage natnetwork list</command>
+      <arg><replaceable>шаблон-фильтра</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-modify">
+      <command>VBoxManage natnetwork modify</command>
+      <arg>--dhcp=on|off</arg>
+      <group>
+        <arg choice="plain">--disable</arg>
+        <arg choice="plain">--enable</arg>
+      </group>
+      <arg choice="req">--netname=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--network=<replaceable>сеть</replaceable></arg>
+      <arg>--ipv6=on|off</arg>
+      <arg>--loopback-4=<replaceable>правило</replaceable></arg>
+      <arg>--loopback-6=<replaceable>правило</replaceable></arg>
+      <arg>--port-forward-4=<replaceable>правило</replaceable></arg>
+      <arg>--port-forward-6=<replaceable>правило</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-remove">
+      <command>VBoxManage natnetwork remove</command>
+      <arg choice="req">--netname=<replaceable>имя</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-start">
+      <command>VBoxManage natnetwork start</command>
+      <arg choice="req">--netname=<replaceable>имя</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-stop">
+      <command>VBoxManage natnetwork stop</command>
+      <arg choice="req">--netname=<replaceable>имя</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage natnetwork</command> позволяет
+      создавать, изменять и управлять сетью NAT.
+    </para>
+    <para>
+      Сети NAT используют службу преобразования сетевых адресов (NAT).
+      Служба группирует системы в сеть и предотвращает прямой доступ
+      внешних систем к системам внутри сети. Служба также позволяет
+      системам в сети общаться друг с другом и с внешними системами
+      посредством TCP и UDP через IPv4 и IPv6.
+    </para>
+    <para>
+      Служба NAT подключена к внутренней сети. Чтобы ВМ использовала
+      службу NAT, необходимо подключить ВМ к внутренней сети. Задайте
+      имя внутренней сети когда создаете службу NAT. Заметим, что
+      внутренняя сеть создается если она еще не существует.
+    </para>
+    <refsect2 id="vboxmanage-natnetwork-add">
+      <title>Добавить службу сети NAT</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage natnetwork add</command> создает
+        новый интерфейс внутренней сети и добавляет службу сети NAT.
+        Вы должны использовать эту команду перед тем как подключать
+        ВМ к сети NAT.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--disable</option></term>
+          <listitem><para>
+              Отключает службу сети NAT.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--enable</option></term>
+          <listitem><para>
+              Включает службу сети NAT.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--netname=<replaceable>имя</replaceable></option></term>
+          <listitem><para>
+              Задает имя нового интерфейса внутренней сети в ОС хоста.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--network</option></term>
+          <listitem><para>
+              Указывает статический адрес или сетевой адрес DHCP и
+              маску интерфейса службы NAT. По умолчанию, это значение
+              указывает статический сетевой адрес.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--dhcp</option></term>
+          <listitem><para>
+              Включает или отключает сервер DHCP, который указывается
+              через опцию <option>--netname</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ipv6</option></term>
+          <listitem><para>
+              Включает или отключает IPv6. По умолчанию, IPv6 отключен,
+              а IPv4 включен.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--loopback-4=<replaceable>правило</replaceable></option></term>
+          <listitem><para>
+              Включает интерфейс локальной петли IPv4, используя
+              указанное правило.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--loopback-6=<replaceable>правило</replaceable></option></term>
+          <listitem><para>
+              Включает интерфейс локальной петли IPv6, используя
+              указанное правило.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port-forward-4=<replaceable>правило</replaceable></option></term>
+          <listitem><para>
+              Включает перенаправление портов IPv4 используя правило,
+              указанное в <replaceable>правило</replaceable>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port-forward-6=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Включает перенаправление портов IPv6 используя правило,
+              указанное в <replaceable>правило</replaceable>.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-remove">
+      <title>Удалить службу сети NAT</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage natnetwork remove</command>
+        удаляет указанную службу сети NAT.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--netname=<replaceable>имя</replaceable></option></term>
+          <listitem><para>
+              Задает имя удаляемой службы сети NAT.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-start">
+      <title>Запустить службу сети NAT</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage natnetwork start</command>
+        запускает службу сети NAT и любой связанный сервер DHCP.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--netname=<replaceable>имя</replaceable></option></term>
+          <listitem><para>
+              Задает имя запускаемой службы сети NAT.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-stop">
+      <title>Остановить службу сети NAT</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage natnetwork stop</command>
+        останавливает службу сети NAT и любой связанный сервер DHCP.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--netname=<replaceable>имя</replaceable></option></term>
+          <listitem><para>
+              Задает имя останавливаемой службы сети NAT.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-list">
+      <title>Показать все службы сети NAT</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage natnetwork list</command> показывает
+        все службы сети NAT. Можно использовать шаблон для отображения
+        подмножества служб сетей NAT.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>шаблон-фильтра</replaceable></term>
+          <listitem><para>
+              Указывает необязательный шаблон фильтра.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-modify">
+      <title>Изменить настройки службы сети NAT</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage natnetwork modify</command>
+        изменяет настройки существующего интерфейса внутренней
+        сети.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--disable</option></term>
+          <listitem><para>
+              Отключает службу сети NAT.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--enable</option></term>
+          <listitem><para>
+              Включает службу сети NAT.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--netname=<replaceable>имя</replaceable></option></term>
+          <listitem><para>
+              Задает имя нового интерфейса внутренней сети в ОС хоста.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--network</option></term>
+          <listitem><para>
+              Указывает статический или DHCP сетевой адрес и маску
+              интерфейса службы NAT. По умолчанию это значение
+              указывает статический сетевой адрес.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--dhcp</option></term>
+          <listitem><para>
+              Включает или отключает сервер DHCP, указанный через
+              опцию <option>--netname</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ipv6</option></term>
+          <listitem><para>
+              Включает или отключает IPv6. По умолчанию IPv6 отключен, а
+              IPv4 включен.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--loopback-4=<replaceable>правило</replaceable></option></term>
+          <listitem><para>
+              Включает интерфейс локальной петли IPv4, используя
+              указанное правило.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--loopback-6=<replaceable>правило</replaceable></option></term>
+          <listitem><para>
+              Включает интерфейс локальной петли IPv6, используя
+              указанное правило.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port-forward-4=<replaceable>правило</replaceable></option></term>
+          <listitem><para>
+              Включает перенаправление портов IPv4, используя правило,
+              указанное в <replaceable>правило</replaceable>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port-forward-6=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Включает перенаправление портов IPv6, используя правило,
+              указанное в <replaceable>правило</replaceable>.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      Следующая команда показывает как создать сеть NAT для
+      внутренней сети <literal>natnet1</literal>, использующей
+      сетевой адрес и маску <literal>192.168.15.0/24</literal>
+      интерфейса службы NAT. В этой статической конфигурации,
+      по умолчанию шлюзу назначен IP адрес <literal>192.168.15.1</literal>.
+      Заметим, что этот IP адрес - это следующий адрес после адреса,
+      указанного опцией <option>--network</option>.
+    </para>
+<screen>$ VBoxManage natnetwork add --netname natnet1 --network "192.168.15.0/24" --enable</screen>
+    <para>
+      Следующая команда показывает как добавить сервер DHCP к
+      сети NAT <literal>natnet1</literal> после создания:
+    </para>
+<screen>$ VBoxManage natnetwork modify --netname natnet1 --dhcp on</screen>
+  </refsect1>
+</refentry>

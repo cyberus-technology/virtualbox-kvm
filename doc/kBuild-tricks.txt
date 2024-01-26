@@ -1,0 +1,62 @@
+﻿
+kBuild / VBox Build Tricks
+==========================
+
+
+Introduction
+------------
+
+This document is written in reStructuredText (rst) which just happens to
+be used by Python, the primary language for this revamp.  For more information
+on reStructuredText: http://docutils.sourceforge.net/rst.html
+
+
+Changing the output directory
+-----------------------------
+
+When switch between different VBox build settings it can be nice to have
+different output directories to avoid having to rebuild the whole source tree
+everything.  One typical example is hardening, another is guest additions using
+crossbuild gcc w/ SDK.  The latter is is simpler so that's the first example:
+
+.. code:: makefile
+
+    ifdef VBOX_WITH_COMPATIBLE_LINUX_GUEST_PACKAGE
+     PATH_OUT_BASE = $(PATH_ROOT)/add-out
+    endif
+
+The following example is the typical developer setup, i.e. disable hardening by
+default but respect command line overrides (kmk VBOX_WITH_HARDENING=1):
+
+.. code:: make
+
+    VBOX_WITH_HARDENING :=
+    ifeq ($(VBOX_WITH_HARDENING),)
+     VBOX_WITHOUT_HARDENING=1
+    else
+     PATH_OUT_BASE = $(PATH_ROOT)/hard-out
+    endif
+
+
+Share tools download directory between trunk and branches
+---------------------------------------------------------
+
+To avoid filling up your disk with unnecessary tool zip and tar.gz files, set
+the FETCHDIR variable in LocalConfig.kmk to point to a common directory for all
+VBox checkouts.
+
+.. code:: make
+
+    FETCHDIR = $(HOME)/Downloads/FetchDir
+
+
+-----
+
+.. [1] no such footnote
+
+
+-----
+
+:Status: $Id: kBuild-tricks.txt $
+:Copyright: Copyright (C) 2006-2022 Oracle Corporation.
+

@@ -1,0 +1,85 @@
+language: c
+dist: xenial
+env:
+  global:
+    secure: THraWTkpyL+b3lcnLenhXR6sxphcJS23MoUP36PT9VYhgZRI2YjO1w2h4V0uwzovbGJDU4Tc88Yxn8kL4RSgwy9cIcJcTOAorbePVRd+UFVU0nUjhwYLCKYBTLVLo7lYc0FHTgsdsba65X6keuSlAdegzCRbTvcwNqX9nanSRGI1CvYcwx22Iu5eOdJvMjwIuFOuECs7hVFrGS2rvGoyzqGNMT4A8shXOBZM/pwklRFS1oS/L1g45y3OP27yqINjtfC7wXRGsR8ItH7LAaQ+yCzNg3QzSd/3H3niEC5grcEMS23YugFUkGpqSca8SGJmkK2LFaBctpZS1P75lA/47Bxbh/byu85TUE6wZ+VPm520NkiYtBB+oxIbq1mYv+hhKuxPf5OqzdwLXVO7EAfzO57VkUqQfumWIZqV0WqCU3SdpRk+CUCCURR4P0ww+w6hQx6PzK21+d9tLtqMqdRwuricdyeLvxboWQXXl36fPf4ifmi0AZ6ILaV/LUQu24Di56RG4hO+/Pv/Qqxa8rJLpqJa0PtsYIiBNeVYLH/ZYIlS8saBedMIJ9dqh1dvBw/Jql8EZCOWif6UjYzQFgZAOZQqH9VAp1WVwQxQRo+Sq7dy+MtRKT2GEcNrdfYcL6qucBAQY00vQQBfl+FOnEzIAUImt4tbitnYTxmNx8N+QZU=
+addons:
+  apt:
+    packages:
+      - automake
+      - autoconf
+      - pkgconf
+      - libtool
+      - libssl-dev
+      - sed
+      - make
+      - gawk
+      - sed
+      - bash
+      - dh-exec
+      - libseccomp-dev
+  coverity_scan:
+    project:
+      name: libtpms
+      description: Build submitted via Travis CI
+    notification_email: stefanb@linux.vnet.ibm.com
+    build_command_prepend: "./autogen.sh --with-openssl --with-tpm2; make clean"
+    build_command: make -j$(nproc)
+    branch_pattern: coverity_scan
+script:
+  - ./autogen.sh ${CONFIG}
+  - make -j$(${NPROC}) ${TARGET}
+after_failure:
+  - for f in tests/*.log; do echo ">>>>>>> $f <<<<<<<"; tail -n 50 $f; done
+before_install:
+  - test $TRAVIS_BRANCH != coverity_scan -o ${TRAVIS_JOB_NUMBER##*.} = 1 || exit 0
+matrix:
+  include:
+    - env: CONFIG="--with-openssl --prefix=/usr --with-tpm2" "TARGET=distcheck"
+           NPROC="nproc" CFLAGS="-O3"
+    - env: CONFIG="--with-openssl --prefix=/usr --with-tpm2 --enable-test-coverage"
+           TARGET="install" NPROC="nproc"
+      dist: bionic
+      before_script:
+      - sudo pip install cpp-coveralls
+      script:
+        ./autogen.sh ${CONFIG} &&
+        sudo make -j$(nproc) ${TARGET} &&
+        sudo make -j$(nproc) check &&
+        git clone https://github.com/stefanberger/swtpm.git &&
+        pushd swtpm &&
+         sudo rm -rf /dev/tpm* &&
+         sudo apt -y install devscripts equivs python3-twisted expect
+           libtasn1-dev socat findutils gnutls-dev gnutls-bin tss2
+           python3-setuptools libjson-glib-dev &&
+         ./autogen.sh --with-gnutls --prefix=/usr &&
+         export SWTPM_TEST_EXPENSIVE=1 SWTPM_TEST_IBMTSS2=1 &&
+         sudo make -j$(nproc) check &&
+        popd
+      after_success:
+        uidgid="$(id -nu):$(id -ng)" &&
+        sudo chown -R ${uidgid} ./ &&
+        cpp-coveralls -b src -e tests -e swtpm --gcov-options '\-lp'
+    - env: CONFIG="--with-openssl --prefix=/usr --with-tpm2 --enable-test-coverage --disable-use-openssl-functions"
+           TARGET="install" NPROC="nproc"
+      dist: bionic
+      script:
+        ./autogen.sh ${CONFIG} &&
+        sudo make -j$(nproc) ${TARGET} &&
+        sudo make -j$(nproc) check &&
+        git clone https://github.com/stefanberger/swtpm.git &&
+        pushd swtpm &&
+         sudo rm -rf /dev/tpm* &&
+         sudo apt -y install devscripts equivs python3-twisted expect
+           libtasn1-dev socat findutils gnutls-dev gnutls-bin tss2
+           python3-setuptools libjson-glib-dev &&
+         ./autogen.sh --with-gnutls --prefix=/usr &&
+         export SWTPM_TEST_EXPENSIVE=1 SWTPM_TEST_IBMTSS2=1 &&
+         sudo make -j$(nproc) check &&
+        popd
+    - env: CONFIG="--with-openssl --prefix=/usr --with-tpm2" "TARGET=check"
+           NPROC="sysctl -n hw.ncpu" CFLAGS="-I/usr/local/opt/openssl/include"
+           LDFLAGS="-L/usr/local/opt/openssl/lib"
+           # 'distcheck' results in duplicate symbol errors
+      os: osx
+      compiler: clang

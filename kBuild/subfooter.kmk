@@ -1,0 +1,75 @@
+# $Id: subfooter.kmk 3422 2020-08-21 11:48:40Z bird $
+## @file
+# kBuild - File included at bottom of a makefile or sub-makefile.
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+#
+# Sanity check.
+#
+ifdef __footer_kmk__
+ $(error kBuild: footer.kmk has already been included. Fix your sub-makefiles! $(MAKEFILE_CURRENT))
+endif
+
+#
+# Set the default path for all new targets.
+#
+## @todo Wish there was an easy way of only enumerating only new targets...
+$(foreach target,\
+	$(ALL_TARGETS) \
+	$(FETCHES)     $(FETCHES.$(KBUILD_TARGET))      $(FETCHES.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))     $(FETCHES.$(KBUILD_TARGET_ARCH))     $(FETCHES.$(KBUILD_TARGET_CPU))     $(FETCHES.$(KBUILD_TYPE))     \
+	$(PATCHES)     $(PATCHES.$(KBUILD_TARGET))      $(PATCHES.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))     $(PATCHES.$(KBUILD_TARGET_ARCH))     $(PATCHES.$(KBUILD_TARGET_CPU))     $(PATCHES.$(KBUILD_TYPE))     \
+	$(BLDPROGS)    $(BLDPROGS.$(KBUILD_HOST))       $(BLDPROGS.$(KBUILD_HOST).$(KBUILD_HOST_ARCH))        $(BLDPROGS.$(KBUILD_HOST_ARCH))      $(BLDPROGS.$(KBUILD_HOST_CPU))      $(BLDPROGS.$(KBUILD_TYPE))    \
+	$(LIBRARIES)   $(LIBRARIES.$(KBUILD_TARGET))    $(LIBRARIES.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))   $(LIBRARIES.$(KBUILD_TARGET_ARCH))   $(LIBRARIES.$(KBUILD_TARGET_CPU))   $(LIBRARIES.$(KBUILD_TYPE))   \
+	$(IMPORT_LIBS) $(IMPORT_LIBS.$(KBUILD_TARGET))  $(IMPORT_LIBS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) $(IMPORT_LIBS.$(KBUILD_TARGET_ARCH)) $(IMPORT_LIBS.$(KBUILD_TARGET_CPU)) $(IMPORT_LIBS.$(KBUILD_TYPE)) \
+	$(DLLS)        $(DLLS.$(KBUILD_TARGET))         $(DLLS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))        $(DLLS.$(KBUILD_TARGET_ARCH))        $(DLLS.$(KBUILD_TARGET_CPU))        $(DLLS.$(KBUILD_TYPE))        \
+	$(PROGRAMS)    $(PROGRAMS.$(KBUILD_TARGET))     $(PROGRAMS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))    $(PROGRAMS.$(KBUILD_TARGET_ARCH))    $(PROGRAMS.$(KBUILD_TARGET_CPU))    $(PROGRAMS.$(KBUILD_TYPE))    \
+	$(SYSMODS)     $(SYSMODS.$(KBUILD_TARGET))      $(SYSMODS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))     $(SYSMODS.$(KBUILD_TARGET_ARCH))     $(SYSMODS.$(KBUILD_TARGET_CPU))     $(SYSMODS.$(KBUILD_TYPE))     \
+	$(MISCBINS)    $(MISCBINS.$(KBUILD_TARGET))     $(MISCBINS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))    $(MISCBINS.$(KBUILD_TARGET_ARCH))    $(MISCBINS.$(KBUILD_TARGET_CPU))    $(MISCBINS.$(KBUILD_TYPE))    \
+	$(INSTALLS)    $(INSTALLS.$(KBUILD_TARGET))     $(INSTALLS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))    $(INSTALLS.$(KBUILD_TARGET_ARCH))    $(INSTALLS.$(KBUILD_TARGET_CPU))    $(INSTALLS.$(KBUILD_TYPE))    \
+	$(OTHERS)      $(OTHERS.$(KBUILD_TARGET))       $(OTHERS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))      $(OTHERS.$(KBUILD_TARGET_ARCH))      $(OTHERS.$(KBUILD_TARGET_CPU))      $(OTHERS.$(KBUILD_TYPE))      \
+,$(if-expr defined($(target)_0_OUTDIR),,$(evalval def_subfooter_header_target_pass)))
+
+
+ifneq ($(_SUB_MAKEFILE_STACK),)
+ #
+ # Switch back to the context of previous makefile on the stack.
+ #
+ MAKEFILE_CURRENT := $(stack-pop _SUB_MAKEFILE_STACK)
+ PATH_SUB_CURRENT := $(abspath $(dir $(MAKEFILE_CURRENT)))
+
+else
+ #
+ # We've reached the end of the line, include the real footer.
+ #
+ include $(KBUILD_PATH)/footer.kmk
+
+endif
+

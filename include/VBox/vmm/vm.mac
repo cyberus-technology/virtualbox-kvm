@@ -1,0 +1,187 @@
+;; @file
+; VM - The Virtual Machine.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___VBox_vmm_vm_mac
+%define ___VBox_vmm_vm_mac
+
+%include "VBox/vmm/stam.mac"
+%include "VBox/param.mac"
+
+;/** This action forces the VM to service check and pending interrups on the APIC. */
+%define VMCPU_FF_INTERRUPT_APIC            (1 << 0)
+;/** This action forces the VM to service check and pending interrups on the PIC. */
+%define VMCPU_FF_INTERRUPT_PIC             (1 << 1)
+;/** This action forces the VM to schedule and run pending timer (TM). */
+%define VMCPU_FF_TIMER                     (1 << 2)
+;/** This action forces the VM to service pending requests from other
+; * thread or requests which must be executed in another context. */
+%define VMCPU_FF_REQUEST                   (1 << 9)
+
+;;
+; This is part of  the VMCPU structure.
+struc VMCPU
+    .fLocalForcedActions    resd 1
+    alignb 8
+    .enmState               resd 1
+
+    alignb 64
+    .iem                    resb 32832
+
+    alignb 64
+    .pVMR3                  RTR3PTR_RES 1
+    .pVCpuR0ForVtg          RTR0PTR_RES 1
+    .pVMRC                  resq 1
+    .pUVCpu                 RTR3PTR_RES 1
+    .hNativeThread          RTR3PTR_RES 1
+    .hNativeThreadR0        RTR0PTR_RES 1
+    .hThread                RTR3PTR_RES 1
+    .idCpu                  resd 1
+
+    alignb 64
+    .hm                     resb 9984
+    alignb 64
+    .nem                    resb 4608
+    alignb 64
+    .trpm                   resb 128
+    alignb 64
+    .tm                     resb 5760
+    alignb 64
+    .vmm                    resb 9536
+    alignb 64
+    .pdm                    resb 256
+    alignb 64
+    .iom                    resb 512
+    alignb 64
+    .dbgf                   resb 512
+    alignb 64
+    .gim                    resb 512
+    alignb 64
+    .apic                   resb 3840
+
+    alignb 64
+    .fTraceGroups           resd 1
+    .cEmtHashCollisions     resb 1
+    .abAdHoc                resb 3
+    alignb 8
+    .aStatAdHoc             resb STAMPROFILEADV_size * 8
+
+    alignb 4096
+    .pgm                    resb 4096+28672
+    alignb 4096
+    .cpum                   resb 102400
+%define VMCPU.cpum.GstCtx   VMCPU.cpum
+    alignb 4096
+    .em                     resb 40960
+    alignb 16384
+endstruc
+
+;;
+; This is part of  the VM structure.
+struc VM
+    .enmVMState             resd 1
+    .fGlobalForcedActions   resd 1
+    .paVMPagesR3            RTR3PTR_RES 1
+    .pSession               RTR0PTR_RES 1
+    .pUVM                   RTR3PTR_RES 1
+    .pVMR3                  RTR3PTR_RES 1
+    .pVMR0ForCall           RTR0PTR_RES 1
+    .pVMRC                  resq 1
+%ifdef IN_RING0
+    .hSelfUnsafe            resd 1
+    .cCpusUnsafe            resd 1
+%else
+    .hSelf                  resd 1
+    .cCpus                  resd 1
+%endif
+    .uCpuExecutionCap       resd 1
+    .cbSelf                 resd 1
+    .cbVCpu                 resd 1
+    .uStructVersion         resd 1
+    .bMainExecutionEngine   resb 1
+    .fHMEnabled             resb 1
+
+    .uPadding1              resb 6
+
+    .hTraceBufR3            RTR3PTR_RES 1
+    .hTraceBufR0            RTR0PTR_RES 1
+
+    alignb 64
+    .cpum                   resb 8832 + 128*8192
+    alignb 16384
+    .pgm                    resb 53888
+    alignb 64
+    .vmm                    resb 1600
+    alignb 64
+    .hm                     resb 5504
+    alignb 64
+    .trpm                   resb 2048
+    alignb 64
+    .selm                   resb 768
+    alignb 64
+    .mm                     resb 192
+    alignb 64
+    .pdm                    resb 22400
+    alignb 64
+    .iom                    resb 1152
+    alignb 64
+    .em                     resb 256
+    alignb 64
+    .nem                    resb 4608
+    alignb 64
+    .tm                     resb 10112
+    alignb 64
+    .dbgf                   resb 2432
+    alignb 64
+    .ssm                    resb 128
+    alignb 64
+    .gim                    resb 448
+    alignb 64
+    .apic                   resb 128
+    alignb 64
+    .vm                     resb 32
+    .cfgm                   resb 8
+    .iem                    resb 16
+    .R0Stats                resb 64
+    .gcm                    resb 32
+
+    times ((($ + VMM_MAX_CPU_COUNT * RTR0PTR_CB + 16383) & ~16383) - ($ + VMM_MAX_CPU_COUNT * RTR0PTR_CB)) resb 1
+    .apCpusR3               RTR3PTR_RES VMM_MAX_CPU_COUNT
+    alignb 16384
+
+endstruc
+
+
+%endif
+

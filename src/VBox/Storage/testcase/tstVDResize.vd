@@ -1,0 +1,79 @@
+/* $Id: tstVDResize.vd $ */
+/**
+ * Storage: Resize testing for VDI.
+ */
+
+/*
+ * Copyright (C) 2013-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+void main()
+{
+    /* Init I/O RNG for generating random data for writes. */
+    iorngcreate(10M, "manual", 1234567890);
+
+    print("Testing VDI");
+    createdisk("test", true);
+    create("test", "base", "tst.vdi", "dynamic", "VDI", 1T, false, false);
+    io("test", false, 1, "seq", 64K, 255G, 257G, 2G, 100, "none");
+    resize("test", 1331200M);
+    io("test", false, 1, "seq", 64K, 255G, 257G, 2G,   0, "none");
+    close("test", "single", true /* fDelete */);
+    destroydisk("test");
+
+    print("Testing VMDK Monolithic Flat");
+    createdisk("test-vmdk-mflat", true);
+    create("test-vmdk-mflat", "base", "test-vmdk-mflat.vmdk", "Fixed", "VMDK", 4G, false, false);
+    io("test-vmdk-mflat", false, 1, "seq", 64K, 1G, 2G, 1G, 100, "none");
+    resize("test-vmdk-mflat", 6000M);
+    io("test-vmdk-mflat", false, 1, "seq", 64K, 4G, 5G, 1G, 100, "none");
+    close("test-vmdk-mflat", "single", true /* fDelete */);
+    destroydisk("test-vmdk-mflat");
+
+    print("Testing VMDK Split Flat");
+    createdisk("test-vmdk-sflat", true);
+    create("test-vmdk-sflat", "base", "test-vmdk-sflat.vmdk", "vmdk-fixed-split", "VMDK", 4G, false, false);
+    io("test-vmdk-sflat", false, 1, "seq", 64K, 1G, 2G, 1G, 100, "none");
+    resize("test-vmdk-sflat", 6000M);
+    io("test-vmdk-sflat", false, 1, "seq", 64K, 4G, 5G, 1G, 100, "none");
+    close("test-vmdk-sflat", "single", true /* fDelete */);
+    destroydisk("test-vmdk-sflat");
+
+    print("Testing VMDK Sparse");
+    createdisk("test-vmdk-sparse", true);
+    create("test-vmdk-sparse", "base", "test-vmdk-sparse.vmdk", "Dynamic", "VMDK", 4G, false, false);
+    io("test-vmdk-sparse", false, 1, "seq", 64K, 1G, 2G, 1G, 100, "none");
+    resize("test-vmdk-sparse", 6000M);
+    io("test-vmdk-sparse", false, 1, "seq", 64K, 4G, 5G, 1G, 100, "none");
+    close("test-vmdk-sparse", "single", true /* fDelete */);
+    destroydisk("test-vmdk-sparse");
+
+    print("Testing VMDK Sparse Split");
+    createdisk("test-vmdk-sparse-split", true);
+    create("test-vmdk-sparse-split", "base", "test-vmdk-sparse-split.vmdk", "vmdk-dynamic-split", "VMDK", 4G, false, false);
+    io("test-vmdk-sparse-split", false, 1, "seq", 64K, 1G, 2G, 1G, 100, "none");
+    resize("test-vmdk-sparse-split", 6000M);
+    io("test-vmdk-sparse-split", false, 1, "seq", 64K, 4G, 5G, 1G, 100, "none");
+    close("test-vmdk-sparse-split", "single", true /* fDelete */);
+    destroydisk("test-vmdk-sparse-split");
+
+    iorngdestroy();
+}

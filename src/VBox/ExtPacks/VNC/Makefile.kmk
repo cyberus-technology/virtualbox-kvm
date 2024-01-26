@@ -1,0 +1,174 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the VNC Extension Pack.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Extend the extension pack templates.
+#
+TEMPLATE_VBoxR3ExtPackVNC          = For the ring-3 context modules in the VNC extension pack.
+TEMPLATE_VBoxR3ExtPackVNC_EXTENDS  = VBoxR3ExtPack
+TEMPLATE_VBoxR3ExtPackVNC_INST     = $(INST_EXTPACK)VNC/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/
+
+TEMPLATE_VBoxR0ExtPackVNC          = For the ring-0 context modules in the VNC extension pack.
+TEMPLATE_VBoxR0ExtPackVNC_EXTENDS  = VBoxR0ExtPack
+TEMPLATE_VBoxR0ExtPackVNC_INST     = $(INST_EXTPACK)VNC/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/
+
+TEMPLATE_VBoxRcExtPackVNC          = For the raw-mode context modules in the VNC extension pack.
+TEMPLATE_VBoxRcExtPackVNC_EXTENDS  = VBoxRcExtPack
+TEMPLATE_VBoxRcExtPackVNC_INST     = $(INST_EXTPACK)VNC/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/
+
+TEMPLATE_VBoxInsExtPackVNC         = For the install targets of an extension pack.
+TEMPLATE_VBoxInsExtPackVNC_EXTENDS = VBoxR0ExtPack
+TEMPLATE_VBoxInsExtPackVNC_INST    = $(INST_EXTPACK)VNC/
+
+#
+# Globals.
+#
+VBOX_VNC_NAME         = VNC
+VBOX_VNC_MANGLED_NAME = VNC
+VBOX_PATH_EXTPACK_VNC = $(PATH_STAGE)/$(INST_EXTPACK)VNC
+
+#
+# VBoxVNCMain - The module which the VirtualBox Main API talks to.
+#
+DLLS += VBoxVNCMain
+VBoxVNCMain_TEMPLATE = VBoxR3ExtPackVNC
+VBoxVNCMain_SOURCES = VBoxVNCMain.cpp
+VBoxVNCMain_DEFS =
+
+#
+# VBoxVNC - The VNC VRDE module.
+#
+DLLS += VBoxVNC
+VBoxVNC_TEMPLATE = VBoxR3ExtPackVNC
+VBoxVNC_SOURCES = VBoxVNC.cpp
+# NOTE: vncserver is covered by GPL, so the extpack must be GPL, too.
+VBoxVNC_LIBS = vncserver
+VBoxVNC_DEFS =
+
+#
+# Install the description.
+#
+INSTALLS += VBoxVNCIns
+VBoxVNCIns_TEMPLATE = VBoxInsExtPackVNC
+VBoxVNCIns_SOURCES = \
+	$(VBoxVNCIns_0_OUTDIR)/ExtPack.xml \
+	$(PATH_ROOT)/doc/License-gpl-2.html=>ExtPack-license.html \
+	$(PATH_ROOT)/doc/License-gpl-2.txt=>ExtPack-license.txt \
+	$(PATH_ROOT)/doc/License-gpl-2.rtf=>ExtPack-license.rtf
+$(call VBOX_EDIT_VERSION_RULE_FN,VBoxVNCIns,ExtPack.xml)
+
+
+#
+# Packing.
+#
+ifndef VBOX_WITHOUT_EXTPACK_VNC_PACKING
+ PACKING += $(VBOX_PATH_PACKAGES)/$(VBOX_VNC_MANGLED_NAME)-$(VBOX_VERSION_STRING)r$(VBOX_SVN_REV).vbox-extpack
+endif
+
+ifndef VBOX_WITH_EXTPACK_OS_ARCHS
+ VBOX_WITH_EXTPACK_OS_ARCHS = $(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)
+endif
+
+# Build the file list.  The macro takes 1=darwin.x86, 2=dist/VirtualBox.app/Contents/MacOS, 3=dylib
+VBOX_VNC_FILES_MACRO = \
+	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_VNC_MANGLED_NAME)/$(1)/VBoxVNCMain.$(3)=>$(1)/VBoxVNCMain.$(3) \
+	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_VNC_MANGLED_NAME)/$(1)/VBoxVNC.$(3)=>$(1)/VBoxVNC.$(3)
+
+VBOX_VNC_FILES := \
+	$(VBOX_PATH_EXTPACK_VNC)/ExtPack.xml=>ExtPack.xml \
+	$(VBOX_PATH_EXTPACK_VNC)/ExtPack-license.html=>ExtPack-license.html \
+	$(VBOX_PATH_EXTPACK_VNC)/ExtPack-license.rtf=>ExtPack-license.rtf \
+	$(VBOX_PATH_EXTPACK_VNC)/ExtPack-license.txt=>ExtPack-license.txt
+
+
+if1of (darwin.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,darwin.amd64,dist/VirtualBox.app/Contents/MacOS,dylib)
+endif
+if1of (darwin.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,darwin.x86,dist/VirtualBox.app/Contents/MacOS,dylib)
+endif
+if1of (freebsd.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,freebsd.amd64,bin,so)
+endif
+if1of (freebsd.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,freebsd.x86,bin,so)
+endif
+if1of (linux.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,linux.amd64,bin,so)
+endif
+if1of (linux.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,linux.x86,bin,so)
+endif
+if1of (os2.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,os2.x86,bin,so)
+endif
+if1of (solaris.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,solaris.amd64,bin,so)
+endif
+if1of (solaris.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,solaris.x86,bin,so)
+endif
+if1of (win.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,win.amd64,bin,dll)
+endif
+if1of (win.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+ VBOX_VNC_FILES += $(call VBOX_VNC_FILES_MACRO,win.x86,bin,dll)
+endif
+
+# Pack it all up using a temporary staging directory.
+$(VBOX_PATH_PACKAGES)/$(VBOX_VNC_MANGLED_NAME)-$(VBOX_VERSION_STRING)r$(VBOX_SVN_REV).vbox-extpack: \
+		$$(foreach file, $$(VBOX_VNC_FILES), $$(firstword $$(subst =>,$$(SP),$$(file)))) \
+		| $(VBOX_PATH_PACKAGES)/
+	$(RM) -f $(wildcard $(VBOX_PATH_PACKAGES)/$(VBOX_VNC_MANGLED_NAME)-*.vbox-extpack) \
+		$(VBoxVNCIns_0_OUTDIR)/ExtPack.manifest \
+		$(VBoxVNCIns_0_OUTDIR)/ExtPack.signature
+# Stage all the files
+	$(RM) -Rf $(VBoxVNCIns_0_OUTDIR)/Stage/
+	$(foreach file, $(VBOX_VNC_FILES),\
+		$(NLTAB)$(MKDIR) -p $(dir $(lastword $(subst =>,$(SP)$(VBoxVNCIns_0_OUTDIR)/Stage/,$(file)))) \
+		$(NLTAB)$(CP) $(subst =>,$(SP)$(VBoxVNCIns_0_OUTDIR)/Stage/,$(file)) )
+# Create the manifest
+	$(VBOX_RTMANIFEST) \
+		--manifest $(VBoxVNCIns_0_OUTDIR)/Stage/ExtPack.manifest \
+		--chdir $(VBoxVNCIns_0_OUTDIR)/Stage/ \
+		$(foreach file, $(VBOX_VNC_FILES), $(lastword $(subst =>,$(SP),$(file))))
+	$(APPEND) $(VBoxVNCIns_0_OUTDIR)/Stage/ExtPack.signature "todo"
+	$(CHMOD) a+r \
+		$(VBoxVNCIns_0_OUTDIR)/Stage/ExtPack.manifest \
+		$(VBoxVNCIns_0_OUTDIR)/Stage/ExtPack.signature
+# Tar it up.
+	tar -cvf - -C $(VBoxVNCIns_0_OUTDIR)/Stage/ . | gzip -9c > $@
+# Clean up
+	$(RM) -Rf $(VBoxVNCIns_0_OUTDIR)/Stage/
+
+BLDDIRS += $(VBOX_PATH_PACKAGES)/
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

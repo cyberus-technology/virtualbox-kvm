@@ -1,0 +1,255 @@
+# $Id: footer-passes.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild - Footer - Target lists - Pass 2 - Passes.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version source of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+#
+# PASSES (including directory and makefile walking)
+#
+
+#
+# First, check whether we need to order the passes explicitly or not.
+# This depends on whether we're a leaf makefile or not. A leaf will
+# know all its dependencies, while a recursive one relies on the
+# order sub-directories and other makefiles are executed it.
+#
+
+## Setup a pass and check for optimizations.
+# @param	$(PASS)		Uppercase pass name.
+define def_pass_setup_and_optimize
+
+# The setup. ## @todo This is looks a bit weird...
+ifndef SUBDIRS_$(PASS)
+ SUBDIRS_$(PASS)          := $(SUBDIRS)          $(SUBDIRS.$(KBUILD_TARGET))          $(SUBDIRS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))
+endif
+ifndef SUBDIRS_AFTER_$(PASS)
+ SUBDIRS_AFTER_$(PASS)    := $(SUBDIRS_AFTER)    $(SUBDIRS_AFTER.$(KBUILD_TARGET))    $(SUBDIRS_AFTER.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))
+endif
+ifndef MAKEFILES_BEFORE_$(PASS)
+ MAKEFILES_BEFORE_$(PASS) := $(MAKEFILES_BEFORE) $(MAKEFILES_BEFORE.$(KBUILD_TARGET)) $(MAKEFILES_BEFORE.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))
+endif
+ifndef MAKEFILES_AFTER_$(PASS)
+ MAKEFILES_AFTER_$(PASS)  := $(MAKEFILES_AFTER)  $(MAKEFILES_AFTER.$(KBUILD_TARGET))  $(MAKEFILES_AFTER.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))
+endif
+
+# The check.
+ifeq ($(_KBUILD_STRICT_PASS_ORDER),nonstrict)
+ ifneq ($(strip \
+          $(SUBDIRS_$(PASS))          $(SUBDIRS_$(PASS).$(KBUILD_TARGET))          $(SUBDIRS_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))           \
+          $(MAKEFILES_BEFORE_$(PASS)) $(MAKEFILES_BEFORE_$(PASS).$(KBUILD_TARGET)) $(MAKEFILES_BEFORE_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))  \
+          $(SUBDIRS_AFTER_$(PASS))    $(SUBDIRS_AFTER_$(PASS).$(KBUILD_TARGET))    $(SUBDIRS_AFTER_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))     \
+          $(MAKEFILES_AFTER_$(PASS))  $(MAKEFILES_AFTER_$(PASS).$(KBUILD_TARGET))  $(MAKEFILES_AFTER_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))   \
+         ),)
+  _KBUILD_STRICT_PASS_ORDER := strict
+ endif
+endif # _KBUILD_STRICT_PASS_ORDER == nonstrict
+endef # def_pass_setup_and_optimize
+$(eval-opt-var def_pass_setup_and_optimize)
+
+## PASS: Setup & optimization.
+# Check if we can apply the non-strict pass order optimzation (no SUBDIRS_* and MAKEFILES_*),
+# and set up the pass specific variables as we go along.
+_KBUILD_STRICT_PASS_ORDER := nonstrict
+$(foreach PASS, $(PASSES), $(evalval def_pass_setup_and_optimize))
+#$ (error _KBUILD_STRICT_PASS_ORDER=$(_KBUILD_STRICT_PASS_ORDER))
+
+ifeq ($(_KBUILD_STRICT_PASS_ORDER),strict)
+ if !defined(KBUILD_SAFE_PARALLEL) || "$(KMK_OPT_JOBS)" == "1"
+_KBUILD_STRICT_PASS_ORDER := strict_unsafe
+ endif
+endif
+
+
+## Subdir
+# @param	$(pass)		Lowercase pass name.
+# @param	$(PASS)		Uppercase pass name.
+# @param	$(subdir)	Subdirectory
+# @param	$(tag)		tag to attach to the rule name.
+define def_pass_subdir
+pass_$(pass)$(tag):: $(dep)
+	+ $$(QUIET)$$(MAKE) -C $(subdir) -f $$(notdir $$(firstword $$(wildcard $$(addprefix $(subdir)/,$$(DEFAULT_MAKEFILE))))) pass_$(pass)
+endef
+
+## Submakefile
+# @param	$(pass)		Lowercase pass name.
+# @param	$(PASS)		Uppercase pass name.
+# @param	$(makefile)	Makefile.
+# @param	$(tag)		tag to attach to the rule name.
+define def_pass_makefile
+pass_$(pass)$(tag):: $(dep)
+	+ $$(QUIET)$$(MAKE) -C $(patsubst %/,%,$(dir $(makefile))) -f $(notdir $(makefile)) pass_$(pass)
+endef
+
+## Execute a pass, strict order.
+# @param	$(pass)		Lowercase pass name.
+# @param	$(PASS)		Uppercase pass name.
+define def_pass_strict
+$(eval tag:=_before)
+$(eval dep:= )
+$(foreach subdir,  $(SUBDIRS_$(PASS))          $(SUBDIRS_$(PASS).$(KBUILD_TARGET))          $(SUBDIRS_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))         ,$(eval $(def_pass_subdir)))
+$(foreach makefile,$(MAKEFILES_BEFORE_$(PASS)) $(MAKEFILES_BEFORE_$(PASS).$(KBUILD_TARGET)) $(MAKEFILES_BEFORE_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)),$(eval $(def_pass_makefile)))
+
+$(eval tag:=_after)
+$(eval dep:=pass_$(pass)_doit)
+$(foreach subdir,  $(SUBDIRS_AFTER_$(PASS))    $(SUBDIRS_AFTER_$(PASS).$(KBUILD_TARGET))    $(SUBDIRS_AFTER_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))   ,$(eval $(def_pass_subdir)))
+$(foreach makefile,$(MAKEFILES_AFTER_$(PASS))  $(MAKEFILES_AFTER_$(PASS).$(KBUILD_TARGET))  $(MAKEFILES_AFTER_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) ,$(eval $(def_pass_makefile)))
+
+.NOTPARALLEL: pass_$(pass) pass_$(pass)_before pass_$(pass)_after pass_$(pass)_this
+.PHONY:       pass_$(pass) pass_$(pass)_before pass_$(pass)_after pass_$(pass)_this pass_$(pass)_doit
+pass_$(pass)_doit:      $(PASS_$(PASS)_trgs) $(foreach var,$(PASS_$(PASS)_vars),$($(var)))
+pass_$(pass)_this:      pass_$(pass)_before
+	+ $$(QUIET)$$(MAKE) -f $$(MAKEFILE) pass_$(pass)_doit
+pass_$(pass)_after::    pass_$(pass)_this
+pass_$(pass):           pass_$(pass)_after
+#$ (warning pass=$(pass) PASS=$(PASS): $(PASS_$(PASS)_trgs) $(PASS_$(PASS)_trgs) $(foreach var,$(PASS_$(PASS)_vars),$($(var))))
+endef # def_pass_strict
+$(eval-opt-var def_pass_strict)
+
+## Execute a pass, strict order.
+# @param	$(pass)		Lowercase pass name.
+# @param	$(PASS)		Uppercase pass name.
+define def_pass_strict_unsafe
+$(eval tag:=_before)
+$(eval dep:= )
+$(foreach subdir,  $(SUBDIRS_$(PASS))          $(SUBDIRS_$(PASS).$(KBUILD_TARGET))          $(SUBDIRS_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))         ,$(eval $(def_pass_subdir)))
+$(foreach makefile,$(MAKEFILES_BEFORE_$(PASS)) $(MAKEFILES_BEFORE_$(PASS).$(KBUILD_TARGET)) $(MAKEFILES_BEFORE_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)),$(eval $(def_pass_makefile)))
+
+$(eval tag:=_after)
+$(eval dep:=pass_$(pass)_doit)
+$(foreach subdir,  $(SUBDIRS_AFTER_$(PASS))    $(SUBDIRS_AFTER_$(PASS).$(KBUILD_TARGET))    $(SUBDIRS_AFTER_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH))   ,$(eval $(def_pass_subdir)))
+$(foreach makefile,$(MAKEFILES_AFTER_$(PASS))  $(MAKEFILES_AFTER_$(PASS).$(KBUILD_TARGET))  $(MAKEFILES_AFTER_$(PASS).$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) ,$(eval $(def_pass_makefile)))
+
+.PHONY:       pass_$(pass) pass_$(pass)_before pass_$(pass)_after pass_$(pass)_doit
+.NOTPARALLEL: pass_$(pass) pass_$(pass)_before pass_$(pass)_after pass_$(pass)_doit
+pass_$(pass)_doit: pass_$(pass)_before \
+		$(PASS_$(PASS)_trgs) $(foreach var,$(PASS_$(PASS)_vars),$($(var)))
+pass_$(pass): \
+		pass_$(pass)_before \
+		pass_$(pass)_doit \
+		pass_$(pass)_after
+#$ (warning pass=$(pass) PASS=$(PASS): $(PASS_$(PASS)_trgs) $(PASS_$(PASS)_trgs) $(foreach var,$(PASS_$(PASS)_vars),$($(var))))
+endef # def_pass_strict_unsafe
+$(eval-opt-var def_pass_strict_unsafe)
+
+## Execute a pass, non-strict pass ordering.
+# @param	$(pass)		Lowercase pass name.
+# @param	$(PASS)		Uppercase pass name.
+define def_pass_nonstrict
+.PHONY:       pass_$(pass) pass_$(pass)_before pass_$(pass)_after pass_$(pass)_doit
+pass_$(pass)_doit: $(PASS_$(PASS)_trgs) $(foreach var,$(PASS_$(PASS)_vars),$$$$($(var)))
+pass_$(pass):	pass_$(pass)_doit
+endef # def_pass_nonstrict
+
+## PASS: rules
+# Generate the rules for the defined passes.
+$(foreach PASS, $(PASSES), \
+	$(eval pass := $(PASS_$(PASS)_pass)) \
+	$(eval $(def_pass_$(_KBUILD_STRICT_PASS_ORDER))))
+
+
+## Pass order, strict.
+# @param	$(pass)		Current pass name.
+# @param	$(prev_pass)	The previous pass name.
+define def_pass_order_strict
+.PHONY:       pass_$(pass)_order
+.NOTPARALLEL: pass_$(pass)_order
+pass_$(pass)_order: $(pass_prev)
+	%$$(call MSG_PASS,$$(if $$(PASS_$(PASS)),$$(PASS_$(PASS)),$(pass)))
+	+ $$(QUIET)$$(MAKE) -f $$(MAKEFILE) pass_$(pass)
+$(eval pass_prev := pass_$(pass)_order)
+endef # def_pass_order_strict
+$(eval-opt-var def_pass_order_strict)
+
+## Pass order, strict unsafe.
+# @param	$(pass)		Current pass name.
+# @param	$(prev_pass)	The previous pass name.
+define def_pass_order_strict_unsafe
+.NOTPARALLEL: pass_$(pass)_order pass_$(pass)_banner
+.PHONY:       pass_$(pass)_order pass_$(pass)_banner
+pass_$(pass)_banner: $(pass_prev)
+	%$$(call MSG_PASS,$$(if $$(PASS_$(PASS)),$$(PASS_$(PASS)),$(pass)))
+pass_$(pass)_order:  $(pass_prev) \
+		pass_$(pass)_banner \
+		pass_$(pass)
+$(eval pass_prev := pass_$(pass)_order)
+endef # def_pass_order_strict_unsafe
+$(eval-opt-var def_pass_order_strict_unsafe)
+
+## Pass order, non-strict.
+# @param	$(pass)		Current pass name.
+# @param	$(prev_pass)	The previous pass name.
+define def_pass_order_nonstrict
+.PHONY:       pass_$(pass)_order pass_$(pass)_banner
+pass_$(pass)_banner:
+	%$$(call MSG_PASS,$$(if $$(PASS_$(PASS)),$$(PASS_$(PASS)),$(pass)))
+pass_$(pass)_order: \
+		$(pass_prev) \
+		pass_$(pass)_banner \
+		pass_$(pass)
+$(eval pass_prev := pass_$(pass)_order)
+endef # def_pass_order_nonstrict
+$(eval-opt-var def_pass_order_nonstrict)
+
+## PASS: order
+# Use dependencies to ensure correct pass order.
+pass_prev :=
+$(foreach PASS,$(DEFAULT_PASSES),\
+	$(eval pass := $(PASS_$(PASS)_pass)) \
+	$(eval $(def_pass_order_$(_KBUILD_STRICT_PASS_ORDER))))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done passes)
+endif
+
+# Some common pass aliases
+ifndef KBUILD_NO_PASS_ALIASES
+.PHONY:  clean
+clean:   pass_clean
+
+.PHONY:  nothing
+nothing: pass_nothing
+
+.PHONY:  staging
+staging: pass_staging
+
+.PHONY:  packing
+packing: pass_packing
+
+ ifndef KBUILD_NO_TESTING_PASS_ALIASES
+.PHONY:  check
+check::  pass_testing
+
+.PHONY:  test
+test::   pass_testing
+ endif # KBUILD_NO_TESTING_PASS_ALIASES
+endif # KBUILD_NO_PASS_ALIASES
+
+

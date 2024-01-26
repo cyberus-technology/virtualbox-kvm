@@ -1,0 +1,541 @@
+# Copyright © 2017-2019 Intel Corporation
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+option(
+  'platforms',
+  type : 'array',
+  value : ['auto'],
+  choices : [
+    'auto', 'x11', 'wayland', 'haiku', 'android', 'windows',
+  ],
+  description : 'window systems to support. If this is set to `auto`, all platforms applicable will be enabled.'
+)
+option(
+  'egl-native-platform',
+  type : 'combo',
+  value : 'auto',
+  choices : [
+    'auto', 'x11', 'wayland', 'haiku', 'android', 'windows',
+    'surfaceless', 'drm',
+  ],
+  description : 'the window system EGL assumes for EGL_DEFAULT_DISPLAY',
+)
+option(
+  'android-stub',
+  type : 'boolean',
+  value : false,
+  description : 'Build against android-stub',
+)
+
+option(
+  'dri3',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'disabled', 'enabled'],
+  description : 'enable support for dri3'
+)
+option(
+  'dri-drivers',
+  type : 'array',
+  value : ['auto'],
+  choices : ['auto', 'i915', 'i965', 'r100', 'r200', 'nouveau'],
+  description : 'List of dri drivers to build. If this is set to auto all drivers applicable to the target OS/architecture will be built'
+)
+option(
+  'dri-drivers-path',
+  type : 'string',
+  value : '',
+  description : 'Location to install dri drivers. Default: $libdir/dri.'
+)
+option(
+  'dri-search-path',
+  type : 'string',
+  value : '',
+  description : 'Locations to search for dri drivers, passed as colon separated list. Default: dri-drivers-path.'
+)
+option(
+  'gallium-drivers',
+  type : 'array',
+  value : ['auto'],
+  choices : [
+    'auto', 'kmsro', 'radeonsi', 'r300', 'r600', 'nouveau', 'freedreno',
+    'swrast', 'v3d', 'vc4', 'etnaviv', 'tegra', 'i915', 'svga', 'virgl',
+    'swr', 'panfrost', 'iris', 'lima', 'zink', 'd3d12', 'asahi', 'crocus'
+  ],
+  description : 'List of gallium drivers to build. If this is set to auto all drivers applicable to the target OS/architecture will be built'
+)
+option(
+  'gallium-extra-hud',
+  type : 'boolean',
+  value : false,
+  description : 'Enable HUD block/NIC I/O HUD status support',
+)
+option(
+  'gallium-vdpau',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'enable gallium vdpau frontend.',
+)
+option(
+  'vdpau-libs-path',
+  type : 'string',
+  value : '',
+  description : 'path to put vdpau libraries. defaults to $libdir/vdpau.'
+)
+option(
+  'gallium-xvmc',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'enable gallium xvmc frontend.',
+)
+option(
+  'xvmc-libs-path',
+  type : 'string',
+  value : '',
+  description : 'path to put xvmc libraries. defaults to $libdir.'
+)
+option(
+  'gallium-omx',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'disabled', 'bellagio', 'tizonia'],
+  description : 'enable gallium omx frontend.',
+)
+option(
+  'omx-libs-path',
+  type : 'string',
+  value : '',
+  description : 'path to put omx libraries. defaults to omx-bellagio pkg-config pluginsdir.'
+)
+option(
+  'gallium-va',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'enable gallium va frontend.',
+)
+option(
+  'va-libs-path',
+  type : 'string',
+  value : '',
+  description : 'path to put va libraries. defaults to $libdir/dri.'
+)
+option(
+  'gallium-xa',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'enable gallium xa frontend.',
+)
+option(
+  'gallium-nine',
+  type : 'boolean',
+  value : false,
+  description : 'build gallium "nine" Direct3D 9.x frontend.',
+)
+option(
+  'gallium-d3d10umd',
+  type : 'boolean',
+  value : false,
+  description : 'build gallium D3D10 WDDM UMD frontend.',
+)
+option(
+  'gallium-opencl',
+  type : 'combo',
+  choices : ['icd', 'standalone', 'disabled'],
+  value : 'disabled',
+  description : 'build gallium "clover" OpenCL frontend.',
+)
+option(
+  'opencl-spirv',
+  type : 'boolean',
+  value : false,
+  description : 'build gallium "clover" OpenCL frontend with SPIR-V binary support.',
+)
+option(
+  'opencl-native',
+  type : 'boolean',
+  value : true,
+  description : 'build gallium "clover" OpenCL frontend with native LLVM codegen support.',
+)
+option(
+  'static-libclc',
+  type : 'array',
+  value : [],
+  choices : ['spirv', 'spirv64', 'all'],
+  description : 'Link libclc SPIR-V statically.',
+)
+option(
+  'd3d-drivers-path',
+  type : 'string',
+  value : '',
+  description : 'Location of D3D drivers. Default: $libdir/d3d',
+)
+option(
+  'vulkan-drivers',
+  type : 'array',
+  value : ['auto'],
+  choices : ['auto', 'amd', 'broadcom', 'freedreno', 'intel', 'panfrost', 'swrast', 'virtio-experimental'],
+  description : 'List of vulkan drivers to build. If this is set to auto all drivers applicable to the target OS/architecture will be built'
+)
+option(
+  'freedreno-kgsl',
+  type : 'boolean',
+  value : false,
+  description : 'use kgsl backend for freedreno vulkan driver',
+)
+option(
+  'shader-cache',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Build with on-disk shader cache support.',
+)
+option(
+  'shader-cache-default',
+  type : 'boolean',
+  value : true,
+  description : 'If set to false, the feature is only activated when environment variable MESA_GLSL_CACHE_DISABLE is set to false',
+)
+option(
+  'shader-cache-max-size',
+  type : 'string',
+  value : '',
+  description : '''Default value for MESA_GLSL_CACHE_MAX_SIZE enviroment variable.
+   If set, determines the maximum size of the on-disk cache of compiled
+   GLSL programs, can be overriden by enviroment variable if needed. Should be set to a number optionally followed by
+   ``K``, ``M``, or ``G`` to specify a size in kilobytes, megabytes, or
+   gigabytes. By default, gigabytes will be assumed. And if unset, a
+   maximum size of 1GB will be used.'''
+)
+option(
+  'vulkan-icd-dir',
+  type : 'string',
+  value : '',
+  description : 'Location relative to prefix to put vulkan icds on install. Default: $datadir/vulkan/icd.d'
+)
+option(
+  'moltenvk-dir',
+  type : 'string',
+  value : '',
+  description : 'Location of the MoltenVk SDK. Default: '
+)
+option(
+  'vulkan-layers',
+  type : 'array',
+  value : [],
+  choices : ['device-select', 'intel-nullhw', 'overlay'],
+  description : 'List of vulkan layers to build'
+)
+option(
+  'shared-glapi',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Whether to build a shared or static glapi. Defaults to false on Windows, true elsewhere'
+)
+option(
+  'gles1',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Build support for OpenGL ES 1.x'
+)
+option(
+  'gles2',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Build support for OpenGL ES 2.x and 3.x'
+)
+option(
+  'opengl',
+  type : 'boolean',
+  value : true,
+  description : 'Build support for OpenGL (all versions)'
+)
+option(
+  'gbm',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Build support for gbm platform'
+)
+option(
+  'gbm-backends-path',
+  type : 'string',
+  value : '',
+  description : 'Locations to search for gbm backends, passed as colon separated list. Default: $libdir/gbm.'
+)
+option(
+  'glx',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'disabled', 'dri', 'xlib', 'gallium-xlib'],
+  description : 'Build support for GLX platform'
+)
+option(
+  'egl',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Build support for EGL platform'
+)
+option(
+  'glvnd',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Enable GLVND support.'
+)
+option(
+  'microsoft-clc',
+  type : 'feature',
+  value : 'auto',
+  description : 'Build support for the Microsoft CLC to DXIL compiler'
+)
+option(
+  'spirv-to-dxil',
+  type : 'boolean',
+  value : false,
+  description : 'Build support for the SPIR-V to DXIL library'
+)
+option(
+  'glvnd-vendor-name',
+  type : 'string',
+  value : 'auto',
+  description : 'Vendor name string to use for glvnd libraries'
+)
+option(
+   'glx-read-only-text',
+   type : 'boolean',
+   value : false,
+   description : 'Disable writable .text section on x86 (decreases performance)'
+)
+option(
+  'llvm',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Build with LLVM support.'
+)
+option(
+  'shared-llvm',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Whether to link LLVM shared or statically.'
+)
+option(
+  'draw-use-llvm',
+  type : 'boolean',
+  value : 'true',
+  description : 'Whether to use LLVM for the Gallium draw module, if LLVM is included.'
+)
+option(
+  'valgrind',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Build with valgrind support'
+)
+option(
+  'libunwind',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Use libunwind for stack-traces'
+)
+option(
+  'lmsensors',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Enable HUD lmsensors support.'
+)
+option(
+  'build-tests',
+  type : 'boolean',
+  value : false,
+  description : 'Build unit tests. Currently this will build *all* unit tests except the ACO tests, which may build more than expected.'
+)
+option(
+  'build-aco-tests',
+  type : 'boolean',
+  value : false,
+  description : 'Build ACO tests. These require RADV and glslang but not an AMD GPU.'
+)
+option(
+  'install-intel-gpu-tests',
+  type : 'boolean',
+  value : false,
+  description : 'Build and install Intel unit tests which require the GPU.  This option is for developers and the Intel CI system only.'
+)
+option(
+  'selinux',
+  type : 'boolean',
+  value : false,
+  description : 'Build an SELinux-aware Mesa.  This currently disables execmem support at runtime unless SELinux is configured with allow_execmem.'
+)
+option(
+  'execmem',
+  type : 'boolean',
+  value : true,
+  description : 'Enable execmem support.  Without execmem, glapi will fail to generate dynamic glapi stubs when entrypoints unknown to glapi but known to DRI drivers are requested in eglGetProcAddress or glXGetProcAddress.  This should be enabled unless the platform can guarantee glapi and DRI drivers are always built from the same source tree.'
+)
+option(
+  'osmesa',
+  type : 'boolean',
+  value : false,
+  description : 'Build OSmesa.'
+)
+option(
+  'osmesa-bits',
+  type : 'combo',
+  value : '8',
+  choices : ['8', '16', '32'],
+  description : 'Number of channel bits for OSMesa.'
+)
+option(
+  'swr-arches',
+  type : 'array',
+  value : ['avx', 'avx2'],
+  choices : ['avx', 'avx2', 'knl', 'skx'],
+  description : 'Architectures to build SWR support for.',
+)
+option(
+  'shared-swr',
+  type : 'boolean',
+  value : true,
+  description : 'Whether to link SWR shared or statically.',
+)
+
+option(
+  'tools',
+  type : 'array',
+  value : [],
+  choices : ['drm-shim', 'etnaviv', 'freedreno', 'glsl', 'intel', 'intel-ui', 'nir', 'nouveau', 'xvmc', 'lima', 'panfrost', 'asahi', 'all'],
+  description : 'List of tools to build. (Note: `intel-ui` selects `intel`)',
+)
+option(
+  'power8',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Enable power8 optimizations.',
+)
+option(
+  'xlib-lease',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Enable VK_EXT_acquire_xlib_display.'
+)
+option(
+  'glx-direct',
+  type : 'boolean',
+  value : true,
+  description : 'Enable direct rendering in GLX and EGL for DRI',
+)
+option(
+  'prefer-iris',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false'],
+  description : 'Prefer new Intel iris driver over older i965 driver'
+)
+option(
+  'prefer-crocus',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false'],
+  description : 'Prefer new crocus driver over older i965 driver for gen4-7'
+)
+option('egl-lib-suffix',
+  type : 'string',
+  value : '',
+  description : 'Suffix to append to EGL library name.  Default: none.'
+)
+option(
+  'gles-lib-suffix',
+  type : 'string',
+  value : '',
+  description : 'Suffix to append to GLES library names.  Default: none.'
+)
+option(
+  'platform-sdk-version',
+  type : 'integer',
+  min : 25,
+  max : 31,
+  value : 25,
+  description : 'Android Platform SDK version. Default: Nougat version.'
+)
+option(
+  'zstd',
+  type : 'combo',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  value : 'auto',
+  description : 'Use ZSTD instead of ZLIB in some cases.'
+)
+option(
+   'zlib',
+   type : 'feature',
+   value : 'enabled',
+   description : 'Use ZLIB to build driver. Default: enabled'
+)
+option(
+  'sse2',
+  type : 'boolean',
+  value : true,
+  description : 'use msse2 flag for x86. Uses sse/sse2 instead of x87. Default: true',
+)
+option(
+  'perfetto',
+  type : 'boolean',
+  value : false,
+  description : 'Enable performance analysis with Perfetto. Default: false'
+)
+option(
+  'datasources',
+  type : 'array',
+  value : ['auto'],
+  choices : ['auto', 'panfrost', 'intel', 'freedreno'],
+  description: 'List of Perfetto datasources to build. If this is set to `auto`, datasources that can not be build are skipped. Default: [`auto`]'
+)
+option(
+  'custom-shader-replacement',
+  type : 'string',
+  value : '',
+  description : 'Enable a custom shader replacement mechanism. Note that enabling this option requires adding/generating a shader_replacement.h file that can be included (see shaderapi.c).'
+)
+option(
+  'vmware-mks-stats',
+  type : 'boolean',
+  value : false,
+  description : 'Build gallium VMware/svga driver with mksGuestStats instrumentation.'
+)
+option(
+  'amber',
+  type : 'boolean',
+  value : false,
+  description : 'Configure LTS build to coexist with Mesa >= 22.0'
+)

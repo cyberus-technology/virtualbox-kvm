@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage snapshot
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-snapshot" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage snapshot</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-snapshot</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-snapshot</refname>
+    <refpurpose>управляет снимками виртуальной машины &product-name;</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-take">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+
+      <arg choice="plain">take</arg>
+
+      <arg choice="req"><replaceable>имя-снимка</replaceable></arg>
+
+      <arg>--description=<replaceable>описание</replaceable></arg>
+
+      <arg>--live</arg>
+
+      <arg>--uniquename Number,Timestamp,Space,Force</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-delete">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+
+      <arg choice="plain">delete</arg>
+
+      <arg choice="req"><replaceable>имя-снимка</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-restore">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+
+      <arg choice="plain">restore</arg>
+
+      <arg choice="req"><replaceable>имя-снимка</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-restorecurrent">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+
+      <arg choice="plain">restorecurrent</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-edit">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+
+      <arg choice="plain">edit</arg>
+
+      <group choice="req">
+        <arg choice="plain"><replaceable>имя-снимка</replaceable></arg>
+        <arg choice="plain">--current</arg>
+      </group>
+
+      <arg>--description=<replaceable>описание</replaceable></arg>
+
+      <arg>--name=<replaceable>новое-имя</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-list">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+
+      <arg choice="plain">list</arg>
+
+      <group><arg>--details</arg><arg>--machinereadable</arg></group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-showvminfo">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+
+      <arg choice="plain">showvminfo</arg>
+
+      <arg choice="req"><replaceable>имя-снимка</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage snapshot</command> управляет снимками.
+    </para>
+    <para>
+      &product-name; использует снимки для фиксации состояния виртуальной
+      машины (ВМ). Можно позднее использовать снимок для возврата к
+      состоянию, описываемому снимком.
+    </para>
+    <para>
+      Снимок - это полная копия настроек ВМ. Если снимок создается
+      во время работы ВМ, снимок также включает файл состояния ВМ.
+    </para>
+    <para>
+      После создания снимка, &product-name; создает
+      <emphasis>разностный жесткий диск</emphasis> для каждого обычного
+      диска связанного с хост-машиной. При восстановлении снимка,
+      &product-name; использует эти разностные файлы для быстрого
+      сброса содержимого виртуальных жестких дисков ВМ.
+    </para>
+    <para>
+      Для каждой команды <command>VBoxManage snapshot</command>,
+      необходимо указать имя или универсальный уникальный идентификатор
+      (UUID) ВМ для которого нужно сделать снимок.
+    </para>
+    <refsect2>
+      <title>Общие операнды команды</title>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid|имя-ВМ</replaceable></term>
+          <listitem><para>
+              Задает UUID или имя ВМ.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-take">
+      <title>Сделать снимок виртуальной машины</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage snapshot take</command> делает
+        снимок текущего состояния ВМ. Необходимо указать имя снимка
+        и, необязательно, описание. Новый снимок вставляется в дерево
+        снимков как потомок текущего снимка и становится новым текущим
+        снимком.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--description=<replaceable>описание</replaceable></option></term>
+          <listitem><para>
+              Задает описание снимка.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--live</option></term>
+          <listitem><para>
+              Указывает, что ВМ не останавливается во время создания
+              снимка. Операция известна как живое создание снимка.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uniquename Number,Timestamp,Space,Force</option></term>
+          <listitem><para>
+              Будет описано позже.
+            </para><remark>
+              Что эта опция делает и как ее использовать?
+            </remark></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>имя-снимка</replaceable></term>
+          <listitem><para>
+              Задает имя создаваемого снимка.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-delete">
+      <title>Удалить снимок</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage snapshot delete</command>
+        удаляет указанный снимок.
+      </para>
+      <para>
+        Операция удаления может занять некоторое время из-за
+        того что разностные образы связанные со снимком могут быть
+        объединены с их дочерними разностными образами.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>имя-снимка</replaceable></term>
+          <listitem><para>
+              Задает UUID или имя снимка.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-restore">
+      <title>Восстановить снимок</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage snapshot restore</command>
+        восстанавливает указанный снимок. Эта операция сбрасывает
+        настройки и текущее состояние к указанному снимку. Состояние
+        ВМ, на котором восстанавливается снимок, теряется. По
+        завершении восстановления, указанный снимок становится новым
+        текущим снимком, а последующие снимки - дочерними к нему.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>имя-снимка</replaceable></term>
+          <listitem><para>
+              Задает UUID или имя снимка.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-restorecurrent">
+      <title>Восстановить текущий снимок</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage snapshot restorecurrent</command>
+        восстанавливает текущий снимок. Текущий снимок - это снимок,
+        от которого получено текущее состояние. Эта команда
+        эквивалентна команде <command>VBoxManage snapshot
+        restore</command> с указанием имени или UUID текущего снимка.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-edit">
+      <title>Изменить имя или описание существующего снимка</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage snapshot edit</command> позволяет
+        изменить имя или описание указанного снимка.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>имя-снимка</replaceable></term>
+          <listitem><para>
+              Задает UUID или имя редактируемого снимка.
+            </para><para>
+              Эта опция взаимоисключающая с опцией
+              <option>--current</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--current</option></term>
+          <listitem><para>
+              Указывает, что нужно обновить текущую версию снимка.
+            </para><para>
+              Эта опция взаимоисключающая с указанием имени снимка
+              или его UUID.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--description=<replaceable>описание</replaceable></option></term>
+          <listitem><para>
+              Задает новое описание для указанного снимка.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--name=<replaceable>новое-имя</replaceable></option></term>
+          <listitem><para>
+              Задает новое имя снимка.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-list">
+      <title>Показать список снимков</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage snapshot list</command> показывает
+        все снимки ВМ.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--details</option></term>
+          <listitem><para>
+              Указывает, что вывод показывает подробную информацию о снимке.
+            </para><para>
+              Эта опция взаимоисключающая с опцией
+              <option>--machinereadable</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--machinereadable</option></term>
+          <listitem><para>
+              Указывает, что вывод производится в машино-читаемом
+              формате.
+            </para><para>
+              Эта опция взаимоисключающая с опцией
+              <option>--details</option>.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-showvminfo">
+      <title>Показать информацию о настройках снимка</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage snapshot showvminfo</command> позволяет
+        просмотреть настройки ВМ, являющихся частью существующего снимка.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>имя-снимка</replaceable></term>
+          <listitem><para>
+              Задает UUID или имя снимка.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      Следующая команда создает снимок ВМ
+      <computeroutput>ol7u4</computeroutput>. Снимок называется
+      <computeroutput>ol7u4-snap-001</computeroutput>. Команда использует
+      опцию <option>--description</option> для передачи описания
+      содержимого снимка.
+    </para>
+<screen>
+$ VBoxManage snapshot ol7u4 take ol7u4-snap-001 \
+--description="Oracle Linux 7.4"
+</screen>
+    <para>
+      Следующая команда показывает снимки ВМ
+      <computeroutput>ol7u4</computeroutput>.
+    </para>
+<screen>
+$ VBoxManage snapshot ol7u4 list
+</screen>
+    <para>
+      Следующая команда изменяет описание снимка
+      <computeroutput>ol7u4-snap-001</computeroutput> ВМ
+      <computeroutput>ol7u4</computeroutput>.
+    </para>
+<screen>
+$ VBoxManage snapshot ol7u4 edit ol7u4-snap-001 \
+--description="Oracle Linux 7.4 with UEK4 kernel"
+</screen>
+    <para>
+      Следующая команда показывает настройки ВМ снимка
+      <computeroutput>ol7u1-snap-001</computeroutput> ВМ
+      <computeroutput>ol7u4</computeroutput>.
+    </para>
+<screen>
+$ VBoxManage snapshot ol7u4 showvminfo ol7u4-snap-001
+Имя:            ol7u4
+Группы:          /
+Гостевая ОС:        Oracle (64-bit)
+UUID:            43349d78-2ab3-4cb8-978f-0e755cd98090
+Файл настроек:     C:\Users\user1\VirtualBox VMs\ol7u4\ol7u4.vbox
+...
+Снимки:
+
+   Имя: ol7u4-snap-001 (UUID: 1cffc37d-5c37-4b86-b9c5-a0f157a55f43)
+   Описание: Oracle Linux 7.4 with UEK4 kernel
+</screen>
+  </refsect1>
+</refentry>

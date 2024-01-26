@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage usbfilter
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-usbfilter" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage usbfilter</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-usbfilter</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-usbfilter</refname>
+    <refpurpose>управление USB фильтрами</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+    <cmdsynopsis id="synopsis-vboxmanage-usbfilter-add">
+      <command>VBoxManage usbfilter add</command>
+      <arg choice="req"><replaceable>индекс</replaceable>,0-<replaceable>N</replaceable></arg>
+      <arg choice="req">--target=<group choice="req">
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+          <arg choice="plain">global</arg>
+        </group></arg>
+      <arg choice="req">--name=<replaceable>строка</replaceable></arg>
+      <arg choice="req">--action=ignore | hold</arg>
+      <arg>--active=yes | no</arg>
+      <arg>--vendorid=<replaceable>XXXX</replaceable></arg>
+      <arg>--productid=<replaceable>XXXX</replaceable></arg>
+      <arg>--revision=<replaceable>IIFF</replaceable></arg>
+      <arg>--manufacturer=<replaceable>строка</replaceable></arg>
+      <arg>--product=<replaceable>строка</replaceable></arg>
+      <arg>--port=<replaceable>hex</replaceable></arg>
+      <arg>--remote=yes | no</arg>
+      <arg>--serialnumber=<replaceable>строка</replaceable></arg>
+      <arg>--maskedinterfaces=<replaceable>XXXXXXXX</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-usbfilter-modify">
+      <command>VBoxManage usbfilter modify</command>
+      <arg choice="req"><replaceable>индекс</replaceable>,0-<replaceable>N</replaceable></arg>
+      <arg choice="req">--target=<group choice="req">
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+          <arg choice="plain">global</arg>
+        </group></arg>
+      <arg>--name=<replaceable>строка</replaceable></arg>
+      <arg>--action=ignore | hold</arg>
+      <arg>--active=yes | no</arg>
+      <arg>--vendorid=<replaceable>XXXX</replaceable> | ""</arg>
+      <arg>--productid=<replaceable>XXXX</replaceable> | ""</arg>
+      <arg>--revision=<replaceable>IIFF</replaceable> | ""</arg>
+      <arg>--manufacturer=<replaceable>строка</replaceable> | ""</arg>
+      <arg>--product=<replaceable>строка</replaceable> | ""</arg>
+      <arg>--port=<replaceable>hex</replaceable></arg>
+      <arg>--remote=yes | no</arg>
+      <arg>--serialnumber=<replaceable>строка</replaceable> | ""</arg>
+      <arg>--maskedinterfaces=<replaceable>XXXXXXXX</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-usbfilter-remove">
+      <command>VBoxManage usbfilter remove</command>
+      <arg choice="req"><replaceable>индекс</replaceable>,0-<replaceable>N</replaceable></arg>
+      <arg choice="req">--target=<group choice="req">
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+          <arg choice="plain">global</arg>
+        </group></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage usbfilter</command> позволяет управлять
+      USB фильтрами для указанной виртуальной машиной (ВМ) или глобальными
+      USB фильтрами, влияющими на всю конфигурацию &product-name;.
+    </para>
+    <para>
+      Глобальные фильтры применяются перед фильтрами определенной ВМ.
+      Это означает, что можно использовать глобальный фильтр для
+      предотвращения захвата устройств какой-либо ВМ.
+    </para>
+    <para>
+      Глобальные фильтры применяются в определенном порядке. Применяется
+      только первый походящий данному устройству фильтр. Например,
+      первый глобальный фильтр делает доступным определенный
+      флеш-накопитель Kingston, тогда как второй фильтр игнорирует все
+      устройства Kingston. В результате применения этих фильтров,
+      определенный флеш-накопитель Kingston будет доступен любой машине,
+      имеющей соответствующий фильтр, но остальные устройства Kingston
+      доступны не будут.
+    </para>
+    <refsect2>
+      <title>Общие операнды и опции</title>
+      <variablelist>
+        <varlistentry>
+          <term>index,0-<replaceable>N</replaceable></term>
+          <listitem><para>
+              Задает единственное число, указывающее позицию фильтра
+              в списке. Ноль (<literal>0</literal>) представляет
+              первую позицию в списке. Если в данной позиции уже
+              существует фильтр, то этот фильтр, а также
+              следующие за ним передвигаются ниже по списку.
+              В противном случае, новый фильтр добавляется в
+              список.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--action=ignore | hold</option></term>
+          <listitem><para>
+              Указывает, разрешать ли доступ ВМ к устройствам,
+              подходящим к описанию фильтра (<literal>hold</literal>)
+              или запрещать (<literal>ignore</literal>). Эта опция
+              применяется только к глобальным фильтрам.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--active=yes | no</option></term>
+          <listitem><para>
+              Указывает, активен ли USB фильтр или временно отключен.
+              Допустимые значения <literal>yes</literal>, активирующая
+              фильтр и <literal>no</literal>, отключающая его. Значение
+              по умолчанию <literal>yes</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--manufacturer=<replaceable>строка</replaceable></option></term>
+          <listitem><para>
+              Задает фильтр по ID производителя как строку. Значение
+              по умолчанию пустое (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--maskedinterfaces=<replaceable>XXXXXXXX</replaceable></option></term>
+          <listitem><para>
+              Указывает фильтр маскированного интерфейса, который
+              используется для скрытия одного или нескольких USB
+              интерфейсов от гостевой системы. Значение - это битовая
+              маска, где набор битов соответствует скрываемому USB
+              интерфейсу или снятие маски. Эта функция поддерживается
+              только только в хост-системах Linux.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--name=<replaceable>имя-фильтра</replaceable></option></term>
+          <listitem><para>
+              Задает имя фильтра.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port=<replaceable>hex</replaceable></option></term>
+          <listitem><para>
+              Задает фильтр по номеру USB порта (hub port number). Значение по
+              умолчанию - пустая строка (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--product=<replaceable>строка</replaceable></option></term>
+          <listitem><para>
+              Задает фильтр по ID продукта как строку. Значение по
+              умолчанию пустое (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--productid=<replaceable>XXXX</replaceable></option></term>
+          <listitem><para>
+              Задает фильтр по ID продукта. Строковое представление
+              для точного соответствия имеет вид
+              <replaceable>XXXX</replaceable>, где
+              <replaceable>X</replaceable> - это шестнадцатеричная
+              цифра включающая лидирующие нули. Значение по умолчанию
+              пустое (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--remote=yes | no</option></term>
+          <listitem><para>
+              Задает удаленный фильтр, показывающий подключено ли
+              физически устройство к удаленному клиенту VRDE или
+              или к локальной системе. Эта опцию применяется только
+              к фильтрам ВМ. Значение по умолчанию пустое
+              (<literal>""</literal>).
+            </para><remark>
+              Почему значение по умолчанию пустое когда допустимые
+              значения <literal>yes</literal> или <literal>no</literal>?
+            </remark></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--revision=<replaceable>IIFF</replaceable></option></term>
+          <listitem><para>
+              Задает фильтр по ID ревизии. Строковое представление
+              для точного соответствия имеет вид <replaceable>IIFF</replaceable>.
+              <replaceable>I</replaceable> - это десятичная цифра
+              целой части ревизии. <replaceable>F</replaceable> -
+              это десятичная цифра ее дробной части включающая
+              лидирующие и замыкающие нули. Значение по умолчанию
+              пустое (<literal>""</literal>).
+            </para><para>
+              Для того, чтобы указать диапазон ревизий ID, убедитесь
+              что используется шестнадцатеричная форма, то есть в виде
+              16 битного упакованного двоично-десятичного значения.
+              Например, выражение <literal>int:0x0100-0x0199</literal>
+              соответствует любой ревизии с 1.0 по 1.99 включительно.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--serialnumber=<replaceable>строка</replaceable></option></term>
+          <listitem><para>
+              Задает фильтр серийного номера как строку. Значение по
+              умолчанию пустое(<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--target=<replaceable>uuid</replaceable> | <replaceable>имя-ВМ</replaceable> | global</option></term>
+          <listitem><para>
+              Указывает ВМ, к которой подключается фильтр. Можно
+              указать Универсальный Уникальный Идентификатор (UUID)
+              или имя ВМ. Для применения описания фильтра ко всем ВМ,
+              укажите <literal>global</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vendorid=<replaceable>XXXX</replaceable></option></term>
+          <listitem><para>
+              Задает фильтр по ID поставщика, который представляется
+              строкой шестнадцатеричного номера, состоящего из
+              четырех цифр включая лидирующие нули. Значение по
+              умолчанию пустое (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-usbfilter-add">
+      <title>Добавить USB фильтр или глобальный фильтр</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Используйте команду <command>VBoxManage usbfilter add</command>
+        для создания нового USB фильтра.
+      </para>
+      <para>
+        Дополнительно укажите параметры для фильтрации. Можно использовать
+        команду <command>VBoxManage list usbhost</command> для просмотра
+        параметров устройств, подключенных к вашей системе.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-usbfilter-modify">
+      <title>Изменить USB фильтр или глобальный фильтр</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Используйте команду <command>VBoxManage usbfilter modify</command>
+        для изменения USB фильтра. Можно использовать команду
+        <command>VBoxManage list usbfilters</command> для отображения
+        индексов глобальных фильтров и команду
+        <command>VBoxManage showvminfo</command> для отображения
+        индексов по определенной машине.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-usbfilter-remove">
+      <title>Удалить USB фильтр или глобальный фильтр</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Используйте команду <command>VBoxManage usbfilter remove</command>
+        для удаления USB фильтра.
+      </para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда отображает доступные USB устройства в хост-системе.
+    </para>
+<screen>$ VBoxManage list usbhost</screen>
+    <para>
+      Следующая команда добавляет USB фильтр, называемый
+      <filename>filter01</filename> к ВМ <filename>ol7</filename>.
+      Фильтр определяет флеш-накопитель Kingston DataTraveler и
+      помещается первым в списке USB фильтров ВМ.
+    </para>
+<screen>$ VBoxManage usbfilter add 0 --target ol7 --name filter01 --vendorid 0x0930 --productid 0x6545</screen>
+    <para>
+      Следующая команда удаляет USB фильтр, который второй в списке
+      ВМ <filename>ol7</filename> VM.
+    </para>
+<screen>$ VBoxManage usbfilter remove 1 --target ol7</screen>
+  </refsect1>
+</refentry>

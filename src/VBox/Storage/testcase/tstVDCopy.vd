@@ -1,0 +1,100 @@
+/* $Id: tstVDCopy.vd $ */
+/**
+ * Storage: Testcase for VDCopy with snapshots and optimizations.
+ */
+
+/*
+ * Copyright (C) 2011-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+void main()
+{
+    /* Init I/O RNG for generating random data for writes. */
+    iorngcreate(10M, "manual", 1234567890);
+
+    /* Create source disk and fill data. */
+    print("Creating Source Disk");
+    createdisk("source", false);
+    create("source", "base", "source_base.vdi", "dynamic", "VDI", 1G, false, false);
+    io("source", false, 1, "rnd", 64K, 0, 512M, 256M, 100, "none");
+
+    print("Creating first diff");
+    create("source", "diff", "source_diff1.vdi", "dynamic", "VDI", 1G, false, false);
+    io("source", false, 1, "rnd", 64K, 512M, 1G, 256M, 50, "none");
+
+    print("Creating second diff");
+    create("source", "diff", "source_diff2.vdi", "dynamic", "VDI", 1G, false, false);
+    io("source", false, 1, "rnd", 1M, 0, 1G, 45M, 100, "none");
+
+    print("Creating third diff");
+    create("source", "diff", "source_diff3.vdi", "dynamic", "VDI", 1G, false, false);
+    io("source", false, 1, "rnd", 1M, 0, 1G, 45M, 100, "none");
+
+    print("Creating fourth diff");
+    create("source", "diff", "source_diff4.vdi", "dynamic", "VDI", 1G, false, false);
+    io("source", false, 1, "rnd", 1M, 0, 1G, 45M, 100, "none");
+
+    print("Creating destination disk");
+    createdisk("dest", false);
+
+    print("Copying base image");
+    copy("source", "dest", 0, "VDI", "dest_base.vdi", false, 0, 0xffffffff, 0xffffffff); /* Image content unknown */
+
+    print("Copying first diff optimized");
+    copy("source", "dest", 1, "VDI", "dest_diff1.vdi", false, 0, 0, 0);
+
+    print("Copying other diffs optimized");
+    copy("source", "dest", 2, "VDI", "dest_diff2.vdi", false, 0, 1, 1);
+    copy("source", "dest", 3, "VDI", "dest_diff3.vdi", false, 0, 2, 2);
+    copy("source", "dest", 4, "VDI", "dest_diff4.vdi", false, 0, 3, 3);
+
+    print("Comparing disks");
+    comparedisks("source", "dest");
+
+    printfilesize("source", 0);
+    printfilesize("source", 1);
+    printfilesize("source", 2);
+    printfilesize("source", 3);
+    printfilesize("source", 4);
+
+    printfilesize("dest", 0);
+    printfilesize("dest", 1);
+    printfilesize("dest", 2);
+    printfilesize("dest", 3);
+    printfilesize("dest", 4);
+
+    print("Cleaning up");
+    close("dest", "single", true);
+    close("dest", "single", true);
+    close("dest", "single", true);
+    close("dest", "single", true);
+    close("dest", "single", true);
+
+    close("source", "single", true);
+    close("source", "single", true);
+    close("source", "single", true);
+    close("source", "single", true);
+    close("source", "single", true);
+    destroydisk("source");
+    destroydisk("dest");
+
+    iorngdestroy();
+}

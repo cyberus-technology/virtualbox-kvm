@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    user_VBoxManage.xml:
+      VBoxManage documentation for the user manual.
+
+      This XML document is also be used for generating the help text
+      built into VBoxManage as well as manpages (hacking in progress).
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<chapter id="vboxmanage">
+
+  <title>VBoxManage</title>
+
+  <sect1 id="vboxmanage-intro">
+
+    <title>Introduction</title>
+
+    <para>
+      As briefly mentioned in <xref linkend="frontends" />,
+      <command>VBoxManage</command> is the command-line interface to
+      &product-name;. With it, you can completely control &product-name;
+      from the command line of your host operating system.
+      <command>VBoxManage</command> supports all the features that the
+      graphical user interface gives you access to, but it supports a
+      lot more than that. It exposes all the features of the
+      virtualization engine, even those that cannot be accessed from the
+      GUI.
+    </para>
+
+    <para>
+      You will need to use the command line if you want to do the
+      following:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          Use a different user interface than the main GUI such as the
+          VBoxHeadless server.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Control some of the more advanced and experimental
+          configuration settings for a VM.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      There are two main things to keep in mind when using
+      <command>VBoxManage</command>. First,
+      <command>VBoxManage</command> must always be used with a specific
+      subcommand, such as <command>list</command> or
+      <command>createvm</command> or <command>startvm</command>. All the
+      subcommands that <command>VBoxManage</command> supports are
+      described in detail in <xref linkend="vboxmanage" />.
+    </para>
+
+    <para>
+      Second, most of these subcommands require that you specify a
+      particular virtual machine after the subcommand. There are two
+      ways you can do this:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          You can specify the VM name, as it is shown in the
+          &product-name; GUI. Note that if that name contains spaces,
+          then you must enclose the entire name in double quotes. This
+          is always required with command line arguments that contain
+          spaces. For example:
+        </para>
+
+<screen>VBoxManage startvm "Windows XP"</screen>
+      </listitem>
+
+      <listitem>
+        <para>
+          You can specify the UUID, which is the internal unique
+          identifier that &product-name; uses to refer to the virtual
+          machine. Assuming that the VM called "Windows XP" has the UUID
+          shown below, the following command has the same effect as the
+          previous example:
+        </para>
+
+<screen>VBoxManage startvm 670e746d-abea-4ba6-ad02-2a3b043810a5</screen>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      You can enter <command>VBoxManage list vms</command> to have all
+      currently registered VMs listed with all their settings, including
+      their respective names and UUIDs.
+    </para>
+
+    <para>
+      Some typical examples of how to control &product-name; from the
+      command line are listed below:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          To create a new virtual machine from the command line and
+          immediately register it with &product-name;, use
+          <command>VBoxManage createvm</command> with the
+          <option>--register</option> option, as follows:
+        </para>
+
+<screen>$ VBoxManage createvm --name "SUSE 10.2" --register
+VirtualBox Command Line Management Interface Version <replaceable>version-number</replaceable>
+Copyright (C) 2005-2023 Oracle and/or its affiliates
+
+Virtual machine 'SUSE 10.2' is created.
+UUID: c89fc351-8ec6-4f02-a048-57f4d25288e5
+Settings file: '/home/username/.config/VirtualBox/Machines/SUSE 10.2/SUSE 10.2.xml'</screen>
+
+        <para>
+          As can be seen from the above output, a new virtual machine
+          has been created with a new UUID and a new XML settings file.
+        </para>
+
+        <para>
+          For more details, see
+          <xref
+            linkend="vboxmanage-createvm" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          To show the configuration of a particular VM, use
+          <command>VBoxManage showvminfo</command>. See
+          <xref
+        linkend="vboxmanage-showvminfo" /> for details
+          and an example.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          To change settings while a VM is powered off, use
+          <command>VBoxManage modifyvm</command>. For example:
+        </para>
+
+<screen>VBoxManage modifyvm "Windows XP" --memory 512</screen>
+
+        <para>
+          See also <xref linkend="vboxmanage-modifyvm" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          To change the storage configuration, such as to add a storage
+          controller and then a virtual disk, use <command>VBoxManage
+          storagectl</command> and <command>VBoxManage
+          storageattach</command>. See
+          <xref
+        linkend="vboxmanage-storagectl" /> and
+          <xref
+        linkend="vboxmanage-storageattach" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          To control VM operation, use one of the following:
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              To start a VM that is currently powered off, use
+              <command>VBoxManage startvm</command>. See
+              <xref
+              linkend="vboxmanage-startvm" />.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              To pause or save a VM that is currently running or change
+              some of its settings, use <command>VBoxManage
+              controlvm</command>. See
+              <xref
+              linkend="vboxmanage-controlvm" />.
+            </para>
+          </listitem>
+
+        </itemizedlist>
+      </listitem>
+
+    </itemizedlist>
+
+  </sect1>
+
+  <sect1 id="vboxmanage-cmd-overview">
+
+    <title>Commands Overview</title>
+
+    <para>
+      When running <command>VBoxManage</command> without parameters or
+      when supplying an invalid command line, the following command
+      syntax list is shown. Note that the output will be slightly
+      different depending on the host platform. If in doubt, check the
+      output of <command>VBoxManage</command> for the commands available
+      on your particular host.
+    </para>
+
+    <xi:include href="overview_man_VBoxManage-common.xml"         xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-list.xml"           xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-showvminfo.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-registervm.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-unregistervm.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-createvm.xml"       xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-modifyvm.xml"       xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-clonevm.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-movevm.xml"         xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-encryptvm.xml"      xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-cloud.xml"          xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-cloudprofile.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-import.xml"         xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-export.xml"         xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-signova.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-startvm.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-controlvm.xml"      xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-unattended.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-discardstate.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-adoptstate.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-snapshot.xml"       xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-closemedium.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-storageattach.xml"  xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-storagectl.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-bandwidthctl.xml"  xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-showmediuminfo.xml" xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-createmedium.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-modifymedium.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-clonemedium.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-mediumproperty.xml" xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-encryptmedium.xml"  xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-checkmediumpwd.xml" xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-convertfromraw.xml" xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-mediumio.xml"       xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-setextradata.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-getextradata.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-setproperty.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-usbfilter.xml"      xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-sharedfolder.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-guestproperty.xml"  xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-guestcontrol.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-debugvm.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-metrics.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-natnetwork.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-hostonlyif.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-hostonlynet.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-dhcpserver.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-usbdevsource.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-extpack.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-updatecheck.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <xi:include href="overview_man_VBoxManage-modifynvram.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+    <para>
+      Each time <command>VBoxManage</command> is invoked, only one
+      command can be executed. However, a command might support several
+      subcommands which then can be invoked in one single call. The
+      following sections provide detailed reference information on the
+      different commands.
+    </para>
+
+  </sect1>
+
+  <!-- TODO: Figure out how we can generate a file with the includes... The trouble is
+             that xpointer doesn't seem to allow including multiple elements.
+
+             In the mean time, when adding new VBoxManage man pages to Config.kmk,
+             don't forget to add it here too.
+   -->
+
+  <sect1 id="vboxmanage-general">
+
+    <title>General Options</title>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          <option>-v|--version</option>: Show the version of this tool
+          and exit.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <option>--nologo</option>: Suppress the output of the logo
+          information. This option is useful for scripts.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <option>--settingspw</option>: Specifiy a settings password.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <option>--settingspwfile</option>: Specify a file containing
+          the settings password.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      The settings password is used for certain settings which need to
+      be stored in encrypted form for security reasons. At the moment,
+      the only encrypted setting is the iSCSI initiator secret, see
+      <xref linkend="vboxmanage-storageattach" />. As long as no
+      settings password is specified, this information is stored in
+      <emphasis>plain text</emphasis>. After using the
+      <option>--settingspw|--settingspwfile</option> option once, it
+      must be always used. Otherwise, the encrypted setting cannot be
+      unencrypted.
+    </para>
+
+  </sect1>
+
+  <!-- TODO: Check the overview/common man page -->
+  <xi:include href="user_man_VBoxManage-common.xml"         xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-list.xml"           xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-showvminfo.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-registervm.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-unregistervm.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-createvm.xml"       xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-modifyvm.xml"       xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-clonevm.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-movevm.xml"         xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-encryptvm.xml"      xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-cloud.xml"          xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-cloudprofile.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-import.xml"         xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-export.xml"         xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-signova.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-startvm.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-controlvm.xml"      xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-unattended.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-discardstate.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-adoptstate.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-snapshot.xml"       xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-closemedium.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-storageattach.xml"  xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-storagectl.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-bandwidthctl.xml"  xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-showmediuminfo.xml" xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-createmedium.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-modifymedium.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-clonemedium.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-mediumproperty.xml" xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-encryptmedium.xml"  xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-checkmediumpwd.xml" xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-convertfromraw.xml" xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-mediumio.xml"       xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-setextradata.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-getextradata.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-setproperty.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-usbfilter.xml"      xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-sharedfolder.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-guestproperty.xml"  xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-guestcontrol.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-debugvm.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-metrics.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-natnetwork.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-hostonlyif.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-hostonlynet.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-dhcpserver.xml"     xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-usbdevsource.xml"   xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-extpack.xml"        xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-updatecheck.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <xi:include href="user_man_VBoxManage-modifynvram.xml"    xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+  <!-- TODO: Figure out how we can handle other manpages. The xml is bolted to
+             sect1, so it's not possible to have them "in place" -->
+
+  <xi:include href="user_man_vboximg-mount.xml"             xpointer="element(/1)" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+</chapter>

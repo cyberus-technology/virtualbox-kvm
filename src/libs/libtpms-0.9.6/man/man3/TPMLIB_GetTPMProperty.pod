@@ -1,0 +1,153 @@
+=head1 NAME
+
+TPMLIB_GetTPMProperty    - Get a runtime property of the TPM
+ 
+=head1 LIBRARY
+
+TPM library (libtpms, -ltpms)
+
+=head1 SYNOPSIS
+
+B<#include <libtpms/tpm_library.h>>
+
+B<TPM_RESULT TPMLIB_GetTPMProperty(enum TPMLIB_TPMProperty, int *result);>
+
+=head1 DESCRIPTION
+
+The B<TPMLIB_GetTPMProperty()> call is used to retrieve run-time parameters
+of the TPM such as the number of authorization sessions it can hold or
+the maximum sizes of the permanent state, savestate or volatile state blobs.
+
+This function can be called before or after the TPM has been created.
+The current implementation of libtpms will return the same value before
+and after the TPM was started.
+
+With the introduction of the function B<TPMLIB_ChooseTPMVersion()>,
+the call to this function should be executed after the TPM version
+has been chosen. The reason is that different TPM versions may return
+different values.
+
+The following properties have been defined:
+
+=over 4
+
+=item B<TPMPROP_TPM_RSA_KEY_LENGTH_MAX>
+
+The maximum size of an RSA key.
+
+=item B<TPMPROP_TPM_BUFFER_MAX>
+
+The maximum sizes of the TPM command and result buffers.
+
+=item B<TPMPROP_TPM_KEY_HANDLES>
+
+The number of key slots.
+
+=item B<TPMPROP_TPM_OWNER_EVICT_KEY_HANDLES>
+
+The number of owner-evict keys.
+
+=item B<TPMPROP_TPM_MIN_AUTH_SESSIONS>
+
+The number of authorization sessions.
+
+=item B<TPMPROP_TPM_MIN_TRANS_SESSIONS>
+
+The number of transport sessions.
+
+=item B<TPMPROP_TPM_MIN_DAA_SESSIONS>
+
+The number of DAA sessions.
+
+=item B<TPMPROP_TPM_MIN_SESSION_LIST>
+
+The size of the session list.
+
+=item B<TPMPROP_TPM_MIN_COUNTERS>
+
+The number of monotonic counters.
+
+=item B<TPMPROP_TPM_NUM_FAMILY_TABLE_ENTRY_MIN>
+
+The number of family entries.
+
+=item B<TPMPROP_TPM_NUM_DELEGATE_TABLE_ENTRY_MIN>
+
+The number of delegate entries.
+
+=item B<TPMPROP_TPM_SPACE_SAFETY_MARGIN>
+
+The space safety margin used for the worst-case sizes of the savestate and
+volatile state blobs. This safety margin is not used for the size of the
+permanent data blob.
+
+=item B<TPMPROP_TPM_MAX_NV_SPACE>
+
+The maximum size of the permanent data blob.
+
+=item B<TPMPROP_TPM_MAX_SAVESTATE_SPACE>
+
+The maximum size of the savestate blob (includes the space safety margin).
+
+=item B<TPMPROP_TPM_MAX_VOLATILESTATE_SPACE>
+
+The maximum size of the volatile state blob (includes the space saferty
+margin).
+
+=back
+
+=head1 ERRORS
+
+=over 4
+
+=item B<TPM_SUCCESS>
+
+The function completed successfully.
+
+=item B<TPM_FAIL>
+
+An undefined property was queried.
+
+=back
+
+For a complete list of TPM error codes please consult the include file
+B<libtpms/tpm_error.h>
+
+=head1 EXAMPLE
+
+ #include <stdio.h>
+
+ #include <libtpms/tpm_library.h>
+ #include <libtpms/tpm_error.h>
+
+ int main(void) {
+     TPM_RESULT res;
+     int result;
+     int rc = 0;
+
+     if (TPMLIB_MainInit() != TPM_SUCCESS) {
+         fprintf(stderr, "Could not start the TPM.\n");
+         return 1;
+     }
+
+     if (TPMLIB_GetTPMProperty(TPMPROP_TPM_RSA_KEY_LENGTH_MAX, &result)
+         != TPM_SUCCESS) {
+         fprintf(stderr, "Could not read the max. size of RSA keys.\n");
+         goto err_exit;
+     }
+
+     fprintf(stdout, "Max. size of RSA keys: %d\n", result);
+
+ err_exit:
+     TPMLIB_Terminate();
+
+     return 0;
+ }
+
+=head1 SEE ALSO
+
+B<TPMLIB_MainInit>(3), B<TPMLIB_Terminate>(3),
+B<TPMLIB_Process>(3), B<TPMLIB_RegisterCallbacks>(3), B<TPMLIB_GetVersion>(3),
+B<TPMLIB_ChooseTPMVersion>(3)
+
+=cut

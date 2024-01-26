@@ -1,0 +1,836 @@
+; $Id: bootsector2-test1-template.mac $
+;; @file
+; bootsector2 test1 - multi mode template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+%include "bootsector2-template-header.mac"
+
+;;
+; Run the CPUID benchmark for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(BenchmarkFlushCmd_rm)
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sBX
+        push    sCX
+        push    sDX
+        push    sDI
+        sub     sSP, 20h
+
+        ; Get the current time.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetNanoTS)
+
+        ; Do the test.
+        mov     edi, TEST_INSTRUCTION_COUNT_IO / 4
+%define MSR_IA32_FLUSH_CMD                  0x10b
+%define MSR_IA32_FLUSH_CMD_F_L1D            RT_BIT_32(0)
+        mov     ecx, MSR_IA32_FLUSH_CMD
+        mov     eax, MSR_IA32_FLUSH_CMD_F_L1D
+        xor     edx, edx
+.again:
+        wrmsr
+        wrmsr
+        wrmsr
+        wrmsr
+        dec     edi
+        jnz     .again
+
+        ; Calc the elapsed time and report the result.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetElapsedNanoTS)
+
+        mov     xCX, .s_szTestName
+        mov     edx, TEST_INSTRUCTION_COUNT_IO
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(ReportResult)
+
+        add     sSP, 20h
+        pop     sDI
+        pop     sDX
+        pop     sCX
+        pop     sBX
+        pop     sAX
+        leave
+
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+.done:
+        ret
+
+.s_szTestName:
+        db TMPL_MODE_STR, ', FLUSH_CMD', 0
+ENDPROC TMPL_NM(BenchmarkFlushCmd_rm)
+
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+;;
+; Run the CPUID benchmark for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(BenchmarkCpuId_rm)
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sBX
+        push    sCX
+        push    sDX
+        push    sDI
+        sub     sSP, 20h
+
+        ; Get the current time.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetNanoTS)
+
+        ; Do the test.
+        mov     edi, TEST_INSTRUCTION_COUNT_CPUID / 4
+.again:
+        mov     eax, 1
+        cpuid
+        mov     eax, 1
+        cpuid
+        mov     eax, 1
+        cpuid
+        mov     eax, 1
+        cpuid
+        dec     edi
+        jnz     .again
+
+        ; Calc the elapsed time and report the result.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetElapsedNanoTS)
+
+        mov     xCX, .s_szTestName
+        mov     edx, TEST_INSTRUCTION_COUNT_CPUID
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(ReportResult)
+
+        add     sSP, 20h
+        pop     sDI
+        pop     sDX
+        pop     sCX
+        pop     sBX
+        pop     sAX
+        leave
+
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+.done:
+        ret
+
+.s_szTestName:
+        db TMPL_MODE_STR, ', CPUID', 0
+ENDPROC TMPL_NM(BenchmarkCpuId_rm)
+
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+;;
+; Run the RDTSC benchmark for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(BenchmarkRdTsc_rm)
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sBX
+        push    sCX
+        push    sDX
+        push    sDI
+        sub     sSP, 20h
+
+        ; Get the current time.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetNanoTS)
+
+        ; Do the test.
+        mov     edi, TEST_INSTRUCTION_COUNT_RDTSC / 4
+.again:
+        rdtsc
+        rdtsc
+        rdtsc
+        rdtsc
+        dec     edi
+        jnz     .again
+
+        ; Calc the elapsed time and report the result.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetElapsedNanoTS)
+
+        mov     xCX, .s_szTestName
+        mov     edx, TEST_INSTRUCTION_COUNT_RDTSC
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(ReportResult)
+
+        add     sSP, 20h
+        pop     sDI
+        pop     sDX
+        pop     sCX
+        pop     sBX
+        pop     sAX
+        leave
+
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+.done:
+        ret
+
+.s_szTestName:
+        db TMPL_MODE_STR, ', RDTSC', 0
+ENDPROC TMPL_NM(BenchmarkRdTsc_rm)
+
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+;;
+; Run the Read CR4 benchmark for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(BenchmarkRdCr4_rm)
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sBX
+        push    sCX
+        push    sDX
+        push    sDI
+        sub     sSP, 20h
+
+        ; Get the current time.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetNanoTS)
+
+        ; Do the test.
+        mov     edi, TEST_INSTRUCTION_COUNT_READCR4 / 4
+.again:
+        mov     sAX, cr4
+        mov     sAX, cr4
+        mov     sAX, cr4
+        mov     sAX, cr4
+        dec     edi
+        jnz     .again
+
+        ; Calc the elapsed time and report the result.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetElapsedNanoTS)
+
+        mov     xCX, .s_szTestName
+        mov     edx, TEST_INSTRUCTION_COUNT_READCR4
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(ReportResult)
+
+        add     sSP, 20h
+        pop     sDI
+        pop     sDX
+        pop     sCX
+        pop     sBX
+        pop     sAX
+        leave
+
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+.done:
+        ret
+
+.s_szTestName:
+        db TMPL_MODE_STR, ', Read CR4', 0
+ENDPROC TMPL_NM(BenchmarkRdCr4_rm)
+
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+;;
+; Prologue for the I/O port tests.
+%ifndef HaveIoPortPrologue
+%define HaveIoPortPrologue
+%macro IoPortPrologue 2
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sDX
+        push    sCX
+        sub     xSP, 20h
+
+        ; Get the current time.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetNanoTS)
+
+        ; Do the test.
+        mov     dx, %2
+        mov     ecx, (%1) / 5
+%endmacro
+%endif
+
+
+;;
+; Epilogue for the I/O port tests.
+%ifndef HaveIoPortEpilogue
+%define HaveIoPortEpilogue
+%macro IoPortEpilogue 1
+        ; Calc the elapsed time and report the result.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetElapsedNanoTS)
+
+        mov     xCX, .s_szTestName
+        mov     edx, (%1)
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(ReportResult)
+
+        add     xSP, 20h
+        pop     sCX
+        pop     sDX
+        pop     sAX
+        leave
+        ret
+%endmacro
+%endif
+
+
+;;
+; Benchmarks: IN eax, NOP
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkIoPortNop32In)
+        IoPortPrologue TEST_INSTRUCTION_COUNT_IO, VMMDEV_TESTING_IOPORT_NOP
+.again:
+        in      eax, dx
+        in      eax, dx
+        in      eax, dx
+        in      eax, dx
+        in      eax, dx
+        dec     ecx
+        jnz     .again
+        IoPortEpilogue TEST_INSTRUCTION_COUNT_IO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 32-bit IN', 0
+ENDPROC TMPL_NM(BenchmarkIoPortNop32In)
+
+
+;;
+; Benchmarks: OUT NOP, eax
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkIoPortNop32Out)
+        IoPortPrologue TEST_INSTRUCTION_COUNT_IO, VMMDEV_TESTING_IOPORT_NOP
+.again:
+        out     dx, eax
+        out     dx, eax
+        out     dx, eax
+        out     dx, eax
+        out     dx, eax
+        dec     ecx
+        jnz     .again
+        IoPortEpilogue TEST_INSTRUCTION_COUNT_IO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 32-bit OUT', 0
+ENDPROC TMPL_NM(BenchmarkIoPortNop32Out)
+
+
+;;
+; Benchmarks: IN ax, NOP
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkIoPortNop16In)
+        IoPortPrologue TEST_INSTRUCTION_COUNT_IO, VMMDEV_TESTING_IOPORT_NOP
+.again:
+        in      ax, dx
+        in      ax, dx
+        in      ax, dx
+        in      ax, dx
+        in      ax, dx
+        dec     ecx
+        jnz     .again
+        IoPortEpilogue TEST_INSTRUCTION_COUNT_IO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 16-bit IN', 0
+ENDPROC TMPL_NM(BenchmarkIoPortNop16In)
+
+
+;;
+; Benchmarks: OUT NOP, ax
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkIoPortNop16Out)
+        IoPortPrologue TEST_INSTRUCTION_COUNT_IO, VMMDEV_TESTING_IOPORT_NOP
+.again:
+        out     dx, ax
+        out     dx, ax
+        out     dx, ax
+        out     dx, ax
+        out     dx, ax
+        dec     ecx
+        jnz     .again
+        IoPortEpilogue TEST_INSTRUCTION_COUNT_IO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 16-bit OUT', 0
+ENDPROC TMPL_NM(BenchmarkIoPortNop16Out)
+
+
+;;
+; Benchmarks: IN al, NOP
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkIoPortNop8In)
+        IoPortPrologue TEST_INSTRUCTION_COUNT_IO, VMMDEV_TESTING_IOPORT_NOP
+.again:
+        in      al, dx
+        in      al, dx
+        in      al, dx
+        in      al, dx
+        in      al, dx
+        dec     ecx
+        jnz     .again
+        IoPortEpilogue TEST_INSTRUCTION_COUNT_IO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 8-bit IN', 0
+ENDPROC TMPL_NM(BenchmarkIoPortNop8In)
+
+
+;;
+; Benchmarks: OUT NOP, al
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkIoPortNop8Out)
+        IoPortPrologue TEST_INSTRUCTION_COUNT_IO, VMMDEV_TESTING_IOPORT_NOP
+.again:
+        out     dx, al
+        out     dx, al
+        out     dx, al
+        out     dx, al
+        out     dx, al
+        dec     ecx
+        jnz     .again
+        IoPortEpilogue TEST_INSTRUCTION_COUNT_IO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 8-bit OUT', 0
+ENDPROC TMPL_NM(BenchmarkIoPortNop8Out)
+
+
+;;
+; Benchmarks: IN eax, NOP_R3
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkIoPortRing3Nop32In)
+        IoPortPrologue TEST_INSTRUCTION_COUNT_IO, VMMDEV_TESTING_IOPORT_NOP_R3
+.again:
+        in      eax, dx
+        in      eax, dx
+        in      eax, dx
+        in      eax, dx
+        in      eax, dx
+        dec     ecx
+        jnz     .again
+        IoPortEpilogue TEST_INSTRUCTION_COUNT_IO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 32-bit IN-to-ring-3', 0
+ENDPROC TMPL_NM(BenchmarkIoPortRing3Nop32In)
+
+
+;;
+; Benchmarks: OUT NOP_R3, eax
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkIoPortRing3Nop32Out)
+        IoPortPrologue TEST_INSTRUCTION_COUNT_IO, VMMDEV_TESTING_IOPORT_NOP_R3
+.again:
+        out     dx, eax
+        out     dx, eax
+        out     dx, eax
+        out     dx, eax
+        out     dx, eax
+        dec     ecx
+        jnz     .again
+        IoPortEpilogue TEST_INSTRUCTION_COUNT_IO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 32-bit OUT-to-ring-3', 0
+ENDPROC TMPL_NM(BenchmarkIoPortRing3Nop32Out)
+
+
+%undef IoPortPrologue
+%undef IoPortEpilogue
+
+
+;;
+; Run the I/O benchmarks for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(BenchmarkIoPortNop_rm)
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+
+        call    TMPL_NM(BenchmarkIoPortNop32In)
+        call    TMPL_NM(BenchmarkIoPortNop32Out)
+%ifndef QUICK_TEST
+        call    TMPL_NM(BenchmarkIoPortNop16In)
+        call    TMPL_NM(BenchmarkIoPortNop16Out)
+        call    TMPL_NM(BenchmarkIoPortNop8In)
+        call    TMPL_NM(BenchmarkIoPortNop8Out)
+%endif
+        call    TMPL_NM(BenchmarkIoPortRing3Nop32In)
+        call    TMPL_NM(BenchmarkIoPortRing3Nop32Out)
+
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+.done:
+        ret
+ENDPROC TMPL_NM(BenchmarkIoPortNop_rm)
+
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+
+
+;;
+; Prologue for the MMIO tests.
+%ifndef HaveMmioPrologue
+%define HaveMmioPrologue
+%macro MmioPrologue 2
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sDX
+        push    sCX
+        push    sBX
+        sub     xSP, 20h
+
+        ; Get the current time.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetNanoTS)
+
+        ; Do the test - X million 32-bit IN instructions.
+%ifdef TMPL_16BIT
+        mov     dx, ds                  ; save ds
+ %ifdef TMPL_RM
+        mov     bx, VMMDEV_TESTING_MMIO_RM_SEL
+        mov     ds, bx
+        mov     ebx, VMMDEV_TESTING_MMIO_RM_OFF(%2)
+ %else
+        mov     bx, BS2_SEL_MMIO16
+        mov     ds, bx
+        mov     ebx, %2 - BS2_SEL_MMIO16_BASE
+ %endif
+%else
+        mov     xBX, %2
+%endif
+        mov     ecx, (%1) / 5
+%endmacro
+%endif
+
+;;
+; Epilogue for the MMIO tests.
+%ifndef HaveMmioEpilogue
+%define HaveMmioEpilogue
+%macro MmioEpilogue 1
+%ifdef TMPL_16BIT
+        mov     ds, dx                  ; restore ds
+%endif
+
+        ; Calc the elapsed time and report the result.
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(GetElapsedNanoTS)
+
+        mov     xCX, .s_szTestName
+        mov     edx, (%1)
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(ReportResult)
+
+        add     xSP, 20h
+        pop     sBX
+        pop     sCX
+        pop     sDX
+        pop     sAX
+        leave
+        ret
+%endmacro
+%endif
+
+
+;;
+; Benchmarks: MOV eax, [NOP]
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkMmioNop32Read)
+        MmioPrologue TEST_INSTRUCTION_COUNT_MMIO, VMMDEV_TESTING_MMIO_NOP
+.again:
+        mov     eax, [sBX]
+        mov     eax, [sBX]
+        mov     eax, [sBX]
+        mov     eax, [sBX]
+        mov     eax, [sBX]
+        dec     ecx
+        jnz     .again
+        MmioEpilogue TEST_INSTRUCTION_COUNT_MMIO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 32-bit read', 0
+ENDPROC TMPL_NM(BenchmarkMmioNop32Read)
+
+
+;;
+; Benchmarks: MOV [NOP], eax
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkMmioNop32Write)
+        MmioPrologue TEST_INSTRUCTION_COUNT_MMIO, VMMDEV_TESTING_MMIO_NOP
+.again:
+        mov     [sBX], eax
+        mov     [sBX], eax
+        mov     [sBX], eax
+        mov     [sBX], eax
+        mov     [sBX], eax
+        dec     ecx
+        jnz     .again
+        MmioEpilogue TEST_INSTRUCTION_COUNT_MMIO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 32-bit write', 0
+ENDPROC TMPL_NM(BenchmarkMmioNop32Write)
+
+
+;;
+; Benchmarks: MOV ax, [NOP]
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkMmioNop16Read)
+        MmioPrologue TEST_INSTRUCTION_COUNT_MMIO, VMMDEV_TESTING_MMIO_NOP
+.again:
+        mov     ax, [xBX]
+        mov     ax, [xBX]
+        mov     ax, [xBX]
+        mov     ax, [xBX]
+        mov     ax, [xBX]
+        dec     ecx
+        jnz     .again
+        MmioEpilogue TEST_INSTRUCTION_COUNT_MMIO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 16-bit read', 0
+ENDPROC TMPL_NM(BenchmarkMmioNop16Read)
+
+
+;;
+; Benchmarks: MOV [NOP], ax
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkMmioNop16Write)
+        MmioPrologue TEST_INSTRUCTION_COUNT_MMIO, VMMDEV_TESTING_MMIO_NOP
+.again:
+        mov     [xBX], ax
+        mov     [xBX], ax
+        mov     [xBX], ax
+        mov     [xBX], ax
+        mov     [xBX], ax
+        dec     ecx
+        jnz     .again
+        MmioEpilogue TEST_INSTRUCTION_COUNT_MMIO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 16-bit write', 0
+ENDPROC TMPL_NM(BenchmarkMmioNop16Write)
+
+
+;;
+; Benchmarks: MOV al, [NOP]
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkMmioNop8Read)
+        MmioPrologue TEST_INSTRUCTION_COUNT_MMIO, VMMDEV_TESTING_MMIO_NOP
+.again:
+        mov     al, [xBX]
+        mov     al, [xBX]
+        mov     al, [xBX]
+        mov     al, [xBX]
+        mov     al, [xBX]
+        dec     ecx
+        jnz     .again
+        MmioEpilogue TEST_INSTRUCTION_COUNT_MMIO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 8-bit read', 0
+ENDPROC TMPL_NM(BenchmarkMmioNop8Read)
+
+
+;;
+; Benchmarks: MOV [NOP], al
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkMmioNop8Write)
+        MmioPrologue TEST_INSTRUCTION_COUNT_MMIO, VMMDEV_TESTING_MMIO_NOP
+.again:
+        mov     [xBX], al
+        mov     [xBX], al
+        mov     [xBX], al
+        mov     [xBX], al
+        mov     [xBX], al
+        dec     ecx
+        jnz     .again
+        MmioEpilogue TEST_INSTRUCTION_COUNT_MMIO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 8-bit write', 0
+ENDPROC TMPL_NM(BenchmarkMmioNop8Write)
+
+
+;;
+; Benchmarks: MOV eax, [NOP_R3]
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkMmioRing3Nop32Read)
+        MmioPrologue TEST_INSTRUCTION_COUNT_MMIO, VMMDEV_TESTING_MMIO_NOP_R3
+.again:
+        mov     eax, [sBX]
+        mov     eax, [sBX]
+        mov     eax, [sBX]
+        mov     eax, [sBX]
+        mov     eax, [sBX]
+        dec     ecx
+        jnz     .again
+        MmioEpilogue TEST_INSTRUCTION_COUNT_MMIO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 32-bit read-to-ring-3', 0
+ENDPROC TMPL_NM(BenchmarkMmioRing3Nop32Read)
+
+
+;;
+; Benchmarks: MOV [NOP_R3], eax
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(BenchmarkMmioRing3Nop32Write)
+        MmioPrologue TEST_INSTRUCTION_COUNT_MMIO, VMMDEV_TESTING_MMIO_NOP_R3
+.again:
+        mov     [sBX], eax
+        mov     [sBX], eax
+        mov     [sBX], eax
+        mov     [sBX], eax
+        mov     [sBX], eax
+        dec     ecx
+        jnz     .again
+        MmioEpilogue TEST_INSTRUCTION_COUNT_MMIO
+.s_szTestName:
+        db TMPL_MODE_STR, ', 32-bit write-to-ring-3', 0
+ENDPROC TMPL_NM(BenchmarkMmioRing3Nop32Write)
+
+
+%undef MmioPrologue
+%undef MmioEpilogue
+
+
+;;
+; Do the MMIO tests for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(BenchmarkMmioNop_rm)
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+
+        call    TMPL_NM(BenchmarkMmioNop32Read)
+        call    TMPL_NM(BenchmarkMmioNop32Write)
+%ifndef QUICK_TEST
+        call    TMPL_NM(BenchmarkMmioNop16Read)
+        call    TMPL_NM(BenchmarkMmioNop16Write)
+        call    TMPL_NM(BenchmarkMmioNop8Read)
+        call    TMPL_NM(BenchmarkMmioNop8Write)
+%endif
+        call    TMPL_NM(BenchmarkMmioRing3Nop32Read)
+        call    TMPL_NM(BenchmarkMmioRing3Nop32Write)
+
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+.done:
+        ret
+ENDPROC TMPL_NM(BenchmarkMmioNop_rm)
+
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+%include "bootsector2-template-footer.mac"
+

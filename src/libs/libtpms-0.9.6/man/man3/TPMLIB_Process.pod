@@ -1,0 +1,108 @@
+=head1 NAME
+
+TPMLIB_Process     - process a TPM command
+
+=head1 LIBRARY
+
+TPM library (libtpms, -ltpms)
+
+=head1 SYNOPSIS
+
+B<#include <libtpms/tpm_library.h>>
+
+B<#include <libtpms/tpm_error.h>>
+
+B<TPM_RESULT TPMLIB_Process(unsigned char> **I<respbuffer>B<,
+                          uint32_t> *I<resp_size>B<,
+                          uint32_t> *I<respbufsize>B<,
+                          unsigned char> *I<command>B<,
+                          uint32_t> I<command_size>B<);>
+
+=head1 DESCRIPTION
+
+The B<TPMLIB_Process()> function is used to send TPM commands to the TPM
+and receive the results.
+
+The I<command> parameter provides the buffer for the TPM command and 
+the I<command_size> the number of valid TPM command bytes within that buffer.
+
+The I<respbuffer> is a pointer to a buffer where the TPM will return its
+result. If no buffer is given (I<respbuffer> is NULL), the TPM will
+allocate a buffer. The parameter I<resp_size> returns the number of valid
+TPM response bytes in the buffer. The number of valid bytes in the response
+is guaranteed to not exceed the maximum I/O buffer size. Use the
+I<TPMLIB_GetTPMProperty()> API and parameter I<TPMPROP_TPM_BUFFER_MAX> for
+getting the maximum size.
+The user must indicate the size of a provided buffer with the I<respbufsize>
+parameter. If the  buffer is not big enough for the response, the TPM will
+free the provided buffer and allocate one of sufficient size and adapt
+I<respbufsize>. The returned buffer is only subject to size restrictions
+as explained for I<TPM_Malloc()>.
+
+=head1 ERRORS
+
+=over 4
+
+=item B<TPM_SUCCESS>
+
+The function completed successfully.
+
+=item B<TPM_FAIL>
+
+General failure.
+
+=back
+
+For a complete list of TPM error codes please consult the include file
+B<libtpms/tpm_error.h>
+
+=head1 EXAMPLE
+
+ #include <stdio.h>
+
+ #include <libtpms/tpm_types.h>
+ #include <libtpms/tpm_library.h>
+ #include <libtpms/tpm_error.h>
+
+ static unsigned char TPM_Startup_ST_CLEAR[] = {
+     0x00, 0xC1, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x99,
+     0x00, TPM_ST_CLEAR
+ };
+
+ int main(void) {
+     TPM_RESULT res;
+     unsigned char *respbuffer = NULL;
+     uint32_t resp_size = 0;
+     uint32_t respbufsize = 0;
+     unsigned char *command;
+     uint32_t command_size;
+
+     [...]
+
+     if (TPMLIB_MainInit() != TPM_SUCCESS) {
+          fprintf(stderr, "Could not start the TPM.\n");
+          return 1;
+     }
+
+     [...]
+     /* build TPM command */
+     command = TPM_Startup_ST_CLEAR;
+     command_size = sizeof(TPM_Startup_ST_CLEAR);
+     [...]
+
+     res = TPMLIB_Process(&respbuffer, &resp_size,
+                          &respbufsize,
+                          command, command_size);
+     [...]
+
+     TPMLIB_Terminate();
+
+     return 0;
+ }
+
+=head1 SEE ALSO
+
+B<TPMLIB_MainInit>(3), B<TPMLIB_Terminate>(3), B<TPMLIB_RegisterCallbacks>(3)
+B<TPMLIB_GetTPMProperty>(3), B<TPMLIB_Malloc>(3), B<TPMLIB_Realloc>(3)
+
+=cut

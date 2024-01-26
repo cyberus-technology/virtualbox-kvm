@@ -1,0 +1,74 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - USB test helpers.
+#
+
+#
+# Copyright (C) 2014-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# USB Linux test frontend.
+#
+ifeq ($(KBUILD_TARGET),linux)
+ PROGRAMS += UsbTest
+ UsbTest_TEMPLATE = VBoxValidationKitR3
+ UsbTest_SOURCES  = UsbTest.cpp
+endif
+
+PROGRAMS += UsbTestService
+UsbTestService_TEMPLATE = VBoxValidationKitR3
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ UsbTestService_DEFS = \
+ 	KBUILD_TARGET="$(KBUILD_TARGET)" \
+ 	KBUILD_TARGET_ARCH="$(KBUILD_TARGET_ARCH)"
+else
+ UsbTestService_DEFS = \
+ 	KBUILD_TARGET=\"$(KBUILD_TARGET)\" \
+ 	KBUILD_TARGET_ARCH=\"$(KBUILD_TARGET_ARCH)\"
+endif
+UsbTestService_SOURCES = \
+	UsbTestService.cpp \
+	UsbTestServiceGadgetCfg.cpp \
+	UsbTestServiceGadgetClassTest.cpp \
+	UsbTestServiceGadgetHost.cpp \
+	UsbTestServiceGadgetHostUsbIp.cpp \
+	UsbTestServiceGadget.cpp \
+	UsbTestServiceProtocol.cpp \
+	UsbTestServiceTcp.cpp
+UsbTestService_SOURCES.linux = \
+	UsbTestServicePlatform-linux.cpp
+
+$(evalcall def_vbox_validationkit_process_python_sources)
+include $(FILE_KBUILD_SUB_FOOTER)
+

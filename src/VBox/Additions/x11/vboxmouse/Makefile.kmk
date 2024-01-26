@@ -1,0 +1,296 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the VBox Additions XFree86 and X.org mouse drivers.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+vboxmouse_xorg_INCS = \
+	$(VBOX_PATH_X11_ROOT)/inputproto-1.9.99.902 \
+	$(VBOX_PATH_X11_ROOT)/libpciaccess-0.10.8 \
+	$(VBOX_PATH_X11_ROOT)/pixman-0.40.0 \
+	$(VBOX_PATH_X11_ROOT)/xextproto-7.1.1 \
+	$(VBOX_PATH_X11_ROOT)/xproto-7.0.31
+
+#
+# vboxmouse_drv
+#
+if1of ($(KBUILD_TARGET), linux)
+ SYSMODS += vboxmouse_drv
+ vboxmouse_drv_TEMPLATE = VBoxGuestR3XFree86Mod
+ vboxmouse_drv_DEFS.linux = linux
+ vboxmouse_drv_DEFS.x86 += __i386__
+ # This one has to be defined when building server code on systems where
+ # unsigned long is 64bits
+ vboxmouse_drv_DEFS.amd64 += _XSERVER64
+ vboxmouse_drv_DEFS += \
+ 	_POSIX_C_SOURCE=199309L _POSIX_SOURCE _XOPEN_SOURCE _DEFAULT_SOURCE \
+ 	_BSD_SOURCE _SVID_SOURCE _GNU_SOURCE SHAPE XINPUT XKB LBX XAPPGROUP \
+ 	XCSECURITY TOGCUP XF86BIGFONT DPMSExtension PIXPRIV PANORAMIX RENDER \
+ 	GCCUSESGAS AVOID_GLYPHBLT PIXPRIV SINGLEDEPTH XFreeXDGA XvExtension \
+ 	XFree86LOADER XFree86Server XF86VIDMODE XvMCExtension SMART_SCHEDULE \
+ 	BUILDDEBUG X_BYTE_ORDER=X_LITTLE_ENDIAN DNDEBUG FUNCPROTO=15 NARROWPROTO \
+ 	IN_MODULE XFree86Module PNP_MOUSE IN_XF86_MODULE
+ vboxmouse_drv_INCS := \
+ 	$(VBOX_PATH_X11_ROOT)/XFree86-4.3 \
+ 	$(VBOX_PATH_X11_ROOT)/XFree86-4.3/X11 \
+ 	$(VBOX_PATH_X11_ROOT)/XFree86-4.3/X11/extensions \
+ 	$(VBOX_PATH_X11_ROOT)/XFree86-4.3/Xserver \
+ 	$(PATH_SUB_CURRENT)
+ vboxmouse_drv_SOURCES = \
+ 	vboxmouse.c
+ # Any global symbols in the driver object files will be added to XFree86's
+ # symbol table, which can cause problems if we e.g. define a symbol in two
+ # modules.
+ vboxmouse_drv_POST_CMDS = \
+ 	objcopy --keep-global-symbol vboxmouseModuleData $(out) $(out)-objcopy$$(NLTAB) \
+ 	$(MV) -f $(out)-objcopy $(out)
+endif
+
+
+#
+# vboxmouse_drv_70
+#
+DLLS += vboxmouse_drv_70
+vboxmouse_drv_70_TEMPLATE = VBoxGuestR3XOrgMod
+vboxmouse_drv_70_DEFS = \
+	XFree86Server IN_MODULE XFree86Module XFree86LOADER XINPUT XORG_7X IN_XF86_MODULE DONT_DEFINE_WRAPPERS NO_ANSIC
+vboxmouse_drv_70_INCS := \
+	$(vboxmouse_xorg_INCS) \
+	$(VBOX_PATH_X11_ROOT)/xorg-server-1.0.1 \
+	$(PATH_SUB_CURRENT)
+vboxmouse_drv_70_SOURCES = \
+	vboxmouse.c
+
+
+#
+# vboxmouse_drv_71
+#
+DLLS += vboxmouse_drv_71
+vboxmouse_drv_71_TEMPLATE = VBoxGuestR3XOrgMod
+vboxmouse_drv_71_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+vboxmouse_drv_71_INCS := \
+	$(vboxmouse_xorg_INCS) \
+	$(VBOX_PATH_X11_ROOT)/xorg-server-1.1.0 \
+	$(PATH_SUB_CURRENT)
+vboxmouse_drv_71_SOURCES = \
+	vboxmouse.c
+
+
+#
+# vboxmouse_drv_13
+#
+DLLS += vboxmouse_drv_13
+vboxmouse_drv_13_TEMPLATE = VBoxGuestR3XOrgMod
+vboxmouse_drv_13_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+vboxmouse_drv_13_INCS := \
+	$(vboxmouse_xorg_INCS) \
+	$(VBOX_PATH_X11_ROOT)/xorg-server-1.3.0.0 \
+	$(PATH_SUB_CURRENT)
+vboxmouse_drv_13_SOURCES = \
+	vboxmouse.c
+
+
+#
+# vboxmouse_drv_14
+#
+DLLS += vboxmouse_drv_14
+vboxmouse_drv_14_TEMPLATE = VBoxGuestR3XOrgMod
+vboxmouse_drv_14_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+vboxmouse_drv_14_INCS := \
+	$(vboxmouse_xorg_INCS) \
+	$(VBOX_PATH_X11_ROOT)/xorg-server-1.4.2 \
+	$(PATH_SUB_CURRENT)
+vboxmouse_drv_14_SOURCES = \
+	vboxmouse.c
+
+
+#
+# vboxmouse_drv_15
+#
+DLLS += vboxmouse_drv_15
+vboxmouse_drv_15_TEMPLATE = VBoxGuestR3XOrgMod
+vboxmouse_drv_15_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+vboxmouse_drv_15_INCS := \
+	$(vboxmouse_xorg_INCS) \
+	$(VBOX_PATH_X11_ROOT)/xorg-server-1.5.3 \
+	$(PATH_SUB_CURRENT)
+vboxmouse_drv_15_SOURCES = \
+	vboxmouse.c
+
+
+#
+# vboxmouse_drv_16
+#
+DLLS += vboxmouse_drv_16
+vboxmouse_drv_16_TEMPLATE = VBoxGuestR3XOrgMod
+vboxmouse_drv_16_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+vboxmouse_drv_16_INCS := \
+	$(vboxmouse_xorg_INCS) \
+	$(VBOX_PATH_X11_ROOT)/xorg-server-1.6.5 \
+	$(PATH_SUB_CURRENT)
+vboxmouse_drv_16_SOURCES = \
+	vboxmouse.c
+
+
+ifneq ($(KBUILD_TARGET),linux)
+
+ #
+ # vboxmouse_drv_17
+ #
+ DLLS += vboxmouse_drv_17
+ vboxmouse_drv_17_TEMPLATE = VBoxGuestR3XOrgMod
+ vboxmouse_drv_17_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+ vboxmouse_drv_17_INCS := \
+ 	$(vboxmouse_xorg_INCS) \
+ 	$(VBOX_PATH_X11_ROOT)/xorg-server-1.7.7 \
+ 	$(PATH_SUB_CURRENT)
+ vboxmouse_drv_17_SOURCES = \
+ 	vboxmouse.c
+
+
+ #
+ # vboxmouse_drv_18
+ #
+ DLLS += vboxmouse_drv_18
+ vboxmouse_drv_18_TEMPLATE = VBoxGuestR3XOrgMod
+ vboxmouse_drv_18_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+ vboxmouse_drv_18_INCS := \
+ 	$(vboxmouse_xorg_INCS) \
+ 	$(VBOX_PATH_X11_ROOT)/xorg-server-1.8.0 \
+ 	$(PATH_SUB_CURRENT)
+ vboxmouse_drv_18_SOURCES = \
+ 	vboxmouse.c
+
+
+ #
+ # vboxmouse_drv_19
+ #
+ DLLS += vboxmouse_drv_19
+ vboxmouse_drv_19_TEMPLATE = VBoxGuestR3XOrgMod
+ vboxmouse_drv_19_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+ vboxmouse_drv_19_INCS := \
+ 	$(vboxmouse_xorg_INCS) \
+ 	$(VBOX_PATH_X11_ROOT)/xorg-server-1.9.0 \
+ 	$(PATH_SUB_CURRENT)
+ vboxmouse_drv_19_SOURCES = \
+ 	vboxmouse.c
+
+
+ #
+ # vboxmouse_drv_110
+ #
+ DLLS += vboxmouse_drv_110
+ vboxmouse_drv_110_TEMPLATE = VBoxGuestR3XOrgMod
+ vboxmouse_drv_110_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+ vboxmouse_drv_110_INCS := \
+ 	$(vboxmouse_xorg_INCS) \
+ 	$(VBOX_PATH_X11_ROOT)/xorg-server-1.10.0 \
+ 	$(PATH_SUB_CURRENT)
+ vboxmouse_drv_110_SOURCES = \
+ 	vboxmouse.c
+
+ DLLS += vboxmouse_drv_111
+ vboxmouse_drv_111_TEMPLATE = VBoxGuestR3XOrgMod
+ vboxmouse_drv_111_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+ vboxmouse_drv_111_INCS := \
+ 	$(vboxmouse_xorg_INCS) \
+ 	$(VBOX_PATH_X11_ROOT)/xorg-server-1.11.0 \
+ 	$(PATH_SUB_CURRENT)
+ vboxmouse_drv_111_SOURCES = \
+ 	vboxmouse.c
+
+ DLLS += vboxmouse_drv_112
+ vboxmouse_drv_112_TEMPLATE = VBoxGuestR3XOrgMod
+ vboxmouse_drv_112_DEFS := $(vboxmouse_drv_70_DEFS) NO_ANSIC
+ vboxmouse_drv_112_INCS := \
+ 	$(vboxmouse_xorg_INCS) \
+ 	$(VBOX_PATH_X11_ROOT)/xorg-server-1.12.0 \
+ 	$(PATH_SUB_CURRENT)
+ vboxmouse_drv_112_SOURCES = \
+ 	vboxmouse.c
+
+endif # neq ($(KBUILD_TARGET),linux)
+
+
+ifdef VBOX_USE_SYSTEM_XORG_HEADERS
+ # As vboxmouse_drv is not needed at all for X.Org Server 1.7 and later do not
+ # build it in this case.
+ DLLS    := $(filter-out vboxmouse_drv_%,$(DLLS))
+ SYSMODS := $(filter-out vboxmouse_drv%,$(SYSMODS))
+endif
+
+
+# Check the undefined symbols in the X.Org modules against lists of allowed
+# symbols.  Not very elegant, but it will catch problems early.
+
+ifdef VBOX_WITH_TESTCASES
+ # ifndef VBOX_ONLY_ADDITIONS
+ ifndef VBOX_USE_SYSTEM_XORG_HEADERS
+  ifeq ($(KBUILD_TARGET),linux)
+   ifeq ($(KBUILD_HOST_ARCH),$(KBUILD_TARGET_ARCH))
+    ifndef VBOX_ONLY_SDK
+     VBOXMOUSE_SRC_PATH := $(PATH_SUB_CURRENT)
+
+     ifeq ($(KBUILD_TARGET),linux)
+      TESTING += $(vboxmouse_drv_0_OUTDIR)/tstvboxmouse68.run
+      OTHERS += $(vboxmouse_drv_0_OUTDIR)/tstvboxmouse68.run
+      $$(vboxmouse_drv_0_OUTDIR)/tstvboxmouse68.run: $$(vboxmouse_drv_1_STAGE_TARGET)
+	$(QUIET)$(call MSG_L1,Checking for unresolved symbols in $<)
+	$(QUIET)/bin/sh $(PATH_ROOT)/src/bldprogs/checkUndefined.sh $(KBUILD_HOST) \
+	    "$(vboxmouse_drv_1_STAGE_TARGET)" --static "$(VBOXMOUSE_SRC_PATH)/../undefined_xfree86" "$(VBOXMOUSE_SRC_PATH)/../undefined_xfree86_modules"
+	$(QUIET)$(APPEND) -t "$@" "done"
+     endif
+
+     ##
+     # Using the extra expansion to replace $(ver) before eval, thus everything
+     # else needs escaped dollars.
+     define def_vboxmouse_test
+      TESTING += $$(vboxmouse_drv$(ver)_0_OUTDIR)/tstvboxmouse$(ver).run
+      OTHERS  += $$(vboxmouse_drv$(ver)_0_OUTDIR)/tstvboxmouse$(ver).run
+      $$$$(vboxmouse_drv$(ver)_0_OUTDIR)/tstvboxmouse$(ver).run: $$$$(vboxmouse_drv$(ver)_1_STAGE_TARGET)
+	$$(QUIET)$$(call MSG_L1,Checking for unresolved symbols in $$<)
+	$$(QUIET)$$(ASH) $$(PATH_ROOT)/src/bldprogs/checkUndefined.sh $$(KBUILD_HOST)  \
+	        $$(vboxmouse_drv$(ver)_1_STAGE_TARGET) $$(VBOXMOUSE_SRC_PATH)/../undefined_xfree86 $(VBOXMOUSE_SRC_PATH)/../undefined_xfree86_modules $$(VBOXMOUSE_SRC_PATH)/../undefined_xorg
+	$$(QUIET)$$(APPEND) -t "$$@" "done"
+     endef
+
+     $(foreach ver, _70 _71 _13 _14 _15 _16, $(eval $(def_vboxmouse_test)))
+
+     ifneq ($(KBUILD_TARGET),linux)
+      $(foreach ver, _17 _18 _19 _110 _111 _112 _113, $(eval $(def_vboxmouse_test)))
+
+     endif # neq ($(KBUILD_TARGET),linux)
+
+    endif # ! VBOX_ONLY_SDK
+   endif # eq ($(KBUILD_HOST_ARCH),$(KBUILD_TARGET_ARCH))
+  endif # eq ($(KBUILD_TARGET),linux)
+ endif # ! VBOX_USE_SYSTEM_XORG_HEADERS
+ # endif # ! VBOX_ONLY_ADDITIONS
+endif # VBOX_WITH_TESTCASES
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

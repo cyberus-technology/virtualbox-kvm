@@ -1,0 +1,104 @@
+#!/bin/sh
+# $Id: build_in_tmp $
+## @file
+# Script to build a kernel module in /tmp.
+#
+# Useful if the module sources are installed in read-only directory.
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+# find a unique temp directory
+num=0
+while true; do
+  tmpdir="/tmp/vbox.$num"
+  if mkdir -m 0755 "$tmpdir" 2> /dev/null; then
+    break
+  fi
+  num=`expr $num + 1`
+  if  [ $num -gt 200 ]; then
+    echo "Could not find a valid tmp directory"
+    exit 1
+  fi
+done
+
+# Guest optimal number of make jobs.
+MAKE_JOBS=`grep vendor_id /proc/cpuinfo | wc -l`
+if [ "${MAKE_JOBS}" -le "0" ]; then MAKE_JOBS=1; fi
+
+# Parse our arguments, anything we don't grok is for make.
+while true; do
+    if [ "$1" = "--save-module-symvers" ]; then
+      shift
+      SAVE_MOD_SYMVERS="$1"
+      shift
+    elif [ "$1" = "--use-module-symvers" ]; then
+      shift
+      USE_MOD_SYMVERS="$1"
+      shift
+    elif [ "$1" = "--module-source" ]; then
+      shift
+      MODULE_SOURCE="$1"
+      shift
+    else
+      break
+    fi
+done
+
+# copy
+if [ -n "$MODULE_SOURCE" ]; then
+  cp -a "$MODULE_SOURCE"/* $tmpdir/
+else
+  cp -a ${0%/*}/* $tmpdir/
+fi
+if [ -n "$USE_MOD_SYMVERS" ]; then
+  cp $USE_MOD_SYMVERS $tmpdir/Module.symvers
+  MAKE_EXTRAOPTS="KBUILD_EXTRA_SYMBOLS=$tmpdir/Module.symvers"
+fi
+
+# make, cleanup if success
+cd "$tmpdir"
+if make CONFIG_MODULE_COMPRESS_GZIP= CONFIG_MODULE_COMPRESS_XZ= CONFIG_MODULE_COMPRESS_ZSTD= "-j`echo ${MAKE_JOBS}`" "$@" ${MAKE_EXTRAOPTS}; then  # strip leading space from "MAKE_JOBS"
+  if [ -n "$SAVE_MOD_SYMVERS" ]; then
+    if [ -f Module.symvers ]; then
+      cp -f Module.symvers $SAVE_MOD_SYMVERS
+    else
+      cat /dev/null > $SAVE_MOD_SYMVERS
+    fi
+  fi
+  rm -rf $tmpdir
+  exit 0
+fi
+
+# failure
+rm -rf $tmpdir
+exit 1

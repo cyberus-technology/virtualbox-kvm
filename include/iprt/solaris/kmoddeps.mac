@@ -1,0 +1,193 @@
+; $Id: kmoddeps.mac $
+;; @file
+; Assembly macros for generating Solaris kernel module dependencies
+;
+
+;
+; Copyright (C) 2012-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+; Solaris kernel modules use non-standard ELF constructions to express inter-
+; module dependencies, namely a DT_NEEDED tag inside a relocatable ELF file.
+; The Solaris linker can generate these automatically; since yasm can't
+; produce an ELF file which quite fits Solaris's requirements we create one
+; manually using flat binary output format.  In order to save unnecessary
+; repetition, this file defines macros for the repetitive bits which can be
+; reused by the actual dependency objects.  Certainly not the nicest way to
+; get the effect we want, but probably a reasonable compromise between
+; cleanness and required effort.
+;
+
+%ifdef RT_ARCH_AMD64
+
+BITS 64
+;;
+; Native word size
+%define DNAT dq
+
+;;
+; ELF machine number for the current architecture.
+%define EM_CUR 62 ; EM_X86_64
+
+;;
+; ELF header class for the current architecture.
+%define CLASS 2
+
+%else
+
+BITS 32
+%define DNAT dd
+%define EM_CUR 3 ; EM_386
+%define CLASS 1
+
+%endif
+
+;;
+; ELF file header, section tables and shared string table for the dependency
+; object.
+%macro kmoddeps_header 0
+elf_hdr:            ; elfxx_hdr structure
+ db 7fh, "ELF"      ; e_ident
+ db CLASS, 1, 1     ; e_ident
+ times 9 db 0       ; padding
+ dw 1               ; e_type ET_REL
+ dw EM_CUR          ; e_machine
+ dd 1               ; e_version EV_CURRENT
+ DNAT 0             ; e_entry
+ DNAT 0             ; e_phoff
+ DNAT sect_hdr - $$ ; e_shoff
+ dd 0               ; e_flags
+ dw elf_hsize       ; e_ehsize
+ dw 0               ; e_phentsize
+ dw 0               ; e_phnum
+ dw sect_hsize      ; e_shentsize
+ dw 4               ; e_shnum
+ dw 1               ; e_shstrndx section .shstrtab
+elf_hsize equ $ - elf_hdr
+
+sect_hdr:              ; elfxx_shdr structure
+ times sect_hsize db 0 ; undefined section
+
+sect_hdr1:
+ dd str_shstrtab       ; sh_name .shstrtab
+ dd 3                  ; sh_type SHT_STRTAB
+ DNAT 20h              ; sh_flags SHF_STRINGS
+ DNAT 0                ; sh_addr
+ DNAT shstrtab - $$    ; sh_offset
+ DNAT shstrtab_size    ; sh_size
+ dd 0                  ; sh_link
+ dd 0                  ; sh_info
+ DNAT 1                ; sh_addralign
+ DNAT 0                ; sh_entsize
+sect_hsize equ $ - sect_hdr1
+
+ dd str_dynstr         ; sh_name .dynstr
+ dd 3                  ; sh_type SHT_STRTAB
+ DNAT 20h              ; sh_flags SHF_STRINGS
+ DNAT 0                ; sh_addr
+ DNAT dynstr - $$      ; sh_offset
+ DNAT dynstr_size      ; sh_size
+ dd 0                  ; sh_link
+ dd 0                  ; sh_info
+ DNAT 1                ; sh_addralign
+ DNAT 0                ; sh_entsize
+
+ dd str_dynamic        ; sh_name .dynamic
+ dd 6                  ; sh_type SHT_DYNAMIC
+ DNAT 1                ; sh_flags SHF_WRITE
+ DNAT 0                ; sh_addr
+ DNAT dynamic - $$     ; sh_offset
+ DNAT dynamic_size     ; sh_size
+ dd 2                  ; sh_link .dynstr
+ dd 0                  ; sh_info
+ DNAT 8                ; sh_addralign
+ DNAT 0                ; sh_entsize
+
+shstrtab:
+str_shstrtab equ $ - shstrtab
+ db ".shstrtab", 0
+str_dynstr equ $ - shstrtab
+ db ".dynstr", 0
+str_dynamic equ $ - shstrtab
+ db ".dynamic", 0
+shstrtab_size equ $ - shstrtab
+%endmacro  ; kmoddeps_header
+
+;;
+; Start of the .dynstr section for the dependency object.
+%macro kmoddeps_dynstr_start 0
+dynstr:
+ db 0
+%endmacro
+
+;;
+; A .dynstr string entry for the dependency object.
+; The parameters are a symbolic name for the string and the string itself.
+%macro kmoddeps_dynstr_string 2
+dynstr_name_%1 equ $ - dynstr
+ db %2, 0
+%endmacro
+
+;;
+; End of the .dynstr section for the dependency object.
+%macro kmoddeps_dynstr_end 0
+dynstr_size equ $ - dynstr
+%endmacro
+
+;;
+; Start of the .dynamic section for the dependency object.
+%macro kmoddeps_dynamic_start 0
+dynamic:
+%endmacro
+
+;;
+; A .dynamic DT_NEEDED entry for the dependency object.
+; The parameter is a symbolic string name previously defined using
+; @a kmoddeps_dynstr_string.
+%macro kmoddeps_dynamic_needed 1
+ DNAT 1            ; DT_NEEDED
+ DNAT dynstr_name_%1
+%endmacro
+
+;;
+; End of the .dynamic section for the dependency object.
+%macro kmoddeps_dynamic_end 0
+ DNAT 1ah          ; DT_FLAGS
+ DNAT 4            ; TEXTREL
+ DNAT 6ffffffbh    ; DT_FLAGS1
+ DNAT 0
+ DNAT 601900h      ; SUNW_STRPAD
+ DNAT 200h
+ DNAT 601b00h      ; SUNW_LDMACH
+ DNAT 62           ; EM_X86_64
+ times 22 DNAT 0   ; padding
+dynamic_size equ $ - dynamic
+%endmacro  ; kmoddeps_dynamic_end
+

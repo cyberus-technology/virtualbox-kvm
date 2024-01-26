@@ -1,0 +1,2 @@
+executable('dxvk-native-d3d9-example'+exe_ext, files('test_native_d3d9.cpp'),  dependencies : [ util_dep, lib_sdl2, d3d9_dep ], install : true, gui_app : true, override_options: ['cpp_std='+dxvk_cpp_std])
+executable('dxvk-native-d3d11-example'+exe_ext, files('test_native_d3d11.cpp'),  dependencies : [ util_dep, lib_sdl2, d3d11_dep, dxgi_dep ], install : true, gui_app : true, override_options: ['cpp_std='+dxvk_cpp_std])

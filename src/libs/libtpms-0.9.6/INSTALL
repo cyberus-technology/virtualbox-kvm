@@ -1,0 +1,165 @@
+This document contains the following sections:
+==============================================
+
+- Quick start
+- Building libtpms
+- Installing libtpms, include files and man pages
+- Uninstalling libtpms, include files and man pages
+- More on man pages
+
+Quick start:
+------------
+
+The libtpms library can be built using the steps (after installing
+dependencies):
+
+    # ./autogen.sh --with-tpm2 --with-openssl --prefix=/usr
+    # make
+    # make check
+    # sudo make install
+
+Building libtpms:
+-----------------
+
+The configure script needs to be run first, and can be done using:
+
+./autogen.sh --with-tpm2 --with-openssl
+
+By default, files will be installed in '/usr/local/lib', etc.  If you
+would like to have these files installed in '/usr/lib', etc, then run
+configure using the following command line. On some distributions it may
+be necessary to also pass --libdir=/lib64 (for 64 bit systems).
+
+./autogen.sh --prefix=/usr --with-tpm2 --with-openssl
+
+For more details on configure options, run "./configure -h".
+
+Building libtpms can be done using:
+
+make all
+
+The library is known to build on Linux and Cygwin systems and possible
+other Operating Systems that use .so as library extensions.
+
+On Linux systems, libtpms can be built with either one of the following
+crypto backends:
+
+- openssl
+- freebl (TPM 1.2 support only)
+
+On Cygwin only openssl is available and therefore can only be built with
+openssl.
+
+To build for openssl, the following development packages must have been
+installed:
+
+Fedora/RedHat:
+- automake
+- autoconf
+- libtool
+- make
+- gcc
+- glibc-headers
+- openssl-devel
+
+Ubuntu:
+- automake
+- autoconf
+- libtool
+- make
+- gcc
+- libc-dev
+- libssl-dev
+
+To build for freebl (TPM 1.2 support only), the following development
+packages must have been installed prior to compilation:
+
+Fedora/RedHat:
+- glibc-headers
+- nss-softokn-freebl-devel (preferably version 3.12.9-2 or newer)
+- nss-softokn-devel (preferably version 3.12.9-2 or newer)
+- gmp-devel
+
+Ubuntu:
+- libc6-dev
+- libgmp-dev
+- libnspr4-dev
+- libnss3-dev (preferably version 3.17.2; needs to have blapi.h)
+
+By default, libtpms is built with the openssl crypto library, which was
+shown above. To build with the freebl crypto library the following command
+line can be used (TPM 1.2 support only):
+
+./autogen.sh --prefix=/usr
+make all install
+
+To verify that libtpms was built with freebl as the crypto backend, one
+can run:
+
+ldd /usr/lib/libtpms.so   or  ldd /usr/lib64/libtpms.so
+
+	linux-vdso.so.1 =>  (0x00007fff8d5ff000)
+	libgmp.so.3 => /usr/lib64/libgmp.so.3 (0x00007f5352a13000)
+	libnspr4.so => /lib64/libnspr4.so (0x00007f53527d6000)
+	libnssutil3.so => /usr/lib64/libnssutil3.so (0x00007f53525b6000)
+	libnss3.so => /usr/lib64/libnss3.so (0x00007f535227c000)
+	libc.so.6 => /lib64/libc.so.6 (0x00007f5351ed8000)
+	libpthread.so.0 => /lib64/libpthread.so.0 (0x00007f5351cba000)
+	libdl.so.2 => /lib64/libdl.so.2 (0x00007f5351ab6000)
+	libplc4.so => /lib64/libplc4.so (0x00007f53518b2000)
+	libplds4.so => /lib64/libplds4.so (0x00007f53516ae000)
+	/lib64/ld-linux-x86-64.so.2 (0x0000003a1c000000)
+
+The fact that the libraries libgmp, libnspr4, libnssutil3, libnss3,
+libpc4, and libplds4 are linked against is an indication that the freebl
+library was used for linking.
+
+In case of openssl's libcrypto the output would be the following:
+
+	linux-vdso.so.1 =>  (0x00007fffcbdff000)
+	libcrypto.so.10 => /lib64/libcrypto.so.10 (0x00007fdb1d00e000)
+	libc.so.6 => /lib64/libc.so.6 (0x00007fdb1cc6a000)
+	libdl.so.2 => /lib64/libdl.so.2 (0x00007fdb1ca65000)
+	libz.so.1 => /lib64/libz.so.1 (0x00007fdb1c84e000)
+	/lib64/ld-linux-x86-64.so.2 (0x0000003a1c000000)
+
+
+Installing libtpms, include files and man pages:
+------------------------------------------------
+
+The installation of libtpms, the development include files (headers) and
+man pages can be achieved through:
+
+make install
+
+This will copy libtpms into the standard library directory on your Linux
+system such as /usr/lib or /usr/lib64, depending on whether you built for
+a 32 bit or 64 bit machine.
+
+The public include files of libtpms will be copied to /usr/include/libtpms.
+
+The man pages explaining the libtpms API will be copied to /usr/share/man.
+
+
+Uninstalling libtpms, include files and man pages:
+--------------------------------------------------
+
+The libtpms library, its development include files (headers) and man pages
+can be uninstalled from their standard locations using
+
+make uninstall
+
+
+More on man pages
+-----------------
+
+All of the libtpms APIs have a man page.  The man pages contain explanations
+on how to use the APIs as well as examples.  Once installed, they can be
+viewed as a typical man page:
+
+man TPMLIB_MainInit
+
+Otherwise, if they are not installed, they can then be viewed from the
+libtpms root directory using:
+
+man -M ./man TPMLIB_MainInit

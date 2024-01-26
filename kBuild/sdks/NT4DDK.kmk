@@ -1,0 +1,59 @@
+# $Id: NT4DDK.kmk 3418 2020-08-21 11:02:13Z bird $
+## @file
+# kBuild SDK - The Windows NT 4 DDK, targeting X86.
+#
+
+#
+# Copyright (c) 2005-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_NT4DDK := The MicroSoft NT 4 DDK, targeting X86 (free, not checked).
+
+# SDK Specific Properties
+ifndef PATH_SDK_NT4DDK
+ PATH_SDK_NT4DDK := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/ddknt4/1* $(KBUILD_DEVTOOLS)/win.x86/ddknt4/2*)
+ ifeq ($(PATH_SDK_NT4DDK),)
+  PATH_SDK_NT4DDK := $(wildcard $(KBUILD_DEVTOOLS)/x86.win32/ddknt4)
+ endif
+ ifneq ($(PATH_SDK_NT4DDK),)
+  PATH_SDK_NT4DDK := $(lastword $(sort $(PATH_SDK_NT4DDK)))
+ else
+  $(warning kBuild: PATH_SDK_NT4DDK couldn't be determined!)
+  PATH_SDK_NT4DDK := $(KBUILD_DEVTOOLS)/x86.win/ddknt4/not/found
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_SDK_NT4DDK := $(PATH_SDK_NT4DDK)
+endif
+PATH_SDK_NT4DDK_INC ?= $(PATH_SDK_NT4DDK)/inc
+PATH_SDK_NT4DDK_LIB ?= $(PATH_SDK_NT4DDK)/lib/i386/free
+
+# General Properties used by kBuild
+SDK_NT4DDK_DEFS ?= _X86_
+SDK_NT4DDK_INCS	?= $(PATH_SDK_NT4DDK_INC)
+SDK_NT4DDK_LIBPATH ?= $(PATH_SDK_NT4DDK_LIB)
+

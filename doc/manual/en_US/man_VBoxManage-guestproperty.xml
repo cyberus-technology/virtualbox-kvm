@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage guestproperty
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-guestproperty" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage guestproperty</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-guestproperty</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-guestproperty</refname>
+    <refpurpose>manage virtual machine guest properties</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-get">
+      <command>VBoxManage guestproperty get</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="req"><replaceable>property-name</replaceable></arg>
+      <arg>--verbose</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-enumerate">
+      <command>VBoxManage guestproperty enumerate</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg>--no-timestamp</arg>
+      <arg>--no-flags</arg>
+      <arg>--relative</arg>
+      <arg>--old-format</arg>
+      <arg rep="repeat"><replaceable>patterns</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-set">
+      <command>VBoxManage guestproperty set</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="req"><replaceable>property-name</replaceable></arg>
+      <arg><replaceable>property-value</replaceable><arg>--flags=<replaceable>flags</replaceable></arg></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-unset">
+      <command>VBoxManage guestproperty unset</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="req"><replaceable>property-name</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-wait">
+      <command>VBoxManage guestproperty wait</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="req"><replaceable>patterns</replaceable></arg>
+      <arg>--timeout=<replaceable>msec</replaceable></arg>
+      <arg>--fail-on-timeout</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage guestproperty</command> command enables
+      you to set or retrieve the properties of a running virtual machine
+      (VM). See <xref linkend="guestadd-guestprops" />. Guest properties
+      are arbitrary name-value string pairs that can be written to and
+      read from by either the guest or the host. As a result, these
+      properties can be used as a low-volume communication channel for
+      strings provided that a guest is running and has the Guest
+      Additions installed. In addition, the Guest Additions
+      automatically set and maintain values whose keywords begin with
+      <literal>/VirtualBox/</literal>.
+    </para>
+    <refsect2>
+      <title>General Command Operand</title>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable>|<replaceable>vmname</replaceable></term>
+          <listitem><para>
+              Specifies the Universally Unique Identifier (UUID) or name
+              of the VM.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-enumerate">
+      <title>List All Properties for a Virtual Machine</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        <!-- @todo the help output doesn't correctly insert a space after the /command tag if it comes last on a line...  -->
+        The <command>VBoxManage guestproperty enumerate</command> command
+        lists each guest property and value for the specified
+        VM. Note that the output is limited if the guest's service is
+        not updating the properties, for example because the VM is not
+        running or because the Guest Additions are not installed.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--relative</option></term>
+          <listitem><para>Display the timestamp relative to current time.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--no-timestamp</option></term>
+          <listitem><para>Do not display the timestamp of the last update.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--no-flags</option></term>
+          <listitem><para>Do not display the flags.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--old-format</option></term>
+          <listitem><para>Use the output format from VirtualBox 6.1 and earlier.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option><replaceable>pattern</replaceable></option></term>
+          <listitem><para>
+              Filters the list of properties based on the specified
+              pattern, which can contain the following wildcard
+              characters:
+            </para><variablelist>
+              <varlistentry>
+                <term><literal>*</literal> (asterisk)</term>
+                <listitem><para>
+                    Represents any number of characters. For example,
+                    the <literal>/VirtualBox*</literal> pattern matches
+                    all properties that begin with
+                    <literal>/VirtualBox</literal>.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>?</literal> (question mark)</term>
+                <listitem><para>
+                    Represents a single arbitrary character. For
+                    example, the <literal>fo?</literal> pattern matches
+                    both <literal>foo</literal> and
+                    <literal>for</literal>.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>|</literal> (pipe)</term>
+                <listitem><para>
+                    Specifies multiple alternative patterns. For
+                    example, the <literal>s*|t*</literal> pattern
+                    matches any property that begins with
+                    <literal>s</literal> or <literal>t</literal>.
+                  </para></listitem>
+              </varlistentry>
+            </variablelist></listitem>
+        </varlistentry>
+
+        </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-get">
+      <title>Retrieve a Property Value for a Virtual Machine</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage guestproperty get</command> command
+        retrieves the value of the specified property. If the property
+        cannot be found, for example because the guest is not running,
+        the command issues the following message:
+      </para>
+<screen>No value set!</screen>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>property-name</replaceable></term>
+          <listitem><para>
+              Specifies the name of the property.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--verbose</option></term>
+          <listitem><para>
+              Provides the property value, timestamp, and any specified
+              value attributes.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-set">
+      <title>Set a Property Value for a Virtual Machine</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage guestproperty set</command> command
+        enables you to set a guest property by specifying the property
+        and its value. If you omit the value, the property is deleted.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>property-name</replaceable></term>
+          <listitem><para>
+              Specifies the name of the property.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>property-value</replaceable></term>
+          <listitem><para>
+              Specifies the value of the property. If no value is
+              specified, any existing value is removed.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--flags=<replaceable>flags</replaceable></option></term>
+          <listitem><para>
+              Specify the additional attributes of the value. The
+              following attributes can be specified as a comma-separated
+              list:
+            </para><variablelist>
+              <varlistentry>
+                <term><literal>TRANSIENT</literal></term>
+                <listitem><para>
+                    Removes the value with the VM data when the VM
+                    exits.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>TRANSRESET</literal></term>
+                <listitem><para>
+                    Removes the value when the VM restarts or exits.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>RDONLYGUEST</literal></term>
+                <listitem><para>
+                    Specifies that the value can be changed only by the
+                    host and that the guest can read the value.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>RDONLYHOST</literal></term>
+                <listitem><para>
+                    Specifies that the value can be changed only by the
+                    guest and that the host can read the value.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>READONLY</literal></term>
+                <listitem><para>
+                    Specifies that the value cannot be changed.
+                  </para></listitem>
+              </varlistentry>
+            </variablelist></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-wait">
+      <title>Wait for a Property Value to Be Created, Deleted, or Changed</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage guestproperty wait</command> command
+        waits for a particular value that is described by the pattern
+        string to change, to be deleted, or to be created.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>patterns</replaceable></term>
+          <listitem><para>
+              Specifies a pattern that matches the properties on which
+              you want to wait. For information about the pattern
+              wildcards, see the description of the
+              <option>--patterns</option> option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--timeout<replaceable>msec</replaceable></option></term>
+          <listitem><para>
+              Specifies the number of microseconds to wait.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--fail-on-timeout</option></term>
+          <listitem><para>
+              Specifies that the command fails if the timeout is
+              reached.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-unset">
+      <title>Unset a Virtual Machine Property Value</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage guestproperty unset</command> command
+        unsets the value of a guest property.
+      </para>
+      <para>
+        The alternate form of this subcommand is
+        <command>delete</command>.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>property-name</replaceable></term>
+          <listitem><para>
+              Specifies the name of the property.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command lists the guest properties and their values
+      for the <literal>win8</literal> VM.
+    </para>
+<screen>$ VBoxManage guestproperty enumerate win8</screen>
+    <para>
+      The following command creates a guest property called
+      <literal>region</literal> for the <literal>win8</literal> VM. The
+      value of the property is set to <literal>west</literal>.
+    </para>
+<screen>$ VBoxManage guestproperty set win8 region west</screen>
+  </refsect1>
+</refentry>

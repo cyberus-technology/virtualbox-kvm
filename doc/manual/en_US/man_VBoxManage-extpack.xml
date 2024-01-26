@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage extpack
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-extpack" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage extpack</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-extpack</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-extpack</refname>
+    <refpurpose>extension package management</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-extpack-install"> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage extpack install</command>
+      <arg>--replace</arg>
+      <arg>--accept-license=<replaceable>sha256</replaceable></arg>
+      <arg choice="req"><replaceable>tarball</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-extpack-uninstall">
+      <command>VBoxManage extpack uninstall</command>
+      <arg>--force</arg>
+      <arg choice="req"><replaceable>name</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-extpack-cleanup">
+      <command>VBoxManage extpack cleanup</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <refsect2 id="vboxmanage-extpack-install">
+      <title>extpack install</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Installs a new extension pack on the system.  This command will fail if an older
+        version of the same extension pack is already installed.  The
+        <option>--replace</option> option can be used to uninstall any
+        old package before the new one is installed.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--replace</option></term><listitem><para>Uninstall existing extension pack version.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--accept-license=<replaceable>sha256</replaceable></option></term>
+          <listitem>
+            <para>Accept the license text with the given SHA-256 hash value.</para>
+            <para>VBoxManage will display the SHA-256 value when performing a manual
+            installation.  The hash can of course be calculated by looking inside
+            the extension pack and using sha256sum or similar on the license file.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>tarball</replaceable></term>
+          <listitem>
+            <para>The file containing the extension pack to be installed.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-extpack-uninstall">
+      <title>extpack uninstall</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Uninstalls an extension pack from the system.  The subcommand will also succeed
+        in the case where the specified extension pack is not present on the system.
+        You can use <computeroutput>VBoxManage list extpacks</computeroutput> to show
+        the names of the extension packs which are currently installed.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--force</option></term>
+          <listitem>
+            <para>Overrides most refusals to uninstall an extension pack</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>name</replaceable></term>
+          <listitem>
+            <para>The name of the extension pack to be uninstalled.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-extpack-cleanup">
+      <title>extpack cleanup</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Used to remove temporary files and directories that may have been left behind
+        if a previous install or uninstall command failed.
+      </para>
+    </refsect2>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="EXTPACK_UNINSTALL,EXTPACK"/>
+    <para>
+          How to list extension packs:
+<screen>$ VBoxManage list extpacks
+Extension Packs: 1
+Pack no. 0:   Oracle VM VirtualBox Extension Pack
+Version:      4.1.12
+Revision:     77218
+Edition:
+Description:  USB 2.0 Host Controller, VirtualBox RDP, PXE ROM with E1000 support.
+VRDE Module:  VBoxVRDP
+Usable:       true
+Why unusable:</screen></para>
+
+    <para>How to remove an extension pack:
+<screen>$ VBoxManage extpack uninstall "Oracle VM VirtualBox Extension Pack"
+0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+Successfully uninstalled "Oracle VM VirtualBox Extension Pack".</screen></para>
+  </refsect1>
+
+</refentry>
+

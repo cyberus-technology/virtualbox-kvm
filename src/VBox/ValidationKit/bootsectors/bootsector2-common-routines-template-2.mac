@@ -1,0 +1,224 @@
+; $Id: bootsector2-common-routines-template-2.mac $
+;; @file
+; bootsector2 common routines - template containing code specific to each mode.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%include "bootsector2-template-header.mac"
+ALIGNCODE(32)
+GLOBALNAME TMPL_NM(g_szMode)
+        db TMPL_MODE_STR, 0
+
+
+;;
+; Prints a string on the screen.
+;
+; @param    ds:ax       The string to print (null terminated).
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(PrintStr)
+        push    xBP
+        mov     xBP, xSP
+        push    xAX
+        push    xBX
+        push    xSI
+
+        mov     xSI, xAX
+.next:
+        lodsb
+        test    al, al
+        jz      .done
+%ifdef TMPL_HAVE_BIOS
+        mov     bx, 0ff00h
+        mov     ah, 0eh
+        int     10h
+%else
+        call TMPL_NM(PrintChr)
+%endif
+        jmp     .next
+
+.done:
+        pop     xSI
+        pop     xBX
+        pop     xAX
+        leave
+        ret
+ENDPROC   TMPL_NM(PrintStr)
+
+
+;;
+; Prints a string on the screen.
+;
+; @param    al          The character to print.
+;
+; @uses     nothing
+;
+BEGINCODELOW
+BEGINPROC TMPL_NM(PrintChr)
+        push    xBP
+        mov     xBP, xSP
+        push    xAX
+        push    xBX
+
+%ifndef TMPL_HAVE_BIOS
+ %ifdef BS2_WITH_TRAPS
+        mov     bx, cs
+        and     xBX, 0x3
+        push    xBX
+        jz      .ring_ok
+        call    TMPL_NM_CMN(Bs2ToRing0)
+.ring_ok:
+ %endif
+
+        mov     bl, al
+        call    TMPL_NM(LeaveCpuMode)
+        mov     al, bl
+BITS 16
+%endif
+
+        mov     bx, 0ff00h
+        mov     ah, 0eh
+        int     10h
+
+%ifndef TMPL_HAVE_BIOS
+        call TMPL_NM(EnterCpuMode)
+BITS TMPL_BITS
+ %ifdef BS2_WITH_TRAPS
+        pop     xAX
+        test    al, al
+        jz      .ring_restored
+        call    TMPL_NM_CMN(Bs2ToRingN)
+.ring_restored:
+ %endif
+%endif
+
+        pop     xBX
+        pop     xAX
+        leave
+        ret
+ENDPROC   TMPL_NM(PrintChr)
+TMPL_BEGINCODE
+
+
+%ifndef TMPL_HAVE_BIOS
+
+;;
+; Leaves the current CPU mode and returns to real mode.
+;
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(LeaveCpuMode)
+        jmp     TMPL_NM(Bs2ExitMode)
+ENDPROC   TMPL_NM(LeaveCpuMode)
+
+
+;;
+; Undo what LeaveCpuMode did.
+;
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(EnterCpuMode)
+        jmp TMPL_NM(Bs2EnterMode_rm)
+ENDPROC   TMPL_NM(EnterCpuMode)
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+%endif ; TMPL_HAVE_BIOS
+
+
+;;
+; Sets the global variable for the current CPU mode.
+;
+; @uses     nothing.
+;
+BEGINPROC TMPL_NM(SetCpuModeGlobals)
+%ifdef TMPL_CMN_PE
+ %ifdef BS2_INC_PE16
+        mov     word  [g_pfnPrintStrInternal_p16], PrintStr_pe16
+        mov     word  [g_pfnPrintChrInternal_p16], PrintChr_pe16
+ %endif
+ %ifdef BS2_INC_PE32
+        mov     dword [g_pfnPrintStrInternal_p32], PrintStr_pe32
+        mov     dword [g_pfnPrintChrInternal_p32], PrintChr_pe32
+ %endif
+
+%elifdef TMPL_CMN_PP
+ %ifdef BS2_INC_PP16
+        mov     word  [g_pfnPrintStrInternal_p16], PrintStr_pp16
+        mov     word  [g_pfnPrintChrInternal_p16], PrintChr_pp16
+ %endif
+ %ifdef BS2_INC_PP32
+        mov     dword [g_pfnPrintStrInternal_p32], PrintStr_pp32
+        mov     dword [g_pfnPrintChrInternal_p32], PrintChr_pp32
+ %endif
+
+%elifdef TMPL_CMN_PAE
+ %ifdef BS2_INC_PAE16
+        mov     word  [g_pfnPrintStrInternal_p16], PrintStr_pae16
+        mov     word  [g_pfnPrintChrInternal_p16], PrintChr_pae16
+ %endif
+ %ifdef BS2_INC_PAE32
+        mov     dword [g_pfnPrintStrInternal_p32], PrintStr_pae32
+        mov     dword [g_pfnPrintChrInternal_p32], PrintChr_pae32
+ %endif
+
+%elifdef TMPL_CMN_LM
+ %ifdef BS2_INC_LM16
+        mov     word  [g_pfnPrintStrInternal_p16], PrintStr_lm16
+        mov     word  [g_pfnPrintChrInternal_p16], PrintChr_lm16
+ %endif
+ %ifdef BS2_INC_LM32
+        mov     dword [g_pfnPrintStrInternal_p32], PrintStr_lm32
+        mov     dword [g_pfnPrintChrInternal_p32], PrintChr_lm32
+ %endif
+ %ifdef BS2_INC_LM64
+        mov     dword [g_pfnPrintStrInternal_p64], PrintStr_lm64
+        mov     dword [g_pfnPrintChrInternal_p64], PrintChr_lm64
+ %endif
+
+%elifdef TMPL_16BIT
+        mov     word [TMPL_NM_CMN(g_pfnPrintStrInternal)], TMPL_NM(PrintStr)
+        mov     word [TMPL_NM_CMN(g_pfnPrintChrInternal)], TMPL_NM(PrintChr)
+%else
+ %error "missing case"
+%endif
+        ret
+ENDPROC   TMPL_NM(SetCpuModeGlobals)
+
+
+
+%include "bootsector2-template-footer.mac"
+

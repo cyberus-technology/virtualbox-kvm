@@ -1,0 +1,760 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - Bootsector Kit v3
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+
+# Boot Sector post-link tool (used via the parent Config.kmk).
+BLDPROGS += VBoxBs3Linker
+VBoxBs3Linker_TEMPLATE = VBoxBldProg
+VBoxBs3Linker_SOURCES  = $(VBOX_PATH_BS3KIT_SRC)/VBoxBs3Linker.cpp
+
+
+# 64-bit relocation conversion tool (used via the parent Config.kmk).
+BLDPROGS += VBoxBs3ObjConverter
+VBoxBs3ObjConverter_TEMPLATE = VBoxBldProg
+VBoxBs3ObjConverter_DEFS     = BS3KIT_BS3CLASS16CODE=$(BS3KIT_BS3CLASS16CODE) IN_RT_R3
+VBoxBs3ObjConverter_SOURCES  = \
+	$(VBOX_PATH_BS3KIT_SRC)/VBoxBs3ObjConverter.cpp \
+	$(PATH_ROOT)/src/VBox/Runtime/common/sort/shellsort.cpp
+
+
+# The boot sector.
+MISCBINS += bs3-bootsector
+bs3-bootsector_TEMPLATE = VBoxBS3KitBS
+bs3-bootsector_SOURCES  = bs3-bootsector.asm
+
+
+#
+# Common sources to be compiled into _p16, _p32 and _p64 versions.
+#
+VBOX_BS3KIT_COMMON_SOURCES = \
+	bs3-cmn-A20Disable.asm \
+	bs3-cmn-A20Enable.asm \
+	bs3-cmn-GetCpuVendor.c \
+	bs3-cmn-GetModeName.c \
+	bs3-cmn-GetModeNameShortLower.c \
+	bs3-cmn-KbdRead.asm \
+	bs3-cmn-KbdWait.asm \
+	bs3-cmn-KbdWrite.asm \
+	bs3-cmn-Shutdown.asm \
+	bs3-cmn-Panic.asm \
+	bs3-cmn-PrintChr.asm \
+	bs3-cmn-Printf.c \
+	bs3-cmn-PrintU32.asm \
+	bs3-cmn-PrintX32.asm \
+	bs3-cmn-PrintStr.c \
+	bs3-cmn-PrintStrN.asm \
+	bs3-cmn-StrFormatV.c \
+	bs3-cmn-StrPrintf.c \
+	bs3-cmn-StrLen.c \
+	bs3-cmn-StrNLen.c \
+	bs3-cmn-StrCpy.c \
+	bs3-cmn-MemChr.asm \
+	bs3-cmn-MemCmp.asm \
+	bs3-cmn-MemCpy.c \
+	bs3-cmn-MemPCpy.c \
+	bs3-cmn-MemMove.c \
+	bs3-cmn-MemSet.asm \
+	bs3-cmn-MemZero.asm \
+	bs3-cmn-MemAlloc.c \
+	bs3-cmn-MemAllocZ.c \
+	bs3-cmn-MemFree.c \
+	bs3-cmn-MemGuardedTestPage.c \
+	bs3-cmn-MemPrintInfo.c \
+	bs3-cmn-PagingData.c \
+	bs3-cmn-PagingInitRootForPP.c \
+	bs3-cmn-PagingInitRootForPAE.c \
+	bs3-cmn-PagingInitRootForLM.c \
+	bs3-cmn-PagingAlias.c \
+	bs3-cmn-PagingProtect.c \
+	bs3-cmn-PagingQueryAddressInfo.c \
+	bs3-cmn-PagingSetupCanonicalTraps.c \
+	bs3-cmn-pic-data.c \
+	bs3-cmn-PicMaskAll.c \
+	bs3-cmn-PicUpdateMask.c \
+	bs3-cmn-PicSetup.c \
+	bs3-cmn-pit.c \
+	bs3-cmn-PitIrqHandler.c \
+	bs3-cmn-RegCtxRestore.asm \
+	bs3-cmn-RegCtxConvertToRingX.c \
+	bs3-cmn-RegCtxConvertV86ToRm.c \
+	bs3-cmn-RegCtxPrint.c \
+	bs3-cmn-RegCtxGetRspSsAsCurPtr.c \
+	bs3-cmn-RegCtxSave.asm \
+	bs3-cmn-RegCtxSaveEx.asm \
+	bs3-cmn-RegCtxSaveForMode.c \
+	bs3-cmn-RegCtxSetGrpSegFromCurPtr.c \
+	bs3-cmn-RegCtxSetGrpSegFromFlat.c \
+	bs3-cmn-RegCtxSetRipCsFromCurPtr.c \
+	bs3-cmn-RegCtxSetRipCsFromFlat.c \
+	bs3-cmn-RegCtxSetRipCsFromLnkPtr.c \
+	bs3-cmn-RegCtxSetGpr.c \
+	bs3-cmn-RegGetCr0.asm \
+	bs3-cmn-RegGetCr2.asm \
+	bs3-cmn-RegGetCr3.asm \
+	bs3-cmn-RegGetCr4.asm \
+	bs3-cmn-RegSetCr0.asm \
+	bs3-cmn-RegSetCr2.asm \
+	bs3-cmn-RegSetCr3.asm \
+	bs3-cmn-RegSetCr4.asm \
+	bs3-cmn-RegGetDr0.asm \
+	bs3-cmn-RegGetDr1.asm \
+	bs3-cmn-RegGetDr2.asm \
+	bs3-cmn-RegGetDr3.asm \
+	bs3-cmn-RegGetDr6.asm \
+	bs3-cmn-RegGetDr7.asm \
+	bs3-cmn-RegGetDrX.asm \
+	bs3-cmn-RegSetDr0.asm \
+	bs3-cmn-RegSetDr1.asm \
+	bs3-cmn-RegSetDr2.asm \
+	bs3-cmn-RegSetDr3.asm \
+	bs3-cmn-RegSetDr6.asm \
+	bs3-cmn-RegSetDr7.asm \
+	bs3-cmn-RegSetDrX.asm \
+	bs3-cmn-RegGetTr.asm \
+	bs3-cmn-RegSetTr.asm \
+	bs3-cmn-RegGetLdtr.asm \
+	bs3-cmn-RegSetLdtr.asm \
+	bs3-cmn-RegGetXcr0.asm \
+	bs3-cmn-RegSetXcr0.asm \
+	bs3-cmn-ExtCtxInit.c \
+	bs3-cmn-ExtCtxSave.asm \
+	bs3-cmn-ExtCtxSaveEx.asm \
+	bs3-cmn-ExtCtxRestore.asm \
+	bs3-cmn-ExtCtxRestoreEx.asm \
+	bs3-cmn-ExtCtxGetSize.c \
+	bs3-cmn-ExtCtxAlloc.c \
+	bs3-cmn-ExtCtxFree.c \
+	bs3-cmn-ExtCtxCopy.c \
+	bs3-cmn-ExtCtxGetFcw.c \
+	bs3-cmn-ExtCtxSetFcw.c \
+	bs3-cmn-ExtCtxGetFsw.c \
+	bs3-cmn-ExtCtxSetFsw.c \
+	bs3-cmn-ExtCtxGetAbridgedFtw.c \
+	bs3-cmn-ExtCtxSetAbridgedFtw.c \
+	bs3-cmn-ExtCtxGetMxCsr.c \
+	bs3-cmn-ExtCtxSetMxCsr.c \
+	bs3-cmn-ExtCtxGetMxCsrMask.c \
+	bs3-cmn-ExtCtxSetMxCsrMask.c \
+	bs3-cmn-ExtCtxGetMm.c \
+	bs3-cmn-ExtCtxSetMm.c \
+	bs3-cmn-ExtCtxGetXmm.c \
+	bs3-cmn-ExtCtxSetXmm.c \
+	bs3-cmn-ExtCtxGetYmm.c \
+	bs3-cmn-ExtCtxSetYmm.c \
+	bs3-cmn-SelFar32ToFlat32.c \
+	bs3-cmn-SelFar32ToFlat32NoClobber.asm \
+	bs3-cmn-SelProtFar32ToFlat32.c \
+	bs3-cmn-SelProtModeCodeToRealMode.asm \
+	bs3-cmn-SelRealModeCodeToProtMode.asm \
+	bs3-cmn-SelFlatCodeToRealMode.asm \
+	bs3-cmn-SelFlatCodeToProtFar16.asm \
+	bs3-cmn-SelRealModeDataToProtFar16.asm \
+	bs3-cmn-SelProtFar16DataToRealMode.asm \
+	bs3-cmn-SelRealModeDataToFlat.asm \
+	bs3-cmn-SelProtFar16DataToFlat.asm \
+	bs3-cmn-SelFlatDataToProtFar16.asm \
+	bs3-cmn-SelFlatDataToRealMode.asm \
+	bs3-cmn-SelLnkPtrToCurPtr.c \
+	bs3-cmn-SelLnkPtrToFlat.c \
+	bs3-cmn-SelSetup16BitData.c \
+	bs3-cmn-SelSetup16BitCode.c \
+	bs3-cmn-SelSetup32BitCode.c \
+	bs3-cmn-SelSetupGate.c \
+	bs3-cmn-SelSetupGate64.c \
+	bs3-cmn-SlabInit.c \
+	bs3-cmn-SlabAlloc.c \
+	bs3-cmn-SlabAllocEx.c \
+	bs3-cmn-SlabFree.c \
+	bs3-cmn-SlabListInit.c \
+	bs3-cmn-SlabListAdd.c \
+	bs3-cmn-SlabListAlloc.c \
+	bs3-cmn-SlabListAllocEx.c \
+	bs3-cmn-SlabListFree.c \
+	bs3-cmn-SwitchHlpConvRealModeRetfPopBpDecBpAndReturn.asm \
+	bs3-cmn-SwitchHlpConvProtModeRetfPopBpDecBpAndReturn.asm \
+	bs3-cmn-SwitchToRing0.asm \
+	bs3-cmn-SwitchToRing1.asm \
+	bs3-cmn-SwitchToRing2.asm \
+	bs3-cmn-SwitchToRing3.asm \
+	bs3-cmn-SwitchToRingX.asm \
+	bs3-cmn-SwitchTo16Bit.asm \
+	bs3-cmn-SwitchTo16BitV86.asm \
+	bs3-cmn-SwitchTo32Bit.asm \
+	bs3-cmn-SwitchTo64Bit.asm \
+	bs3-cmn-Syscall.asm \
+	bs3-cmn-TestData.c \
+	bs3-cmn-TestInit.c \
+	bs3-cmn-TestFailed.c \
+	bs3-cmn-TestNow.asm \
+	bs3-cmn-TestSkipped.c \
+	bs3-cmn-TestSub.c \
+	bs3-cmn-TestSubDone.c \
+	bs3-cmn-TestSubErrorCount.c \
+	bs3-cmn-TestTerm.c \
+	bs3-cmn-TestSendCmdWithStr.asm \
+	bs3-cmn-TestSendCmdWithU32.asm \
+	bs3-cmn-TestIsVmmDevTestingPresent.asm \
+	bs3-cmn-TestCheckRegCtxEx.c \
+	bs3-cmn-TestCheckExtCtx.c \
+	bs3-cmn-TestQueryCfgU8.asm \
+	bs3-cmn-TestQueryCfgU32.asm \
+	bs3-cmn-TestHostPrintf.c \
+	bs3-cmn-TestPrintf.c \
+	bs3-cmn-TestValue.c \
+	bs3-cmn-TrapReInit.c \
+	bs3-cmn-TrapRmV86Init.c \
+	bs3-cmn-TrapRmV86SetGate.c \
+	bs3-cmn-Trap16Init.c \
+	bs3-cmn-Trap16SetGate.c \
+	bs3-cmn-Trap32Init.c \
+	bs3-cmn-Trap32SetGate.c \
+	bs3-cmn-Trap64Init.c \
+	bs3-cmn-Trap64SetGate.c \
+	bs3-cmn-TrapSetDpl.c \
+	bs3-cmn-TrapDefaultHandler.c \
+	bs3-cmn-TrapHandlersData.asm \
+	bs3-cmn-TrapPrintFrame.c \
+	bs3-cmn-TrapSetHandler.c \
+	bs3-cmn-TrapSetHandlerEx.c \
+	bs3-cmn-TrapSetJmp.asm \
+	bs3-cmn-TrapSetJmpAndRestore.c \
+	bs3-cmn-TrapSetJmpAndRestoreInRm.c \
+	bs3-cmn-TrapSetJmpAndRestoreWithRm.c \
+	bs3-cmn-TrapSetJmpAndRestoreWithExtCtx.c \
+	bs3-cmn-TrapSetJmpAndRestoreWithExtCtxAndRm.c \
+	bs3-cmn-TrapUnsetJmp.c \
+	bs3-cmn-UtilSetFullGdtr.asm \
+	bs3-cmn-UtilSetFullIdtr.asm \
+	bs3-cmn-TestDoModesByOneHlp.asm \
+	../../../Runtime/common/asm/ASMBitFirstClear.asm \
+	../../../Runtime/common/asm/ASMBitFirstSet.asm \
+	../../../Runtime/common/asm/ASMBitNextClear.asm \
+	../../../Runtime/common/asm/ASMBitNextSet.asm \
+	../../../Runtime/common/asm/ASMBitFirstSetU16.asm \
+	../../../Runtime/common/asm/ASMBitFirstSetU32.asm \
+	../../../Runtime/common/asm/ASMBitFirstSetU64.asm \
+	../../../Runtime/common/asm/ASMBitLastSetU16.asm \
+	../../../Runtime/common/asm/ASMBitLastSetU32.asm \
+	../../../Runtime/common/asm/ASMBitLastSetU64.asm \
+	../../../Runtime/common/asm/ASMMemFirstMismatchingU8.asm \
+	../../../Runtime/common/asm/ASMSerializeInstruction-cpuid.asm \
+	../../../Runtime/common/asm/ASMSerializeInstruction-iret.asm \
+	../../../Runtime/common/asm/ASMSerializeInstruction-rdtscp.asm \
+	../../../Runtime/common/asm/ASMCpuIdExSlow.asm \
+	../../../Runtime/common/asm/ASMCpuId.asm \
+	../../../Runtime/common/asm/ASMCpuId_Idx_ECX.asm \
+	../../../Runtime/common/asm/ASMWrMsr.asm \
+	../../../Runtime/common/asm/ASMGetXcr0.asm \
+	../../../Runtime/common/asm/ASMSetXcr0.asm \
+	../../../Runtime/common/asm/ASMSetFlags.asm \
+	../../../Runtime/common/asm/ASMGetFlags.asm \
+	../../../Runtime/common/asm/ASMMultU64ByU32DivByU32.asm
+
+# The 16-bit BS3Kit library.
+LIBRARIES += bs3kit-common-16
+bs3kit-common-16_TEMPLATE = VBoxBS3KitImg
+bs3kit-common-16_INSTTYPE = none
+bs3kit-common-16_DEFS     = TMPL_PE16 BS3_CMN_ONLY
+bs3kit-common-16_ASDEFS   = RT_ASMDEFS_INC_FIRST_FILE
+bs3kit-common-16_SOURCES  = $(VBOX_BS3KIT_COMMON_SOURCES) \
+	bs3-system-data.asm \
+	bs3-rm-InitAll.c \
+	bs3-rm-InitMemory.c \
+	bs3-rm-InitGdt.c \
+	bs3-cmn-hexdigits.c \
+	bs3-cmn-CpuDetectData.c \
+	bs3-cmn-PerCpuData.c \
+	bs3-cmn-ConvertRMStackToP16UsingCxReturnToAx.asm \
+	bs3-cmn-UInt64Div.c \
+	bs3-cmn-UInt32Div.c \
+	bs3-wc16-U8DR.asm \
+	bs3-wc16-U8DQ.asm \
+	bs3-wc16-I8DR.asm \
+	bs3-wc16-I8DQ.asm \
+	bs3-wc16-I8RS.asm \
+	bs3-wc16-U8RS.asm \
+	bs3-wc16-U8LS.asm \
+	bs3-wc16-U4D.asm \
+	bs3-wc16-I4D.asm \
+	bs3-c16-SwitchFromV86To16BitAndCallC.asm \
+	bs3-c16-Trap16Generic.asm \
+	bs3-c16-TrapRmV86Generic.asm \
+	bs3-c16-TrapRmV86Data.c \
+	bs3-c16-CreateHybridFarRet.asm
+bs3kit-common-16_bs3-cmn-UInt64Div.c_CFLAGS = -oh -d0 # -d1+ vs -d0 saves 0x6a3-0x577 = 0x12C (300)!
+
+$(call BS3KIT_FN_GEN_CMN_FARSTUB,bs3kit-common-16,ASMMemFirstMismatchingU8,8)
+$(call BS3KIT_FN_GEN_CMN_FARSTUB,bs3kit-common-16,ASMMemFirstNonZero,6)
+$(call BS3KIT_FN_GEN_CMN_FARSTUB,bs3kit-common-16,ASMCpuIdExSlow,32)
+$(call BS3KIT_FN_GEN_CMN_FARSTUB,bs3kit-common-16,ASMCpuId,20)
+$(call BS3KIT_FN_GEN_CMN_FARSTUB,bs3kit-common-16,ASMWrMsr,12)
+$(call BS3KIT_FN_GEN_CMN_FARSTUB,bs3kit-common-16,ASMSetXcr0,8)
+$(call BS3KIT_FN_GEN_CMN_FARSTUB,bs3kit-common-16,ASMGetXcr0,0)
+-include $(PATH_SUB_CURRENT)/bs3kit-autostubs.kmk # manually generated from headers, see bottom of this file.
+
+# The 32-bit BS3Kit library.
+LIBRARIES += bs3kit-common-32
+bs3kit-common-32_TEMPLATE = VBoxBS3KitImg32
+bs3kit-common-32_INSTTYPE = none
+bs3kit-common-32_DEFS     = TMPL_PE32 BS3_CMN_ONLY
+bs3kit-common-32_ASDEFS   = RT_ASMDEFS_INC_FIRST_FILE
+bs3kit-common-32_SOURCES  = $(VBOX_BS3KIT_COMMON_SOURCES) \
+	bs3-cmn-PagingMapRamAbove4GForLM.c \
+	bs3-cmn-SwitchHlpConvFlatRetToRetfProtMode.asm \
+	bs3-cmn-UInt64Div.c \
+	bs3-wc32-U8D.asm \
+	bs3-wc32-I8D.asm \
+	bs3-wc32-I8RS.asm \
+	bs3-wc32-U8RS.asm \
+	bs3-wc32-U8LS.asm \
+	bs3-wc32-U8M.asm \
+	bs3-c32-Trap32Generic.asm
+
+# The 64-bit BS3Kit library.
+LIBRARIES += bs3kit-common-64
+bs3kit-common-64_TEMPLATE = VBoxBS3KitImg64
+bs3kit-common-64_INSTTYPE = none
+bs3kit-common-64_DEFS     = TMPL_LM64 BS3_CMN_ONLY
+bs3kit-common-64_ASDEFS   = RT_ASMDEFS_INC_FIRST_FILE
+bs3kit-common-64_SOURCES  = $(VBOX_BS3KIT_COMMON_SOURCES) \
+	bs3-cmn-PagingMapRamAbove4GForLM.c \
+	bs3-cmn-SwitchHlpConvFlatRetToRetfProtMode.asm \
+	bs3-c64-Trap64Generic.asm \
+	../../../Runtime/common/asm/ASMGetIDTR.asm \
+	../../../Runtime/common/asm/ASMSetIDTR.asm \
+	../../../Runtime/common/asm/ASMGetGDTR.asm \
+	../../../Runtime/common/asm/ASMSetGDTR.asm
+
+
+#
+# Common sources to be compiled for each CPU mode.
+#
+VBOX_BS3KIT_MODE_SOURCES = \
+	bs3-mode-Name.asm \
+	bs3-mode-NameShortLower.asm \
+	bs3-mode-SwitchToRM.asm \
+	bs3-mode-SwitchToPE16.asm \
+	bs3-mode-SwitchToPE16_32.asm \
+	bs3-mode-SwitchToPE16_V86.asm \
+	bs3-mode-SwitchToPE32.asm \
+	bs3-mode-SwitchToPE32_16.asm \
+	bs3-mode-SwitchToPEV86.asm \
+	bs3-mode-SwitchToPP16.asm \
+	bs3-mode-SwitchToPP16_32.asm \
+	bs3-mode-SwitchToPP16_V86.asm \
+	bs3-mode-SwitchToPP32.asm \
+	bs3-mode-SwitchToPP32_16.asm \
+	bs3-mode-SwitchToPPV86.asm \
+	bs3-mode-SwitchToPAE16.asm \
+	bs3-mode-SwitchToPAE16_32.asm \
+	bs3-mode-SwitchToPAE16_V86.asm \
+	bs3-mode-SwitchToPAE32.asm \
+	bs3-mode-SwitchToPAE32_16.asm \
+	bs3-mode-SwitchToPAEV86.asm \
+	bs3-mode-SwitchToLM64.asm \
+	bs3-mode-SwitchToLM32.asm \
+	bs3-mode-SwitchToLM16.asm \
+	bs3-mode-SwitchTo32BitAndCallC.asm \
+	bs3-mode-EnteredMode.asm \
+	bs3-mode-PagingGetRootForPP16.asm \
+	bs3-mode-PagingGetRootForPP32.asm \
+	bs3-mode-PagingGetRootForPAE16.asm \
+	bs3-mode-PagingGetRootForPAE32.asm \
+	bs3-mode-PagingGetRootForLM64.asm \
+	bs3-mode-TrapInit.c \
+	bs3-mode-TrapSystemCallHandler.asm \
+	bs3-mode-TrapSetJmpAndRestoreInRmAsm.asm \
+	bs3-mode-TestDoModes.c \
+	bs3-mode-TestDoModesByOne.c \
+	bs3-mode-TestDoModesByMax.c \
+	bs3-mode-TestDoModesHlp.asm \
+	bs3-mode-BiosInt15hE820.asm
+
+# The 16-bit real mode BS3Kit library.
+LIBRARIES += bs3kit-rm
+bs3kit-rm_TEMPLATE = VBoxBS3KitImg
+bs3kit-rm_INSTTYPE = none
+bs3kit-rm_DEFS     = TMPL_MODE=BS3_MODE_RM
+bs3kit-rm_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-first-rm.asm \
+	bs3-mode-CpuDetect.asm \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+
+# The 16-bit BS3Kit library for 16-bit protected kernel+tss.
+LIBRARIES += bs3kit-pe16
+bs3kit-pe16_TEMPLATE = VBoxBS3KitImg
+bs3kit-pe16_INSTTYPE = none
+bs3kit-pe16_DEFS     = TMPL_MODE=BS3_MODE_PE16
+bs3kit-pe16_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-first-pe16.asm \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+#	bs3-mode-CpuDetect.asm
+
+# The 32-bit BS3Kit library for 16-bit protected kernel+tss.
+LIBRARIES += bs3kit-pe16_32
+bs3kit-pe16_32_TEMPLATE = VBoxBS3KitImg32
+bs3kit-pe16_32_INSTTYPE = none
+bs3kit-pe16_32_DEFS     = TMPL_MODE=BS3_MODE_PE16_32
+bs3kit-pe16_32_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+# The v86 BS3Kit library for 16-bit protected kernel+tss.
+LIBRARIES += bs3kit-pe16_v86
+bs3kit-pe16_v86_TEMPLATE = VBoxBS3KitImg
+bs3kit-pe16_v86_INSTTYPE = none
+bs3kit-pe16_v86_DEFS     = TMPL_MODE=BS3_MODE_PE16_V86
+bs3kit-pe16_v86_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+# The 32-bit BS3Kit library for 32-bit protected kernel+tss.
+LIBRARIES += bs3kit-pe32
+bs3kit-pe32_TEMPLATE = VBoxBS3KitImg32
+bs3kit-pe32_INSTTYPE = none
+bs3kit-pe32_DEFS     = TMPL_MODE=BS3_MODE_PE32
+bs3kit-pe32_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-first-init-all-pe32.asm
+
+# The 16-bit BS3Kit library for 32-bit protected kernel+tss.
+LIBRARIES += bs3kit-pe32_16
+bs3kit-pe32_16_TEMPLATE = VBoxBS3KitImg
+bs3kit-pe32_16_INSTTYPE = none
+bs3kit-pe32_16_DEFS     = TMPL_MODE=BS3_MODE_PE32_16
+bs3kit-pe32_16_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+# The v8086 BS3Kit library for 32-bit protected kernel+tss.
+LIBRARIES += bs3kit-pev86
+bs3kit-pev86_TEMPLATE = VBoxBS3KitImg
+bs3kit-pev86_INSTTYPE = none
+bs3kit-pev86_DEFS     = TMPL_MODE=BS3_MODE_PEV86
+bs3kit-pev86_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+# The 16-bit BS3Kit library for 16-bit paged protected kernel+tss.
+LIBRARIES += bs3kit-pp16
+bs3kit-pp16_TEMPLATE = VBoxBS3KitImg
+bs3kit-pp16_INSTTYPE = none
+bs3kit-pp16_DEFS     = TMPL_MODE=BS3_MODE_PP16
+bs3kit-pp16_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-mode-CpuDetect.asm \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+# The 32-bit BS3Kit library for 16-bit paged protected kernel+tss.
+LIBRARIES += bs3kit-pp16_32
+bs3kit-pp16_32_TEMPLATE = VBoxBS3KitImg32
+bs3kit-pp16_32_INSTTYPE = none
+bs3kit-pp16_32_DEFS     = TMPL_MODE=BS3_MODE_PP16_32
+bs3kit-pp16_32_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+# The v8086 BS3Kit library for 16-bit paged protected kernel+tss.
+LIBRARIES += bs3kit-pp16_v86
+bs3kit-pp16_v86_TEMPLATE = VBoxBS3KitImg
+bs3kit-pp16_v86_INSTTYPE = none
+bs3kit-pp16_v86_DEFS     = TMPL_MODE=BS3_MODE_PP16_V86
+bs3kit-pp16_v86_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+# The 32-bit BS3Kit library for 32-bit paged protected kernel+tss.
+LIBRARIES += bs3kit-pp32
+bs3kit-pp32_TEMPLATE = VBoxBS3KitImg32
+bs3kit-pp32_INSTTYPE = none
+bs3kit-pp32_DEFS     = TMPL_MODE=BS3_MODE_PP32
+bs3kit-pp32_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-first-init-all-pp32.asm
+
+# The 16-bit BS3Kit library for 32-bit paged protected kernel+tss.
+LIBRARIES += bs3kit-pp32_16
+bs3kit-pp32_16_TEMPLATE = VBoxBS3KitImg
+bs3kit-pp32_16_INSTTYPE = none
+bs3kit-pp32_16_DEFS     = TMPL_MODE=BS3_MODE_PP32_16
+bs3kit-pp32_16_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+# The v8086 BS3Kit library for 32-bit paged protected kernel+tss.
+LIBRARIES += bs3kit-ppv86
+bs3kit-ppv86_TEMPLATE = VBoxBS3KitImg
+bs3kit-ppv86_INSTTYPE = none
+bs3kit-ppv86_DEFS     = TMPL_MODE=BS3_MODE_PPV86
+bs3kit-ppv86_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+
+# The 16-bit BS3Kit library for 16-bit PAE paged protected kernel+tss.
+LIBRARIES += bs3kit-pae16
+bs3kit-pae16_TEMPLATE = VBoxBS3KitImg
+bs3kit-pae16_INSTTYPE = none
+bs3kit-pae16_DEFS     = TMPL_MODE=BS3_MODE_PAE16
+bs3kit-pae16_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-mode-CpuDetect.asm \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+# The 16-bit BS3Kit library for 16-bit PAE paged protected kernel+tss.
+LIBRARIES += bs3kit-pae16_32
+bs3kit-pae16_32_TEMPLATE = VBoxBS3KitImg32
+bs3kit-pae16_32_INSTTYPE = none
+bs3kit-pae16_32_DEFS     = TMPL_MODE=BS3_MODE_PAE16_32
+bs3kit-pae16_32_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+# The v8086 BS3Kit library for 16-bit PAE paged protected kernel+tss.
+LIBRARIES += bs3kit-pae16_v86
+bs3kit-pae16_v86_TEMPLATE = VBoxBS3KitImg
+bs3kit-pae16_v86_INSTTYPE = none
+bs3kit-pae16_v86_DEFS     = TMPL_MODE=BS3_MODE_PAE16_V86
+bs3kit-pae16_v86_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+# The 32-bit BS3Kit library for 32-bit PAE paged protected kernel+tss.
+LIBRARIES += bs3kit-pae32
+bs3kit-pae32_TEMPLATE = VBoxBS3KitImg32
+bs3kit-pae32_INSTTYPE = none
+bs3kit-pae32_DEFS     = TMPL_MODE=BS3_MODE_PAE32
+bs3kit-pae32_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+# The 16-bit BS3Kit library for 32-bit PAE paged protected kernel+tss.
+LIBRARIES += bs3kit-pae32_16
+bs3kit-pae32_16_TEMPLATE = VBoxBS3KitImg
+bs3kit-pae32_16_INSTTYPE = none
+bs3kit-pae32_16_DEFS     = TMPL_MODE=BS3_MODE_PAE32_16
+bs3kit-pae32_16_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+# The v8086 BS3Kit library for 32-bit PAE paged protected kernel+tss.
+LIBRARIES += bs3kit-paev86
+bs3kit-paev86_TEMPLATE = VBoxBS3KitImg
+bs3kit-paev86_INSTTYPE = none
+bs3kit-paev86_DEFS     = TMPL_MODE=BS3_MODE_PAEV86
+bs3kit-paev86_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+
+# The 16-bit long mode BS3Kit library.
+LIBRARIES += bs3kit-lm16
+bs3kit-lm16_TEMPLATE = VBoxBS3KitImg
+bs3kit-lm16_INSTTYPE = none
+bs3kit-lm16_DEFS     = TMPL_MODE=BS3_MODE_LM16
+bs3kit-lm16_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-mode-TestDoModesStub.asm \
+	bs3-mode-TestDoModesByOneStub.asm \
+	bs3-mode-TestDoModesByMaxStub.asm
+
+# The 32-bit long mode BS3Kit library.
+LIBRARIES += bs3kit-lm32
+bs3kit-lm32_TEMPLATE = VBoxBS3KitImg32
+bs3kit-lm32_INSTTYPE = none
+bs3kit-lm32_DEFS     = TMPL_MODE=BS3_MODE_LM32
+bs3kit-lm32_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES)
+
+# The 64-bit long mode BS3Kit library.
+LIBRARIES += bs3kit-lm64
+bs3kit-lm64_TEMPLATE = VBoxBS3KitImg64
+bs3kit-lm64_INSTTYPE = none
+bs3kit-lm64_DEFS     = TMPL_MODE=BS3_MODE_LM64
+bs3kit-lm64_SOURCES  = $(VBOX_BS3KIT_MODE_SOURCES) \
+	bs3-first-init-all-lm64.asm
+
+
+#
+# shutdown example.
+#
+MISCBINS += bs3-shutdown
+bs3-shutdown_TEMPLATE = VBoxBS3KitImg
+bs3-shutdown_SOURCES = \
+	bs3-first-pe16.asm \
+	bs3-shutdown.c
+
+
+#
+# DOS Utilities / Testcases.
+#
+MISCBINS += bs3cpudt
+bs3cpudt_TEMPLATE = VBoxBS3KitUtil
+bs3cpudt_SOURCES  = \
+	bs3-first-dosexe.asm \
+	bs3cpudt.c
+
+
+#
+# Rule for regenerating bs3kit-mangling-functions-undef.h.
+#
+bs3kit-mangling-code-undef.h: $(PATH_SUB_CURRENT)/bs3kit-mangling-code-define.h $(MAKEFILE)
+	$(SED) \
+		-e 's/#\( *\)define \([a-zA-Z_][a-zA-Z0-9_]*\) .*$(DOLLAR)/#\1undef \2/' \
+       	-e 's/Function needing mangling.*$(DOLLAR)/Undefining function mangling - automatically generated by the $@ makefile rule./' \
+       	--output $(dir $<)bs3kit-mangling-code-undef.h \
+		$<
+
+#
+# Rule for regenerating bs3kit-mangling-functions-define.h.
+#
+bs3kit-mangling-code-define.h: \
+		$(PATH_SUB_CURRENT)/bs3kit.h \
+		$(PATH_SUB_CURRENT)/bs3-cmn-paging.h \
+		$(PATH_SUB_CURRENT)/bs3-cmn-test.h \
+		$(MAKEFILE)
+	$(APPEND) -tn "$(dir $<)$@" \
+		 '/* $(DOLLAR)Id: $(DOLLAR) */' \
+		 '/** @file' \
+		 ' * BS3Kit - Function needing mangling - generated by the $@ makefile rule.' \
+		 ' */' \
+		 '' \
+		 '/*' \
+		 ' * Copyright (C) 2007-$(VBOX_C_YEAR) Oracle and/or its affiliates.' \
+		 ' *' \
+		 ' * This file is part of VirtualBox base platform packages, as' \
+		 ' * available from https://www.virtualbox.org.' \
+		 ' *' \
+		 ' * This program is free software; you can redistribute it and/or' \
+		 ' * modify it under the terms of the GNU General Public License' \
+		 ' * as published by the Free Software Foundation, in version 3 of the' \
+		 ' * License.' \
+		 ' *' \
+		 ' * This program is distributed in the hope that it will be useful, but' \
+		 ' * WITHOUT ANY WARRANTY; without even the implied warranty of' \
+		 ' * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU' \
+		 ' * General Public License for more details.' \
+		 ' *' \
+		 ' * You should have received a copy of the GNU General Public License' \
+		 ' * along with this program; if not, see <https://www.gnu.org/licenses>.' \
+		 ' *' \
+		 ' * The contents of this file may alternatively be used under the terms' \
+		 ' * of the Common Development and Distribution License Version 1.0' \
+		 ' * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included' \
+		 ' * in the VirtualBox distribution, in which case the provisions of the' \
+		 ' * CDDL are applicable instead of those of the GPL.' \
+		 ' *' \
+		 ' * You may elect to license modified versions of this file under the' \
+		 ' * terms and conditions of either the GPL or the CDDL or both.' \
+		 ' *' \
+		 ' * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0' \
+		 ' */' \
+		 ''
+	$(SED) -n \
+		-e 's/^ *BS3_CMN_PROTO_STUB([^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/#define \1 BS3_CMN_MANGLER(\1)/p' \
+		-e 's/^ *BS3_CMN_PROTO_NOSB([^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/#define \1 BS3_CMN_MANGLER(\1)/p' \
+		-e 's/^ *BS3_CMN_PROTO_FARSTUB([^,]*,[^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/#define \1 BS3_CMN_MANGLER(\1)/p' \
+		$(filter %.h,$^) | sort >> "$(dir $<)bs3kit-mangling-code-define.h"
+	$(APPEND) -n "$(dir $<)$@" '#ifndef BS3_CMN_ONLY'
+	$(SED) -n \
+		-e 's/^ *BS3_MODE_PROTO_STUB([^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/# define \1 BS3_MODE_MANGLER(\1)/p' \
+		-e 's/^ *BS3_MODE_PROTO_NOSB([^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/# define \1 BS3_MODE_MANGLER(\1)/p' \
+		-e 's/^ *BS3_MODE_PROTO_FARSTUB([^,]*,[^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/# define \1 BS3_MODE_MANGLER(\1)/p' \
+		$(filter %.h,$^) | sort >> "$(dir $<)bs3kit-mangling-code-define.h"
+	$(APPEND) -n "$(dir $<)$@" '#endif /* !BS3_CMN_ONLY */'
+
+#
+# Rule for regenerating bs3kit-autostubs.kmk.
+#
+bs3kit-autostubs.kmk: \
+		$(PATH_SUB_CURRENT)/bs3kit.h \
+		$(PATH_SUB_CURRENT)/bs3-cmn-memory.h \
+		$(PATH_SUB_CURRENT)/bs3-cmn-paging.h \
+		$(PATH_SUB_CURRENT)/bs3-cmn-test.h \
+		$(MAKEFILE)
+	$(APPEND) -tn "$(dir $<)$@" \
+		 '# $(DOLLAR)Id: $(DOLLAR)' \
+		 '## @file' \
+		 '# BS3Kit - Automatic near/far stubs - generated by the $@ makefile rule.' \
+		 '#' \
+		 '' \
+		 '#' \
+		 '# Copyright (C) 2007-$(VBOX_C_YEAR) Oracle and/or its affiliates.' \
+		 '#' \
+		 '# This file is part of VirtualBox base platform packages, as' \
+		 '# available from https://www.virtualbox.org.' \
+		 '#' \
+		 '# This program is free software; you can redistribute it and/or' \
+		 '# modify it under the terms of the GNU General Public License' \
+		 '# as published by the Free Software Foundation, in version 3 of the' \
+		 '# License.' \
+		 '#' \
+		 '# This program is distributed in the hope that it will be useful, but' \
+		 '# WITHOUT ANY WARRANTY; without even the implied warranty of' \
+		 '# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU' \
+		 '# General Public License for more details.' \
+		 '#' \
+		 '# You should have received a copy of the GNU General Public License' \
+		 '# along with this program; if not, see <https://www.gnu.org/licenses>.' \
+		 '#' \
+		 '# The contents of this file may alternatively be used under the terms' \
+		 '# of the Common Development and Distribution License Version 1.0' \
+		 '# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included' \
+		 '# in the VirtualBox distribution, in which case the provisions of the' \
+		 '# CDDL are applicable instead of those of the GPL.' \
+		 '#' \
+		 '# You may elect to license modified versions of this file under the' \
+		 '# terms and conditions of either the GPL or the CDDL or both.' \
+		 '#' \
+		 '# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0' \
+		 '#' \
+		 ''
+	$(SED) -n \
+		-e '/^ *BS3_CMN_PROTO_STUB/p' \
+		-e '/^ *BS3_CMN_PROTO_FARSTUB/p' \
+		-e '/^ *BS3_MODE_PROTO_STUB/p' \
+		-e '/^ *BS3_MODE_PROTO_FARSTUB/p' \
+		$(filter %.h,$^) \
+	| sort \
+	| $(SED) -n \
+		-e 's/^ *BS3_CMN_PROTO_STUB([^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/\$(DOLLAR)(call BS3KIT_FN_GEN_CMN_NEARSTUB,bs3kit-common-16,\1)/p' \
+		-e 's/^ *BS3_MODE_PROTO_STUB([^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/\$(DOLLAR)(call BS3KIT_FN_GEN_MODE_NEARSTUB,bs3kit-common-16,\1)/p' \
+		-e 's/^ *BS3_CMN_PROTO_FARSTUB( *\([^,]*\),[^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/\$(DOLLAR)(call BS3KIT_FN_GEN_CMN_FARSTUB,bs3kit-common-16,\2,\1)/p' \
+		-e 's/^ *BS3_MODE_PROTO_FARSTUB( *\([^,]*\),[^,]*, *\([a-zA-Z_][a-zA-Z0-9_]*\) *,.*$(DOLLAR)/\$(DOLLAR)(call BS3KIT_FN_GEN_MODE_FARSTUB,bs3kit-common-16,\2,\1)/p' \
+		--append "$(dir $<)$@"
+
+bs3kit-update:: bs3kit-autostubs.kmk bs3kit-mangling-code-define.h bs3kit-mangling-code-undef.h
+.NOTPARALLEL: bs3kit-autostubs.kmk bs3kit-mangling-code-define.h bs3kit-mangling-code-undef.h
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,65 @@
+# $Id: makefile.tstVBoxAPIXPCOM $
+## @file
+# tstVBoxAPIXPCOM makefile
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+PATH_XPCOM     = ..
+PATH_BIN       = ../../../../
+
+# This setting must be the same as used when building VBoxXPCOM.so.
+# If you get a lot of unresolved symbols, try commenting it out.
+VBOX_WITH_XPCOM_NAMESPACE_CLEANUP=1
+
+PATH_XPCOM_IDL = $(PATH_XPCOM)/idl
+INCS_XPCOM     = $(PATH_XPCOM)/include \
+                 $(PATH_XPCOM)/include/nsprpub \
+                 $(PATH_XPCOM)/include/string \
+                 $(PATH_XPCOM)/include/xpcom \
+                 $(PATH_XPCOM)/include/ipcd
+
+ifdef VBOX_WITH_XPCOM_NAMESPACE_CLEANUP
+ DEFS_XPCOM   += VBOX_WITH_XPCOM_NAMESPACE_CLEANUP
+endif
+
+# Adjust this to match your platform, pick from RT_OS_LINUX, RT_OS_WINDOWS,
+# RT_OS_DARWIN, RT_OS_SOLARIS...
+DEFS_XPCOM += RT_OS_LINUX
+
+
+#
+# Link with the public XPCOM libraries
+#
+tstVBoxAPIXPCOM: tstVBoxAPIXPCOM.o
+	g++ -g -o $@ $^ \
+		$(PATH_BIN)/VBoxXPCOM.so \
+		-Wl,-rpath $(PATH_BIN)/ \
+		-ldl -lpthread
+
+tstVBoxAPIXPCOM.o: tstVBoxAPIXPCOM.cpp
+	g++ -c -g -fshort-wchar $(addprefix -I, $(INCS_XPCOM)) $(addprefix -D, $(DEFS_XPCOM)) -o $@ tstVBoxAPIXPCOM.cpp
+
+clean:
+	rm -f tstVBoxAPIXPCOM tstVBoxAPIXPCOM.o
+

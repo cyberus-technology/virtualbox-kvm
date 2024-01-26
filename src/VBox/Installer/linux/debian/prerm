@@ -1,0 +1,57 @@
+#!/bin/sh
+# $Id: prerm $
+## @file
+# VirtualBox pre-removal.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# we can be called with the following arguments (6.5 of Debian policy):
+#  upgrade:          (new version): upgrade to a new version
+#  failed-upgrade:   (our version): failed to upgrade
+#  remove:           (our version): remove this package
+#  deconfigure:      (our version): removing conflicting version
+
+rm -f /etc/udev/rules.d/60-vboxdrv.rules
+rm -f /etc/vbox/license_agreed
+rm -f /etc/vbox/module_not_compiled
+
+# defaults
+[ -r /etc/default/virtualbox ] && . /etc/default/virtualbox
+
+. /usr/share/debconf/confmodule
+db_version 2.0
+db_capb backup
+
+if ! /usr/lib/virtualbox/prerm-common.sh > /dev/null 2>&1; then
+  if [ "$1" != "failed-upgrade" ]; then
+    db_fset virtualbox/old-running seen false || true
+    db_input critical virtualbox/old-running || true
+    db_go || true
+  fi
+  exit 1
+fi
+
+#DEBHELPER#
+
+exit 0

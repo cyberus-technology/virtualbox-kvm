@@ -1,0 +1,123 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for src/VBox.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+ifdef VBOX_ONLY_ADDITIONS
+ include $(PATH_SUB_CURRENT)/Runtime/Makefile.kmk
+ if defined(VBOX_WITH_CROGL) || defined(VBOX_WITH_HGSMI)
+  if1of ($(KBUILD_TARGET), win linux solaris freebsd netbsd haiku)
+   include $(PATH_SUB_CURRENT)/GuestHost/Makefile.kmk
+  endif
+ endif
+ include $(PATH_SUB_CURRENT)/Additions/Makefile.kmk
+
+ ifdef VBOX_WITH_ADDITIONS_SHIPPING_AUDIO_TEST
+  include $(PATH_SUB_CURRENT)/ValidationKit/utils/audio/Makefile.kmk
+ endif
+
+else ifdef VBOX_ONLY_DOCS
+ include $(PATH_SUB_CURRENT)/Runtime/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/HostDrivers/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Frontends/Makefile.kmk
+
+else ifdef VBOX_ONLY_EXTPACKS
+ include $(PATH_SUB_CURRENT)/Runtime/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Devices/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/HostDrivers/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Main/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Storage/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/ExtPacks/Makefile.kmk
+ if defined(VBOX_WITH_VRDP) || defined(VBOX_WITH_VRDP_RDESKTOP)
+  include $(PATH_SUB_CURRENT)/RDP/Makefile.kmk
+ endif
+ include $(PATH_SUB_CURRENT)/VMM/Makefile.kmk
+ ifndef VBOX_ONLY_EXTPACKS_USE_IMPLIBS
+  include $(PATH_SUB_CURRENT)/Disassembler/Makefile.kmk
+ endif
+
+else ifdef VBOX_ONLY_SDK
+ include $(PATH_SUB_CURRENT)/Main/Makefile.kmk
+ ifdef VBOX_WITH_VRDP
+  include $(PATH_SUB_CURRENT)/RDP/Makefile.kmk
+ endif
+ include $(PATH_SUB_CURRENT)/Installer/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Frontends/VBoxShell/Makefile.kmk
+
+else ifdef VBOX_ONLY_VALIDATIONKIT
+ include $(PATH_SUB_CURRENT)/Runtime/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/HostDrivers/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Disassembler/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/ValidationKit/Makefile.kmk
+
+else
+ if defined(VBOX_WITH_MAIN) && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" != ""
+  include $(PATH_SUB_CURRENT)/Main/Makefile.kmk 			# Do this one first because of soap.
+ endif
+ include $(PATH_SUB_CURRENT)/Runtime/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Disassembler/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Storage/Makefile.kmk
+ if1of ($(KBUILD_TARGET_ARCH), $(VBOX_SUPPORTED_HOST_ARCHS))
+  include $(PATH_SUB_CURRENT)/VMM/Makefile.kmk
+ endif
+ include $(PATH_SUB_CURRENT)/Devices/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/HostDrivers/Makefile.kmk
+ if1of ($(KBUILD_TARGET_ARCH), $(VBOX_SUPPORTED_HOST_ARCHS))
+  include $(PATH_SUB_CURRENT)/HostServices/Makefile.kmk
+  ifdef VBOX_WITH_DEBUGGER
+   include $(PATH_SUB_CURRENT)/Debugger/Makefile.kmk
+  endif
+  include $(PATH_SUB_CURRENT)/Frontends/Makefile.kmk
+ endif
+ ifdef VBOX_WITH_VRDP
+  include $(PATH_SUB_CURRENT)/RDP/Makefile.kmk
+ endif
+ if defined(VBOX_WITH_CROGL) || defined(VBOX_WITH_HGSMI) || defined(VBOX_WITH_HGCM)
+  include $(PATH_SUB_CURRENT)/GuestHost/Makefile.kmk
+ endif
+ ifdef VBOX_WITH_ADDITIONS
+  include $(PATH_SUB_CURRENT)/Additions/Makefile.kmk
+ endif
+ ifdef VBOX_WITH_VALIDATIONKIT
+  include $(PATH_SUB_CURRENT)/ValidationKit/Makefile.kmk
+ else ifdef VBOX_WITH_HOST_SHIPPING_AUDIO_TEST
+  include $(PATH_SUB_CURRENT)/ValidationKit/utils/audio/Makefile.kmk
+ endif
+ include $(PATH_SUB_CURRENT)/NetworkServices/Makefile.kmk
+ if1of ($(KBUILD_TARGET_ARCH), $(VBOX_SUPPORTED_HOST_ARCHS))
+  include $(PATH_SUB_CURRENT)/ExtPacks/Makefile.kmk
+ endif
+ include $(PATH_SUB_CURRENT)/ImageMounter/Makefile.kmk
+ if defined(VBOX_WITH_INSTALLER) && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" != ""
+  include $(PATH_SUB_CURRENT)/Installer/Makefile.kmk 		        # Keep this last.
+ endif
+endif # !VBOX_ONLY_ADDITIONS && !VBOX_ONLY_DOCS
+
+
+include $(FILE_KBUILD_SUB_FOOTER)

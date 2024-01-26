@@ -1,0 +1,214 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the New BIOS ROM.
+#
+
+#
+# Copyright (C) 2012-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+ifdef VBOX_WITH_OPEN_WATCOM
+
+ #
+ # VBoxPcBios - The PC BIOS.
+ #
+ MISCBINS += VBoxPcBios386
+ VBoxPcBios386_TEMPLATE = VBoxBios
+ VBoxPcBios386_BLD_TYPE = release
+ VBoxPcBios386_CFLAGS = -3
+ VBoxPcBios386_DEFS = \
+ 	VBOX_PC_BIOS \
+ 	VBOX_LANBOOT_SEG=0xE200 \
+ 	VBOX_WITH_SCSI \
+ 	VBOX_WITH_AHCI \
+ 	VBOX_WITH_VIRTIO_SCSI \
+ 	VBOX_BIOS_CPU=80386
+ #VBoxPcBios386_DEFS.debug = DEBUG_ATA DEBUG_POST DEBUG_INT13
+ VBoxPcBios386_LDFLAGS = \
+ 	output raw offset=0xF0000 \
+ 	order \
+ 	clname DATA segaddr=0xF000 \
+ 	segment _DATA \
+ 	clname CODE \
+ 	segment _TEXT   segaddr=0xF000 offset=0x1600 \
+ 	segment BIOS32  segaddr=0xF000 offset=0xDA00 \
+ 	segment BIOSSEG segaddr=0xF000 offset=0xE000
+ VBoxPcBios386_SOURCES = \
+ 	post.c \
+ 	bios.c \
+ 	print.c \
+ 	ata.c \
+ 	floppy.c \
+ 	floppyt.c \
+ 	eltorito.c \
+ 	boot.c \
+ 	keyboard.c \
+ 	disk.c \
+ 	serial.c \
+ 	system.c \
+ 	invop.c \
+ 	timepci.c \
+ 	ps2mouse.c \
+ 	parallel.c \
+ 	logo.c \
+ 	scsi.c \
+ 	ahci.c \
+ 	virtio.c \
+ 	buslogic.c \
+ 	lsilogic.c \
+ 	apm.c \
+ 	pcibios.c \
+ 	pciutil.c \
+ 	vds.c \
+ 	../../BiosCommonCode/__U4M.asm \
+ 	../../BiosCommonCode/__U4D.asm \
+ 	../../BiosCommonCode/__U8RS.asm \
+ 	../../BiosCommonCode/__U8LS.asm \
+ 	../../BiosCommonCode/fmemset.asm \
+ 	../../BiosCommonCode/fmemcpy.asm \
+ 	pcibio32.asm \
+ 	apm_pm.asm \
+ 	$(VBoxPcBios32_0_OUTDIR)/VBoxPcBios32.lib \
+ 	orgs.asm
+
+ #$(VBoxPcBios32_1_TARGET) - reference is lost when extending the target. weird.
+
+ # For 32-bit C code in PC BIOS.
+ LIBRARIES += VBoxPcBios32
+ VBoxPcBios32_TEMPLATE = VBoxBios32Lib
+ VBoxPcBios32_SOURCES = \
+ 	pci32.c
+
+ ../../BiosCommonCode/DoUInt32Div.c_CFLAGS = -mc # asm.h and uint32.h both require far data pointers by default.
+
+ MISCBINS += VBoxPcBios286
+ VBoxPcBios286_EXTENDS = VBoxPcBios386
+ VBoxPcBios286_CFLAGS  = -2
+ VBoxPcBios286_DEFS    = $(filter-out VBOX_BIOS_CPU=80386,$(VBoxPcBios386_DEFS)) VBOX_BIOS_CPU=80286
+ VBoxPcBios286_SOURCES = $(VBoxPcBios386_SOURCES) \
+ 	../../BiosCommonCode/DoUInt32Div.c \
+ 	../../BiosCommonCode/ASMBitLastSetU16.asm
+
+ MISCBINS += VBoxPcBios8086
+ VBoxPcBios8086_EXTENDS = VBoxPcBios386
+ VBoxPcBios8086_CFLAGS  = -0
+ VBoxPcBios8086_DEFS    = $(filter-out VBOX_BIOS_CPU=80386,$(VBoxPcBios386_DEFS)) VBOX_BIOS_CPU=8086
+ VBoxPcBios8086_SOURCES = $(VBoxPcBios386_SOURCES) \
+ 	../../BiosCommonCode/DoUInt32Div.c \
+ 	../../BiosCommonCode/ASMBitLastSetU16.asm
+
+
+ #
+ # Updates the alternative source files.
+ #
+ define def_VBoxPcBiosUpdateAltSource
+
+  $$(PATH_SUB_CURRENT)/VBoxBiosAlternative$(1).asm +| $$(PATH_SUB_CURRENT)/VBoxBiosAlternative$(1).md5sum: \
+  		$$$$(VBoxPcBios$(1)_1_TARGET) \
+  		$$(VBOX_MAKE_ALTERNATIVE_SOURCE) \
+  		$$(VBOX_VBOXCMP)
+  if1of ($(KBUILD_TYPE), release)
+	$$(VBOX_MAKE_ALTERNATIVE_SOURCE) \
+       	--bios-image $$< \
+       	--bios-map $$(basename $$<).map \
+       	--bios-sym $$(basename $$<).sym \
+       	--bios-type system \
+       	--output $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).asm
+	$$(QUIET)$$(TOOL_YASM_AS) -f bin -o $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).bin $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).asm
+	$$(VBOX_VBOXCMP) $$< $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).bin
+	$$(CP) --changed -- $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).asm $$(PATH_ROOT)/src/VBox/Devices/PC/BIOS/VBoxBiosAlternative$(1).asm
+	$$(REDIRECT) -C $$(dir $$(VBoxPcBios$(1)_1_TARGET)) -- \
+       	$$(MD5SUM_EXT) -bo $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).md5sum $$(notdir $$(VBoxPcBios$(1)_1_TARGET))
+	$$(CP) --changed -- $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).md5sum $$(PATH_ROOT)/src/VBox/Devices/PC/BIOS/VBoxBiosAlternative$(1).md5sum
+	$$(RM) -f -- $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).asm $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative.bin $$(VBoxPcBios$(1)_0_OUTDIR)/VBoxBiosAlternative$(1).md5sum
+  else
+	$$(QUIET)$$(ECHO) "Fatal error: Can only update VBoxBiosAlternative$(1).asm/md5sum with a release build."
+	$$(QUIET)exit 1
+  endif
+
+ endef
+
+ $(evalcall2 def_VBoxPcBiosUpdateAltSource,386)
+ $(evalcall2 def_VBoxPcBiosUpdateAltSource,286)
+ $(evalcall2 def_VBoxPcBiosUpdateAltSource,8086)
+
+ update-pcbios-source: \
+ 		$(PATH_SUB_CURRENT)/VBoxBiosAlternative386.asm \
+ 		$(PATH_SUB_CURRENT)/VBoxBiosAlternative286.asm \
+ 		$(PATH_SUB_CURRENT)/VBoxBiosAlternative8086.asm
+
+endif # VBOX_WITH_OPEN_WATCOM
+
+
+#
+# The library containing the PC BIOS image.
+#
+LIBRARIES += PcBiosBin
+PcBiosBin_TEMPLATE  = VBoxR3Dll
+PcBiosBin_DEFS      = IN_VBOXDD2
+
+define def_VBoxPcBiosBin
+ PcBiosBin_CLEAN   += $$(PcBiosBin_0_OUTDIR)/PcBiosBin$(1).c
+ PcBiosBin_SOURCES += $$(PcBiosBin_0_OUTDIR)/PcBiosBin$(1).c
+
+ ifdef VBOX_WITH_OPEN_WATCOM
+  $$$$(PcBiosBin_0_OUTDIR)/PcBiosBin$(1).c: $$$$(VBoxPcBios$(1)_1_TARGET) $$(VBOX_BIN2C) | $$$$(dir $$$$@)
+	$$(call MSG_TOOL,bin2c,PcBiosBin,$$<,$$@)
+	$$(QUIET)$$(VBOX_BIN2C) -min 64 -max 256 -mask 0xffff -ascii -export PcBiosBinary$(1) $$< $$@
+ else
+  PcBiosBin_CLEAN    += $$(PcBiosBin_0_OUTDIR)/VBoxPcBios$(1).rom
+
+  $$$$(PcBiosBin_0_OUTDIR)/PcBiosBin$(1).c + $$$$(PcBiosBin_0_OUTDIR)/VBoxPcBios$(1).rom: \
+  		$$(PATH_SUB_CURRENT)/VBoxBiosAlternative$(1).asm \
+  		$$(PATH_SUB_CURRENT)/VBoxBiosAlternative$(1).md5sum \
+  		$$(VBOX_BIN2C) | $$$$(dir $$$$@)
+	$$(call MSG_TOOL,bin2c,PcBiosBin,$$<,$$@)
+	$$(QUIET)$$(TOOL_YASM_AS) -f bin -o $$(PcBiosBin_0_OUTDIR)/VBoxPcBios$(1).rom $$<
+	$$(QUIET)$$(REDIRECT) -C $$(PcBiosBin_0_OUTDIR) -- \
+		$$(MD5SUM_EXT) -c $$(basename $$<).md5sum
+	$$(QUIET)$$(VBOX_BIN2C) -min 64 -max 256 -mask 0xffff -ascii -export PcBiosBinary$(1) $$(PcBiosBin_0_OUTDIR)/VBoxPcBios$(1).rom $$@
+	$$(QUIET)$$(RM) -f -- $$$$(PcBiosBin_0_OUTDIR)/VBoxPcBios$(1).rom
+ endif
+endef
+$(evalcall2 def_VBoxPcBiosBin,386)
+$(evalcall2 def_VBoxPcBiosBin,286)
+$(evalcall2 def_VBoxPcBiosBin,8086)
+
+
+
+ifdef VBOX_WITH_OPEN_WATCOM
+ #
+ # Install the symbol file for the BIOS.
+ #
+ INSTALLS += VBoxPcBiosSym
+ VBoxPcBiosSym_TEMPLATE = VBoxDbgSyms
+ VBoxPcBiosSym_SOURCES = \
+ 	$(basename $(VBoxPcBios386_1_TARGET)).sym \
+ 	$(basename $(VBoxPcBios286_1_TARGET)).sym \
+ 	$(basename $(VBoxPcBios8086_1_TARGET)).sym
+endif
+
+
+include $(FILE_KBUILD_SUB_FOOTER)

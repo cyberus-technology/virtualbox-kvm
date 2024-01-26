@@ -1,0 +1,46 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for the VBox Network Services.
+#
+
+#
+# Copyright (C) 2009-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefiles.
+include $(PATH_SUB_CURRENT)/Dhcpd/Makefile.kmk
+
+# VBoxNetNAT requires COM/XPCOM.
+if   defined(VBOX_WITH_NAT_SERVICE) && defined(VBOX_WITH_MAIN) \
+  && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" != ""
+ include $(PATH_SUB_CURRENT)/NAT/Makefile.kmk
+endif
+
+# Internal network switch
+if defined(VBOX_WITH_INTNET_SERVICE_IN_R3)
+ include $(PATH_SUB_CURRENT)/IntNetSwitch/Makefile.kmk
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

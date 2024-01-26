@@ -1,0 +1,206 @@
+/** @file
+ * IPRT / No-CRT - Minimal C++ fstream header.
+ */
+
+/*
+ * Copyright (C) 2022-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+#ifndef VBOX_INCLUDED_SRC_nocrt_fstream
+#define VBOX_INCLUDED_SRC_nocrt_fstream
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#include <iprt/nocrt/ostream>
+#include <iprt/stream.h>
+
+
+namespace std
+{
+    template<typename a_CharType, typename a_CharTraits /*= std::char_traits<a_CharType>*/ >
+    class basic_filebuf : public basic_streambuf<a_CharType, a_CharTraits>
+    {
+    protected:
+        PRTSTREAM           m_pStrm;
+        bool                m_fStdStream;
+        ios_base::openmode  m_fMode;
+
+    public:
+        basic_filebuf(PRTSTREAM a_pStrm = NULL, bool a_fStdStream = false)
+            : basic_streambuf()
+            , m_pStrm(a_pStrm)
+            , m_fStdStream(a_fStdStream)
+            , m_fMode(ios_base::openmode(0))
+        {
+        }
+
+        virtual ~basic_filebuf()
+        {
+            if (m_pStrm)
+            {
+                if (m_fStdStream)
+                    RTStrmClose(m_pStrm);
+                m_pStrm = NULL;
+            }
+        }
+
+        bool is_open() const RT_NOEXCEPT
+        {
+            return m_pStrm != NULL;
+        }
+
+        basic_filebuf *open(const char *a_pszFilename, ios_base::openmode a_fMode)
+        {
+            /*
+             * Sanitize the a_fMode first.
+             */
+            AssertReturn(!is_open(), NULL);
+            AssertReturn(a_fMode & (ios_base::out | ios_base::in), NULL); /* Neither write nor read mode? */
+            AssertStmt((a_fMode & (ios_base::out | ios_base::app))     != ios_base::app,   a_fMode &= ~ios_base::app);
+            AssertReturn((a_fMode & (ios_base::out | ios_base::trunc)) != ios_base::trunc, NULL);
+            AssertReturn(!(a_fMode & ios_base::trunc) || !(a_fMode & ios_base::app), NULL);
+
+            /*
+             * Translate a_fMode into a stream mode string and try open the file.
+             */
+            char szMode[8];
+            szMode[0] = a_fMode & ios_base::trunc ? 'w' : a_fMode & ios_base::app ? 'a' : 'r';
+            size_t offMode = 1;
+            if ((a_fMode & (ios_base::in | ios_base::out)) == (ios_base::in | ios_base::out))
+                szMode[offMode++] = '+';
+            if (a_fMode & ios_base::binary)
+                szMode[offMode++] = 'b';
+            szMode[offMode] = '\0';
+
+            int rc = RTStrmOpen(a_pszFilename, szMode, &m_pStrm);
+            if (RT_SUCCESS(rc))
+            {
+                /** @todo if (a_fMode & ios_base::ate)? */
+
+                /*
+                 * Set up the buffer?
+                 */
+                if (true)
+                {
+                    return this;
+                }
+
+                RTStrmClose(m_pStrm);
+                m_pStrm = NULL;
+            }
+            return NULL;
+        }
+
+    protected:
+        bool flushBuffered()
+        {
+            /** @todo buffering. */
+            return true;
+        }
+
+        //virtual int_type overflow(int_type a_iChar) RT_OVERRIDE
+        //{
+        //    if (a_iChar != traits_type::eof())
+        //    {
+        //        if (flushBuffered())
+        //        {
+        //            char_type ch = traits_type::to_char_type(a_iChar);
+        //            int rc = RTStrmWrite(m_pStrm, &ch, sizeof(ch));
+        //            if (RT_SUCCESS(rc))
+        //                return a_iChar;
+        //        }
+        //    }
+        //    return traits_type::eof();
+        //}
+
+        std::streamsize xsputn(char_type const *a_pchSrc, std::streamsize a_cchSrc) //RT_OVERRIDE
+        {
+            if (flushBuffered())
+            {
+                size_t cbWritten = 0;
+                int rc = RTStrmWriteEx(m_pStrm, &a_pchSrc, sizeof(a_pchSrc[0]) * a_cchSrc, &cbWritten);
+                if (RT_SUCCESS(rc))
+                    return cbWritten / sizeof(a_pchSrc[0]);
+            }
+            return 0;
+        }
+    };
+
+
+    /**
+     * Basic I/O stream.
+     */
+    template<typename a_CharType, typename a_CharTraits /*= std::char_traits<a_CharType>*/ >
+    class basic_ofstream : public basic_ostream<a_CharType, a_CharTraits>
+    {
+    protected:
+        basic_filebuf<a_CharType, a_CharTraits> m_FileBuf;
+
+    public:
+        basic_ofstream()
+            : basic_ostream(&m_FileBuf) /** @todo m_FileBuf isn't initialized yet... */
+            , m_FileBuf()
+        {
+        }
+
+        explicit basic_ofstream(const char *a_pszFilename, ios_base::openmode a_fMode = ios_base::out)
+            : basic_ostream(&m_FileBuf) /** @todo m_FileBuf isn't initialized yet... */
+            , m_FileBuf()
+        {
+            m_FileBuf.open(a_pszFilename, a_fMode);
+        }
+    private:
+        basic_ofstream(basic_ofstream const &a_rSrc);               /* no copying */
+        basic_ofstream &operator=(basic_ofstream const &a_rSrc);    /* no copying */
+
+    public:
+        virtual ~basic_ofstream()
+        {
+        }
+
+    public:
+
+        bool is_open() const RT_NOEXCEPT
+        {
+            return m_FileBuf.is_open();
+        }
+
+        basic_filebuf<a_CharType, a_CharTraits> *open(const char *a_pszFilename, ios_base::openmode a_fMode)
+        {
+            return m_FileBuf.open(a_pszFilename, a_fMode);
+        }
+
+
+    };
+}
+
+#endif /* !VBOX_INCLUDED_SRC_nocrt_fstream */
+

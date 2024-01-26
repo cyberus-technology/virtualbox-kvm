@@ -1,0 +1,52 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the MsiHack.dll and MsiHackExtension.dll experiment.
+#
+
+#
+# Copyright (C) 2016-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+DLLS += MsiHack
+MsiHack_TEMPLATE     = VBoxR3StaticDll
+MsiHack_BLD_TRG_ARCH = x86
+MsiHack_SOURCES      = MsiHack.cpp
+
+ifndef windir
+ windir = C:/Windows
+endif
+VBOX_DOT_NET_COMPILER = $(firstword $(rsort $(wildcard $(windir)/Microsoft.NET/Framework/*/csc.exe)) csc.exe)
+
+OTHERS += $(MsiHack_0_OUTDIR)/MsiHackExtension.dll
+$$(MsiHack_0_OUTDIR)/MsiHackExtension.dll: $(PATH_SUB_CURRENT)/MsiHackExtension.cs $(MAKEFILE) | $$(dir $$@)
+	$(VBOX_DOT_NET_COMPILER) /nologo \
+		/out:$@ \
+		/target:library \
+		/reference:$(VBOX_PATH_WIX)/wix.dll \
+		$(subst /,\\,$<)
+
+MsiHackExtension.dll: $$(MsiHack_0_OUTDIR)/MsiHackExtension.dll
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

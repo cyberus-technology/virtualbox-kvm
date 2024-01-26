@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage metrics
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-metrics" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage metrics</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-metrics</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-metrics</refname>
+    <refpurpose>мониторинг использования системных ресурсов</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-collect">
+      <command>VBoxManage metrics collect</command>
+      <arg>--detach</arg>
+      <arg>--list</arg>
+      <arg>--period=<replaceable>секунды</replaceable></arg>
+      <arg>--samples=<replaceable>количество</replaceable></arg>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable> <arg><replaceable>список-метрик</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-disable">
+      <command>VBoxManage metrics disable</command>
+      <arg>--list</arg>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable> <arg><replaceable>список-метрик</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-enable">
+      <command>VBoxManage metrics enable</command>
+      <arg>--list</arg>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable> <arg><replaceable>список-метрик</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-list">
+      <command>VBoxManage metrics list</command>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable> <arg><replaceable>список-метрик</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-query">
+      <command>VBoxManage metrics query</command>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable> <arg><replaceable>список-метрик</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-setup">
+      <command>VBoxManage metrics setup</command>
+      <arg>--list</arg>
+      <arg>--period <replaceable>секунды</replaceable></arg>
+      <arg>--samples <replaceable>количество</replaceable></arg>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable> <arg><replaceable>список-метрик</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage metrics</command> позволяет наблюдать
+      за использованием системных ресурсов в хост-системе и в
+      виртуальных машинах (ВМ). Например, можно контролировать
+      определенную метрику, такую как процент времени, затрачиваемую
+      ЦПУ при выполнении в пользовательском режиме
+      (<literal>CPU/Load/User</literal>) в течение определенного
+      периода.
+    </para>
+    <para>
+      Пока она работает, процесс <command>VBoxSVC</command> собирает
+      и сохраняет данные указанной метрики внутри. Процесс
+      <command>VBoxSVC</command> завершает работу почти сразу после
+      закрытия всех ВМ и интерфейсов пользователя. Используйте команду
+      <command>VBoxManage metrics query</command> для получения данных
+      в любое время.
+    </para>
+    <para>
+      По умолчанию, метрики не собираются, пока не будет запущена
+      команда <command>VBoxManage metrics setup</command>, в которой
+      указывается интервал выборки в секундах и количество сохраняемых
+      метрик.
+    </para>
+    <para>
+      Заметим, что включить сбор метрик можно только для запущенных ВМ.
+      Собранные данные и настройки сбора данных для ВМ удаляются при
+      выключении ВМ.
+    </para>
+    <refsect2>
+      <title>Метрики</title>
+      <para>
+        У хоста и ВМ есть разные наборы соответствующих метрик,
+        которые можно отобразить через команду <command>VBoxManage
+        metrics list</command>
+      </para>
+      <para>
+        Каждая метрика представлена строкой состоящей из категории и
+        метрики. Опционально, строка метрик может включать любое из
+        следующих: подметрика, под-подметрика и агрегат. Строка
+        метрик имеет следующий формат:
+      </para>
+<screen><replaceable>категория</replaceable>/<replaceable>метрика</replaceable>[/<replaceable>подметрика</replaceable>[/<replaceable>под-подметрика</replaceable>]][:<replaceable>агрегат</replaceable>]</screen>
+      <itemizedlist>
+        <listitem><para>
+            <replaceable>категория</replaceable> - это тип ресурса,
+            такой как <literal>CPU</literal>, <literal>RAM</literal>,
+            <literal>FS</literal>, <literal>Net</literal>.
+          </para></listitem>
+        <listitem><para>
+            <replaceable>метрика</replaceable> - это тип измерения,
+            связанной с категорией ресурса. Например, метрики
+            <literal>Load</literal> и <literal>MHz</literal>
+            связаны с категорией ресурса <literal>CPU</literal>.
+          </para></listitem>
+        <listitem><para>
+            <replaceable>подметрика</replaceable> - это опциональный
+            тип измерения, связанный с метрикой. Например, подметрики
+            <literal>User</literal>, <literal>Kernel</literal> и
+            <literal>Idle</literal> связаны с метрикой
+            <literal>Load</literal>.
+          </para></listitem>
+        <listitem><para>
+            <replaceable>под-подметрика</replaceable> - это опциональный
+            тип измерения связанный с подметрикой. Например, под-подметрики
+            <literal>Rx</literal> и <literal>Tx</literal> связаны с
+            подметрикой <literal>Rate</literal> категории ресурса
+            <literal>Net</literal>. Связанная метрика - это сетевой
+            интерфейс.
+          </para></listitem>
+        <listitem><para>
+            <replaceable>агрегат</replaceable> - это опциональная
+            функция для передачи минимального, максимального и среднего
+            значения измерений категории ресурса. Например, метрика
+            <literal>RAM/Usage/Free:min</literal> представляет
+            минимальное количество доступной памяти найденное во всех
+            сохраненных данных в хост-системе.
+          </para></listitem>
+      </itemizedlist>
+      <para>
+        По умолчанию, команды <command>VBoxManage metrics</command>
+        оперируют хост-системой и всеми ВМ и возвращают все метрики.
+        Можно опционально ограничить эти команды работой только по
+        хост-системе или только по определенной ВМ и возвращать
+        список одной или нескольких метрик.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-common-options">
+      <title>Общие параметры</title>
+      <variablelist>
+        <varlistentry>
+          <term><literal>*</literal> | <literal>host</literal> | <replaceable>имя-ВМ</replaceable></term>
+          <listitem><para>
+              Задает компонент для работы. По умолчанию, эта команда
+              работает по хост-системе и всем запущенным ВМ.
+            </para><para>
+              Если указать <literal>host</literal>, команда
+              <command>VBoxManage metrics</command> работает только по
+              хост-системе. Если указать звездочку (<literal>*</literal>),
+              команда работает по всем ВМ. Если указать имя ВМ, команда
+              <command>VBoxManage metrics</command> работает только
+              по этой ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>список-метрик</replaceable></term>
+          <listitem><para>
+              Задает список одной или нескольких метрик, разделенный
+              запятыми.
+            </para><para>
+              Формат метрик должен включать <replaceable>категорию</replaceable>
+              и <replaceable>метрику</replaceable> в строке, разделенную
+              слэшем.
+            </para><para>
+              Заметим, что команды <command>VBoxManage metrics
+              enable</command> и <command>VBoxManage metrics
+              disable</command> требуют указания метрик как параметров.
+              Метрики должны включать только категорию ресурса и саму
+              метрику, например <literal>CPU/Load</literal> и
+              <literal>RAM/Usage</literal>.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-collect">
+      <title>Сбор данных метрик</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage metrics collect</command>
+        собирает и выводит периодически данные, пока процесс не
+        будет остановлен нажатием Ctrl+C.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--detach</option></term>
+          <listitem><para>
+              Отключает сбор данных метрики, так что больше данных
+              не выводится. Использование этой опции равносильно
+              запуску команды <command>VBoxManage metrics setup</command>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Показывает какие метрики соответствуют указанному фильтру.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--period=<replaceable>секунды</replaceable></option></term>
+          <listitem><para>
+              Задает количество секунд ожидания между выборками
+              данных метрик. По умолчанию 1.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--samples=<replaceable>количество</replaceable></option></term>
+          <listitem><para>
+              Задает количество сохраняемых выборок данных метрик.
+              Для просмотра сохраненных данных используйте команду
+              <command>VBoxManage metrics query</command>. По
+              умолчанию 1.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-disable">
+      <title>Отключить сбор данных метрик</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage metrics disable</command>
+        приостанавливает сбор данных. Эта команда не влияет ни на
+        свойства сбора данных, ни на сами собранные данные. Обратите
+        внимание, что указание подметрики в списке метрик не отключает
+        ее базовые метрики.
+      </para>
+      <para>
+        Заметим, что команда <command>VBoxManage metrics disable</command>
+        требует указания метрик как параметров. Метрики должны включать
+        только категорию ресурса и саму метрику, например
+        <literal>CPU/Load</literal> и <literal>RAM/Usage</literal>.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Показывает завершилась ли команда успешно как ожидалось.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-enable">
+      <title>Включение сбора данных метрики</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage metrics enable</command> возобновляет
+        сбор данных после того, как он был приостановлен командой
+        <command>VBoxManage metrics disable</command>. Заметим, что
+        указание подметрики в списке метрик не включает его базовые
+        метрики.
+      </para>
+      <para>
+        В отличие от команды <command>VBoxManage metrics setup</command>
+        команда <command>VBoxManage metrics enable</command> не удаляет
+        предыдущие накопленные выборки для указанного набора объектов и
+        метрик.
+      </para>
+      <para>
+        Заметим, что команда <command>VBoxManage metrics enable</command>
+        требует указания метрик как параметров. Метрики должны включать
+        только категорию ресурса и саму метрику, например
+        <literal>CPU/Load</literal> и <literal>RAM/Usage</literal>.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Показывает, завершилась ли команда успешно как ожидалось.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-list">
+      <title>Показать значения метрик</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage metrics list</command> показывает
+        доступные на текущий момент метрики. Обратите внимание, метрики,
+        относящиеся к ВМ, отображаются пока ВМ работает.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-query">
+      <title>Показать сохраненные данные метрики</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage metrics query</command>
+        получает и показывает сохраненные данные метрики.
+      </para>
+      <para>
+        Заметим, что команда <command>VBoxManage metrics query</command>
+        не удаляет и не сбрасывает сохраненные данные, но старые
+        выборки заменяются на новые в течение времени.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-setup">
+      <title>Настройка свойств сбора метрик</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage metrics setup</command> настраивает
+        свойства сбора метрик.
+      </para>
+      <para>
+        Заметим, что эта команда удаляет любые ранее собранные выборки
+        для указанного набора объектов и метрик. Для включения и отключения
+        сбора метрик без удаления данных используйте команды
+        <command>VBoxManage metrics enable</command> и
+        <command>VBoxManage metrics disable</command> соответственно.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Показывает какие метрики были изменены в качестве результата
+              выполнения команды.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--period=<replaceable>секунды</replaceable></option></term>
+          <listitem><para>
+              Задает количество секунд ожидания между выборками данных метрик.
+              По умолчанию 1.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--samples=<replaceable>количество</replaceable></option></term>
+          <listitem><para>
+              Задает количество сохраняемых выборок данных метрик.
+              Для просмотра сохраненных данных используйте команду
+              <command>VBoxManage metrics query</command>. По
+              умолчанию 1.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      Следующая команда включает сбор метрик использования
+      процессора и памяти хоста каждую секунду. Опция
+      <option>--samples</option> сохраняет пять последних
+      выборок.
+    </para>
+<screen>$ VBoxManage metrics setup --period 1 --samples 5 host CPU/Load,RAM/Usage</screen>
+    <para>
+      Следующая команда показывает доступные метрики для хоста и ВМ:
+    </para>
+<screen>$ VBoxManage metrics list</screen>
+    <para>
+      Заметим, что у хост-системы и ВМ разные наборы метрик.
+    </para>
+    <para>
+      Следующий пример показывает как запросить данные метрик о затраченном
+      времени ЦПУ в режимах пользователя и ядра для ВМ <literal>test</literal>:
+    </para>
+<screen>$ VBoxManage metrics query test CPU/Load/User,CPU/Load/Kernel</screen>
+  </refsect1>
+</refentry>

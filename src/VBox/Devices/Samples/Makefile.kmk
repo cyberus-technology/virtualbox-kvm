@@ -1,0 +1,112 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for the device and driver samples.
+#
+
+#
+# Copyright (C) 2009-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# VBoxSampleDevice - A sample device module.
+#
+DLLS += VBoxSampleDevice
+VBoxSampleDevice_TEMPLATE = VBoxR3Dll
+VBoxSampleDevice_SOURCES  = \
+	VBoxSampleDevice.cpp
+VBoxSampleDevice_LIBS     = \
+	$(LIB_RUNTIME)
+
+#
+# VBoxSampleDriver - A sample driver module.
+#
+DLLS += VBoxSampleDriver
+VBoxSampleDriver_TEMPLATE = VBoxR3Dll
+VBoxSampleDriver_SOURCES  = \
+	DrvStorageFilter.cpp
+VBoxSampleDriver_LIBS     = \
+	$(LIB_RUNTIME)
+
+
+#
+# VBoxPlaygroundDevice - A device module demonstrating some unusual features.
+#
+DLLS += VBoxPlaygroundDevice
+VBoxPlaygroundDevice_TEMPLATE = VBoxR3Dll
+VBoxPlaygroundDevice_SOURCES  = \
+	DevPlayground.cpp
+VBoxPlaygroundDevice_LIBS     = \
+	$(PATH_STAGE_LIB)/VBoxCOM$(VBOX_SUFF_LIB) \
+	$(LIB_RUNTIME)
+
+ifdef VBOX_WITH_XPCOM
+ ## @todo may be worth creating the VBOX_XPCOM SDK def, or just a SDK_VBOXXPCOM.
+ VBoxPlaygroundDevice_DEFS += VBOX_WITH_XPCOM
+ ifdef VBOX_WITH_XPCOM_NAMESPACE_CLEANUP
+  VBoxPlaygroundDevice_DEFS += VBOX_WITH_XPCOM_NAMESPACE_CLEANUP
+ endif
+ VBoxPlaygroundDevice_INCS += \
+ 	$(VBOX_XPCOM_INCS)
+ VBoxPlaygroundDevice_INTERMEDIATES += \
+ 	$(VBOX_PATH_SDK)/bindings/xpcom/include/VirtualBox_XPCOM.h
+ VBoxPlaygroundDevice_LIBS += \
+ 	$(LIB_XPCOM)
+else  # COM
+ VBoxPlaygroundDevice_INCS += \
+ 	$(VBOX_PATH_SDK)/bindings/mscom/include
+ VBoxPlaygroundDevice_INTERMEDIATES += \
+ 	$(VBOX_PATH_SDK)/bindings/mscom/include/VirtualBox.h
+endif # COM
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+
+
+#
+# Installs the filter.
+#
+install-filter:
+	$(if-expr "$(VBOX_MANAGE)" == "",$(error VBOX_MANAGE is not defined,))
+	$(if-expr "$(VBOX_VMNAME)" == "",$(error VBOX_VMNAME is not defined,))
+# Make VBox load the driver
+	$(VBOX_MANAGE) setextradata "$(VBOX_VMNAME)" "VBoxInternal/PDM/Drivers/VBoxSampleDriver/Path" \
+		"$(if $(VBoxSampleDriver_1_INST_TARGET),$(VBoxSampleDriver_1_INST_TARGET),$(VBoxSampleDriver_1_TARGET))"
+# Configure the matching.
+	$(VBOX_MANAGE) setextradata "$(VBOX_VMNAME)" "VBoxInternal/PDM/DriverTransformations/StorageFilter/AboveDriver" \
+		"VD"
+# The config of the injected driver.
+	$(VBOX_MANAGE) setextradata "$(VBOX_VMNAME)" "VBoxInternal/PDM/DriverTransformations/StorageFilter/AttachedDriver/Driver" \
+		"StorageFilter"
+	$(VBOX_MANAGE) setextradata "$(VBOX_VMNAME)" "VBoxInternal/PDM/DriverTransformations/StorageFilter/AttachedDriver/Config/AsyncIOSupported" \
+		"1"
+
+uninstall-filter:
+	$(if-expr "$(VBOX_MANAGE)" == "",$(error VBOX_MANAGE is not defined,))
+	$(if-expr "$(VBOX_VMNAME)" == "",$(error VBOX_VMNAME is not defined,))
+	$(VBOX_MANAGE) showvminfo "$(VBOX_VMNAME)"
+	$(VBOX_MANAGE) setextradata "$(VBOX_VMNAME)" "VBoxInternal/PDM/Drivers/VBoxSampleDriver/Path"
+	$(VBOX_MANAGE) setextradata "$(VBOX_VMNAME)" "VBoxInternal/PDM/DriverTransformations/StorageFilter/AboveDriver"
+	$(VBOX_MANAGE) setextradata "$(VBOX_VMNAME)" "VBoxInternal/PDM/DriverTransformations/StorageFilter/AttachedDriver/Config/AsyncIOSupported"
+

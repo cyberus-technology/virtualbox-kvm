@@ -1,0 +1,252 @@
+# $Id: dtrace.kmk 3284 2019-01-05 01:40:31Z bird $
+## @file
+# DTrace unit.
+#
+
+#
+# Copyright (c) 2012-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+ifdef UNIT_dtrace
+ $(error kBuild: The dtrace unit was included twice!)
+endif
+UNIT_dtrace = dtrace
+
+# Add our target properties.
+PROPS_TOOLS += DTRACETOOL
+PROPS_SINGLE += DTRACETOOL
+PROPS_ACCUMULATE_R += DTRACE_HDR_FLAGS DTRACE_OBJ_FLAGS
+
+# Add ourselves to the default source handlers.
+KBUILD_SRC_HANDLERS += \
+  .d:def_src_handler_dtrace
+
+
+## wrapper the compile command dependency check.
+ifndef NO_COMPILE_CMDS_DEPS
+ _DEP_DTRACE_HDR_CMDS = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_DTRACE_HDR_CMDS_PREV_),$$(commands $(out)),FORCE)
+ _DEP_DTRACE_OBJ_CMDS = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_DTRACE_OBJ_CMDS_PREV_),$$(commands $(out)),FORCE)
+else
+ _DEP_DTRACE_HDR_CMDS =
+ _DEP_DTRACE_OBJ_CMDS =
+endif
+
+
+##
+# Generates the rule for creating a DTrace header from a D source file.
+#
+# @param    out         The output file.
+# @param    cmds        The dtrace command(s).
+# @param    lots more
+#
+define def_dtrace_hdr_rule
+$(out): \
+		$(deps) \
+		$(value _DEP_DTRACE_HDR_CMDS) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_GENERATE,$(target),$$@,$(source))
+	$$(QUIET)$$(RM) -f -- $(dep) $(out)
+
+$(cmds)
+
+ifndef NO_COMPILE_CMDS_DEPS
+ifdef KBUILD_HAVE_OPTIMIZED_APPEND
+	%$$(QUIET2)$$(APPEND) -ni '$(dep)' \
+		'define $(target)_$(subst :,_,$(source))_DTRACE_HDR_CMDS_PREV_' \
+		'--insert-command=$(out)' \
+		'endef'
+else
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_DTRACE_HDR_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+endif
+
+# update globals
+_OUT_FILES += $(out)
+$(target)_2_INTERMEDIATES += $(out)
+
+endef # def_dtrace_hdr_rule
+
+
+##
+# Generates the rule for creating a DTrace object file from a D source file
+# and a bunch of object files.
+#
+# @param    out         The output file.
+# @param    cmds        The dtrace command(s).
+# @param    lots more
+#
+define def_dtrace_obj_rule
+$(out): \
+		$(deps) \
+		$$$$(filter-out %-dtrace-object-format.o, $$$$($(target)_2_OBJS)) \
+		$(value _DEP_DTRACE_OBJ_CMDS) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_GENERATE,$(target),$$@,$(source) ++)
+	$$(QUIET)$$(RM) -f -- $(dep) $(out)
+
+$(cmds)
+
+ifndef NO_COMPILE_CMDS_DEPS
+ifdef KBUILD_HAVE_OPTIMIZED_APPEND
+	%$$(QUIET2)$$(APPEND) -ni '$(dep)' \
+		'define $(target)_$(subst :,_,$(source))_DTRACE_OBJ_CMDS_PREV_' \
+		'--insert-command=$(out)' \
+		'endef'
+else
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_DTRACE_OBJ_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+endif
+
+# update globals
+_OUT_FILES += $(out)
+$(target)_2_OBJS <= $(out)
+
+endef # def_dtrace_obj_rule
+
+
+##
+# Handler for .d files listed in the SOURCES properties.
+#
+# .d files are transformed into .h that is used when compiling, thus needing
+# to be generated before anything is compiled, and into object files that needs
+# to go into the linking.  Mac does not create object files.
+#
+# The step producing the object file requires all the object files with dtrace
+# probes in them as input/output as well, because it adjusts the dtrace symbols
+# from UNDEF to IGNORE.  This is really ugly and cannot be expressed in make
+# syntax (prerequisite object files being modified).  Fortunately, it works
+# fine because the object files won't be used by anyone else before the dtrace
+# object file exists.
+#
+# @param    target      The target file.
+# @param    source      The source file.
+# @param    lots more
+# @returns  quite a bit.
+define def_src_handler_dtrace
+
+local type := DTRACE
+local tmp  := $(kb-src-tool tool)
+ifeq ($(tool),)
+$ (error kBuild: $(target) / $(sources) does not have a (DTRACE) tool defined!)
+endif
+local dtracedir := $($(target)_0_OUTDIR)/dtrace
+
+#
+# The header file first.
+#
+
+# Figure out all the props.
+ifndef TOOL_$(tool)_DTRACE_HDR_CMDS
+$(error kBuild: TOOL_$(tool)_DTRACE_HDR_CMDS isn't defined! target=$(target) source=$(source) )
+endif
+## @todo put the header in a subdir and add this to INCS? Do we have a early per-target hook for this??
+local outbase := $(dtracedir)/dtrace/$(basename $(notdir $(source)))
+local out := $(outbase).h
+local tmp := $(kb-src-prop DTRACE_HDR_FLAGS,flags,left-to-right,)
+local tmp := $(kb-src-prop DEPS,deps,left-to-right,$(defpath))
+local tmp := $(kb-src-prop ORDERDEPS,orderdeps,left-to-right,$(defpath))
+local dirdep := $(call DIRDEP,$(dir $(out)))
+
+# Adjust paths if we got a default path.
+ifneq ($(defpath),)
+ local source := $(abspathex $(source),$(defpath))
+endif
+
+# dependency file.
+local dep := $(out)$(SUFF_DEP)
+ifndef NO_COMPILE_CMDS_DEPS
+ _DEPFILES_INCLUDED += $(dep)
+ $(eval includedep $(dep))
+endif
+
+# call the tool
+local cmds := $(TOOL_$(tool)_DTRACE_HDR_CMDS)
+local deps += $(TOOL_$(tool)_DTRACE_DEPEND) $(source)
+local orderdeps += $(TOOL_$(tool)_DTRACE_DEPORD) $(dirdep)
+
+# generate the rule.
+$(eval $(def_dtrace_hdr_rule))
+
+
+#
+# Adjust the object files and generate one from the D source, if needed.
+#
+ifn1of ($(bld_trg), $(TOOL_$(tool)_DTRACE_OBJ_NOT_NEEDED))
+ # Figure out all the props.
+ ifndef TOOL_$(tool)_DTRACE_OBJ_CMDS
+ $(error kBuild: TOOL_$(tool)_DTRACE_OBJ_CMDS isn't defined! target=$(target) source=$(source) )
+ endif
+ local outbase := $(dtracedir)/$(basename $(notdir $(source)))
+ local out := $(outbase)-dtrace-object-format.o
+ local tmp := $(kb-src-prop DTRACE_OBJ_FLAGS,flags,left-to-right,)
+ local tmp := $(kb-src-prop DEPS,deps,left-to-right,$(defpath))
+ local tmp := $(kb-src-prop ORDERDEPS,orderdeps,left-to-right,$(defpath))
+ local dirdep := $(call DIRDEP,$(dir $(out)))
+
+ # Adjust paths if we got a default path.
+ ifneq ($(defpath),)
+  local source := $(abspathex $(source),$(defpath))
+ endif
+
+ # dependency file.
+ local dep := $(out)$(SUFF_DEP)
+ ifndef NO_COMPILE_CMDS_DEPS
+  _DEPFILES_INCLUDED += $(dep)
+  $(eval includedep $(dep))
+ endif
+
+ # call the tool
+ local cmds := $(TOOL_$(tool)_DTRACE_OBJ_CMDS)
+ local deps += $(TOOL_$(tool)_DTRACE_DEPEND) $(source)
+ local orderdeps += $(TOOL_$(tool)_DTRACE_DEPORD) $(dirdep)
+
+ # generate the rule.
+ $(eval $(def_dtrace_obj_rule))
+endif
+
+endef # def_src_handler_dtrace
+
+
+
+#
+# The pre-target hook.
+#
+define def_unit_dtrace_target_pre
+
+local dtracedir := $($(target)_0_OUTDIR)/dtrace
+$(eval $(target)_INCS += $(dtracedir))
+
+endef #def_unit_dtrace_target_pre
+

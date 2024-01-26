@@ -1,0 +1,228 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Network Adapter Driver (VBoxNetAdp).
+#
+
+#
+# Copyright (C) 2009-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+if1of ($(KBUILD_TARGET), solaris darwin freebsd)
+ #
+ # VBoxNetAdp - Virtual Network Adapter
+ # Note! On Solaris the name has to be <= 8 chars long.
+ #
+ ifdef VBOX_WITH_VBOXDRV
+  SYSMODS += VBoxNetAdp
+  VBoxNetAdp_TEMPLATE         = VBoxR0Drv
+  VBoxNetAdp_INST             = $(INST_VBOXNETADP)$(if $(eq $(KBUILD_TARGET),darwin),Contents/MacOS/)
+  VBoxNetAdp_DEBUG_INST.darwin = $(patsubst %/,%,$(INST_VBOXNETADP))
+  VBoxNetAdp_NAME.solaris     = vboxnet
+  VBoxNetAdp_NAME.freebsd     = vboxnetadp
+  VBoxNetAdp_DEPS.solaris    += $(VBOX_SVN_REV_KMK)
+  VBoxNetAdp_DEFS             = IN_RT_R0 VBOX_SVN_REV=$(VBOX_SVN_REV) IN_SUP_STATIC
+  #VBoxNetAdp_LDFLAGS.darwin   = -v -Wl,-whyload -Wl,-v -Wl,-whatsloaded
+  VBoxNetAdp_LDFLAGS.solaris += -N misc/gld -N drv/vboxdrv
+  VBoxNetAdp_INCS             = \
+  	.
+  VBoxNetAdp_SOURCES.darwin   = \
+  	darwin/VBoxNetAdp-darwin.cpp \
+  	VBoxNetAdp.c
+  VBoxNetAdp_SOURCES.solaris  = \
+  	solaris/VBoxNetAdp-solaris.c
+  VBoxNetAdp_SOURCES.freebsd   = \
+  	freebsd/VBoxNetAdp-freebsd.c \
+  	VBoxNetAdp.c
+  VBoxNetAdp_SOURCES          =
+  #VBoxNetAdp_SOURCES          = \
+  #	VBoxNetAdp.c
+  VBoxNetAdp_LIBS            += \
+  	$(PATH_STAGE_LIB)/SUPR0IdcClient$(VBOX_SUFF_LIB)
+ endif
+endif
+
+#
+# Darwin extras.
+#
+if "$(KBUILD_TARGET)" == "darwin" && defined(VBOX_WITH_VBOXDRV)
+ INSTALLS += VBoxNetAdp.kext
+ VBoxNetAdp.kext_INST     = $(INST_VBOXNETADP)Contents/
+ VBoxNetAdp.kext_SOURCES  = $(VBoxNetAdp.kext_0_OUTDIR)/Contents/Info.plist
+ VBoxNetAdp.kext_CLEAN    = $(VBoxNetAdp.kext_0_OUTDIR)/Contents/Info.plist
+ VBoxNetAdp.kext_BLDDIRS  = $(VBoxNetAdp.kext_0_OUTDIR)/Contents/
+
+ $$(VBoxNetAdp.kext_0_OUTDIR)/Contents/Info.plist: $(PATH_SUB_CURRENT)/darwin/Info.plist $(VBOX_VERSION_MK) | $$(dir $$@)
+	$(call MSG_GENERATE,VBoxNetAdp,$@,$<)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(SED) \
+		-e 's+@VBOX_VERSION_STRING@+$(VBOX_VERSION_STRING)+g' \
+		-e 's+@VBOX_VERSION_MAJOR@+$(VBOX_VERSION_MAJOR)+g' \
+		-e 's+@VBOX_VERSION_MINOR@+$(VBOX_VERSION_MINOR)+g' \
+		-e 's+@VBOX_VERSION_BUILD@+$(VBOX_VERSION_BUILD)+g' \
+		-e 's+@VBOX_VENDOR@+$(VBOX_VENDOR)+g' \
+		-e 's+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+g' \
+		-e 's+@VBOX_C_YEAR@+$(VBOX_C_YEAR)+g' \
+		--output $@ \
+		$<
+
+ $(evalcall2 VBOX_TEST_SIGN_KEXT,VBoxNetAdp)
+
+ INSTALLS.darwin += Scripts-darwin-adp
+ Scripts-darwin-adp_INST = $(INST_DIST)
+ Scripts-darwin-adp_EXEC_SOURCES = \
+ 	darwin/loadnetadp.sh
+endif # darwin && host-drivers
+
+ifeq ($(KBUILD_TARGET),win)
+ #
+ # VBoxNetAdp6.sys - The VirtualBox Adapter miniport driver.
+ #
+ SYSMODS.win += VBoxNetAdp6
+ VBoxNetAdp6_TEMPLATE = VBoxR0Drv
+ if defined(VBOX_SIGNING_MODE)
+  VBoxNetAdp6_INSTTYPE.win = none
+  VBoxNetAdp6_DEBUG_INSTTYPE.win = both
+ endif
+ VBoxNetAdp6_DEFS = IN_RT_R0 IN_SUP_STATIC
+ VBoxNetAdp6_INCS := $(PATH_SUB_CURRENT)
+ VBoxNetAdp6_SDKS = ReorderCompilerIncs $(VBOX_WINDDK_WLH) $(VBOX_WINPSDK_INCS)
+ VBoxNetAdp6_SOURCES = \
+ 	win/VBoxNetAdp-win.cpp \
+ 	win/VBoxNetAdp-win.rc
+ VBoxNetAdp6_DEFS += NDIS_MINIPORT_DRIVER NDIS_WDM=1 BINARY_COMPATIBLE=0
+ VBoxNetAdp6_DEFS += NDIS60_MINIPORT=1 NDIS60=1
+ VBoxNetAdp6_LDFLAGS.win.x86 = -Entry:DriverEntry@8
+ VBoxNetAdp6_LDFLAGS.win.amd64 = -Entry:DriverEntry
+ VBoxNetAdp6_LIBS.win = \
+ 	$(PATH_SDK_$(VBOX_WINDDK)_LIB)/ntoskrnl.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK)_LIB)/hal.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK)_LIB)/ndis.lib \
+ 	$(PATH_STAGE_LIB)/RuntimeR0Drv$(VBOX_SUFF_LIB)
+ VBoxNetAdp6_LIBS = \
+ 	$(PATH_STAGE_LIB)/SUPR0IdcClient$(VBOX_SUFF_LIB)
+
+
+ INSTALLS.win += VBoxNetAdp6-inf
+ VBoxNetAdp6-inf_TEMPLATE = VBoxR0DrvInfCat
+ VBoxNetAdp6-inf_SOURCES = \
+ 	$(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.inf
+ VBoxNetAdp6-inf_CLEAN = $(VBoxNetAdp6-inf_SOURCES)
+ VBoxNetAdp6-inf_BLDDIRS = $(PATH_TARGET)/VBoxNetAdp6Cat.dir
+
+ $(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.inf: $(PATH_SUB_CURRENT)/win/VBoxNetAdp6.inf $(MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,VBoxNetAdp6-inf,$@,$<)
+	$(call VBOX_EDIT_INF_FN,$<,$@)
+
+ ifdef VBOX_SIGNING_MODE
+  VBoxNetAdp6-inf_SOURCES += \
+  	$(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.sys \
+  	$(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.cat \
+  	$(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.cat=>VBoxNetAdp6-PreW10.cat
+
+  $(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.sys: $$(VBoxNetAdp6_1_TARGET) | $$(dir $$@)
+	$(INSTALL) -m 644 $< $(@D)
+
+  $(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.cat: \
+  		$(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.sys \
+  		$(PATH_TARGET)/VBoxNetAdp6Cat.dir/VBoxNetAdp6.inf
+	$(call MSG_TOOL,Inf2Cat,VBoxNetFlt-inf,$@,$<)
+	$(call VBOX_MAKE_CAT_FN, $(@D),$@)
+
+ endif #  ifdef VBOX_SIGNING_MODE
+
+endif #ifeq ($(KBUILD_TARGET), win)
+
+ifeq ($(KBUILD_TARGET),linux)
+ #
+ # Install source files for compilation on Linux.
+ # files_vboxnetadp defines VBOX_VBOXNETADP_SOURCES.
+ #
+ INSTALLS += VBoxNetAdp-src
+ include $(PATH_SUB_CURRENT)/linux/files_vboxnetadp
+ VBoxNetAdp-src_INST    = bin/src/vboxnetadp/
+ VBoxNetAdp-src_SOURCES = \
+ 	$(subst $(DQUOTE),,$(VBOX_VBOXNETADP_SOURCES)) \
+ 	$(VBoxNetAdp-src_0_OUTDIR)/Makefile
+ VBoxNetAdp-src_CLEAN = \
+ 	$(VBoxNetAdp-src_0_OUTDIR)/Makefile \
+ 	$(PATH_TARGET)/VBoxNetAdp-src-1.dep
+
+ # Scripts needed for building the kernel modules
+ includedep $(PATH_TARGET)/VBoxNetAdp-src-1.dep
+ $$(VBoxNetAdp-src_0_OUTDIR)/Makefile: \
+ 		$(PATH_SUB_CURRENT)/linux/Makefile \
+ 		$$(if $$(eq $$(VBoxNetAdp/linux/Makefile_VBOX_HARDENED),$$(VBOX_WITH_HARDENING)),,FORCE) \
+ 		| $$(dir $$@)
+	$(QUIET)$(RM) -f -- $@
+ ifndef VBOX_WITH_HARDENING
+	$(QUIET)$(SED) -e "s;VBOX_WITH_HARDENING;;g" --output $@ $<
+ else
+	$(QUIET)$(CP) -f $< $@
+ endif
+	%$(QUIET2)$(APPEND) -t '$(PATH_TARGET)/VBoxNetAdp-src-1.dep' 'VBoxNetAdp/linux/Makefile_VBOX_HARDENED=$(VBOX_WITH_HARDENING)'
+
+ #
+ # Build test for the linux host kernel modules.
+ #
+ $(evalcall2 VBOX_LINUX_KMOD_TEST_BUILD_RULE_FN,VBoxNetAdp-src,vboxdrv-src,)
+endif # linux
+
+ifeq ($(KBUILD_TARGET),freebsd)
+ #
+ # Install source files for compilation on FreeBSD.
+ # files_vboxnetadp defines VBOX_VBOXNETADP_SOURCES.
+ #
+ INSTALLS += VBoxNetAdp-src
+ include $(PATH_SUB_CURRENT)/freebsd/files_vboxnetadp
+ VBoxNetAdp-src_INST = bin/src/vboxnetadp/
+ VBoxNetAdp-src_SOURCES = \
+ 	$(subst $(DQUOTE),,$(VBOX_VBOXNETADP_SOURCES)) \
+ 	$(VBoxNetAdp-src_0_OUTDIR)/Makefile
+ VBoxNetAdp-src_CLEAN = \
+ 	$(VBoxNetAdp-src_0_OUTDIR)/Makefile
+
+ $$(VBoxNetAdp-src_0_OUTDIR)/Makefile: \
+ 		$(PATH_SUB_CURRENT)/freebsd/Makefile \
+ 		$$(if $$(eq $$(VBoxNetAdp/freebsd/Makefile_VBOX_HARDENED),$$(VBOX_WITH_HARDENING)),,FORCE) \
+ 		| $$(dir $$@)
+	$(QUIET)$(RM) -f -- $@
+ ifndef VBOX_WITH_HARDENING
+	$(QUIET)$(SED) -e "s;VBOX_WITH_HARDENING;;g" --output $@ $<
+ else
+	$(QUIET)$(CP) -f $< $@
+ endif
+
+endif # freebsd
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

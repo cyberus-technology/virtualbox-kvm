@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage hostonlynet
+-->
+<!--
+    Copyright (C) 2021-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-hostonlynet" lang="en">
+
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage hostonlynet</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-hostonlynet</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-hostonlynet</refname>
+    <refpurpose>управление сетью хоста</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-hostonlynet-add">
+      <command>VBoxManage hostonlynet add</command>
+      <arg choice="req">--name=<replaceable>имя-сети</replaceable></arg>
+      <arg choice="opt">--id=<replaceable>id-сети</replaceable></arg>
+      <arg choice="req">--netmask=<replaceable>маска</replaceable></arg>
+      <arg choice="req">--lower-ip=<replaceable>адрес</replaceable></arg>
+      <arg choice="req">--upper-ip=<replaceable>адрес</replaceable></arg>
+      <group choice="opt">
+        <arg choice="plain">--enable</arg>
+        <arg choice="plain">--disable</arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-hostonlynet-modify">
+      <command>VBoxManage hostonlynet modify</command>
+      <group choice="req">
+        <arg choice="plain">--name=<replaceable>имя-сети</replaceable></arg>
+        <arg choice="plain">--id=<replaceable>id-сети</replaceable></arg>
+      </group>
+      <arg choice="opt">--lower-ip=<replaceable>адрес</replaceable></arg>
+      <arg choice="opt">--upper-ip=<replaceable>адрес</replaceable></arg>
+      <arg choice="opt">--netmask=<replaceable>маска</replaceable></arg>
+      <group choice="opt">
+        <arg choice="plain">--enable</arg>
+        <arg choice="plain">--disable</arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-hostonlynet-remove">
+      <command>VBoxManage hostonlynet remove</command>
+      <group choice="req">
+        <arg choice="plain">--name=<replaceable>имя-сети</replaceable></arg>
+        <arg choice="plain">--id=<replaceable>id-сети</replaceable></arg>
+      </group>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+
+    <para>
+      Команда <command>hostonlynet</command> позволяет управлять сетями
+      хоста.
+    </para>
+
+    <refsect2 id="vboxmanage-hostonlynet-common-options">
+      <title>Общие параметры</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para> Все подкоманды <command>hostonlynet</command> оперируют над
+        сетью хоста, идентифицируемой через ее имя или UUID:</para>
+      <variablelist>
+        <varlistentry>
+          <term>--name=<replaceable>имя-сети</replaceable></term>
+          <listitem><para>Имя сети хоста. Его можно увидеть в поле
+            VBoxNetworkName вывода команды
+            <command>VBoxManage list hostonlynets</command>.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--id=<replaceable>id-сети</replaceable></term>
+          <listitem><para>UUID сети хоста. Если не указан при добавлении
+            новой сети, то будет сгенерирован автоматически.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-hostonlynet-add">
+      <title>hostonlynet add</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Добавляет новую сеть хоста.
+      </para>
+      <para>
+        Опции для настройки сети хоста:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--netmask=<replaceable>маска</replaceable></option></term>
+          <listitem><para>Сетевая маска. Обычно 255.255.255.0.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--lower-ip=<replaceable>адрес</replaceable></option>, <option>--upper-ip=<replaceable>адрес</replaceable></option></term>
+          <listitem><para> Диапазон IP адресов, распределяемых через DHCP.
+            Верхняя границы включается, тогда как нижняя - нет, поэтому
+            верхний адрес будет также распределен клиентам, тогда как
+            нижний используется самим хостом.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--enable</option>, --disable</term>
+          <listitem><para>Должная ли сеть хоста быть включена или выключена. Если не указано,
+            сеть создается во включенном состоянии.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-hostonlynet-modify">
+      <title>hostonlynet modify</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда модифицирует существующую конфигурацию сети хоста. Она принимает те же
+        опции что и команда <command>add</command>.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-hostonlynet-remove">
+      <title>hostonlynet remove</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Удаляет указанную сеть хоста.
+      </para>
+    </refsect2>
+
+  </refsect1>
+
+</refentry>
+

@@ -1,0 +1,413 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for VBoxManage (the CLI frontend).
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+include $(PATH_ROOT)/doc/manual/Config.kmk
+
+
+## @todo r=andy Sort this stuff alphabetically!
+VBOX_COMMON_VBOXMANAGE_DEFS = \
+	$(if $(VBOX_WITH_AHCI), VBOX_WITH_AHCI) \
+	$(if $(VBOX_WITH_COPYTOGUEST),VBOX_WITH_COPYTOGUEST) \
+	$(if $(VBOX_WITH_E1000),VBOX_WITH_E1000) \
+	$(if $(VBOX_WITH_GUEST_CONTROL),VBOX_WITH_GUEST_CONTROL) \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBOX_WITH_GUEST_PROPS) \
+	$(if $(VBOX_WITH_HEADLESS), VBOX_WITH_HEADLESS) \
+	$(if $(VBOX_WITH_HGCM), VBOX_WITH_HGCM) \
+	$(if $(VBOX_WITH_HOSTNETIF_API), VBOX_WITH_HOSTNETIF_API) \
+	$(if $(VBOX_WITH_NETFLT), VBOX_WITH_NETFLT) \
+	$(if-expr defined(VBOX_WITH_VMNET) && "$(KBUILD_TARGET)"=="darwin",VBOX_WITH_VMNET,) \
+	$(if $(VBOX_WITH_CLOUD_NET), VBOX_WITH_CLOUD_NET) \
+	$(if $(VBOX_WITH_AUDIO_OSS), VBOX_WITH_AUDIO_OSS) \
+	$(if $(VBOX_WITH_AUDIO_ALSA), VBOX_WITH_AUDIO_ALSA) \
+	$(if $(VBOX_WITH_AUDIO_PULSE),VBOX_WITH_AUDIO_PULSE) \
+	$(if $(VBOX_WITH_SCSI), VBOX_WITH_SCSI) \
+	$(if $(VBOX_WITH_VBOXSDL), VBOX_WITH_VBOXSDL) \
+	$(if $(VBOX_WITH_VIDEOHWACCEL), VBOX_WITH_VIDEOHWACCEL) \
+	$(if $(VBOX_WITH_VIRTIO),VBOX_WITH_VIRTIO) \
+	$(if $(VBOX_WITH_VIRTIO_NET_1_0),VBOX_WITH_VIRTIO_NET_1_0) \
+	$(if $(VBOX_WITH_USB_CARDREADER),VBOX_WITH_USB_CARDREADER) \
+	$(if $(VBOX_WITH_PCI_PASSTHROUGH),VBOX_WITH_PCI_PASSTHROUGH) \
+	$(if $(VBOX_WITH_RECORDING),VBOX_WITH_RECORDING) \
+	$(if $(VBOX_WITH_AUDIO_RECORDING),VBOX_WITH_AUDIO_RECORDING) \
+	$(if $(VBOX_WITH_NAT_SERVICE),VBOX_WITH_NAT_SERVICE) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD),VBOX_WITH_SHARED_CLIPBOARD) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS),VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS) \
+	$(if $(VBOX_WITH_IOMMU_AMD),VBOX_WITH_IOMMU_AMD) \
+	$(if $(VBOX_WITH_IOMMU_INTEL),VBOX_WITH_IOMMU_INTEL) \
+	$(if $(VBOX_WITH_UPDATE_AGENT), VBOX_WITH_UPDATE_AGENT) \
+	$(if $(VBOX_WITH_VMSVGA),VBOX_WITH_VMSVGA) \
+	$(if $(VBOX_WITH_MAIN_NLS),VBOX_WITH_MAIN_NLS) \
+	$(if $(VBOX_WITH_TPM),VBOX_WITH_TPM) \
+	$(if $(VBOX_WITH_FULL_VM_ENCRYPTION),VBOX_WITH_FULL_VM_ENCRYPTION)
+
+
+ifndef VBOX_ONLY_DOCS
+ PROGRAMS += VBoxManage
+ VBoxManage_TEMPLATE   = VBoxMainClientExe
+ VBoxManage_DEFS      += $(VBOX_COMMON_VBOXMANAGE_DEFS)
+ VBoxManage_DEFS.win   = _WIN32_WINNT=0x0500
+ VBoxManage_INCS = \
+ 	$(VBoxManage_0_OUTDIR) \
+ 	../Common
+ VBoxManage_INTERMEDIATES = \
+ 	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.h
+ VBoxManage_SOURCES    = \
+ 	VBoxManage.cpp \
+ 	VBoxManageUtils.cpp \
+ 	VBoxInternalManage.cpp \
+ 	VBoxManageAppliance.cpp \
+ 	VBoxManageBandwidthControl.cpp \
+ 	VBoxManageControlVM.cpp \
+ 	VBoxManageDebugVM.cpp \
+ 	VBoxManageDHCPServer.cpp \
+ 	VBoxManageDisk.cpp \
+ 	$(if $(VBOX_WITH_GUEST_CONTROL),VBoxManageGuestCtrl.cpp) \
+ 	$(if $(VBOX_WITH_GUEST_CONTROL),VBoxManageGuestCtrlListener.cpp) \
+ 	$(if $(VBOX_WITH_GUEST_PROPS),VBoxManageGuestProp.cpp) \
+ 	VBoxManageHelp.cpp \
+ 	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.cpp \
+ 	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_en_US.cpp \
+ 	VBoxManageHostonly.cpp \
+ 	VBoxManageInfo.cpp \
+ 	VBoxManageList.cpp \
+ 	VBoxManageMetrics.cpp \
+ 	VBoxManageMisc.cpp \
+ 	VBoxManageModifyVM.cpp \
+ 	VBoxManageModifyNvram.cpp \
+ 	VBoxManageSnapshot.cpp \
+ 	VBoxManageStorageController.cpp \
+ 	$(if $(VBOX_WITH_UPDATE_AGENT),VBoxManageUpdateCheck.cpp) \
+ 	VBoxManageUSB.cpp \
+ 	$(if $(VBOX_WITH_NAT_SERVICE),VBoxManageNATNetwork.cpp,) \
+ 	$(if $(VBOX_WITH_NAT_SERVICE),../../NetworkServices/NetLib/VBoxNetPortForwardString.cpp,) \
+ 	VBoxManageCloud.cpp \
+ 	VBoxManageCloudMachine.cpp \
+ 	../Common/PasswordInput.cpp
+ VBoxManage_SOURCES.win = \
+ 	VBoxManage.rc
+ VBoxManage_LIBS      += $(LIB_DDU)
+
+ ifdef VBOX_WITH_VBOXMANAGE_NLS
+  VBOX_PATH_VBOXMANAGE_SRC := $(PATH_SUB_CURRENT)
+  include $(PATH_SUB_CURRENT)/nls/ApprovedLanguages.kmk
+
+  VBoxManage_DEFS     += VBOX_WITH_VBOXMANAGE_NLS
+  VBoxManage_INCS     += \
+  	$(PATH_ROOT)/src/VBox/Main/include
+  VBoxManage_SOURCES  += \
+  	$(PATH_ROOT)/src/VBox/Main/src-all/VirtualBoxTranslator.cpp \
+  	$(PATH_ROOT)/src/VBox/Main/src-all/QMTranslatorImpl.cpp \
+  	$(PATH_ROOT)/src/VBox/Main/src-all/GlobalStatusConversion.cpp
+
+  #	$(addsuffix /VBoxManageBuiltInHelp.cpp,$(addprefix $(VBoxManage_0_OUTDIR)/,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES)))
+  #VBoxManage_INTERMEDIATES += \
+  #	$(addsuffix /VBoxManageBuiltInHelp.h,$(addprefix $(VBoxManage_0_OUTDIR)/,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES)))
+
+  # define qt5 tools for translation
+  USES += qt5
+
+  PROGRAMS += VBoxManageNls
+  VBoxManageNls_TEMPLATE = VBoxNLS
+  VBoxManageNls_QT_TRANSLATIONS = $(addsuffix .ts,$(addprefix $(VBOX_PATH_VBOXMANAGE_SRC)/nls/VBoxManageNls_,$(VBOX_APPROVED_VBOXMANAGE_LANGUAGES)))
+  VBoxManageNls_VBOX_ALL_NLS_SOURCES = $(wildcard \
+  	$(VBOX_PATH_VBOXMANAGE_SRC)/*.h \
+  	$(VBOX_PATH_VBOXMANAGE_SRC)/*.cpp )
+
+  updatenls:: makeallnls $(VBOX_PATH_VBOXMANAGE_SRC)/nls/VBoxManageNls_en.ts
+
+  makeallnls:: $(VBoxManageNls_VBOX_ALL_NLS_SOURCES)
+	$(call MSG_L1,lupdate all languages (nls/*.ts))
+	$(QUIET)$(TOOL_QT5_LUPDATE) \
+		$^ \
+		-ts \
+		$(filter-out nls/VBoxManageNls_en.ts, $(VBoxManageNls_QT_TRANSLATIONS)) \
+		$(VBOX_PATH_VBOXMANAGE_SRC)/nls/VBoxManageNls_xx_YY.ts
+
+  # fake-main-nls:
+  #	$(foreach file, $(VBoxManageNls_QT_TRANSLATIONS) \
+  #	,$(NLTAB)$(SED) -i \
+  #       	-e '/<source>.*<\/source>/h' \
+  #       	-e '/<source>.*<\/source>/p' \
+  #       	-e '/<translation type="unfinished"><\/translation>/{' \
+  #       		-e 'x' \
+  #       		-e 's/<source>\(.*\)<\/source>/<translation type="unfinished">$(notdir $(file)): \1<\/translation>/' \
+  #       	-e '}' \
+  #		$(file) )
+
+
+  # Create the English translation file. This is something special cause it will
+  # contain the plural forms only.
+  $(VBOX_PATH_VBOXMANAGE_SRC)/nls/VBoxManageNls_en.ts: $(VBoxManageNls_VBOX_ALL_NLS_SOURCES)
+	$(call MSG_L1,lupdate $@)
+	$(QUIET)$(TOOL_QT5_LUPDATE) \
+		$^ \
+		-ts \
+		"$@"
+	$(QUIET)$(SED) -n -i \
+		-e '/<context>/,/<\/context>/!p' \
+		-e '/<context>/h'  \
+		-e '/<name>/H' \
+		-e '/<message numerus="yes">/,/<\/message>/H' \
+		-e '/<\/context>/{H;x;/<message/p}' \
+		"$@"
+
+ endif # VBOX_WITH_VBOXMANAGE_NLS
+
+
+ # VBoxNetPortForwardString.h
+ VBoxManageNATNetwork.cpp_INCS += ../../NetworkServices/NetLib/
+
+endif # VBOX_ONLY_DOCS
+
+ifneq ($(KBUILD_TARGET),win)
+ # Workaround for buggy gcc-4.3 compilers, see
+ #
+ #   http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36474
+ #
+ # Some later revisions of version 4.3.1 are known to work so we assume
+ # that version 4.3.2 or later has this bug definitely fixed.
+ VBoxManage_CXXFLAGS.release += \
+ 	$(if $(VBOX_GCC_VERSION_CXX),$(if-expr $(VBOX_GCC_VERSION_CXX) < 40300 || $(VBOX_GCC_VERSION_CXX) > 40301,,--param max-fields-for-field-sensitive=0),)
+ VBoxManageHelp_CXXFLAGS.release = $(VBoxManage_CXXFLAGS.release)
+endif
+
+
+#
+# VBoxManage built-in help from XML refentry in doc/manual/en_US/.
+#
+$(call KB_FN_DO_PASS0_ON_TARGET,VBoxManage)
+
+VBoxManage_CLEAN += \
+	$(VBOX_XML_CATALOG) \
+	$(VBOX_XML_CATALOG_DOCBOOK) \
+	$(VBOX_XML_CATALOG_MANUAL) \
+	$(VBOX_XML_ENTITIES) \
+	$(addprefix $(VBOX_PATH_MANUAL_OUTBASE)/en_US/, $(VBOX_XML_XREF_TO_TEXT) $(VBOX_XML_XREF_TO_TEXT).cat) \
+	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_en_US.cpp \
+	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_en_US.cpp.ts \
+	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.cpp \
+	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.cpp.ts \
+	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.h \
+	$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.h.ts \
+	$(addprefix $(VBoxManage_0_OUTDIR)/,$(filter man_VBoxManage-%,$(VBOX_MANUAL_XML_REFENTRY_FILES)))
+
+# Preprocess the xml files, applying remarks.
+$(foreach file,$(filter man_VBoxManage-%,$(VBOX_MANUAL_XML_REFENTRY_FILES)) \
+, $(evalcall2 def_vbox_refentry_preprocess_for_manpage,$(VBoxManage_0_OUTDIR),$(file), \
+	$(VBOX_PATH_MANUAL_SRC)/en_US/$(file),replace-xrefs,en_US))
+
+
+##
+# Emits rules for generating cpp files from man pages.
+#
+# $(evalcall2 def_vbox_man_generate_cpp_help)
+# @param    1    Folder with preprocessed man_VBoxManage_* files
+# @param    2    language code.
+define def_vbox_man_generate_cpp_help
+ ifneq ($(2),en_US)
+  VBOX_DOCBOOK_REFENTRY_TO_C_HELP_$(2) = $(VBOX_PATH_MANUAL_SRC)/$(2)/docbook-refentry-to-C-help.xsl
+ else
+  VBOX_DOCBOOK_REFENTRY_TO_C_HELP_$(2) = $(VBOX_DOCBOOK_REFENTRY_TO_C_HELP)
+ endif
+ $$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_$(2).cpp.ts \
+ +| $$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_$(2).cpp: \
+ 		$$(VBOX_DOCBOOK_REFENTRY_TO_C_HELP_$(2)) \
+ 		$$(VBOX_DOCBOOK_REFENTRY_TO_C_HELP) \
+ 		$$(addprefix $(1)/,$$(filter man_VBoxManage-%,$$(VBOX_MANUAL_XML_REFENTRY_FILES))) \
+ 		$$(VBOX_XML_CATALOG) $$(VBOX_XML_CATALOG_DOCBOOK) $$(MAKEFILE) | $$$$(dir $$$$@)
+	$$(call MSG_TOOL,xsltproc $$(notdir $$(firstword $$(filter %.xsl,$$^))),,$$(filter %.xml,$$^),$$(patsubst %.ts,%,$$@))
+	$$(QUIET)$$(APPEND) -tn "$$@" \
+		'/* Autogenerated by $$<, do not edit! */' \
+		'' \
+		'#include "VBoxManageBuiltInHelp.h"' \
+		'' \
+		'RT_C_DECLS_BEGIN' \
+		'/* make next variables visible outside the module */' \
+		'extern PCRTMSGREFENTRY g_apHelpEntries_$(2)[];' \
+		'extern const uint32_t  g_cHelpEntries_$(2);' \
+		'RT_C_DECLS_END' \
+		'' \
+	$$(foreach refentry,$$(filter %.xml,$$^) \
+	,$$(NLTAB)$$(QUIET)$$(call VBOX_XSLTPROC_WITH_CAT, -a+to "$$@") \
+		 --path '$(VBOX_PATH_MANUAL_SRC)/$(2) $(VBOX_PATH_MANUAL_SRC)/en_US' $$< $$(refentry))
+	$$(QUIET)$$(APPEND) -n "$$@" \
+		'' \
+		'PCRTMSGREFENTRY     g_apHelpEntries_$(2)[] =' \
+		'{'
+	$$(foreach refentry,$$(filter %.xml,$$^) \
+		,$$(NLTAB)$$(QUIET)$$(APPEND) -n "$$@" \
+		'    &g_$$(subst -,_,$$(tolower $$(patsubst man_%,%,$$(notdir $$(basename $$(refentry)))))),')
+	$$(QUIET)$$(APPEND) -n "$$@" \
+		'};' \
+		'' \
+		'const uint32_t g_cHelpEntries_$(2) = RT_ELEMENTS(g_apHelpEntries_$(2));' \
+		''
+	$$(QUIET)$$(CP) --changed -- "$$@" "$$(patsubst %.ts,%,$$@)"
+endef
+# The above APPEND stuff trigger some kind of problem on some boxes when not split up...
+# update: Fixed in SVN (strcpy -> memmove in new_job(), job.c - r2591). Just need to rebuild all platforms.
+
+# Generate the .cpp file.
+$(evalcall2 def_vbox_man_generate_cpp_help, $(VBoxManage_0_OUTDIR),en_US)
+
+
+# Generate built-in help for all languages (English is implicit).
+$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.cpp.ts \
++| $(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.cpp: \
+		$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_en_US.cpp \
+		$(foreach lang,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES), $(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_$(lang).cpp ) \
+		$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.h
+	$(QUIET)$(APPEND) -tn "$@" \
+		'/* Autogenerated, do not edit! */' \
+		'' \
+		'#include "VBoxManageBuiltInHelp.h"' \
+		'' \
+		'RT_C_DECLS_BEGIN' \
+		'' \
+		'extern PCRTMSGREFENTRY g_apHelpEntries_en_US[];' \
+		'extern const uint32_t  g_cHelpEntries_en_US;'
+ifdef VBOX_WITH_VBOXMANAGE_NLS
+	$(foreach lang,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES) \
+	,$(NLTAB)$(QUIET)$(APPEND) -n "$@" \
+		'' \
+		'extern PCRTMSGREFENTRY g_apHelpEntries_$(lang)[];' \
+		'extern const uint32_t  g_cHelpEntries_$(lang);')
+endif
+	$(QUIET)$(APPEND) -n "$@" \
+		'' \
+		'RT_C_DECLS_END' \
+		'' \
+		'HELP_LANG_ENTRY_T const g_aHelpLangEntries[] = ' \
+		'{' \
+		'    { "en_US", 5, &g_apHelpEntries_en_US[0], &g_cHelpEntries_en_US },'
+ifdef VBOX_WITH_VBOXMANAGE_NLS
+	$(foreach lang,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES) \
+	,$(NLTAB)$(QUIET)$(APPEND) "$@" '    { "$(lang)", $(length $(lang)), &g_apHelpEntries_$(lang)[0], &g_cHelpEntries_$(lang) },' )
+endif
+	$(QUIET)$(APPEND) -n "$@" \
+		'};' \
+		'' \
+		'uint32_t const g_cHelpLangEntries = RT_ELEMENTS(g_aHelpLangEntries);' \
+		'' \
+		'PCHELP_LANG_ENTRY_T volatile g_pHelpLangEntry = &g_aHelpLangEntries[0];'\
+		''
+	$(QUIET)$(CP) --changed -- "$@" "$(patsubst %.ts,%,$@)"
+
+
+$(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.h.ts \
++| $(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp.h: \
+		$(VBOX_DOCBOOK_REFENTRY_TO_H_HELP) \
+		$(addprefix $(VBoxManage_0_OUTDIR)/,$(filter man_VBoxManage-%,$(VBOX_MANUAL_XML_REFENTRY_FILES))) \
+		$(VBOX_XML_CATALOG) $(VBOX_XML_CATALOG_DOCBOOK) $(MAKEFILE) | $$(dir $$@)
+	$(call MSG_TOOL,xsltproc $(notdir $(firstword $(filter %.xsl,$^))),,$(filter %.xml,$^),$(patsubst %.ts,%,$@))
+	$(QUIET)$(APPEND) -tn "$@" \
+		'/* Autogenerated by $<, do not edit! */' \
+		'' \
+		'#ifndef ___VBoxManageBuiltInHelp_h___' \
+		'#define ___VBoxManageBuiltInHelp_h___' \
+		'' \
+		'#include <iprt/message.h>' \
+		'#include <iprt/assertcompile.h>' \
+		'' \
+		'RT_C_DECLS_BEGIN' \
+		'' \
+		'typedef enum HELP_CMD_VBOXMANAGE' \
+		'{' \
+		'    HELP_CMD_VBOXMANAGE_INVALID = 0,'
+	$(foreach refentry,$(filter %.xml,$^) \
+	,$(NLTAB)$(QUIET)$(call VBOX_XSLTPROC_WITH_CAT, -a+to "$@") \
+		--stringparam 'g_sMode' 'cmd' $< $(refentry))
+	$(QUIET)$(APPEND) -n "$@" \
+		'    HELP_CMD_VBOXMANAGE_END' \
+		'} HELP_CMD_VBOXMANAGE;'
+	$(foreach refentry,$(filter %.xml,$^) \
+	,$(NLTAB)$(QUIET)$(call VBOX_XSLTPROC_WITH_CAT, -a+to "$@") \
+		--stringparam 'g_sMode' 'subcmd' $< $(refentry))
+	$(QUIET)$(APPEND) -n "$@" \
+		'' \
+		'typedef struct HELP_LANG_ENTRY_T' \
+		'{' \
+		'    const char      *pszLang;' \
+		'    size_t           cchLang;' \
+		'    PCRTMSGREFENTRY *papHelpEntries;' \
+		'    uint32_t const  *pcHelpEntries;' \
+		'} HELP_LANG_ENTRY_T;' \
+		'typedef HELP_LANG_ENTRY_T const *PCHELP_LANG_ENTRY_T;' \
+		'' \
+		'extern HELP_LANG_ENTRY_T const g_aHelpLangEntries[];' \
+		'extern const uint32_t          g_cHelpLangEntries;' \
+		'' \
+		'extern PCHELP_LANG_ENTRY_T volatile g_pHelpLangEntry;' \
+		'' \
+		'RT_C_DECLS_END' \
+		'' \
+		'#endif' \
+		''
+	$(QUIET)$(CP) --changed -- "$@" "$(patsubst %.ts,%,$@)"
+
+ifdef VBOX_WITH_VBOXMANAGE_NLS
+ VBoxManage_BLDDIRS += \
+ 	$(addprefix $(VBoxManage_0_OUTDIR)/,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES))
+
+ VBoxManage_SOURCES += \
+ 	$(foreach lang, $(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES) \
+ 	, $(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_$(lang).cpp)
+
+ VBoxManage_CLEAN += \
+ 	$(foreach lang,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES), \
+ 	$(addprefix $(VBOX_PATH_MANUAL_OUTBASE)/$(lang)/, \
+ 	$(VBOX_XML_XREF_TO_TEXT) \
+ 	$(VBOX_XML_XREF_TO_TEXT).cat \
+ 	)) \
+ 	$(addsuffix .cpp,$(addprefix $(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES))) \
+ 	$(addsuffix .cpp.ts,$(addprefix $(VBoxManage_0_OUTDIR)/VBoxManageBuiltInHelp_,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES))) \
+ 	$(foreach file, $(filter man_VBoxManage-%,$(VBOX_MANUAL_XML_REFENTRY_FILES)) \
+ 	, $(addsuffix /$(file),$(addprefix $(VBoxManage_0_OUTDIR)/,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES))))
+
+ # Preprocess the xml files, applying remarks.
+ $(foreach lang, $(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES) \
+ , $(foreach file,$(filter man_VBoxManage-%,$(VBOX_MANUAL_XML_REFENTRY_FILES)) \
+   , $(evalcall2 def_vbox_refentry_preprocess_for_manpage,$(VBoxManage_0_OUTDIR)/$(lang),$(file) \
+       ,$(VBOX_PATH_MANUAL_SRC)/$(lang)/$(file),replace-xrefs,$(lang))))
+
+ # Generate the .cpp file.
+ $(foreach lang, $(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES) \
+ , $(evalcall2 def_vbox_man_generate_cpp_help,$(VBoxManage_0_OUTDIR)/$(lang),$(lang)))
+
+ # Ensure $(lang) subfolder in the $(VBOX_PATH_MANUAL_OUTBASE) is created (for section names file)
+ BLDDIRS += $(addprefix $(VBOX_PATH_MANUAL_OUTBASE)/,$(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES))
+
+ # Generate sections names file for $(lang)
+ $(foreach lang, $(VBOX_APPROVED_VBOXMANAGE_DOCBOOK_LANGUAGES) \
+ , $(evalcall2 def_vbox_xref_to_text,$(lang)))
+
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)

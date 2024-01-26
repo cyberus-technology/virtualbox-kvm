@@ -1,0 +1,82 @@
+; $Id: VBoxNetFltM.inf $
+;; @file
+; VBoxNetFltM.inf - VirtualBox Bridged Networking Driver inf file Miniport edge
+;
+
+;
+; Copyright (C) 2011-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+[Version]
+signature  = "$Windows NT$"
+;cat   CatalogFile = VBoxNetFlt.cat
+Class      = Net
+ClassGUID  = {4d36e972-e325-11ce-bfc1-08002be10318}
+Provider   = %ORACLE%
+;DriverPackageType=NdisImMiniport
+;DriverPackageDisplayName=%VBoxNetFltMP_Desc%
+;edit-DriverVer=08/13/2008,1.1.0.1
+
+[ControlFlags]
+ExcludeFromSelect = sun_VBoxNetFltmp
+
+[DestinationDirs]
+DefaultDestDir=12
+; No files to copy
+
+[Manufacturer]
+%ORACLE% = VBoxNetFltMP@COMMA-NT-ARCH@
+
+[VBoxNetFltMP@DOT-NT-ARCH@]
+%VBoxNetFltMP_Desc% = VBoxNetFltMP.ndi, sun_VBoxNetFltmp
+
+[VBoxNetFltMP.ndi]
+Characteristics = 0x29 ;NCF_NOT_USER_REMOVABLE | NCF_VIRTUAL | NCF_HIDDEN
+CopyFiles =
+
+[VBoxNetFltMP.ndi.Services]
+AddService = VBoxNetFlt,0x2, VBoxNetFltMP.AddService
+
+[VBoxNetFltMP.AddService]
+ServiceType    = 1 ;SERVICE_KERNEL_DRIVER
+StartType      = 3 ;SERVICE_DEMAND_START
+ErrorControl   = 1 ;SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\VBoxNetFlt.sys
+
+[VBoxNetFltMP.AddService.AddReg]
+
+[Strings]
+ORACLE = "Oracle Corporation"
+VBoxNetFltMP_Desc = "VirtualBox Bridged Networking Driver Miniport"
+
+[SourceDisksNames]
+
+[SourceDisksFiles]
+

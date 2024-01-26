@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage signova
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-signova" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage signova</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-signova</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-signova</refname>
+    <refpurpose>цифровая подпись OVA</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-signova">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage signova</command>
+      <arg choice="req"><replaceable>ova</replaceable></arg>
+      <arg choice="req">--certificate=<replaceable>файл</replaceable></arg>
+      <arg choice="req">--private-key=<replaceable>файл</replaceable></arg>
+      <group>
+        <arg choice="plain">--private-key-password-file=<replaceable>файл-с-паролем</replaceable></arg>
+        <arg choice="plain">--private-key-password=<replaceable>файл-с-паролем</replaceable></arg>
+      </group>
+      <arg>--digest-type=<replaceable>тип</replaceable></arg>
+      <group>
+        <arg choice="plain">--pkcs7</arg>
+        <arg choice="plain">--no-pkcs7</arg>
+      </group>
+      <arg>--intermediate-cert=<replaceable>файл</replaceable></arg>
+      <arg>--force</arg>
+      <arg>--verbose</arg>
+      <arg>--quiet</arg>
+      <arg>--dry-run</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage signova</command> добавляет цифровую
+      подпись к OVA файлу.
+    </para>
+    <!-- Add more description here -->
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>ova</replaceable></term>
+        <listitem><para>подписываемый файл OVA.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--certificate=<replaceable>файл</replaceable></option></term>
+        <listitem><para> Файл, содержащий сертификат для подписи OVA. Он может
+          быть или в формате PEM (base64) или DER (бинарный). Команда определит,
+          какой из них.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--private-key=<replaceable>файл</replaceable></option></term>
+        <listitem><para>Файл, содержащий приватный ключ. Он может быть или в
+          формате PEM (base64) или DER (бинарный). Команда определит,
+          какой из них.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--private-key-password-file=<replaceable>файл-с-паролем</replaceable></option></term>
+        <listitem><para>Файл, содержащий пароль к приватному ключу.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--private-key-password=<replaceable>пароль</replaceable></option></term>
+        <listitem><para>Пароль к приватному ключу. <!-- add warning about visibility --> </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--digest-type=<replaceable>тип</replaceable></option></term>
+        <listitem>
+          <para>Выбирает алгоритм криптографического дайджеста, используемый
+            в подписи. Возможные значения: SHA-256 (по умолчанию), SHA-512 и SHA-1.</para>
+          <para>Некоторые старые версии OVFTool и другие продукты VMWare могут
+            требовать <option>--digest-type=sha-1</option> для принятия OVA.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--pkcs7</option>, <option>--no-pkcs7</option></term>
+        <listitem><para>Включает или отключает создание дополнительной подписи
+          PKCS#7/CMS. Включено по умолчанию.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--intermediate-cert=<replaceable>файл</replaceable></option></term>
+        <listitem><para>Файл содержащий промежуточный сертификат, который должен быть
+          включен в необязательную подпись PKCS#7/CMS. Как и другие, файл может быть
+          в форматах PEM или DER. Эта опция может повторяться для добавления нескольких
+          промежуточных сертификатов. Эта опция подразумевает опцию
+          <option>--pkcs7</option>.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--force</option></term>
+        <listitem><para>Переписывает существующую сигнатуру если присутствует. Поведение
+          по умолчанию - завершиться неудачей если OVA уже подписан.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+        <listitem><para>Не изменять OVA на самом деле, просто протестировать операцию подписи.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-v</option>, <option>--verbose</option>, <option>-q</option>, <option>--quiet</option></term>
+        <listitem><para>Управляет степенью подробности вывода при выполнении команды. Опцию
+          <option>--verbose</option> можно указывать несколько раз для получения более
+          подробного вывода.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+</refentry>
+

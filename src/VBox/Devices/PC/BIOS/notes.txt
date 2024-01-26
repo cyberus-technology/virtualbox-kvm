@@ -1,0 +1,211 @@
+
+ Notes on BIOS usage
+ -------------------
+
+- DOS (including 6.22/7.1) does not need INT 15h or INT 1Ah. Most other
+  operating systems require INT 15h to detect installed memory.
+
+- OS/2 (WSeB/MCP/ACP) and Windows 98 SE are some of the very few operating
+  systems which use the El Torito floppy emulation.
+
+- NetWare 5.1 is one of the *extremely* few users of El Torito hard disk
+  emulation.
+
+- Keystroke check (INT 16h, fn 01h/11h) always enables interrupts on return.
+  DOS POWER.EXE depends on that in some situations.
+
+- IBM DOS J5.00/V is even worse and does a far jump into INT 16h/11h after
+  pushing garbage on the stack. Using IRET directly may change IOPL, set
+  TF, change direction flag, etc. We have to use or simulate RETF 2 instead.
+
+- MS-DOS 5.0/V setup assumes that INT 13h always returns with interrupts
+  enabled.
+
+- INT 15h also always returns with interrupts enabled (even for unsupported
+  functions).
+
+- MS-DOS 6.2/V is a rare user of the INT 15h keyboard intercept routines.
+
+- Some software uses the model byte at F000:FFFE to determine the system
+  type (PC-DOS 3.0, Norton Utilities 8). Other software first tries INT 15h,
+  fn C0h instead (PC-DOS 3.1, MSD).
+
+- DOS 4.01 (both IBM and Microsoft) calls INT 13h to read from disk with less
+  than 100 bytes of stack space early in the boot sequence. This tends to be
+  a problem especially for the SATA and SCSI code paths.
+
+- Very few guests use the 32-bit PCI BIOS interface. One is OS/2 (but falls
+  back), another is Etherboot.
+
+- OS/2 is the only known guest which can run the 16-bit PCI BIOS in protected
+  mode (but only if the 32-bit PCI BIOS is unavailable).
+
+- NetWare 6.x is the only known guest which uses the PCI BIOS service to read
+  the IRQ routing table.
+
+- NetWare 6.5 boot CD is a rare user of INT 15h/86h, asking for 1,000,000
+  microsecond (1 second) delays. The initial NW 6.5 release boots to Caldera
+  DOS and does not exhibit this behavior. NetWare 6.5 SP2 and later boots
+  straight to NetWare and uses the 1-second sleep.
+
+- Any disk reads which use bus-master DMA (AHCI, IDE BM) must use VDS
+  (Virtual DMA Services) when present. Otherwise any reads/writes when the
+  real mode addresses don't map directly to physical addresses will fail
+  horribly. DOS 6.x with EMM386 is a good testcase (esp. loading drivers
+  into UMBs).
+
+- Many older OSes (especially UNIX based) require the FDPT to contain
+  physical ATA disk geometry; for that reason, disks smaller than ~500MB are
+  easiest to use. Otherwise a "large" BIOS disk option would be required.
+
+- Older NetWare IDE disk drivers (IDE.DSK from 1993, likely older as well)
+  fall into the same category. If FDPT contains logical geometry, NetWare
+  malfunctions. NetWare 3.x/4.x is unusual in that it boots from a DOS
+  partition using BIOS, and only later switches to its own disk drivers.
+  NetWare reportedly understands FDPT cylinder values over 1024, but requires
+  physical disk geometry in the FDPT (only up to 16 heads).
+
+- Some really old OSes (Xenix circa 1986-7) do not understand the EBDA idea
+  and clear the memory. For those, the FDPT must be in the BIOS ROM area, or
+  the OS will destroy it (even when it's at 0:300 in the IVT).
+
+- NetWare 2.15 has a similar restriction, the FDPT must explicitly point above
+  segment address C800 or the NetWare AT disk driver abends.
+
+- Windows NT (including XP) uses INT 13h/08h to obtain the DPT for each floppy
+  drive. NT assumes a 13-byte DPT which includes the number of tracks. NT will
+  refuse to read more tracks than the DPT specifies and formats as many tracks
+  as the DPT specifies.
+
+- Windows 98 SE boot CD uses 32-bit registers in real mode and will fail in
+  mysterious ways if BIOS trashes high bits of EAX (and likely others).
+
+- PC DOS 6.x/7.x QCONFIG is a rare user of INT 16h fn 0Ah (read keyboard ID).
+
+- DOS POWER.EXE uses the real mode APM interface, Windows 3.1 POWER.DRV and
+  OS/2 APM.SYS use the 16-bit protected mode APM interface, and Windows 9x
+  uses the 32-bit protected mode APM interface.
+
+- Windows 98 is one of the few APM 1.2 users; Windows 95 uses APM 1.1, while
+  newer systems prefer ACPI.
+
+- Windows 3.1 Standard mode violates the APM specifications and calls into
+  APM with CPL=3, causing the HLT instruction to fault if used. 386 Enhanced
+  mode Windows 3.1 calls into APM with CPL=3.
+
+- QNX4 calls 16-bit protected-mode PCI BIOS in an environment where ESP is
+  16-bit but SS is a 32-bit stack segment. In such environments, using the
+  ENTER/LEAVE sequence is fatal if the high word of EBP is non-zero (which
+  it will be with QNX 4.25). LEAVE propagates the high word of EBP into ESP
+  with fatal consequences.
+
+- Plan 9 also runs 16-bit code with a 32-bit stack segment, except Plan 9
+  thinks it counts as real mode. Same ENTER/LEAVE problem as above.
+
+- AIX 1.3 is a rare user of INT 15h/89h (switch to protected mode) service.
+
+- IBM OS/2 1.0/1.1 (but not other versions!) attempt to execute a 286 LOADALL
+  instruction. LOADALL must be emulated for OS/2 to work properly. HIMEM.SYS
+  version 2.03 and later also contains 286 LOADALL code but this will not be
+  executed on 386+ processors.
+
+- IBM and Microsoft OS/2 1.0 use CMOS shutdown status 9 to get back from
+  protected mode without having called INT 15h/87h at all. That makes the
+  status 9 handling a public interface (just like codes 5 and 0Ah) which
+  has to be compatible with other BIOS implementations.
+
+- Windows NT 3.5 and 3.51 with MPS HAL requires that INT 15h/E820h return the
+  I/O APIC range as reserved, or not return any ranges at all just below 4GB.
+  Otherwise the NT kernel will crash early during init due to confusion about
+  the top of memory.
+
+- Darwin x86 6.0.2 ISO (darwinx86-602.iso) has a bizarre boot sector (using
+  El Torito hard disk emulation) with the first five bytes being zero. It
+  appears to be valid despite the oddity.
+
+- Darwin 6.0.2 also uses an El Torito emulated hard disk. In addition, if
+  INT 13h/41h succeeds, Darwin uses INT13X to read from the emulated drive.
+
+- Symantec Ghost 11.5 bootable CD also uses El Torito hard disk emulation,
+  uses INT13X without checking for support, and crashes if INT13X is not
+  supported on the emulated drive.
+
+
+ 286 BIOS
+ --------
+
+ For testing purposes, it's quite useful to have a BIOS that can run in a
+classic PC/AT environment with a 286 CPU. This forces various changes, not
+always obvious:
+
+ - C code can be easily compiled to produce 286-compatible object code
+
+ - 32-bit BIOS services such as APM or PCI BIOS are irrelevant
+
+ - PCI cannot be supported because it requires 32-bit port I/O
+
+ - AHCI cannot be supported because it requires 32-bit port I/O and PCI
+
+ - Switching to protected mode must be done using LMSW instead of CR0
+
+ - Switching back to real mode must reset the CPU (currently triple fault)
+   and regain control by setting up the CMOS shutdown status byte
+
+
+ 
+ Notes on BIOS implementation
+ ----------------------------
+
+- To return values from functions not declared as __interrupt, the arguments
+  may need to be declared volatile (not ideal, but does the job).
+
+- The way the POST code selectively clears or doesn't clear memory
+  is extremely suspect and will need reworking.
+
+- Need to review string routines wrt direction flag (should be OK now).
+
+- Need to review CMOS access wrt interrupts (possible index reg change by
+  an interrupt handler).
+
+- The POST code zeroes the entire BDA, and then various bits zero specific
+  parts of the BDA again. That's a waste of time.
+
+- After a reset, all interrupts are unmasked. Not sure if that's OK.
+
+- BCC mishandles the following (where buf is an uint8_t array):
+  lba=buf[0x2B]*0x1000000+buf[0x2A]*0x10000+buf[0x29]*0x100+buf[0x28];
+  The buf[x]*100 expression should end up being of type signed int, which
+  causes the sign to be incorrectly propagated. BCC incorrectly keeps
+  the type unsigned.
+
+- The PCI BIOS services are implemented in C, compiled twice as 16-bit and
+  32-bit code. This reduces the development effort and significantly lowers
+  the risk of discrepancies between 16-bit and 32-bit implementation. Care
+  must be taken because the 16-bit implementation can be executed in both
+  real and protected mode.
+
+- APM can be in theory implemented only once for real, 16-bit protected and
+  32-bit protected mode. Unfortunately this is very inconvenient in C since
+  the default stack size changes between 16-bit and 32-bit callers. Therefore
+  real mode APM (which supports most functions) is implemented in C and
+  protected-mode APM is written in assembler for both 16-bit and 32-bit calls,
+  with a small 32->16 thunk.
+
+- The -of switch can be used to avoid generating ENTER/LEAVE instructions.
+  This appears to be an undocumented and perhaps unintentional side effect.
+
+
+ Code size notes (code as of 7/6/2011):
+
+ The following values are the size of the _TEXT segment, i.e. only C code;
+data defined in C is not included, neither are assembly modules.
+
+ Options:                Size (hex):
+ --------                -----------
+ -0 -zu -s -oas -ecc     631A
+ -3 -zu -s -oas -ecc     5C1E
+ -0 -zu -s -oas          578A
+ -3 -zu -s -oas          5452
+ 
+ Both generating 386 code and using register-based calling convention for
+internal functions brings significant size savings (15% when combined).

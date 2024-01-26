@@ -1,0 +1,44 @@
+=head1 NAME
+
+TPMLIB_ValidateState  - Validate the state blobs of the TPM
+
+=head1 LIBRARY
+
+TPM library (libtpms, -ltpms)
+
+=head1 SYNOPSIS
+
+B<#include <libtpms/tpm_library.h>>
+
+B<uint32_t TPMLIB_ValidateState(TPMLIB_StateType st,
+                              unsigned int flags);
+>
+
+=head1 DESCRIPTION
+
+The B<TPMLIB_ValidateState()> function allows to validate the
+state blobs that the TPM would read upon B<TPMLIB_MainInit()> or
+once the TPM_Startup command has been sent to it.
+
+This function is useful for TPM state migration between possibly
+different version of libtpms. Here the target libtpms needs to be
+able to determine whether it can support the version of blobs that were
+migrated and if this is not the case, the caller can refuse the
+migration.
+
+The B<tpmlib_state> parameter can be a logical 'or' of one or
+multiple of of the following: B<TPMLIB_STATE_PERMANENT>,
+B<TPMLIB_STATE_VOLATILE>, or B<TPMLIB_STATE_SAVE_STATE>.
+The B<flags> parameter is currently not used and should be set to 0.
+
+The first state blob that should be loaded is the permanent state,
+since for example the volatile state requires it to be available
+for validation.
+
+This function should be called before B<TPMLIB_MainInit()> is invoked.
+
+=head1 SEE ALSO
+
+B<TPMLIB_MainInit>(3), B<TPMLIB_Terminate>(3)
+
+=cut

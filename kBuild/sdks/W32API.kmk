@@ -1,0 +1,58 @@
+# $Id: W32API.kmk 3418 2020-08-21 11:02:13Z bird $
+## @file
+# kBuild SDK - w32api (MinGW), targeting x86.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_W32API := w32api (MinGW), targeting x86.
+
+# SDK Specific Properties
+ifndef PATH_SDK_W32API
+ PATH_SDK_W32API := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/w32api/v*)
+ ifeq ($(PATH_SDK_W32API),)
+  PATH_SDK_W32API := $(wildcard $(KBUILD_DEVTOOLS)/x86.win32/w32api/v*)
+ endif
+ ifneq ($(PATH_SDK_W32API),)
+  PATH_SDK_W32API := $(lastword $(sort $(PATH_SDK_W32API)))
+ else
+  $(warning kBuild: PATH_SDK_W32API couldn't be determined!)
+  PATH_SDK_W32API := $(KBUILD_DEVTOOLS)/x86.win/w32api/not/found
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_SDK_W32API := $(PATH_SDK_W32API)
+endif
+PATH_SDK_W32API_INC ?= $(PATH_SDK_W32API)/include
+PATH_SDK_W32API_LIB ?= $(PATH_SDK_W32API)/lib
+
+# General Properties used by kBuild
+SDK_W32API_INCS	?= $(PATH_SDK_W32API_INC)
+SDK_W32API_LIBPATH ?= $(PATH_SDK_W32API_LIB)
+

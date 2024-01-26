@@ -1,0 +1,1736 @@
+/* $Id: bs3-cpu-decoding-1.c32 $ */
+/** @file
+ * BS3Kit - bs3-cpu-decoding-1, 32-bit C code.
+ */
+
+/*
+ * Copyright (C) 2007-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+
+/*********************************************************************************************************************************
+*   Header Files                                                                                                                 *
+*********************************************************************************************************************************/
+#include <bs3kit.h>
+#include <iprt/asm-amd64-x86.h>
+
+
+/* bs3-cpu-decoding-1-template.mac: */
+BS3_DECL_NEAR(void) BS3_CMN_NM(bs3CpuDecoding1_LoadXmm0)(PCRTUINT128U);
+BS3_DECL_NEAR(void) BS3_CMN_NM(bs3CpuDecoding1_LoadXmm1)(PCRTUINT128U);
+BS3_DECL_NEAR(void) BS3_CMN_NM(bs3CpuDecoding1_SaveXmm0)(PRTUINT128U);
+
+
+/*********************************************************************************************************************************
+*   Structures and Typedefs                                                                                                      *
+*********************************************************************************************************************************/
+/**
+ * Simple test.
+ */
+typedef struct CPUDECODE1TST
+{
+    uint16_t fFlags;
+    uint8_t  cbOpcodes;
+    uint8_t  abOpcodes[20];
+    uint8_t  cbUd;
+} CPUDECODE1TST;
+typedef CPUDECODE1TST BS3_FAR *PCPUDECODE1TST;
+
+#define P_CS  X86_OP_PRF_CS
+#define P_SS  X86_OP_PRF_SS
+#define P_DS  X86_OP_PRF_DS
+#define P_ES  X86_OP_PRF_ES
+#define P_FS  X86_OP_PRF_FS
+#define P_GS  X86_OP_PRF_GS
+#define P_OZ  X86_OP_PRF_SIZE_OP
+#define P_AZ  X86_OP_PRF_SIZE_ADDR
+#define P_LK  X86_OP_PRF_LOCK
+#define P_RN  X86_OP_PRF_REPNZ
+#define P_RZ  X86_OP_PRF_REPZ
+
+#define RM_EAX_EAX              ((3 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xAX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xAX))
+#define RM_ECX_EAX              ((3 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xCX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xAX))
+#define RM_EDX_EAX              ((3 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xAX))
+#define RM_EBX_EAX              ((3 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xAX))
+#define RM_ESP_EAX              ((3 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSP <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xAX))
+#define RM_EBP_EAX              ((3 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBP <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xAX))
+#define RM_ESI_EAX              ((3 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSI <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xAX))
+#define RM_EDI_EAX              ((3 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDI <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xAX))
+
+#define RM_EAX_DEREF_EBX        ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xAX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ECX_DEREF_EBX        ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xCX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EDX_DEREF_EBX        ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EBX_DEREF_EBX        ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ESP_DEREF_EBX        ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSP <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EBP_DEREF_EBX        ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBP <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ESI_DEREF_EBX        ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSI <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EDI_DEREF_EBX        ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDI <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+
+#define RM_EAX_DEREF_EBX_DISP8  ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xAX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ECX_DEREF_EBX_DISP8  ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xCX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EDX_DEREF_EBX_DISP8  ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EBX_DEREF_EBX_DISP8  ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ESP_DEREF_EBX_DISP8  ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSP <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EBP_DEREF_EBX_DISP8  ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBP <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ESI_DEREF_EBX_DISP8  ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSI <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EDI_DEREF_EBX_DISP8  ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDI <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+
+#define RM_EAX_DEREF_EBX_DISP32 ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xAX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ECX_DEREF_EBX_DISP32 ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xCX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EDX_DEREF_EBX_DISP32 ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EBX_DEREF_EBX_DISP32 ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBX <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ESP_DEREF_EBX_DISP32 ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSP <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EBP_DEREF_EBX_DISP32 ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBP <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_ESI_DEREF_EBX_DISP32 ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSI <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+#define RM_EDI_DEREF_EBX_DISP32 ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDI <<  X86_MODRM_REG_SHIFT) | (X86_GREG_xBX))
+
+#define RM_EAX_SIB              ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xAX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ECX_SIB              ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xCX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EDX_SIB              ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EBX_SIB              ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ESP_SIB              ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSP <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EBP_SIB              ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBP <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ESI_SIB              ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSI <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EDI_SIB              ((0 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDI <<  X86_MODRM_REG_SHIFT) | 4)
+
+#define RM_EAX_SIB_DISP8        ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xAX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ECX_SIB_DISP8        ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xCX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EDX_SIB_DISP8        ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EBX_SIB_DISP8        ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ESP_SIB_DISP8        ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSP <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EBP_SIB_DISP8        ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBP <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ESI_SIB_DISP8        ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSI <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EDI_SIB_DISP8        ((1 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDI <<  X86_MODRM_REG_SHIFT) | 4)
+
+#define RM_EAX_SIB_DISP32       ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xAX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ECX_SIB_DISP32       ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xCX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EDX_SIB_DISP32       ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EBX_SIB_DISP32       ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBX <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ESP_SIB_DISP32       ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSP <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EBP_SIB_DISP32       ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xBP <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_ESI_SIB_DISP32       ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xSI <<  X86_MODRM_REG_SHIFT) | 4)
+#define RM_EDI_SIB_DISP32       ((2 << X86_MODRM_MOD_SHIFT) | (X86_GREG_xDI <<  X86_MODRM_REG_SHIFT) | 4)
+
+#define RM_XMM0_XMM1            ((3 << X86_MODRM_MOD_SHIFT) | (0            <<  X86_MODRM_REG_SHIFT) | 1)
+
+#define SIB_EBX_X1_NONE         ((0 << X86_SIB_SCALE_SHIFT) | (4            <<  X86_SIB_INDEX_SHIFT) | (X86_GREG_xBX))
+#define SIB_EBX_X2_NONE         ((1 << X86_SIB_SCALE_SHIFT) | (4            <<  X86_SIB_INDEX_SHIFT) | (X86_GREG_xBX))
+#define SIB_EBX_X4_NONE         ((2 << X86_SIB_SCALE_SHIFT) | (4            <<  X86_SIB_INDEX_SHIFT) | (X86_GREG_xBX))
+#define SIB_EBX_X8_NONE         ((3 << X86_SIB_SCALE_SHIFT) | (4            <<  X86_SIB_INDEX_SHIFT) | (X86_GREG_xBX))
+
+#define F_486   UINT16_C(0x0000)
+#define F_SSE2  UINT16_C(0x0001)
+#define F_SSE3  UINT16_C(0x0002)
+#define F_SSE42 UINT16_C(0x0004)
+#define F_MOVBE UINT16_C(0x0080)
+#define F_CBUD  UINT16_C(0x4000)
+#define F_UD    UINT16_C(0x8000)
+#define F_OK    UINT16_C(0x0000)
+
+
+/**
+ * This is an exploratory testcase.  It tries to figure out how exactly the
+ * different Intel and AMD CPUs implements SSE and similar instructions that
+ * uses the size, repz, repnz and lock prefixes in the encoding.
+ */
+CPUDECODE1TST const g_aSimpleTests[] =
+{
+    /*
+     *  fFlags, cbUd, cbOpcodes, abOpcodes
+     */
+#if 0
+    /* Using currently undefined 0x0f 0x7a sequences. */
+    {           F_UD, 3,               { 0x0f, 0x7a, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_LK, 0x0f, 0x7a, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_RZ, 0x0f, 0x7a, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_RN, 0x0f, 0x7a, RM_EAX_EAX, } },
+    {           F_UD, 3+2, { P_LK, P_LK, 0x0f, 0x7a, RM_EAX_EAX, } },
+    {           F_UD, 4,               { 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP8, 0 } },
+    {           F_UD, 4+1,       { P_LK, 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP8, 0 } },
+    {           F_UD, 4+1,       { P_RZ, 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP8, 0 } },
+    {           F_UD, 4+1,       { P_RN, 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP8, 0 } },
+    {           F_UD, 4+2, { P_LK, P_LK, 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP8, 0 } },
+    {           F_UD, 7,               { 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0 } },
+    {           F_UD, 7+1,       { P_LK, 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0 } },
+    {           F_UD, 7+1,       { P_RZ, 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0 } },
+    {           F_UD, 7+1,       { P_RN, 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0 } },
+    {           F_UD, 7+2, { P_LK, P_LK, 0x0f, 0x7a, RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0 } },
+#endif
+#if 0
+    /* Ditto for currently undefined sequence: 0x0f 0x7b */
+    {           F_UD, 3,               { 0x0f, 0x7b, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_LK, 0x0f, 0x7b, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_RZ, 0x0f, 0x7b, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_RN, 0x0f, 0x7b, RM_EAX_EAX, } },
+    {           F_UD, 3+2, { P_LK, P_LK, 0x0f, 0x7b, RM_EAX_EAX, } },
+#endif
+#if 1
+    /* Ditto for currently undefined sequence: 0x0f 0x24 */
+    {           F_UD, 3,               { 0x0f, 0x24, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_LK, 0x0f, 0x24, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_RZ, 0x0f, 0x24, RM_EAX_EAX, } },
+    {           F_UD, 3+1,       { P_RN, 0x0f, 0x24, RM_EAX_EAX, } },
+    {           F_UD, 3+2, { P_LK, P_LK, 0x0f, 0x24, RM_EAX_EAX, } },
+#endif
+#if 0
+    /* The XADD instruction has empty lines for 66, f3 and f2 prefixes.
+       AMD doesn't do anything special for XADD Ev,Gv as the intel table would indicate. */
+    {    F_486 | F_OK,  3,             { 0x0f, 0xc1, RM_EAX_EAX, } },
+    {    F_486 | F_OK,  4,       { P_OZ, 0x0f, 0xc1, RM_EAX_EAX, } },
+    {    F_486 | F_OK,  4,       { P_RZ, 0x0f, 0xc1, RM_EAX_EAX, } },
+    {    F_486 | F_OK,  5, { P_OZ, P_RZ, 0x0f, 0xc1, RM_EAX_EAX, } },
+    {    F_486 | F_OK,  5, { P_RZ, P_OZ, 0x0f, 0xc1, RM_EAX_EAX, } },
+    {    F_486 | F_OK,  4,       { P_RN, 0x0f, 0xc1, RM_EAX_EAX, } },
+    {    F_486 | F_OK,  5, { P_OZ, P_RN, 0x0f, 0xc1, RM_EAX_EAX, } },
+    {    F_486 | F_OK,  5, { P_RN, P_OZ, 0x0f, 0xc1, RM_EAX_EAX, } },
+#endif
+#if 0
+    /* The movnti instruction is confined to the unprefixed lined in the intel manuals. Check how the other lines work. */
+    {   F_SSE2 | F_UD,  3,             { 0x0f, 0xc3, RM_EAX_EAX, } },        /* invalid - reg,reg */
+    {   F_SSE2 | F_OK,  3,             { 0x0f, 0xc3, RM_EAX_DEREF_EBX, } },
+    {   F_SSE2 | F_UD,  4,       { P_OZ, 0x0f, 0xc3, RM_EAX_DEREF_EBX, } },  /* invalid */
+    {   F_SSE2 | F_UD,  4,       { P_RZ, 0x0f, 0xc3, RM_EAX_DEREF_EBX, } },  /* invalid */
+    {   F_SSE2 | F_UD,  4,       { P_RN, 0x0f, 0xc3, RM_EAX_DEREF_EBX, } },  /* invalid */
+    {   F_SSE2 | F_UD,  4,       { P_LK, 0x0f, 0xc3, RM_EAX_DEREF_EBX, } },  /* invalid */
+    {   F_SSE2 | F_UD,  5, { P_RN, P_LK, 0x0f, 0xc3, RM_EAX_DEREF_EBX, } },  /* invalid */
+#endif
+#if 0
+    /* The lddqu instruction requires a 0xf2 prefix, intel only lists 0x66 and empty
+       prefix for it.  Check what they really mean by that*/
+    {   F_SSE3 | F_UD,  4,            { P_RN, 0x0f, 0xf0, RM_EAX_EAX, } },          /* invalid - reg, reg  */
+    {   F_SSE3 | F_OK,  4,            { P_RN, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_OK,  5,      { P_RN, P_RN, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_UD,  3,      {             0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_UD,  4,      {       P_RZ, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_UD,  4,      {       P_OZ, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_UD,  4,      {       P_LK, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_UD,  5,      { P_RN, P_RZ, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_OK,  5,      { P_RN, P_OZ, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } }, // AMD,why?
+    {   F_SSE3 | F_UD,  5,      { P_RN, P_LK, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_OK,  5,      { P_RZ, P_RN, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_OK,  5,      { P_OZ, P_RN, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_UD,  5,      { P_LK, P_RN, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_OK,  5,      { P_OZ, P_RN, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+    {   F_SSE3 | F_OK,  6,{ P_OZ, P_RZ, P_RN, 0x0f, 0xf0, RM_EAX_DEREF_EBX, } },
+#endif
+#if 0
+    {   F_SSE2 | F_OK,  3,            { 0x0f, 0x7e, RM_EAX_EAX, } },
+    {   F_SSE2 | F_OK,  4,      { P_OZ, 0x0f, 0x7e, RM_EAX_EAX, } },
+    {   F_SSE2 | F_UD,  5,{ P_RN, P_OZ, 0x0f, 0x7e, RM_EAX_EAX, } }, // WTF?
+    {   F_SSE2 | F_UD,  5,{ P_OZ, P_RN, 0x0f, 0x7e, RM_EAX_EAX, } },
+    {   F_SSE2 | F_OK,  5,{ P_RZ, P_OZ, 0x0f, 0x7e, RM_EAX_EAX, } },
+    {   F_SSE2 | F_OK,  4,      { P_RZ, 0x0f, 0x7e, RM_EAX_EAX, } },
+    {   F_SSE2 | F_UD,  4,      { P_RN, 0x0f, 0x7e, RM_EAX_EAX, } },
+#endif
+/** @todo crc32 / movbe  */
+};
+
+void DecodeEdgeTest(void)
+{
+    /*
+     * Allocate and initialize a page pair
+     */
+    uint8_t BS3_FAR *pbPages;
+    pbPages  = Bs3MemGuardedTestPageAlloc(BS3MEMKIND_FLAT32);
+    if (pbPages)
+    {
+        unsigned        i;
+        BS3REGCTX       Ctx;
+        BS3TRAPFRAME    TrapFrame;
+
+        Bs3MemZero(&Ctx, sizeof(Ctx));
+        Bs3MemZero(&TrapFrame, sizeof(TrapFrame));
+
+        ASMSetCR0((ASMGetCR0() & ~(X86_CR0_EM | X86_CR0_TS)) | X86_CR0_MP);
+        ASMSetCR4(ASMGetCR4() | X86_CR4_OSFXSR);
+
+        Bs3RegCtxSaveEx(&Ctx, BS3_MODE_CODE_32, 512);
+        Ctx.rbx.u64 = (uintptr_t)pbPages;
+
+        for (i = 0; i < RT_ELEMENTS(g_aSimpleTests); i++)
+        {
+            unsigned const cbOpcodes = g_aSimpleTests[i].cbOpcodes;
+            uint16_t const fFlags    = g_aSimpleTests[i].fFlags;
+            unsigned cb;
+            /** @todo check if supported. */
+
+            /*
+             * Place the instruction exactly at the page boundrary and proceed to
+             * move it across it and check that we get #PFs then.
+             */
+            cb = cbOpcodes;
+            while (cb >= 1)
+            {
+                unsigned const   cErrorsBefore = Bs3TestSubErrorCount();
+                uint8_t BS3_FAR *pbRip = &pbPages[X86_PAGE_SIZE - cb];
+                Bs3MemCpy(pbRip, &g_aSimpleTests[i].abOpcodes[0], cb);
+                Bs3RegCtxSetRipCsFromFlat(&Ctx, (uintptr_t)pbRip);
+                Bs3TrapSetJmpAndRestore(&Ctx, &TrapFrame);
+#if 1
+                Bs3TestPrintf("\ni=%d cb=%#x (cbOpcodes=%#x fFlags=%#x)\n", i, cb, cbOpcodes, fFlags);
+//                Bs3TrapPrintFrame(&TrapFrame);
+#endif
+                if (cb >= cbOpcodes && (g_aSimpleTests[i].fFlags & F_UD))
+                {
+                    if (TrapFrame.bXcpt != X86_XCPT_UD)
+                        Bs3TestFailedF("i=%d cb=%d cbOp=%d fFlags=%#x: expected #UD got %#x at %RX32\n",
+                                       i, cb, cbOpcodes, fFlags, TrapFrame.bXcpt, TrapFrame.Ctx.rip.u32);
+                }
+                else if (cb < cbOpcodes)
+                {
+                    if (TrapFrame.bXcpt != X86_XCPT_PF)
+                        Bs3TestFailedF("i=%d cb=%d cbOp=%d fFlags=%#x: expected #PF (on) got %#x at %RX32\n",
+                                       i, cb, cbOpcodes, fFlags, TrapFrame.bXcpt, TrapFrame.Ctx.rip.u32);
+                    else if (TrapFrame.Ctx.rip.u32 != (uintptr_t)pbRip)
+                        Bs3TestFailedF("i=%d cb=%d cbOp=%d fFlags=%#x: expected #PF rip of %p (on) got %#RX32\n",
+                                       i, cb, cbOpcodes, fFlags, pbRip, TrapFrame.Ctx.rip.u32);
+                }
+                else
+                {
+                    if (TrapFrame.bXcpt != X86_XCPT_PF)
+                        Bs3TestFailedF("i=%d cb=%d cbOp=%d fFlags=%#x: expected #PF (after) got %#x at %RX32\n",
+                                       i, cb, cbOpcodes, fFlags, TrapFrame.bXcpt, TrapFrame.Ctx.rip.u32);
+                    else if (TrapFrame.Ctx.rip.u32 != (uintptr_t)&pbPages[X86_PAGE_SIZE])
+                        Bs3TestFailedF("i=%d cb=%d cbOp=%d fFlags=%#x: expected #PF rip of %p (after) got %#RX32\n",
+                                       i, cb, cbOpcodes, fFlags, &pbPages[X86_PAGE_SIZE], TrapFrame.Ctx.rip.u32);
+                }
+                if (Bs3TestSubErrorCount() != cErrorsBefore)
+                {
+                    Bs3TestPrintf("  %.*Rhxs", cb, &g_aSimpleTests[i].abOpcodes[0]);
+                    if (cb < cbOpcodes)
+                        Bs3TestPrintf("[%.*Rhxs]", cbOpcodes - cb, &g_aSimpleTests[i].abOpcodes[cb]);
+                    Bs3TestPrintf("\n");
+                }
+
+                /* next */
+                cb--;
+            }
+        }
+
+        Bs3MemGuardedTestPageFree(pbPages);
+    }
+    else
+        Bs3TestFailed("Failed to allocate two pages!\n");
+
+    /*
+     * Test instruction sequences.
+     */
+
+
+}
+
+
+/**
+ * Undefined opcode test.
+ */
+typedef struct CPUDECODE1UDTST
+{
+    /** Type of undefined opcode decoding logic - UD_T_XXX. */
+    uint8_t     enmType;
+    /** Core opcodes length. */
+    uint8_t     cbOpcodes;
+    /** Core opcodes. */
+    uint8_t     abOpcodes[5];
+    /** UD_F_XXX. */
+    uint8_t     fFlags;
+} CPUDECODE1UDTST;
+typedef CPUDECODE1UDTST const BS3_FAR *PCCPUDECODE1UDTST;
+
+#define UD_T_EXACT          0
+#define UD_T_NOAMD          0x80        /**< AMD does not decode unnecessary bytes, Intel does. */
+#define UD_T_MODRM          1
+#define UD_T_MODRM_I8       2
+#define UD_T_MODRM_M        3
+#define UD_T_MODRM_M_I8     4
+#define UD_T_MODRM_RR0      0x10
+#define UD_T_MODRM_RR1      0x11
+#define UD_T_MODRM_RR2      0x12
+#define UD_T_MODRM_RR3      0x13
+#define UD_T_MODRM_RR4      0x14
+#define UD_T_MODRM_RR5      0x15
+#define UD_T_MODRM_RR6      0x16
+#define UD_T_MODRM_RR7      0x17
+#define UD_T_MODRM_RR0_I8   0x18
+#define UD_T_MODRM_RR1_I8   0x19
+#define UD_T_MODRM_RR2_I8   0x1a
+#define UD_T_MODRM_RR3_I8   0x1b
+#define UD_T_MODRM_RR4_I8   0x1c
+#define UD_T_MODRM_RR5_I8   0x1d
+#define UD_T_MODRM_RR6_I8   0x1e
+#define UD_T_MODRM_RR7_I8   0x1f
+#define UD_T_MODRM_MR0      0x20
+#define UD_T_MODRM_MR1      0x21
+#define UD_T_MODRM_MR2      0x22
+#define UD_T_MODRM_MR3      0x23
+#define UD_T_MODRM_MR4      0x24
+#define UD_T_MODRM_MR5      0x25
+#define UD_T_MODRM_MR6      0x26
+#define UD_T_MODRM_MR7      0x27
+#define UD_T_MODRM_MR0_I8   0x28
+#define UD_T_MODRM_MR1_I8   0x29
+#define UD_T_MODRM_MR2_I8   0x2a
+#define UD_T_MODRM_MR3_I8   0x2b
+#define UD_T_MODRM_MR4_I8   0x2c
+#define UD_T_MODRM_MR5_I8   0x2d
+#define UD_T_MODRM_MR6_I8   0x2e
+#define UD_T_MODRM_MR7_I8   0x2f
+
+#define UD_F_ANY_PFX 0
+#define UD_F_NOT_NO_PFX     UINT8_C(0x01)  /**< Must have some kind of prefix to be \#UD. */
+#define UD_F_NOT_OZ_PFX     UINT8_C(0x02)  /**< Skip the size prefix. */
+#define UD_F_NOT_RZ_PFX     UINT8_C(0x04)  /**< Skip the REPZ prefix. */
+#define UD_F_NOT_RN_PFX     UINT8_C(0x08)  /**< Skip the REPNZ prefix. */
+#define UD_F_NOT_LK_PFX     UINT8_C(0x10)  /**< Skip the LOCK prefix. */
+#define UD_F_3BYTE_ESC      UINT8_C(0x20)  /**< Unused 3 byte escape table. Test all 256 entries */
+
+/**
+ * Two byte opcodes.
+ */
+CPUDECODE1UDTST const g_aUdTest2Byte_0f[] =
+{
+#if 0
+    {  UD_T_EXACT, 2, { 0x0f, 0x04 }, UD_F_ANY_PFX },
+    {  UD_T_EXACT, 2, { 0x0f, 0x0a }, UD_F_ANY_PFX },
+    {  UD_T_EXACT, 2, { 0x0f, 0x0c }, UD_F_ANY_PFX },
+    {  UD_T_EXACT, 2, { 0x0f, 0x0e }, UD_F_ANY_PFX },
+    {  UD_T_EXACT, 2, { 0x0f, 0x0f }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x13 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x14 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x15 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x16 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x17 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    /** @todo figure when 0f 019 and 0f 0c-0f were made into NOPs. */
+    {  UD_T_EXACT, 2, { 0x0f, 0x24 }, UD_F_ANY_PFX },
+    {  UD_T_EXACT, 2, { 0x0f, 0x25 }, UD_F_ANY_PFX },
+    {  UD_T_EXACT, 2, { 0x0f, 0x26 }, UD_F_ANY_PFX },
+    {  UD_T_EXACT, 2, { 0x0f, 0x27 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x28 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x29 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x2b }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x2e }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x2f }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_EXACT, 2, { 0x0f, 0x36 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM,      3, { 0x0f, 0x39, 0x00 }, UD_F_3BYTE_ESC | UD_F_ANY_PFX }, /* Three byte escape table, just unused.  */
+    {  UD_T_MODRM_I8, 3, { 0x0f, 0x3b, 0x00 }, UD_F_3BYTE_ESC | UD_F_ANY_PFX }, /* Three byte escape table, just unused.  */
+    {  UD_T_MODRM,      3, { 0x0f, 0x3c, 0x00 }, UD_F_3BYTE_ESC | UD_F_ANY_PFX }, /* Three byte escape table, just unused.  */
+    {  UD_T_MODRM,      3, { 0x0f, 0x3d, 0x00 }, UD_F_3BYTE_ESC | UD_F_ANY_PFX }, /* Three byte escape table, just unused.  */
+    {  UD_T_MODRM_I8, 3, { 0x0f, 0x3e, 0x00 }, UD_F_3BYTE_ESC | UD_F_ANY_PFX }, /* Three byte escape table, just unused.  */
+    {  UD_T_MODRM_I8, 3, { 0x0f, 0x3f, 0x00 }, UD_F_3BYTE_ESC | UD_F_ANY_PFX }, /* Three byte escape table, just unused.  */
+    {  UD_T_MODRM, 2, { 0x0f, 0x50 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x52 }, UD_F_NOT_NO_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x53 }, UD_F_NOT_NO_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x54 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x55 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x56 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x57 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x5b }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x60 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x61 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x62 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x63 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x64 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x65 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x66 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x67 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x68 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x69 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x6a }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x6b }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x6c }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x6d }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x6e }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x6f }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM_M_I8, 2, { 0x0f, 0x71 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR0_I8, 2, { 0x0f, 0x71 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR1_I8, 2, { 0x0f, 0x71 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR2_I8, 2, { 0x0f, 0x71 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR3_I8, 2, { 0x0f, 0x71 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR4_I8, 2, { 0x0f, 0x71 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR5_I8, 2, { 0x0f, 0x71 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR6_I8, 2, { 0x0f, 0x71 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR7_I8, 2, { 0x0f, 0x71 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_M_I8, 2, { 0x0f, 0x72 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR0_I8, 2, { 0x0f, 0x72 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR1_I8, 2, { 0x0f, 0x72 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR2_I8, 2, { 0x0f, 0x72 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR3_I8, 2, { 0x0f, 0x72 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR4_I8, 2, { 0x0f, 0x72 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR5_I8, 2, { 0x0f, 0x72 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR6_I8, 2, { 0x0f, 0x72 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR7_I8, 2, { 0x0f, 0x72 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_M_I8, 2, { 0x0f, 0x73 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR0_I8, 2, { 0x0f, 0x73 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR1_I8, 2, { 0x0f, 0x73 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR2_I8, 2, { 0x0f, 0x73 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR3_I8, 2, { 0x0f, 0x73 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR4_I8, 2, { 0x0f, 0x73 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR5_I8, 2, { 0x0f, 0x73 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR6_I8, 2, { 0x0f, 0x73 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_RR7_I8, 2, { 0x0f, 0x73 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x74 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x75 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x76 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    /* 0f 77: WTF? OZ, RZ and RN are all empty in the intel tables and LK isn't metnioned at all: */
+    {  UD_T_MODRM, 2, { 0x0f, 0x77 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX | UD_F_NOT_RZ_PFX | UD_F_NOT_LK_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x78 }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x79 }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x7a }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x7b }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x7c }, UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x7d }, UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x7e }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0x7f }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xa6 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xa7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_MR0, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* fxsave only checks REX.W */
+    {  UD_T_MODRM_MR1, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* frstor ditto  */
+    {  UD_T_MODRM_MR2, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* ldmxcsr */
+    {  UD_T_MODRM_MR3, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* stmxcsr */
+    {  UD_T_MODRM_MR4, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* xsave */
+    {  UD_T_MODRM_MR5, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* xrstor */
+    {  UD_T_MODRM_MR6, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* xsaveopt */
+    {  UD_T_MODRM_MR7, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX }, /* clflush (none) and clflushopt (66) */
+    {  UD_T_MODRM_RR0, 2, { 0x0f, 0xae }, UD_F_ANY_PFX }, /* f3=rdfsbase is 64-bit  */
+    {  UD_T_MODRM_RR1, 2, { 0x0f, 0xae }, UD_F_ANY_PFX }, /* f3=rdfsbase is 64-bit  */
+    {  UD_T_MODRM_RR2, 2, { 0x0f, 0xae }, UD_F_ANY_PFX }, /* f3=rdfsbase is 64-bit  */
+    {  UD_T_MODRM_RR3, 2, { 0x0f, 0xae }, UD_F_ANY_PFX }, /* f3=rdfsbase is 64-bit  */
+    {  UD_T_MODRM_RR4, 2, { 0x0f, 0xae }, UD_F_ANY_PFX }, /* unused */
+    {  UD_T_MODRM_RR5, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* 00=lfence */
+    {  UD_T_MODRM_RR6, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* 00=mfence */
+    {  UD_T_MODRM_RR7, 2, { 0x0f, 0xae }, UD_F_NOT_NO_PFX }, /* 00=sfence */
+    {  UD_T_MODRM, 2, { 0x0f, 0xb8 }, UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM | UD_T_NOAMD, 2, { 0x0f, 0xb9 }, UD_F_ANY_PFX }, /* UD1 */
+    {  UD_T_MODRM_MR0_I8, 2, { 0x0f, 0xba }, UD_F_ANY_PFX }, /* grp8 */
+    {  UD_T_MODRM_MR1_I8, 2, { 0x0f, 0xba }, UD_F_ANY_PFX }, /* grp8 */
+    {  UD_T_MODRM_MR2_I8, 2, { 0x0f, 0xba }, UD_F_ANY_PFX }, /* grp8 */
+    {  UD_T_MODRM_MR3_I8, 2, { 0x0f, 0xba }, UD_F_ANY_PFX }, /* grp8 */
+    /** @todo f3 0f bb rm and f2 0f bb rm does stuff on skylake even if their are blank in intel and AMD tables! */
+    //{  UD_T_MODRM, 2, { 0x0f, 0xbb }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    /** @todo AMD tables indicates that f2 0f bc rm is invalid, but on skylake it works differently (BSF?)  */
+    {  UD_T_MODRM, 2, { 0x0f, 0xbc }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX /* figure: */ | UD_F_NOT_RN_PFX },
+    /** @todo AMD tables indicates that f3 0f bc rm is invalid, but on skylake it works differently (BSR?) */
+    {  UD_T_MODRM, 2, { 0x0f, 0xbd }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX /* figure: */ | UD_F_NOT_RN_PFX },
+    /* Note! Intel incorrectly states that XADD (0f c0 and 0f c1) are sensitive to OZ, RN and RZ.  AMD and skylake hw disagrees. */
+    {  UD_T_MODRM, 2, { 0x0f, 0xc3 }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM_I8, 2, { 0x0f, 0xc4 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_I8, 2, { 0x0f, 0xc5 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM_I8, 2, { 0x0f, 0xc6 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+#endif
+    {  UD_T_MODRM_MR0, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR0, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    //{  UD_T_MODRM_MR1, 2, { 0x0f, 0xc7 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX | UD_F_NOT_RZ_PFX | UD_F_NOT_LK_PFX }, - cmpxchg8b ignores everything. @
+    {  UD_T_MODRM_RR1, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_MR2, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR2, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_MR3, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR3, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_MR4, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR4, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_MR5, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_RR5, 2, { 0x0f, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM_MR6, 2, { 0x0f, 0xc7 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX }, /* f2? */
+    {  UD_T_MODRM_RR6, 2, { 0x0f, 0xc7 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX }, /* (rdrand Rv) */
+    {  UD_T_MODRM_MR7, 2, { 0x0f, 0xc7 }, UD_F_NOT_NO_PFX }, /* vmptrst Mq (f2?); */
+    {  UD_T_MODRM_RR7, 2, { 0x0f, 0xc7 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX }, /* rdrand Rv; rdpid Rd/q (f2,66??); */
+#if 0
+    {  UD_T_MODRM, 2, { 0x0f, 0xd0 }, UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd1 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd2 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd3 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd4 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd5 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd6 }, UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd7 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd8 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xd9 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xda }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xdb }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xdc }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xdd }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xde }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xdf }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe0 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe1 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe2 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe3 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe4 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe5 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe6 }, UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX | UD_F_NOT_RZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe7 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe8 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xe9 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xea }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xeb }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xec }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xed }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xee }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xef }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf0 }, UD_F_NOT_RN_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf1 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf2 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf3 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf4 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf5 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf6 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf7 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf8 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xf9 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xfa }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xfb }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xfc }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xfd }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xfe }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 2, { 0x0f, 0xff }, UD_F_ANY_PFX },
+#endif
+};
+
+
+/**
+ * Three byte opcodes.
+ */
+CPUDECODE1UDTST const g_aUdTest3Byte_0f_38[] =
+{
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x00 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x01 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x02 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x03 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x04 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x05 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x06 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x07 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x08 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x09 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x0a }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x0b }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x0c }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x0d }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x0e }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x0f }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x10 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x11 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x12 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x13 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x14 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x15 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x16 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x17 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x18 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x19 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x1a }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x1b }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x1c }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x1d }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x1e }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x1f }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x20 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x21 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x22 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x23 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x24 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x25 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x26 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x27 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x28 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x29 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x2a }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x2b }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x2c }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x2d }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x2e }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x2f }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x30 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x31 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x32 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x33 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x34 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x35 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x36 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x37 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x38 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x39 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x3a }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x3b }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x3c }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x3d }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x3e }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x3f }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x40 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x41 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x42 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x43 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x44 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x45 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x46 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x47 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x48 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x49 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x4a }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x4b }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x4c }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x4d }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x4e }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x4f }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x50 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x51 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x52 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x53 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x54 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x55 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x56 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x57 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x58 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x59 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x5a }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x5b }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x5c }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x5e }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x5d }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x5f }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x60 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x61 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x62 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x63 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x64 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x65 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x66 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x67 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x68 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x69 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x6a }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x6b }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x6c }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x6d }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x6e }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x6f }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x70 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x71 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x72 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x73 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x74 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x75 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x76 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x77 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x78 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x79 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x7a }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x7b }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x7c }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x7d }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x7e }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x7f }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x80 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x81 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x82 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x83 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x84 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x85 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x86 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x87 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x88 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x89 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x8a }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x8b }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x8c }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x8d }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x8e }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x8f }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x90 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x91 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x92 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x93 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x94 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x95 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x96 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x97 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x98 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x99 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x9a }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x9b }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x9c }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x9d }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x9e }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0x9f }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa0 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa1 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa2 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa3 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa4 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa5 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa6 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa7 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa8 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xa9 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xaa }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xab }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xac }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xad }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xae }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xaf }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb0 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb1 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb2 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb3 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb4 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb5 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb6 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb7 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb8 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xb9 }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xba }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xbb }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xbc }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xbd }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xbe }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xbf }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc0 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc1 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc2 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc3 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc4 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc5 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc6 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc8 }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xc9 }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xca }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xcb }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xcc }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xcd }, UD_F_NOT_NO_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xce }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xcf }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd0 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd1 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd2 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd3 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd4 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd5 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd6 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd8 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xd9 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xda }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xdb }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xdc }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xdd }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xde }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xdf }, UD_F_NOT_OZ_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe0 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe1 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe2 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe3 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe4 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe5 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe6 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe8 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xe9 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xea }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xeb }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xec }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xed }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xee }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xef }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xf0 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX }, /// @todo crc32 weirdness
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xf1 }, UD_F_NOT_NO_PFX | UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX }, /// @todo crc32 weirdness
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xf2 }, UD_F_NOT_NO_PFX },
+
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xf4 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xf5 }, UD_F_NOT_NO_PFX | UD_F_NOT_RZ_PFX | UD_F_NOT_RN_PFX },
+
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xf7 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xf8 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xf9 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xfa }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xfb }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xfc }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xfd }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xfe }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 3, { 0x0f, 0x38, 0xff }, UD_F_ANY_PFX },
+
+    /* This is going to be interesting: */
+    {  UD_T_MODRM, 5, { 0x66, 0xf2, 0x0f, 0x38, 0xf5 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 5, { 0x66, 0xf3, 0x0f, 0x38, 0xf5 }, UD_F_ANY_PFX },
+    {  UD_T_MODRM, 5, { 0x66, 0xf2, 0x0f, 0x38, 0xf6 }, UD_F_ANY_PFX },
+    //{  UD_T_MODRM, 5, { 0x66, 0xf3, 0x0f, 0x38, 0xf6 }, UD_F_ANY_PFX }, - not this one.
+};
+
+
+void DecodeUdEdgeTest(PCCPUDECODE1UDTST paTests, unsigned cTests)
+{
+    uint8_t BS3_FAR *pbPages;
+
+    /*
+     * Detect AMD.
+     */
+    bool fIsAmd = false;
+    if (g_uBs3CpuDetected & BS3CPU_F_CPUID)
+        fIsAmd = ASMIsAmdCpu() || ASMIsHygonCpu();
+    Bs3TestPrintf("fIsAmd=%d\n", fIsAmd);
+
+    /*
+     * Allocate and initialize a page pair
+     */
+    pbPages  = Bs3MemGuardedTestPageAlloc(BS3MEMKIND_FLAT32);
+    if (pbPages)
+    {
+        unsigned        iTest;
+        BS3REGCTX       Ctx;
+        BS3REGCTX       ExpectCtx;
+        BS3TRAPFRAME    TrapFrame;
+        uint32_t        iStep;
+
+        Bs3MemZero(&Ctx, sizeof(Ctx));
+        Bs3MemZero(&ExpectCtx, sizeof(ExpectCtx));
+        Bs3MemZero(&TrapFrame, sizeof(TrapFrame));
+
+        /* Enable SSE. */
+        ASMSetCR0((ASMGetCR0() & ~(X86_CR0_EM | X86_CR0_TS)) | X86_CR0_MP);
+        ASMSetCR4(ASMGetCR4() | X86_CR4_OSFXSR);
+
+        /* Create a test context. */
+        Bs3RegCtxSaveEx(&Ctx, BS3_MODE_CODE_32, 512);
+        Ctx.rbx.u = (uintptr_t)pbPages;
+        Ctx.rcx.u = (uintptr_t)pbPages;
+        Ctx.rdx.u = (uintptr_t)pbPages;
+        Ctx.rax.u = (uintptr_t)pbPages;
+        Ctx.rbp.u = (uintptr_t)pbPages;
+        Ctx.rsi.u = (uintptr_t)pbPages;
+        Ctx.rdi.u = (uintptr_t)pbPages;
+
+        Bs3MemCpy(&ExpectCtx, &Ctx, sizeof(ExpectCtx));
+        ExpectCtx.rflags.u32 |= X86_EFL_RF;
+
+        /* Loop thru the tests. */
+        iStep = g_usBs3TestStep = 0;
+        for (iTest = 0; iTest < cTests; iTest++)
+        {
+            typedef struct CPUDECODE1UDSEQ
+            {
+                uint8_t cb;
+                uint8_t ab[10];
+                uint8_t fIncompatible;
+            } CPUDECODE1UDSEQ;
+            typedef CPUDECODE1UDSEQ const BS3_FAR *PCCPUDECODE1UDSEQ;
+
+            static CPUDECODE1UDSEQ const s_aPrefixes[] =
+            {
+                { 0, { 0    },              UD_F_NOT_NO_PFX },
+                { 1, { P_OZ },              UD_F_NOT_OZ_PFX },
+                { 1, { P_RN },              UD_F_NOT_RN_PFX },
+                { 1, { P_RZ },              UD_F_NOT_RZ_PFX },
+                { 1, { P_LK },              UD_F_NOT_LK_PFX },
+                { 2, { P_OZ, P_OZ },        UD_F_NOT_OZ_PFX | UD_F_NOT_OZ_PFX },
+                { 2, { P_RN, P_OZ },        UD_F_NOT_RN_PFX | UD_F_NOT_OZ_PFX },
+                { 2, { P_RZ, P_OZ },        UD_F_NOT_RZ_PFX | UD_F_NOT_OZ_PFX },
+                { 2, { P_LK, P_OZ },        UD_F_NOT_LK_PFX | UD_F_NOT_OZ_PFX },
+                { 2, { P_OZ, P_RN },        UD_F_NOT_OZ_PFX | UD_F_NOT_RN_PFX },
+                { 2, { P_RN, P_RN },        UD_F_NOT_RN_PFX | UD_F_NOT_RN_PFX },
+                { 2, { P_RZ, P_RN },        UD_F_NOT_RZ_PFX | UD_F_NOT_RN_PFX },
+                { 2, { P_LK, P_RN },        UD_F_NOT_LK_PFX | UD_F_NOT_RN_PFX },
+                { 2, { P_OZ, P_RZ },        UD_F_NOT_OZ_PFX | UD_F_NOT_RZ_PFX },
+                { 2, { P_RN, P_RZ },        UD_F_NOT_RN_PFX | UD_F_NOT_RZ_PFX },
+                { 2, { P_RZ, P_RZ },        UD_F_NOT_RZ_PFX | UD_F_NOT_RZ_PFX },
+                { 2, { P_LK, P_RZ },        UD_F_NOT_LK_PFX | UD_F_NOT_RZ_PFX },
+                { 2, { P_OZ, P_LK },        UD_F_NOT_OZ_PFX | UD_F_NOT_LK_PFX },
+                { 2, { P_RN, P_LK },        UD_F_NOT_RN_PFX | UD_F_NOT_LK_PFX },
+                { 2, { P_RZ, P_LK },        UD_F_NOT_RZ_PFX | UD_F_NOT_LK_PFX },
+                { 2, { P_LK, P_LK },        UD_F_NOT_LK_PFX | UD_F_NOT_LK_PFX },
+            };
+
+            static CPUDECODE1UDSEQ const s_aExact[] = { { 0, { 0 }, 0 } };
+            static CPUDECODE1UDSEQ const s_aModRm[] =
+            {
+                { 1, { RM_EAX_EAX, },                                       0 },
+                /* Mem forms (hardcoded indexed later): */
+                { 2, { RM_EAX_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_EAX_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_EAX_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_EAX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+            };
+            static CPUDECODE1UDSEQ const s_aModRmImm8[] =
+            {
+                { 1 + 1, { RM_EAX_EAX, 0x11 },                                      0 },
+                /* Mem forms (hardcoded indexed later): */
+                { 2 + 1, { RM_EAX_DEREF_EBX_DISP8, 0, 0x11 },                       0 },
+                { 5 + 1, { RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0, 0x11 },             0 },
+                { 2 + 1, { RM_EAX_SIB, SIB_EBX_X1_NONE, 0x11 },                     0 },
+                { 3 + 1, { RM_EAX_SIB_DISP8,  SIB_EBX_X1_NONE, 0, 0x11 },           0 },
+                { 6 + 1, { RM_EAX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 },  0 },
+            };
+            static CPUDECODE1UDSEQ const s_aModRmRRx[] =
+            {
+                { 1, { RM_EAX_EAX, },                                       0 },
+                { 1, { RM_ECX_EAX, },                                       0 },
+                { 1, { RM_EDX_EAX, },                                       0 },
+                { 1, { RM_EBX_EAX, },                                       0 },
+                { 1, { RM_ESP_EAX, },                                       0 },
+                { 1, { RM_EBP_EAX, },                                       0 },
+                { 1, { RM_ESI_EAX, },                                       0 },
+                { 1, { RM_EDI_EAX, },                                       0 },
+            };
+            static CPUDECODE1UDSEQ const s_aModRmRRxImm8[] =
+            {
+                { 2, { RM_EAX_EAX, 0x11 },                                  0 },
+                { 2, { RM_ECX_EAX, 0x11 },                                  0 },
+                { 2, { RM_EDX_EAX, 0x11 },                                  0 },
+                { 2, { RM_EBX_EAX, 0x11 },                                  0 },
+                { 2, { RM_ESP_EAX, 0x11 },                                  0 },
+                { 2, { RM_EBP_EAX, 0x11 },                                  0 },
+                { 2, { RM_ESI_EAX, 0x11 },                                  0 },
+                { 2, { RM_EDI_EAX, 0x11 },                                  0 },
+            };
+            static CPUDECODE1UDSEQ const s_aModRmMRx[] = /* index*5 */
+            {
+                { 2, { RM_EAX_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_EAX_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_EAX_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_EAX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+
+                { 2, { RM_ECX_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_ECX_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_ECX_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_ECX_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_ECX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+
+                { 2, { RM_EDX_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_EDX_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_EDX_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_EDX_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_EDX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+
+                { 2, { RM_EBX_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_EBX_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_EBX_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_EBX_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_EBX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+
+                { 2, { RM_ESP_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_ESP_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_ESP_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_ESP_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_ESP_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+
+                { 2, { RM_EBP_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_EBP_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_EBP_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_EBP_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_EBP_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+
+                { 2, { RM_ESI_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_ESI_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_ESI_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_ESI_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_ESI_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+
+                { 2, { RM_EDI_DEREF_EBX_DISP8, 0 },                         0 },
+                { 5, { RM_EDI_DEREF_EBX_DISP32, 0, 0, 0, 0 },               0 },
+                { 2, { RM_EDI_SIB, SIB_EBX_X1_NONE, },                      0 },
+                { 3, { RM_EDI_SIB_DISP8,  SIB_EBX_X1_NONE, 0 },             0 },
+                { 6, { RM_EDI_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0 },    0 },
+            };
+            static CPUDECODE1UDSEQ const s_aModRmMRxImm8[] = /* index*5 */
+            {
+                { 2+1, { RM_EAX_DEREF_EBX_DISP8, 0,                      0x11 }, 0 },
+                { 5+1, { RM_EAX_DEREF_EBX_DISP32, 0, 0, 0, 0,            0x11 }, 0 },
+                { 2+1, { RM_EAX_SIB, SIB_EBX_X1_NONE,                    0x11 }, 0 },
+                { 3+1, { RM_EAX_SIB_DISP8,  SIB_EBX_X1_NONE, 0,          0x11 }, 0 },
+                { 6+1, { RM_EAX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 }, 0 },
+
+                { 2+1, { RM_ECX_DEREF_EBX_DISP8, 0,                      0x11 }, 0 },
+                { 5+1, { RM_ECX_DEREF_EBX_DISP32, 0, 0, 0, 0,            0x11 }, 0 },
+                { 2+1, { RM_ECX_SIB, SIB_EBX_X1_NONE,                    0x11 }, 0 },
+                { 3+1, { RM_ECX_SIB_DISP8,  SIB_EBX_X1_NONE, 0,          0x11 }, 0 },
+                { 6+1, { RM_ECX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 }, 0 },
+
+                { 2+1, { RM_EDX_DEREF_EBX_DISP8, 0,                      0x11 }, 0 },
+                { 5+1, { RM_EDX_DEREF_EBX_DISP32, 0, 0, 0, 0,            0x11 }, 0 },
+                { 2+1, { RM_EDX_SIB, SIB_EBX_X1_NONE,                    0x11 }, 0 },
+                { 3+1, { RM_EDX_SIB_DISP8,  SIB_EBX_X1_NONE, 0,          0x11 }, 0 },
+                { 6+1, { RM_EDX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 }, 0 },
+
+                { 2+1, { RM_EBX_DEREF_EBX_DISP8, 0,                      0x11 }, 0 },
+                { 5+1, { RM_EBX_DEREF_EBX_DISP32, 0, 0, 0, 0,            0x11 }, 0 },
+                { 2+1, { RM_EBX_SIB, SIB_EBX_X1_NONE,                    0x11 }, 0 },
+                { 3+1, { RM_EBX_SIB_DISP8,  SIB_EBX_X1_NONE, 0,          0x11 }, 0 },
+                { 6+1, { RM_EBX_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 }, 0 },
+
+                { 2+1, { RM_ESP_DEREF_EBX_DISP8, 0,                      0x11 }, 0 },
+                { 5+1, { RM_ESP_DEREF_EBX_DISP32, 0, 0, 0, 0,            0x11 }, 0 },
+                { 2+1, { RM_ESP_SIB, SIB_EBX_X1_NONE,                    0x11 }, 0 },
+                { 3+1, { RM_ESP_SIB_DISP8,  SIB_EBX_X1_NONE, 0,          0x11 }, 0 },
+                { 6+1, { RM_ESP_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 }, 0 },
+
+                { 2+1, { RM_EBP_DEREF_EBX_DISP8, 0,                      0x11 }, 0 },
+                { 5+1, { RM_EBP_DEREF_EBX_DISP32, 0, 0, 0, 0,            0x11 }, 0 },
+                { 2+1, { RM_EBP_SIB, SIB_EBX_X1_NONE,                    0x11 }, 0 },
+                { 3+1, { RM_EBP_SIB_DISP8,  SIB_EBX_X1_NONE, 0,          0x11 }, 0 },
+                { 6+1, { RM_EBP_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 }, 0 },
+
+                { 2+1, { RM_ESI_DEREF_EBX_DISP8, 0,                      0x11 }, 0 },
+                { 5+1, { RM_ESI_DEREF_EBX_DISP32, 0, 0, 0, 0,            0x11 }, 0 },
+                { 2+1, { RM_ESI_SIB, SIB_EBX_X1_NONE,                    0x11 }, 0 },
+                { 3+1, { RM_ESI_SIB_DISP8,  SIB_EBX_X1_NONE, 0,          0x11 }, 0 },
+                { 6+1, { RM_ESI_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 }, 0 },
+
+                { 2+1, { RM_EDI_DEREF_EBX_DISP8, 0,                      0x11 }, 0 },
+                { 5+1, { RM_EDI_DEREF_EBX_DISP32, 0, 0, 0, 0,            0x11 }, 0 },
+                { 2+1, { RM_EDI_SIB, SIB_EBX_X1_NONE,                    0x11 }, 0 },
+                { 3+1, { RM_EDI_SIB_DISP8,  SIB_EBX_X1_NONE, 0,          0x11 }, 0 },
+                { 6+1, { RM_EDI_SIB_DISP32, SIB_EBX_X1_NONE, 0, 0, 0, 0, 0x11 }, 0 },
+            };
+            unsigned            iPrefix;
+            unsigned            cSuffixes;
+            PCCPUDECODE1UDSEQ   paSuffixes;
+            unsigned const      cSubTabEntries = paTests[iTest].fFlags & UD_F_3BYTE_ESC ? 256 : 1;
+            unsigned            cImmEntries    = 1;
+
+            /*
+             * Skip if implemented.
+             */
+
+            /*
+             * Produce a number of opcode sequences by varying the prefixes and
+             * ModR/M parts.  Each opcode sequence is then treated to the edge test.
+             */
+            switch (paTests[iTest].enmType)
+            {
+                case UD_T_EXACT:
+                l_case_exact:
+                    cSuffixes   = RT_ELEMENTS(s_aExact);
+                    paSuffixes  = s_aExact;
+                    break;
+                case UD_T_MODRM | UD_T_NOAMD:
+                    if (fIsAmd)
+                        goto l_case_exact;
+                case UD_T_MODRM:
+                    cSuffixes   = RT_ELEMENTS(s_aModRm);
+                    paSuffixes  = s_aModRm;
+                    break;
+                case UD_T_MODRM_I8:
+                    cSuffixes   = RT_ELEMENTS(s_aModRmImm8);
+                    paSuffixes  = s_aModRmImm8;
+                    cImmEntries = 256;
+                    break;
+                case UD_T_MODRM_M:
+                    cSuffixes   = RT_ELEMENTS(s_aModRm) - 1;
+                    paSuffixes  = &s_aModRm[1];
+                    break;
+                case UD_T_MODRM_M_I8:
+                    cSuffixes   = RT_ELEMENTS(s_aModRmImm8) - 1;
+                    paSuffixes  = &s_aModRmImm8[1];
+                    break;
+                case UD_T_MODRM_RR0:
+                case UD_T_MODRM_RR1:
+                case UD_T_MODRM_RR2:
+                case UD_T_MODRM_RR3:
+                case UD_T_MODRM_RR4:
+                case UD_T_MODRM_RR5:
+                case UD_T_MODRM_RR6:
+                case UD_T_MODRM_RR7:
+                    cSuffixes   = 1;
+                    paSuffixes  = &s_aModRmRRx[paTests[iTest].enmType - UD_T_MODRM_RR0];
+                    break;
+                case UD_T_MODRM_RR0_I8:
+                case UD_T_MODRM_RR1_I8:
+                case UD_T_MODRM_RR2_I8:
+                case UD_T_MODRM_RR3_I8:
+                case UD_T_MODRM_RR4_I8:
+                case UD_T_MODRM_RR5_I8:
+                case UD_T_MODRM_RR6_I8:
+                case UD_T_MODRM_RR7_I8:
+                    cSuffixes   = 1;
+                    paSuffixes  = &s_aModRmRRxImm8[paTests[iTest].enmType - UD_T_MODRM_RR0_I8];
+                    break;
+                case UD_T_MODRM_MR0:
+                case UD_T_MODRM_MR1:
+                case UD_T_MODRM_MR2:
+                case UD_T_MODRM_MR3:
+                case UD_T_MODRM_MR4:
+                case UD_T_MODRM_MR5:
+                case UD_T_MODRM_MR6:
+                case UD_T_MODRM_MR7:
+                    cSuffixes   = 5;
+                    paSuffixes  = &s_aModRmMRx[(paTests[iTest].enmType - UD_T_MODRM_MR0) * 5];
+                    break;
+                case UD_T_MODRM_MR0_I8:
+                case UD_T_MODRM_MR1_I8:
+                case UD_T_MODRM_MR2_I8:
+                case UD_T_MODRM_MR3_I8:
+                case UD_T_MODRM_MR4_I8:
+                case UD_T_MODRM_MR5_I8:
+                case UD_T_MODRM_MR6_I8:
+                case UD_T_MODRM_MR7_I8:
+                    cSuffixes   = 5;
+                    paSuffixes  = &s_aModRmMRxImm8[(paTests[iTest].enmType - UD_T_MODRM_MR0_I8) * 5];
+                    break;
+                default:
+                    Bs3TestPrintf("#%u: enmType=%d\n", paTests[iTest].enmType);
+                    continue;
+            }
+
+            for (iPrefix = 0; iPrefix < RT_ELEMENTS(s_aPrefixes); iPrefix++)
+                if (!(s_aPrefixes[iPrefix].fIncompatible & paTests[iTest].fFlags))
+                {
+                    unsigned iSubTab;
+                    unsigned cbOpcodesLead;
+                    uint8_t  abOpcodes[32];
+
+                    Bs3MemCpy(&abOpcodes[0], &s_aPrefixes[iPrefix].ab[0], s_aPrefixes[iPrefix].cb);
+                    cbOpcodesLead  = s_aPrefixes[iPrefix].cb;
+                    Bs3MemCpy(&abOpcodes[cbOpcodesLead], &paTests[iTest].abOpcodes[0], paTests[iTest].cbOpcodes);
+                    cbOpcodesLead += paTests[iTest].cbOpcodes;
+
+                    for (iSubTab = 0; iSubTab < cSubTabEntries; iSubTab++)
+                    {
+                        unsigned iSuffix;
+
+                        if (cSubTabEntries > 1)
+                            abOpcodes[cbOpcodesLead - 1] = iSubTab;
+
+                        for (iSuffix = 0; iSuffix < cSuffixes; iSuffix++)
+                            if (!(paSuffixes[iSuffix].fIncompatible & paTests[iTest].fFlags))
+                            {
+                                unsigned const  cbOpcodes    = cbOpcodesLead + paSuffixes[iSuffix].cb;
+                                unsigned        cbOpcodesMin = 1;
+                                unsigned        iImm;
+                                Bs3MemCpy(&abOpcodes[cbOpcodesLead], paSuffixes[iSuffix].ab, paSuffixes[iSuffix].cb);
+
+                                for (iImm = 0; iImm < cImmEntries; iImm++)
+                                {
+                                    unsigned cb;
+
+                                    if (cImmEntries > 1)
+                                        abOpcodes[cbOpcodes - 1] = iImm;
+
+                                    /*
+                                     * Do the edge thing.
+                                     */
+                                    cb = cbOpcodes;
+                                    while (cb >= cbOpcodesMin)
+                                    {
+                                        uint8_t BS3_FAR *pbRip = &pbPages[X86_PAGE_SIZE - cb];
+                                        uint8_t          bXcptExpected;
+
+                                        Bs3RegCtxSetRipCsFromFlat(&Ctx, (uintptr_t)pbRip);
+                                        ExpectCtx.rip = Ctx.rip;
+                                        ExpectCtx.cs  = Ctx.cs;
+                                        if (cb >= cbOpcodes)
+                                        {
+                                            ExpectCtx.cr2 = Ctx.cr2;
+                                            bXcptExpected = X86_XCPT_UD;
+                                        }
+                                        else
+                                        {
+                                            ExpectCtx.cr2.u = (uintptr_t)&pbPages[X86_PAGE_SIZE];
+                                            bXcptExpected = X86_XCPT_PF;
+                                        }
+
+                                        Bs3MemCpy(pbRip, &abOpcodes[0], cb);
+                                        Bs3TrapSetJmpAndRestore(&Ctx, &TrapFrame);
+#if 0
+                                        Bs3TestPrintf("iTest=%d iPrefix=%d (%d/%#x) iSubTab=%d iSuffix=%d (%d/%#x) iImm=%d cb=%d cbOp=%d: %.*Rhxs\n",
+                                                       iTest, iPrefix, s_aPrefixes[iPrefix].cb, s_aPrefixes[iPrefix].fIncompatible,
+                                                       iSubTab, iSuffix, paSuffixes[iSuffix].cb, paSuffixes[iSuffix].fIncompatible, iImm,
+                                                       cb, cbOpcodes,
+                                                       cbOpcodes, abOpcodes);
+#endif
+
+                                        if (   !Bs3TestCheckRegCtxEx(&TrapFrame.Ctx, &ExpectCtx, 0 /*cbPcAdjust*/,
+                                                                     0 /*cbSpAdjust*/, 0 /*fExtraEfl*/, "mode",  0)
+                                            || TrapFrame.bXcpt != bXcptExpected)
+                                        {
+                                            Bs3TestFailedF("iTest=%d iPrefix=%d (%d/%#x) iSubTab=%u iSuffix=%d (%d/%#x) cb=%d cbOp=%d: %.*Rhxs\n",
+                                                           iTest, iPrefix, s_aPrefixes[iPrefix].cb, s_aPrefixes[iPrefix].fIncompatible,
+                                                           iSubTab, iSuffix, paSuffixes[iSuffix].cb, paSuffixes[iSuffix].fIncompatible,
+                                                           cb, cbOpcodes,
+                                                           cbOpcodes, abOpcodes);
+                                            if (TrapFrame.bXcpt != bXcptExpected)
+                                                Bs3TestFailedF("Expected bXcpt=%#x got %#x\n", bXcptExpected, TrapFrame.bXcpt);
+                                            Bs3TrapPrintFrame(&TrapFrame);
+                                            Bs3Shutdown();
+                                        }
+
+                                        /* next */
+                                        g_usBs3TestStep++;
+                                        iStep++;
+                                        cb--;
+                                    }
+
+                                    /* For iImm > 0 only test cb == cbOpcode since the byte isn't included when cb < cbOpcode. */
+                                    cbOpcodesMin = cbOpcodes;
+                                }
+                            }
+                    }
+                }
+        }
+        Bs3TestPrintf("%RI32 (%#RX32) test steps\n", iStep, iStep);
+
+        Bs3MemGuardedTestPageFree(pbPages);
+    }
+    else
+        Bs3TestFailed("Failed to allocate two pages!\n");
+}
+
+
+#if 0
+/**
+ * Checks how prefixes affects cmpxchg8b and cmpxchg16b
+ *
+ * The thing here is that the intel opcode tables indicates that the 66 and f3
+ * prefixes encodings are reserved and causes \#UD, where AMD doesn't.  Seems
+ * though that the f2, f3 and 66 prefixes are ignored on skylake intel.  Need to
+ * make sure this is the case, also in 64-bit mode and for the 16b version.
+ */
+static void DecodeCmpXchg8bVs16b(void)
+{
+    uint8_t BS3_FAR *pbPages;
+
+    /* Check that the instructions are supported. */
+    if (   !(g_uBs3CpuDetected & BS3CPU_F_CPUID)
+        || !(ASMCpuId_EDX(1) & X86_CPUID_FEATURE_EDX_CX8))
+    {
+        Bs3TestSkipped("not supported");
+        return;
+    }
+
+    /* Setup a guarded page. */
+    pbPages = Bs3MemGuardedTestPageAlloc(BS3MEMKIND_FLAT32);
+    if (pbPages)
+    {
+
+        Bs3MemGuardedTestPageFree(pbPages);
+    }
+    else
+        Bs3TestFailed("Failed to allocate two pages!\n");
+}
+#endif
+
+
+/**
+ * Checks various prefix encodings with the MOVBE and CRC32 instructions to try
+ * figure out how they are decoded.
+ *
+ * The issue here is that both MOVBE and CRC32 are sensitive to the operand size
+ * prefix, which helps us identify whether the F2h and F3h prefixes takes
+ * precedence over 66h in this case.  (As it turned out they do and it order
+ * doesn't matter.)
+ */
+static void DecodeMovbeVsCrc32(void)
+{
+    uint8_t BS3_FAR *pbPages;
+
+    /* Check that the instructions are supported. */
+    if (   !(g_uBs3CpuDetected & BS3CPU_F_CPUID)
+        || (ASMCpuId_ECX(1) & (X86_CPUID_FEATURE_ECX_MOVBE | X86_CPUID_FEATURE_ECX_SSE4_2))
+           !=                 (X86_CPUID_FEATURE_ECX_MOVBE | X86_CPUID_FEATURE_ECX_SSE4_2) )
+    {
+        Bs3TestSkipped("not supported");
+        return;
+    }
+
+    /* Setup a guarded page. */
+    pbPages = Bs3MemGuardedTestPageAlloc(BS3MEMKIND_FLAT32);
+    if (pbPages)
+    {
+        unsigned        iTest;
+        BS3REGCTX       Ctx;
+        BS3TRAPFRAME    TrapFrame;
+        BS3REGCTX       ExpectCtxMovbe_m32_eax; /*       0f 38 f1 /r */
+        BS3REGCTX       ExpectCtxMovbe_m16_ax;  /*    66 0f 38 f1 /r */
+        BS3REGCTX       ExpectCtxCrc32_eax_m32; /*    f2 0f 38 f1 /r */
+        BS3REGCTX       ExpectCtxCrc32_eax_m16; /* 66 f2 0f 38 f1 /r */
+        BS3REGCTX       ExpectCtxUd;
+        PBS3REGCTX      apExpectCtxs[5];
+        static const struct
+        {
+            uint32_t    u32Stored;
+            uint8_t     iExpectCtx;
+            uint8_t     bXcpt;
+            uint8_t     cbOpcodes;
+            uint8_t     abOpcodes[18];
+        } s_aTests[] =
+        {
+#define BECRC_EAX           UINT32_C(0x11223344)
+#define BECRC_MEM_ORG       UINT32_C(0x55667788)
+#define BECRC_MEM_BE16      UINT32_C(0x55664433)
+#define BECRC_MEM_BE32      UINT32_C(0x44332211)
+
+            /* base forms. */
+            { BECRC_MEM_BE32, 0, X86_XCPT_PF, 4, {             0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_BE16, 1, X86_XCPT_PF, 5, {       P_OZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  2, X86_XCPT_PF, 5, {       P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 6, { P_OZ, P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  4, X86_XCPT_UD, 5, {       P_RZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } }, /* undefined F3 (P_RZ) */
+            { BECRC_MEM_ORG,  4, X86_XCPT_UD, 6, { P_OZ, P_RZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } }, /* undefined F3 (P_RZ) */
+
+            /* CRC32 eax, [word ebx]: Simple variations showing it doesn't matter where the prefixes are placed. */
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 6, { P_RN, P_OZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 7, { P_RN, P_OZ, P_ES, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_RN, P_SS, P_OZ, P_ES, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_RN, P_SS, P_ES, P_OZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_SS, P_RN, P_ES, P_OZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_SS, P_ES, P_RN, P_OZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_SS, P_ES, P_OZ, P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_SS, P_OZ, P_ES, P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_OZ, P_SS, P_ES, P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+
+            /* CRC32 eax, [word ebx]: Throw the F3h prefix into the mix.  The last of F3 and F2 wins on skylake+jaguar. */
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 7, { P_RZ, P_OZ, P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 7, { P_OZ, P_RZ, P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  4, X86_XCPT_UD, 7, { P_OZ, P_RN, P_RZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_OZ, P_RN, P_RZ, P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_RN, P_RZ, P_OZ, P_RN, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+            { BECRC_MEM_ORG,  3, X86_XCPT_PF, 8, { P_RN, P_RZ, P_RN, P_OZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+
+            { BECRC_MEM_ORG,  4, X86_XCPT_UD, 7, { P_OZ, P_RN, P_RZ, 0x0f, 0x38, 0xf1, RM_EAX_DEREF_EBX } },
+        };
+
+        apExpectCtxs[0] = &ExpectCtxMovbe_m32_eax;
+        apExpectCtxs[1] = &ExpectCtxMovbe_m16_ax;
+        apExpectCtxs[2] = &ExpectCtxCrc32_eax_m32;
+        apExpectCtxs[3] = &ExpectCtxCrc32_eax_m16;
+        apExpectCtxs[4] = &ExpectCtxUd;
+
+        Bs3MemZero(&Ctx, sizeof(Ctx));
+        Bs3MemZero(&ExpectCtxMovbe_m32_eax, sizeof(ExpectCtxMovbe_m32_eax));
+        Bs3MemZero(&ExpectCtxMovbe_m16_ax, sizeof(ExpectCtxMovbe_m16_ax));
+        Bs3MemZero(&ExpectCtxCrc32_eax_m32, sizeof(ExpectCtxCrc32_eax_m32));
+        Bs3MemZero(&ExpectCtxCrc32_eax_m16, sizeof(ExpectCtxCrc32_eax_m16));
+        Bs3MemZero(&ExpectCtxUd, sizeof(ExpectCtxUd));
+        Bs3MemZero(&TrapFrame, sizeof(TrapFrame));
+
+        /* Create a test context. */
+        Bs3RegCtxSaveEx(&Ctx, BS3_MODE_CODE_32, 512);
+        Ctx.rax.u = BECRC_EAX;
+        Ctx.rbx.u = (uintptr_t)pbPages;
+
+        /* Create expected result contexts. */
+        Bs3MemCpy(&ExpectCtxMovbe_m32_eax, &Ctx, sizeof(ExpectCtxMovbe_m32_eax));
+        ExpectCtxMovbe_m32_eax.rflags.u32 |= X86_EFL_RF;
+        ExpectCtxMovbe_m32_eax.rip.u = (uintptr_t)&pbPages[X86_PAGE_SIZE];
+        ExpectCtxMovbe_m32_eax.cr2.u = (uintptr_t)&pbPages[X86_PAGE_SIZE];
+
+        Bs3MemCpy(&ExpectCtxMovbe_m16_ax, &ExpectCtxMovbe_m32_eax, sizeof(ExpectCtxMovbe_m16_ax));
+
+        Bs3MemCpy(&ExpectCtxCrc32_eax_m32, &Ctx, sizeof(ExpectCtxCrc32_eax_m32));
+        ExpectCtxCrc32_eax_m32.rflags.u32 |= X86_EFL_RF;
+        ExpectCtxCrc32_eax_m32.rip.u = (uintptr_t)&pbPages[X86_PAGE_SIZE];
+        ExpectCtxCrc32_eax_m32.cr2.u = (uintptr_t)&pbPages[X86_PAGE_SIZE];
+        ExpectCtxCrc32_eax_m32.rax.u32 = 0x1aa7cd75;
+        Bs3MemCpy(&ExpectCtxCrc32_eax_m16, &ExpectCtxCrc32_eax_m32, sizeof(ExpectCtxCrc32_eax_m16));
+        ExpectCtxCrc32_eax_m16.rax.u32 = 0x51ab0518;
+
+        Bs3MemCpy(&ExpectCtxUd, &Ctx, sizeof(ExpectCtxUd));
+        ExpectCtxUd.rflags.u32 |= X86_EFL_RF;
+
+        /* Loop thru the tests. */
+        g_usBs3TestStep = 0;
+        for (iTest = 0; iTest < RT_ELEMENTS(s_aTests); iTest++)
+        {
+            unsigned const   cbOpcodes = s_aTests[iTest].cbOpcodes;
+            uint8_t BS3_FAR *pbRip     = &pbPages[X86_PAGE_SIZE - cbOpcodes];
+
+            Bs3MemCpy(pbRip, s_aTests[iTest].abOpcodes, cbOpcodes);
+            Bs3RegCtxSetRipCsFromFlat(&Ctx, (uintptr_t)pbRip);
+            *(uint32_t *)pbPages = BECRC_MEM_ORG;
+
+#if 0
+            Bs3TestPrintf("iTest=%d pbRip=%p cbOpcodes=%d: %.*Rhxs\n",
+                          iTest, pbRip, cbOpcodes, cbOpcodes, s_aTests[iTest].abOpcodes);
+            //Bs3RegCtxPrint(&Ctx);
+#endif
+            Bs3TrapSetJmpAndRestore(&Ctx, &TrapFrame);
+            if (s_aTests[iTest].bXcpt == X86_XCPT_UD)
+                ExpectCtxUd.rip = Ctx.rip;
+            if (   !Bs3TestCheckRegCtxEx(&TrapFrame.Ctx, apExpectCtxs[s_aTests[iTest].iExpectCtx],
+                                         0 /*cbPcAdjust*/, 0 /*cbSpAdjust*/, 0 /*fExtraEfl*/, "mode", iTest)
+                || TrapFrame.bXcpt      != s_aTests[iTest].bXcpt
+                || *(uint32_t *)pbPages != s_aTests[iTest].u32Stored)
+            {
+                Bs3TestFailedF("iTest=%d cbOpcodes=%d: %.*Rhxs\n", iTest, cbOpcodes, cbOpcodes, s_aTests[iTest].abOpcodes);
+                if (TrapFrame.bXcpt != s_aTests[iTest].bXcpt)
+                    Bs3TestFailedF("Expected bXcpt=%#x, got %#x\n", s_aTests[iTest].bXcpt, TrapFrame.bXcpt);
+                if (*(uint32_t *)pbPages != s_aTests[iTest].u32Stored)
+                    Bs3TestFailedF("Expected %#RX32 stored at %p, found: %RX32\n",
+                                   s_aTests[iTest].u32Stored, pbPages, *(uint32_t *)pbPages);
+            }
+        }
+
+        Bs3MemGuardedTestPageFree(pbPages);
+    }
+    else
+        Bs3TestFailed("Failed to allocate two pages!\n");
+}
+
+
+
+/**
+ * Checks various prefix encodings with the CMPPS, CMPPD, CMPSS and CMPSD
+ * instructions to try figure out how they are decoded.
+ *
+ * The important thing to check here is that unlike CRC32/MOVBE the operand size
+ * prefix (66h) is ignored when the F2h and F3h prefixes are used.  We also
+ * check that the prefix ordering is irrelevant and that the last one of F2h and
+ * F3h wins.
+ */
+static void DecodeCmppsCmppdCmpssCmpsd(void)
+{
+    uint8_t BS3_FAR *pbPages;
+
+    /* Check that the instructions are supported. */
+    if (   !(g_uBs3CpuDetected & BS3CPU_F_CPUID)
+        ||    (ASMCpuId_EDX(1) & (X86_CPUID_FEATURE_EDX_SSE | X86_CPUID_FEATURE_EDX_SSE2))
+           !=                    (X86_CPUID_FEATURE_EDX_SSE | X86_CPUID_FEATURE_EDX_SSE2) )
+    {
+        Bs3TestSkipped("SSE and/or SSE2 are not supported");
+        return;
+    }
+
+    /* Setup a guarded page. */
+    pbPages = Bs3MemGuardedTestPageAlloc(BS3MEMKIND_FLAT32);
+    if (pbPages)
+    {
+        unsigned        iTest;
+        BS3REGCTX       Ctx;
+        BS3TRAPFRAME    TrapFrame;
+        BS3REGCTX       ExpectCtxPf;
+        BS3REGCTX       ExpectCtxUd;
+        static const struct
+        {
+            RTUINT128U  Xmm0Expect;
+            uint8_t     bXcpt;
+            uint8_t     cbOpcodes;
+            uint8_t     abOpcodes[18];
+        } s_aTests[] =
+        {
+#define BECRC_IN_XMM1       RTUINT128_INIT_C(0x76547654bbaa9988, 0x7766554433221100)
+#define BECRC_IN_XMM0       RTUINT128_INIT_C(0x765476549988bbaa, 0x7766554400112233)
+#define BECRC_OUT_PS        RTUINT128_INIT_C(0xffffffff00000000, 0xffffffff00000000) /* No prefix. */
+#define BECRC_OUT_PD        RTUINT128_INIT_C(0x0000000000000000, 0x0000000000000000) /* P_OZ (66h) */
+#define BECRC_OUT_SS        RTUINT128_INIT_C(0x765476549988bbaa, 0x7766554400000000) /* P_RZ (f3h) */
+#define BECRC_OUT_SD        RTUINT128_INIT_C(0x765476549988bbaa, 0x0000000000000000) /* P_RN (f2h) */
+
+            /* We use imm8=0 which checks for equality, with the subvalue result being all
+               F's if equal and all zeros if not equal.  The input values are choosen such
+               that the 4 variants produces different results in xmm0. */
+            /* CMPPS xmm0, xmm1, 0:    0f c2 /r ib ; Compares four 32-bit subvalues. */
+            /* CMPPD xmm0, xmm1, 0: 66 0f c2 /r ib ; Compares two 64-bit subvalues. */
+            /* CMPSS xmm0, xmm1, 0: f3 0f c2 /r ib ; Compares two 32-bit subvalues, top 64-bit remains unchanged. */
+            /* CMPSD xmm0, xmm1, 0: f2 0f c2 /r ib ; Compares one 64-bit subvalue, top 64-bit remains unchanged. */
+
+            /* base forms. */
+            { BECRC_OUT_PS, X86_XCPT_PF, 4, {                         0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 5, {                   P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 5, {                   P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 5, {                   P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+
+            /* Skylake+jaguar ignores the 66h prefix with both f3h (P_RZ) and f2h (P_RN). */
+            { BECRC_OUT_SS, X86_XCPT_PF, 6, {             P_OZ, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 6, {             P_RZ, P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 6, {             P_OZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 6, {             P_RN, P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+
+            /* Throw in segment prefixes and address size prefixes. */
+            { BECRC_OUT_PS, X86_XCPT_PF, 5, {                   P_ES, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PS, X86_XCPT_PF, 6, {             P_ES, P_SS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PS, X86_XCPT_PF, 5, {                   P_AZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PS, X86_XCPT_PF, 6, {             P_AZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+
+            { BECRC_OUT_PD, X86_XCPT_PF, 6, {             P_ES, P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 6, {             P_OZ, P_ES, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 7, {       P_ES, P_SS, P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 7, {       P_ES, P_OZ, P_SS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 7, {       P_OZ, P_ES, P_SS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 6, {             P_AZ, P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 6, {             P_OZ, P_AZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 7, {       P_AZ, P_CS, P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 7, {       P_AZ, P_OZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_PD, X86_XCPT_PF, 7, {       P_OZ, P_AZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+
+            { BECRC_OUT_SS, X86_XCPT_PF, 6, {             P_ES, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 6, {             P_RZ, P_ES, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_ES, P_SS, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_ES, P_RZ, P_SS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_RZ, P_ES, P_SS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 6, {             P_AZ, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 6, {             P_RZ, P_AZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_AZ, P_CS, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_AZ, P_RZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_RZ, P_AZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_OZ, P_RZ, P_AZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RZ, P_OZ, P_AZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RZ, P_AZ, P_OZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RZ, P_AZ, P_CS, P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+
+            { BECRC_OUT_SD, X86_XCPT_PF, 6, {             P_ES, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 6, {             P_RN, P_ES, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_ES, P_SS, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_ES, P_RN, P_SS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_RN, P_ES, P_SS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 6, {             P_AZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 6, {             P_RN, P_AZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_AZ, P_CS, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_AZ, P_RN, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_RN, P_AZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_OZ, P_RN, P_AZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RN, P_OZ, P_AZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RN, P_AZ, P_OZ, P_CS, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RN, P_AZ, P_CS, P_OZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+
+            /* Pit f2h against f3h, on skylake+jaguar the last prefix wins. */
+            { BECRC_OUT_SS, X86_XCPT_PF, 6, {             P_RN, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_RN, P_RN, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_RZ, P_RN, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 7, {       P_RN, P_RZ, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RN, P_RN, P_RN, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RN, P_RN, P_RZ, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RN, P_RZ, P_RN, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RZ, P_RN, P_RN, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RZ, P_RZ, P_RN, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SS, X86_XCPT_PF, 8, { P_RN, P_RZ, P_RZ, P_RZ, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+
+            { BECRC_OUT_SD, X86_XCPT_PF, 6, {             P_RZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_RZ, P_RZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_RN, P_RZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 7, {       P_RZ, P_RN, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RZ, P_RZ, P_RZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RZ, P_RZ, P_RN, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RZ, P_RN, P_RZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RN, P_RZ, P_RZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RN, P_RN, P_RZ, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+            { BECRC_OUT_SD, X86_XCPT_PF, 8, { P_RZ, P_RN, P_RN, P_RN, 0x0f, 0xc2, RM_XMM0_XMM1, 0 } },
+        };
+        RTUINT128U  InXmm0 = BECRC_IN_XMM0;
+        RTUINT128U  InXmm1 = BECRC_IN_XMM1;
+        RTUINT128U  OutXmm0 = RTUINT128_INIT_C(0xeeeeeeeeeeeeeeee, 0xcccccccccccccccc);
+
+        Bs3MemZero(&Ctx, sizeof(Ctx));
+        Bs3MemZero(&ExpectCtxPf, sizeof(ExpectCtxPf));
+        Bs3MemZero(&ExpectCtxUd, sizeof(ExpectCtxUd));
+        Bs3MemZero(&TrapFrame, sizeof(TrapFrame));
+
+        /* Enable SSE. */
+        ASMSetCR0((ASMGetCR0() & ~(X86_CR0_EM | X86_CR0_TS)) | X86_CR0_MP);
+        ASMSetCR4(ASMGetCR4() | X86_CR4_OSFXSR);
+
+        /* Create a test context. */
+        Bs3RegCtxSaveEx(&Ctx, BS3_MODE_CODE_32, 512);
+        Ctx.rax.u = BECRC_EAX;
+        Ctx.rbx.u = (uintptr_t)pbPages;
+
+        /* Create expected result contexts. */
+        Bs3MemCpy(&ExpectCtxPf, &Ctx, sizeof(ExpectCtxPf));
+        ExpectCtxPf.rflags.u32 |= X86_EFL_RF;
+        ExpectCtxPf.rip.u = (uintptr_t)&pbPages[X86_PAGE_SIZE];
+        ExpectCtxPf.cr2.u = (uintptr_t)&pbPages[X86_PAGE_SIZE];
+
+        Bs3MemCpy(&ExpectCtxUd, &Ctx, sizeof(ExpectCtxUd));
+        ExpectCtxUd.rflags.u32 |= X86_EFL_RF;
+
+        /* Loop thru the tests. */
+        g_usBs3TestStep = 0;
+        for (iTest = 0; iTest < RT_ELEMENTS(s_aTests); iTest++)
+        {
+            unsigned const   cbOpcodes = s_aTests[iTest].cbOpcodes;
+            uint8_t BS3_FAR *pbRip     = &pbPages[X86_PAGE_SIZE - cbOpcodes];
+
+            Bs3MemCpy(pbRip, s_aTests[iTest].abOpcodes, cbOpcodes);
+            Bs3RegCtxSetRipCsFromFlat(&Ctx, (uintptr_t)pbRip);
+            ExpectCtxUd.rip = Ctx.rip;
+#if 0
+            Bs3TestPrintf("iTest=%d pbRip=%p cbOpcodes=%d: %.*Rhxs\n",
+                          iTest, pbRip, cbOpcodes, cbOpcodes, s_aTests[iTest].abOpcodes);
+            //Bs3RegCtxPrint(&Ctx);
+#endif
+            BS3_CMN_NM(bs3CpuDecoding1_LoadXmm0)(&InXmm0);
+            BS3_CMN_NM(bs3CpuDecoding1_LoadXmm1)(&InXmm1);
+            Bs3TrapSetJmpAndRestore(&Ctx, &TrapFrame);
+            BS3_CMN_NM(bs3CpuDecoding1_SaveXmm0)(&OutXmm0);
+
+            if (   !Bs3TestCheckRegCtxEx(&TrapFrame.Ctx, s_aTests[iTest].bXcpt == X86_XCPT_UD ? &ExpectCtxUd : &ExpectCtxPf,
+                                         0 /*cbPcAdjust*/, 0 /*cbSpAdjust*/, 0 /*fExtraEfl*/, "mode", iTest)
+                || TrapFrame.bXcpt      != s_aTests[iTest].bXcpt
+                || OutXmm0.s.Lo         != s_aTests[iTest].Xmm0Expect.s.Lo
+                || OutXmm0.s.Hi         != s_aTests[iTest].Xmm0Expect.s.Hi)
+            {
+                Bs3TestFailedF("iTest=%d cbOpcodes=%d: %.*Rhxs\n", iTest, cbOpcodes, cbOpcodes, s_aTests[iTest].abOpcodes);
+                if (TrapFrame.bXcpt != s_aTests[iTest].bXcpt)
+                    Bs3TestFailedF("Expected bXcpt=%#x, got %#x\n", s_aTests[iTest].bXcpt, TrapFrame.bXcpt);
+                if (   OutXmm0.s.Lo         != s_aTests[iTest].Xmm0Expect.s.Lo
+                    || OutXmm0.s.Hi         != s_aTests[iTest].Xmm0Expect.s.Hi)
+                    Bs3TestFailedF("Expected XMM0=%08RX32:%08RX32:%08RX32:%08RX32, not %08RX32:%08RX32:%08RX32:%08RX32\n",
+                                   s_aTests[iTest].Xmm0Expect.DWords.dw3, s_aTests[iTest].Xmm0Expect.DWords.dw2,
+                                   s_aTests[iTest].Xmm0Expect.DWords.dw1, s_aTests[iTest].Xmm0Expect.DWords.dw0,
+                                   OutXmm0.DWords.dw3, OutXmm0.DWords.dw2, OutXmm0.DWords.dw1, OutXmm0.DWords.dw0);
+            }
+        }
+
+        Bs3MemGuardedTestPageFree(pbPages);
+    }
+    else
+        Bs3TestFailed("Failed to allocate two pages!\n");
+}
+
+
+BS3_DECL(void) Main_pp32()
+{
+    Bs3TestInit("bs3-cpu-decoding-1");
+    Bs3TestPrintf("g_uBs3CpuDetected=%#x\n", g_uBs3CpuDetected);
+
+#if 0
+    Bs3TestSub("CMPPS, CMPPD, CMPSS, CMPSD");
+    DecodeCmppsCmppdCmpssCmpsd();
+
+    Bs3TestSub("MOVBE vs CRC32");
+    DecodeMovbeVsCrc32();
+#endif
+
+    //Bs3TestSub("CMPXCHG8B/16B");
+    //DecodeCmpXchg8bVs16b();
+
+#if 1
+    Bs3TestSub("2 byte undefined opcodes 0f");
+    DecodeUdEdgeTest(g_aUdTest2Byte_0f, RT_ELEMENTS(g_aUdTest2Byte_0f));
+#endif
+#if 0
+    Bs3TestSub("3 byte undefined opcodes 0f 38");
+    DecodeUdEdgeTest(g_aUdTest3Byte_0f_38, RT_ELEMENTS(g_aUdTest3Byte_0f_38));
+#endif
+
+#if 0
+    Bs3TestSub("misc");
+    DecodeEdgeTest();
+#endif
+
+    Bs3TestTerm();
+}
+

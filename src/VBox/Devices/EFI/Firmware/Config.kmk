@@ -1,0 +1,184 @@
+# $Id: Config.kmk $
+## @file
+# kBuild configuration for the VBox EFI firmware.
+#
+# Note! kBuild is only used for the build tools, the rest is handled by the
+#       very custom EFI build system.
+#
+
+#
+# Copyright (C) 2013-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+VBOX_EFI_FIRMWARE_CONFIG_KMK_INCLUDED = 1
+
+# Include the next configure file above us.
+ifndef VBOX_DEVICES_CONFIG_KMK_INCLUDED
+ include $(PATH_ROOT)/src/VBox/Devices/Config.kmk
+endif
+
+#
+# Globals.
+#
+VBOX_PATH_EFI_FIRMWARE = $(PATH_ROOT)/src/VBox/Devices/EFI/Firmware
+VBOX_PATH_STAGE_EFI_BLDPROGS = $(PATH_STAGE)/EfiBldProgs
+VBOX_EFI_BUILD_TARGET  = $(if-expr $(intersects release profile, $(KBUILD_TYPE)),RELEASE,DEBUG)
+VBOX_EFI_OUTPUT_SUBDIR = $(VBOX_EFI_BUILD_TARGET)_$(VBOX_EFI_TOOL_CHAIN)
+
+# VBox Yasm command
+## @todo r=andy Is this still needed? Or can we just use TOOL_YASM_AS?
+VBOX_YASMCMD   ?= $(firstword $(wildcard $(KBUILD_DEVTOOLS_HST)/bin/yasm$(HOSTSUFF_EXE)) yasm$(HOSTSUFF_EXE))
+
+# VBox nasm command
+include $(KBUILD_PATH)/tools/NASM.kmk
+TOOL_VBoxNasm = Our version of the NASM tool
+ifndef TOOL_VBoxNasm_PATH
+ TOOL_VBoxNasm_PATH   := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST)/nasm/v*.*)))
+ if "$(TOOL_VBoxNasm_PATH)" == "" && "$(KBUILD_DEVTOOLS_HST_ALT)" != ""
+  TOOL_VBoxNasm_PATH  := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST_ALT)/nasm/v*.*)))
+ endif
+endif
+ifneq ($(TOOL_VBoxNasm_PATH),)
+ VBOX_NASMCMD     ?= $(TOOL_VBoxNasm_PATH)/nasm$(HOSTSUFF_EXE)
+else
+ VBOX_NASMCMD     ?= nasm$(HOSTSUFF_EXE)
+endif
+
+# EFI requires python v2.x, so provide a way to select that while using 3.x for the rest of VBox.
+ifndef VBOX_BLD_PYTHON_2X
+ VBOX_BLD_PYTHON_2X = $(VBOX_BLD_PYTHON)
+endif
+
+#
+# Decide which tool chain to use for the EFI binaries.
+# Note! We're using our own stripped down tools_def.txt: vbox-tools_def.txt.
+#
+ifeq ($(KBUILD_HOST),win)
+ ifdef VBOX_WITH_NEW_VCC # ACtually using VS2019, but no config for it, so VS2017 will have to do for now.
+  VBOX_EFI_TOOL_CHAIN := VS2017
+ else
+  VBOX_EFI_TOOL_CHAIN := VS2010
+ endif
+else
+ VBOX_EFI_TOOL_CHAIN = GCC48
+endif
+
+
+#
+# Make a build program template of our own.
+#
+TEMPLATE_VBoxEfiBldProg = EFI build program.
+TEMPLATE_VBoxEfiBldProg_EXTENDS = VBoxBldProg
+TEMPLATE_VBoxEfiBldProg_INST = EfiBldProgs/
+TEMPLATE_VBoxEfiBldProg_INSTTYPE = stage
+TEMPLATE_VBoxEfiBldProg_DEFS.win = $(TEMPLATE_VBoxBldProg_DEFS.win) \
+	__STDC_VERSION__=199409L
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win  = $(TEMPLATE_VBoxBldProg_CFLAGS.win)
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4100 # warning C4100: '_text' : unreferenced formal parameter
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4189 # warning C4189: 'zzpf' : local variable is initialized but not referenced
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4255 # warning C4255: 'AllocateMemory' : no function prototype given: converting '()' to '(void)'
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4267 # warning C4267: '=' : conversion from 'size_t' to 'UINT32', possible loss of data
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4287 # warning C4287: '>' : unsigned/negative constant mismatch
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4334 # warning C4334: '<<' : result of 32-bit shift implicitly converted to 64 bits (was 64-bit shift intended?)
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4555 # warning C4555: expression has no effect; expected expression with side-effect
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4701 # warning C4701: potentially uninitialized local variable 'save_line' used
+TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4702 # warning C4702: unreachable code
+if "$(VBOX_VCC_TOOL_STEM)" >= "VCC140"
+ TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4456 # antlr\gen.c(3000): warning C4456: declaration of 'f' hides previous local declaration
+ TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4774 # antlr\main.c(1244): warning C4774: 'sprintf' : format string expected in argument 2 is not a string literal
+ TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4703 # antlr\antlr.c(1403) : warning C4703: potentially uninitialized local pointer variable 'p' used
+ TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4477 # dlg\dlg_p.c(874): warning C4477: 'fprintf' : format string '%x' requires an argument of type 'unsigned int', but variadic argument 1 has type '_nfa_node *'
+ TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4313 # dlg\dlg_p.c(874): warning C4313: 'fprintf': '%x' in format string conflicts with argument 1 of type '_nfa_node *'
+ TEMPLATE_VBoxEfiBldProg_CFLAGS.win += -wd4459 # antlr\gen.c(756): warning C4459: declaration of 'output' hides global declaration
+endif
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win  = $(TEMPLATE_VBoxBldProg_CXXFLAGS.win)
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4018 # warning C4018: '>' : signed/unsigned mismatch
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4101 # warning C4101: 'LineBuf' : unreferenced local variable
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4102 # warning C4102: 'fail' : unreferenced label
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4189 # warning C4189: 'zzpf' : local variable is initialized but not referenced
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4267 # warning C4267: '=' : conversion from 'size_t' to 'UINT32', possible loss of data
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4370 # warning C4370: 'ANTLRParser' : layout of class has changed from a previous version of the compiler due to better packing
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4555 # warning C4555: expression has no effect; expected expression with side-effect
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4625 # warning C4625: 'EfiVfrParser' : copy constructor could not be generated because a base class copy constructor is inaccessible
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4626 # warning C4626: 'EfiVfrParser' : assignment operator could not be generated because a base class assignment operator is inaccessible
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4701 # warning C4701: potentially uninitialized local variable 'save_line' used
+TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4702 # warning C4702: unreachable code
+if "$(VBOX_VCC_TOOL_STEM)" >= "VCC140"
+ TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd5204 # Pccts\h\ATokenStream.h(49): warning C5204: 'ANTLRTokenStream': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+ TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4774 # Pccts\h\AParser.cpp(653): warning C4774: 'sprintf' : format string expected in argument 2 is not a string literal
+ TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd4703 # VfrCompile\VfrFormPkg.cpp(1344) : warning C4703: potentially uninitialized local pointer variable 'pNodeBeforeAdjust' used
+ TEMPLATE_VBoxEfiBldProg_CXXFLAGS.win += -wd5033 # DLexer.h(68): warning C5033: 'register' is no longer a supported storage class (in c++17 or later mode)
+endif
+
+TEMPLATE_VBoxEfiBldProg_INCS = $(TEMPLATE_VBoxBldProg_INCS) \
+	$(VBOX_PATH_EFI_FIRMWARE)/BaseTools/Source/C/Include/IndustryStandard \
+	$(VBOX_PATH_EFI_FIRMWARE)/BaseTools/Source/C/Common \
+	$(VBOX_PATH_EFI_FIRMWARE)/BaseTools/Source/C/Include \
+	$(VBOX_PATH_EFI_FIRMWARE)/BaseTools/Source/C
+
+TEMPLATE_VBoxEfiBldProg_INCS.x86 = $(TEMPLATE_VBoxBldProg_INCS.x86) \
+	$(VBOX_PATH_EFI_FIRMWARE)/BaseTools/Source/C/Include/IA32
+
+TEMPLATE_VBoxEfiBldProg_INCS.amd64 = $(TEMPLATE_VBoxBldProg_INCS.amd64) \
+	$(VBOX_PATH_EFI_FIRMWARE)/BaseTools/Source/C/Include/X64
+
+TEMPLATE_VBoxEfiBldProg_LIBS = \
+	$(VBOX_PATH_STAGE_EFI_BLDPROGS)/EfiBldCommonLib$(VBOX_SUFF_LIB) \
+	$(TEMPLATE_VBoxBldProg_LIBS)
+ifn1of ($(KBUILD_HOST), win) # This stuff isn't up to our standard at all! :/
+ TEMPLATE_VBoxEfiBldProg_CFLAGS = $(filter-out -pedantic,$(TEMPLATE_VBoxBldProg_CFLAGS)) \
+ 	-Wno-sign-compare -Wno-missing-prototypes -Wno-strict-prototypes \
+ 	-Wno-implicit-function-declaration -Wno-missing-declarations -Wno-shadow -Wno-format \
+ 	-Wno-empty-body -Wno-unused-parameter -Wno-unused-variable -Wno-unused-label
+ TEMPLATE_VBoxEfiBldProg_CXXFLAGS = $(filter-out -pedantic,$(TEMPLATE_VBoxBldProg_CXXFLAGS)) \
+ 	-Wno-all -Wno-shadow -Wno-empty-body -Wno-unused-parameter -Wno-unused-variable \
+ 	-Wno-unused-label
+endif
+
+
+# There isn't a BLDLIBRARIES target group, so we have to override the build
+# target for libraries used by build programs and keep them in LIBRARIES.
+TEMPLATE_VBoxEfiBldLib = Library for an EFI build program.
+TEMPLATE_VBoxEfiBldLib_EXTENDS = VBoxEfiBldProg
+TEMPLATE_VBoxEfiBldLib_BLD_TRG      := $(KBUILD_HOST)
+TEMPLATE_VBoxEfiBldLib_BLD_TRG_ARCH := $(KBUILD_HOST_ARCH)
+TEMPLATE_VBoxEfiBldLib_BLD_TRG_CPU  := $(KBUILD_HOST_CPU)
+
+
+#
+# The debug info suffix.
+#
+if1of ($(KBUILD_TARGET), win)
+ VBOX_EFI_DBG_SUFF := .pdb
+else
+ VBOX_EFI_DBG_SUFF := .debug
+endif
+
+include $(VBOX_PATH_EFI_FIRMWARE)/EfiModules.kmk

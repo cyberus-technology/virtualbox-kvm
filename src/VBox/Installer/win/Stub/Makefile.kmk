@@ -1,0 +1,174 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the stub installer.
+#
+
+#
+# Copyright (C) 2009-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# Special template variation.
+#
+TEMPLATE_VBoxStubTemplate          := Drop the signing, we will sign it later.
+TEMPLATE_VBoxStubTemplate_EXTENDS  := VBoxR3Static
+TEMPLATE_VBoxStubTemplate_POST_CMDS = $(NO_SUCH_VARIABLE)
+
+
+#
+# Installer stub program
+#
+PROGRAMS += VBoxStub
+VBoxStub_TEMPLATE     := VBoxStubTemplate
+VBoxStub_BLD_TRG_ARCH := x86
+VBoxStub_DEFS         := _WIN32_WINNT=0x0501 IN_RT_R3
+
+VBoxStub_SOURCES = \
+	VBoxStub.cpp \
+	VBoxStub.rc
+
+VBoxStub_SDKS = \
+	VBoxNtDll
+VBoxStub_LIBS += \
+	$(PATH_TOOL_$(VBOX_VCC_TOOL_STEM)X86_LIB)/delayimp.lib
+
+VBoxStub_LDFLAGS = -SubSystem:Windows -DelayLoad:comctl32.dll
+VBoxStub_POST_CMDS = $(VBOX_CHECK_IMPORTS) --image $(out) ntdll.dll kernel32.dll
+ifeq ($(KBUILD_TYPE),asan)
+ VBoxStub_POST_CMDS += advapi32.dll
+endif
+VBoxStub_LNK_DEPS  = $(VBOX_CHECK_IMPORTS)
+
+VBoxStub.cpp_DEFS += VBOX_SVN_REV=$(VBOX_SVN_REV)
+VBoxStub.cpp_DEPS  = $(VBOX_SVN_REV_KMK)
+
+# If signing mode is enabled, then add the possibility to install the code
+# signing certificates (public key only) automatically in /silent mode.
+ifdef VBOX_SIGNING_MODE
+
+ VBoxStub_SOURCES  += VBoxStubCertUtil.cpp
+ VBoxStub_CLEAN    += $(VBoxStub_0_OUTDIR)/VBoxStubPublicCert.h
+ VBoxStub.cpp_DEPS += $(VBoxStub_0_OUTDIR)/VBoxStubPublicCert.h
+ VBoxStub.cpp_INCS += $(VBoxStub_0_OUTDIR)
+ VBoxStub.cpp_DEFS += VBOX_WITH_CODE_SIGNING
+ ifdef VBOX_WITH_VBOX_LEGACY_TS_CA
+  VBoxStub.cpp_DEFS += VBOX_WITH_VBOX_LEGACY_TS_CA
+ endif
+
+ $$(VBoxStub_0_OUTDIR)/VBoxStubPublicCert.h: | $$(dir $$@) $(VBOX_RTSIGNTOOL) $(VBOX_BIN2C) $(PATH_STAGE_SYS)/VBoxSup.sys
+	$(RM) -f -- "$@" "$@.cer0" "$@.cer1" "$@.cer2" "$@.array"
+
+	$(VBOX_RTSIGNTOOL) extract-exe-signer-cert --signature-index 0 --exe "$(PATH_STAGE_SYS)/VBoxSup.sys" --output "$@.cer0" --der
+	$(VBOX_BIN2C) -ascii --append VBoxStubTrustedCert0 "$@.cer0" $@
+	$(APPEND) "$@.array" "    { g_abVBoxStubTrustedCert0, sizeof(g_abVBoxStubTrustedCert0) }, "
+ if defined(VBOX_CERTIFICATE_SUBJECT_NAME) && defined(VBOX_CERTIFICATE_SHA2_SUBJECT_NAME)
+	$(VBOX_RTSIGNTOOL) extract-exe-signer-cert --signature-index 1 --exe "$(PATH_STAGE_SYS)/VBoxSup.sys" --output "$@.cer1" --der
+	$(VBOX_BIN2C) -ascii --append VBoxStubTrustedCert1 "$@.cer1" $@
+	$(APPEND) "$@.array" "    { g_abVBoxStubTrustedCert1, sizeof(g_abVBoxStubTrustedCert1) }, "
+ endif
+ if $(intersects win_planb,$(VBOX_WITH_CORP_CODE_SIGNING))
+	$(VBOX_RTSIGNTOOL) extract-exe-signer-cert --signature-index 1 --exe "$(VBOX_RTSIGNTOOL)" --output "$@.cer2" --der
+	$(VBOX_BIN2C) -ascii --append VBoxStubTrustedCert2 "$@.cer2" $@
+	$(APPEND) "$@.array" "    { g_abVBoxStubTrustedCert2, sizeof(g_abVBoxStubTrustedCert2) }, "
+ endif
+	$(APPEND) -n "$@" \
+		"" \
+		"struct { uint8_t const *pab; uint32_t cb; }" "g_aVBoxStubTrustedCerts[] = " \
+              "{"
+	$(SED) --append "$@" -e "" "$@.array"
+	$(APPEND) -n "$@" \
+              "};"
+	$(RM) -f -- "$@.cer0" "$@.cer1" "$@.cer2" "$@.array"
+ ifdef VBOX_WITH_VBOX_LEGACY_TS_CA
+	$(RM) -f -- "$@.cer_tsca"
+	$(VBOX_RTSIGNTOOL) extract-timestamp-root --self-signed-roots-from-system --signature-index 0 --input "$(PATH_STAGE_SYS)/VBoxSup.sys" --output "$@.cer_tsca"
+	$(VBOX_BIN2C) -ascii --append VBoxLegacyWinCA "$@.cer_tsca" $@
+	$(RM) -f -- "$@.cer_tsca"
+ endif
+
+ VBoxStubPublicCert.h:: $$(VBoxStub_0_OUTDIR)/VBoxStubPublicCert.h
+
+endif
+
+# The icon location is configurable.
+VBoxStub.rc_INCS += $(VBoxStub_0_OUTDIR)
+VBoxStub.rc_DEPS += \
+	$(VBoxStub_0_OUTDIR)/VBoxStub-icon.rc \
+	$(VBoxStub_0_OUTDIR)/VBoxStub-manifest.rc
+VBoxStub_CLEAN += \
+	$(VBoxStub_0_OUTDIR)/VBoxStub-icon.rc \
+	$(VBoxStub_0_OUTDIR)/VBoxStub-manifest.rc
+
+# Icon include file.
+$$(VBoxStub_0_OUTDIR)/VBoxStub-icon.rc: $(VBOX_WINDOWS_ICON_FILE) $(MAKEFILE_CURRENT) | $$(dir $$@)
+	$(APPEND) -t $@ 'IDI_VIRTUALBOX ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_FILE))"'
+
+# Manifest.
+VBOX_STUB_MANIFEST_FILE := $(PATH_SUB_CURRENT)/VBoxStub.manifest
+$$(VBoxStub_0_OUTDIR)/VBoxStub-manifest.rc: $(VBOX_STUB_MANIFEST_FILE) $(MAKEFILE_CURRENT) | $$(dir $$@)
+	$(APPEND) -t $@ 'APP_MANIFEST RT_MANIFEST "$(subst /,\\,$(VBOX_STUB_MANIFEST_FILE))"'
+
+# Dynamic import no. 1: MSI.DLL
+VBoxStub_SOURCES += $(VBoxStub_0_OUTDIR)/MsiLazyLoad.asm
+VBoxStub_CLEAN   += $(VBoxStub_0_OUTDIR)/MsiLazyLoad.asm
+$$(VBoxStub_0_OUTDIR)/MsiLazyLoad.asm: $(PATH_SUB_CURRENT)/msi.def $(VBOX_DEF_2_LAZY_LOAD) | $$(dir $$@)
+	$(call MSG_TOOL,VBoxDef2LazyLoad,VBoxStub,$(filter %.def, $^),$@)
+	$(QUIET)$(RM) -f -- "$@"
+	$(VBOX_DEF_2_LAZY_LOAD) --system --library MSI.DLL --output "$@" $(filter %.def, $^)
+
+# Dynamic import no. 2: CRYPTO32.DLL
+VBoxStub_SOURCES += $(VBoxStub_0_OUTDIR)/Crypt32LazyLoad.asm
+VBoxStub_CLEAN   += $(VBoxStub_0_OUTDIR)/Crypt32LazyLoad.asm
+$$(VBoxStub_0_OUTDIR)/Crypt32LazyLoad.asm: $(PATH_SUB_CURRENT)/crypt32.def $(VBOX_DEF_2_LAZY_LOAD) | $$(dir $$@)
+	$(call MSG_TOOL,VBoxDef2LazyLoad,VBoxStub,$(filter %.def, $^),$@)
+	$(QUIET)$(RM) -f -- "$@"
+	$(VBOX_DEF_2_LAZY_LOAD) --system --library CRYPT32.DLL --output "$@" $(filter %.def, $^)
+
+# Dynamic import no. 3: WS2_32.DLL
+VBoxStub_SOURCES += $(VBoxStub_0_OUTDIR)/Ws232LazyLoad.asm
+VBoxStub_CLEAN   += $(VBoxStub_0_OUTDIR)/Ws232LazyLoad.asm
+$$(VBoxStub_0_OUTDIR)/Ws232LazyLoad.asm: $(PATH_SUB_CURRENT)/ws2_32.def $(VBOX_DEF_2_LAZY_LOAD) | $$(dir $$@)
+	$(call MSG_TOOL,VBoxDef2LazyLoad,VBoxStub,$(filter %.def, $^),$@)
+	$(QUIET)$(RM) -f -- "$@"
+	$(VBOX_DEF_2_LAZY_LOAD) --system --library WS2_32.DLL --output "$@" $(filter %.def, $^)
+
+# Dynamic import no. 4: USER32.DLL
+VBoxStub_SOURCES += $(VBoxStub_0_OUTDIR)/User32LazyLoad.asm
+VBoxStub_CLEAN   += $(VBoxStub_0_OUTDIR)/User32LazyLoad.asm
+$$(VBoxStub_0_OUTDIR)/User32LazyLoad.asm: $(PATH_SUB_CURRENT)/user32.def $(VBOX_DEF_2_LAZY_LOAD) | $$(dir $$@)
+	$(call MSG_TOOL,VBoxDef2LazyLoad,VBoxStub,$(filter %.def, $^),$@)
+	$(QUIET)$(RM) -f -- "$@"
+	$(VBOX_DEF_2_LAZY_LOAD) --system --library USER32.DLL --output "$@" $(filter %.def, $^)
+
+# Dynamic import no. 5: SHELL32.DLL
+VBoxStub_SOURCES += $(VBoxStub_0_OUTDIR)/Shell32LazyLoad.asm
+VBoxStub_CLEAN   += $(VBoxStub_0_OUTDIR)/Shell32LazyLoad.asm
+$$(VBoxStub_0_OUTDIR)/Shell32LazyLoad.asm: $(PATH_SUB_CURRENT)/shell32.def $(VBOX_DEF_2_LAZY_LOAD) | $$(dir $$@)
+	$(call MSG_TOOL,VBoxDef2LazyLoad,VBoxStub,$(filter %.def, $^),$@)
+	$(QUIET)$(RM) -f -- "$@"
+	$(VBOX_DEF_2_LAZY_LOAD) --system --library SHELL32.DLL --output "$@" $(filter %.def, $^)
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

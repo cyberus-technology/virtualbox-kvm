@@ -1,0 +1,549 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage storageattach
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-storageattach" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage storageattach</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-storageattach</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-storageattach</refname>
+    <refpurpose>подключение, удаление и изменение носителей, используемых виртуальной машиной</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-storageattach">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage storageattach</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="req">--storagectl=<replaceable>имя</replaceable></arg>
+      <arg>--bandwidthgroup=<group choice="plain">
+          <arg choice="plain">name</arg>
+          <arg choice="plain">none</arg>
+        </group></arg>
+      <arg>--comment=<replaceable>текст</replaceable></arg>
+      <arg>--device=<replaceable>номер</replaceable></arg>
+      <arg>--discard=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--encodedlun=<replaceable>lun</replaceable></arg>
+      <arg>--forceunmount</arg>
+      <arg>--hotpluggable=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--initiator=<replaceable>инициатор</replaceable></arg>
+      <arg>--intnet</arg>
+      <arg>--lun=<replaceable>lun</replaceable></arg>
+      <arg>--medium=<group choice="plain">
+          <arg choice="plain">none</arg>
+          <arg choice="plain">emptydrive</arg>
+          <arg choice="plain">additions</arg>
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>имя-файла</replaceable></arg>
+          <arg choice="plain">host:<replaceable>диск</replaceable></arg>
+          <arg choice="plain">iscsi</arg>
+        </group></arg>
+      <arg>--mtype=<group choice="plain">
+          <arg choice="plain">normal</arg>
+          <arg choice="plain">writethrough</arg>
+          <arg choice="plain">immutable</arg>
+          <arg choice="plain">shareable</arg>
+          <arg choice="plain">readonly</arg>
+          <arg choice="plain">multiattach</arg>
+        </group></arg>
+      <arg>--nonrotational=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--passthrough=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--passwordfile=<replaceable>файл</replaceable></arg>
+      <arg>--password=<replaceable>пароль</replaceable></arg>
+      <arg>--port=<replaceable>номер</replaceable></arg>
+      <arg>--server=<group choice="plain">
+          <arg choice="plain"><replaceable>имя</replaceable></arg>
+          <arg choice="plain"><replaceable>ip</replaceable></arg>
+        </group></arg>
+      <arg>--setparentuuid=<replaceable>uuid</replaceable></arg>
+      <arg>--setuuid=<replaceable>uuid</replaceable></arg>
+      <arg>--target=<replaceable>цель</replaceable></arg>
+      <arg>--tempeject=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--tport=<replaceable>порт</replaceable></arg>
+      <arg>--type=<group choice="plain">
+          <arg choice="plain">dvddrive</arg>
+          <arg choice="plain">fdd</arg>
+          <arg choice="plain">hdd</arg>
+        </group></arg>
+      <arg>--username=<replaceable>имя-пользователя</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage storageattach</command> позволяет
+      управлять носителями, подключенными к контроллеру через команду
+      <command>VBoxManage storagectl</command>.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>имя-ВМ</replaceable></term>
+        <listitem><para>
+            Задает Универсальный Уникальный Идентификатор (UUID) или
+            имя виртуальной машины (ВМ).
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--storagectl=<replaceable>имя</replaceable></option></term>
+        <listitem><para>
+            Задает имя контроллера. Используйте команду
+            <command>VBoxManage showvminfo</command> для просмотра
+            подключенных к ВМ контроллеров.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--port=<replaceable>номер</replaceable></option></term>
+        <listitem><para>
+            Задает номер порта изменяемого контроллера. Необходимо
+            использовать эту опцию если у контроллера несколько портов.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--device=<replaceable>номер</replaceable></option></term>
+        <listitem><para>
+            Задает номер устройства изменяемого порта. Необходимо
+            использовать эту опцию если у контроллера несколько
+            устройств на порт.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--type=dvddrive | fdd | hdd</option></term>
+        <listitem><para>
+            Указывает тип диска, с которым связан носитель.
+            Опустить данный параметр можно только если тип носителя
+            может быть определен через опцию <option>--medium</option>
+            или через информацию, переданную более ранней командой
+            подключения носителя.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--medium=none | emptydrive | additions | <replaceable>uuid</replaceable> | <replaceable>имя-файла</replaceable> | host:<replaceable>диск</replaceable> | iscsi</option></term>
+        <listitem><para>
+            Задает одно из следующих значений:
+          </para><variablelist>
+            <varlistentry>
+              <term><literal>none</literal></term>
+              <listitem><para>
+                  Удаляет любой существующее устройство из указанного слота.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>emptydrive</literal></term>
+              <listitem><para>
+                  Только для виртуальных DVD или флоппи дисков.
+                </para><para>
+                  Заставляет слот устройства вести себя как съемный
+                  диск, в который не вставлен носитель.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>additions</literal></term>
+              <listitem><para>
+                  Только для виртуальных DVD дисков.
+                </para><para>
+                  Подключает образ Дополнений Гостевой ОС VirtualBox
+                  в указанный слот устройств.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><replaceable>uuid</replaceable></term>
+              <listitem><para>
+                  Задает UUID носителя для подключения в указанный слот
+                  устройства. Носитель должен быть уже известен
+                  &product-name;, например носитель, подключенный к
+                  другой ВМ. Используйте команду
+                  <command>VBoxManage list</command> для просмотра
+                  носителей.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><replaceable>имя-файла</replaceable></term>
+              <listitem><para>
+                  Задает полный путь к существующему образу диска
+                  для подключения к указанному слоту устройства.
+                  Образ диска может быть ISO, RAW, VDI, VMDK или
+                  другого формата.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>host:<replaceable>диск</replaceable></literal></term>
+              <listitem><para>
+                  Только для виртуальных DVD или флоппи дисков.
+                </para><para>
+                  Соединяет указанный слот устройства к указанному
+                  DVD или флоппи диску хост-компьютера.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>iscsi</literal></term>
+              <listitem><para>
+                  Только для виртуальных жестких дисков.
+                </para><para>
+                  Задает цель iSCSI, для которой необходимо указать
+                  дополнительную информацию. Смотрите
+                  <xref linkend="storage-iscsi" />.
+                </para></listitem>
+            </varlistentry>
+          </variablelist><para>
+            Для съемных дисков, таких как флоппи и DVD, можно менять
+            настройки во время выполнения ВМ. Изменения устройств или
+            слотов устройств жестких дисков требуют, чтобы ВМ была
+            выключена.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--mtype=normal | writethrough | immutable | shareable | readonly | multiattach</option></term>
+        <listitem><para>
+            Указывает, как носитель ведет себя по отношению к снимкам
+            и операциям записи. Смотрите <xref linkend="hdimagewrites" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--comment=<replaceable>текст</replaceable></option></term>
+        <listitem><para>
+            Задает необязательное описание, сохраняемое с носителем.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--setuuid=<replaceable>uuid</replaceable></option></term>
+        <listitem><para>
+            Изменяет UUID носителя перед подключением к ВМ.
+          </para><para>
+            Это экспертная опция. Неподходящие значения могут привести
+            к невозможности использовать носитель или к поломке
+            настроек ВМ если другая ВМ уже ссылается на такой же носитель.
+          </para><para>
+            Опция <option>--setuuid=""</option> назначает
+            новый случайный UUID образу, что может убрать ошибку
+            дублированного UUID, если была использована утилита
+            файлового копирования для дублирования образа.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--setparentuuid=<replaceable>uuid</replaceable></option></term>
+        <listitem><para>
+            Изменяет родительский UUID носителя перед подключением к ВМ.
+          </para><para>
+            Это экспертная опция. Неподходящие значения могут привести
+            к невозможности использовать носитель или к поломке
+            настроек ВМ если другая ВМ уже ссылается на такой же носитель.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--passthrough=on | off</option></term>
+        <listitem><para>
+            Только для виртуальных DVD дисков.
+          </para><para>
+            Включает запись на DVD. Эта функция экспериментальная.
+            Смотрите <xref linkend="storage-cds" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--tempeject=on | off</option></term>
+        <listitem><para>
+            Только для виртуальных DVD дисков.
+          </para><para>
+            Указывает, разрешать ли операцию временного извлечения
+            носителя по запросу гостевой системы. Если установлено
+            в <literal>on</literal>, носитель может быть извлечен.
+            Возможность операции извлечения по запросу гостевой
+            системы, не сохраняется, если ВМ выключена и
+            перезапущена. Таким образом, когда опция установлена
+            в <literal>on</literal> и ВМ перезапущена, первоначально
+            настроенный носитель все еще в дисководе.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--nonrotational=on | off</option></term>
+        <listitem><para>
+            Позволяет указать, что виртуальный жесткий диск
+            не вращается. Некоторые гостевые ОС, например Windows 7
+            и более поздние, считают такие диски твердотельными (SSD)
+            и не производят фрагментацию диска на них.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--discard=on | off</option></term>
+        <listitem><para>
+            Указывает, включать ли функцию автоудаления для виртуального
+            жесткого диска. Когда установлена в <literal>on</literal>,
+            образ VDI уменьшается в ответ на команду <command>trim</command>
+            гостевой ОС.
+          </para><para>
+            Виртуальный жесткий диск должен удовлетворять следующим
+            требованиям:
+          </para><itemizedlist>
+            <listitem><para>
+                Формат диска должен быть VDI.
+              </para></listitem>
+            <listitem><para>
+                Размер очищаемой области диска должен быть не менее 1 МБ.
+              </para></listitem>
+            <listitem><para>
+                Убедитесь, что обрезаемое пространство представляет
+                собой непрерывный блок размером не менее 1 МБ на
+                границе 1 МБ.
+              </para></listitem>
+          </itemizedlist><para>
+            Рассмотрите запуск команд дефрагментации в фоновом режиме
+            через cron для сохранения пространства. В Windows
+            запускайте команду <command>defrag.exe /D</command>. В
+            Linux запускайте команду <command>btrfs filesystem
+            defrag</command>.
+          </para><note>
+            <para>
+              При настройке гостевой ОС для выдачи команды
+              <command>trim</command>, гостевая ОС обычно рассматривает
+              диск как SSD.
+            </para>
+            <para>
+              Ext4 поддерживает опцию монтирования
+              <option>-o discard</option>. В Mac OS X может
+              потребоваться дополнительная настройка. Windows 7, 8
+              и 10 автоматически определяет и поддерживает SSD.
+              Драйвер Linux <command>exFAT</command> от Samsung
+              поддерживает команду <command>trim</command>.
+            </para>
+          </note><para>
+            Реализация exFAT от Microsoft может не поддерживать эту
+            функцию.
+          </para><para>
+            Можно использовать другие способы для выдачи команд trim.
+            Команда Linux <command>fstrim</command> является частью
+            пакета <filename>util-linux</filename>. Ранние решения
+            требовали обнулить неиспользуемые области через команду
+            <command>zerofree</command> или подобную, затем уплотнить
+            диск. Можно производит данные шаги только при выключенной
+            ВМ.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--bandwidthgroup=<replaceable>имя</replaceable></option></term>
+        <listitem><para>
+            Задает группу полосы пропускания, используемую в устройстве.
+            Смотрите <xref linkend="storage-bandwidth-limit" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--forceunmount</option></term>
+        <listitem><para>
+            Только для виртуальных DVD или флоппи дисков.
+          </para><para>
+            Принудительно размонтирует DVD, CD, или флоппи или
+            монтирует новый DVD, CD, или флоппи даже если предыдущий
+            съемный носитель заблокирован гостем на чтение. Смотрите
+            <xref linkend="storage-cds" />.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      Следующие опции применимы когда указана опция
+      <option>--medium=iscsi</option>:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><option>--server=<replaceable>имя-хоста</replaceable> | <replaceable>IP-адрес</replaceable></option></term>
+        <listitem><para>
+            Задает имя хоста или IP адрес цели iSCSI.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--target=<replaceable>цель</replaceable></option></term>
+        <listitem><para>
+            Задает строку имени цели, определяемую целью
+            iSCSI и используется для идентификации ресурса хранилища.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--tport=<replaceable>порт</replaceable></option></term>
+        <listitem><para>
+            Задает номер порта TCP/IP службы iSCSI цели.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--lun=<replaceable>LUN</replaceable></option></term>
+        <listitem><para>
+            Задает номер логической единицы ресурса цели.
+            Для единственного дисковода значение равно нулю.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--encodedlun=<replaceable>LUN</replaceable></option></term>
+        <listitem><para>
+            Задает LUN ресурса цели в виде закодированную в
+            шестнадцатеричном виде. Для единственного дисковода
+            значение равно нулю.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--username=<replaceable>имя-пользователя</replaceable></option></term>
+        <listitem><para>
+            Задает имя пользователя для аутентификации цели.
+          </para><note>
+            <para>
+              Если не установлен пароль на настройки, имя пользователя
+              сохраняется в виде простого текста в XML файле настроек
+              машины.
+            </para>
+          </note></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--password=<replaceable>пароль</replaceable></option></term>
+        <listitem><para>
+            Задает пароль для аутентификации цели.
+          </para><note>
+            <para>
+              Если не установлен пароль на настройки, этот пароль
+              сохраняется в виде простого текста в XML файле
+              конфигурации машины. Когда пароль на настройки
+              установлен, пароль аутентификации цели сохраняется
+              в шифрованном виде.
+            </para>
+          </note><remark>
+            Этот дизайн не соответствует рекомендациям по безопасности
+            Oracle. У Вас не должно быть возможности указать пароль
+            в командной строке, так как пароль может быть увиден
+            в списке процессов.
+          </remark></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--passwordfile=<replaceable>файл-с-паролем</replaceable></option></term>
+        <listitem><para>
+            Задает файл, содержащий пароль аутентификации цели
+            в виде простого текста.
+          </para><note>
+            <para>
+              Используйте настройки разрешений и владения, чтобы
+              убедиться, что содержимое этого файла не могут прочитать
+              неавторизованные пользователи.
+            </para>
+          </note></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--initiator=<replaceable>инициатор</replaceable></option></term>
+        <listitem><para>
+            Задает инициатор iSCSI.
+          </para><para>
+            iSCSI инициатор от Microsoft - это система, например сервер,
+            которая подключается к IP сети и инициирует запросы и
+            получает ответы от iSCSI целей. SAN компоненты в
+            инициаторе iSCSI во многом аналогичны SAN компонентам Fibre
+            Channel и включают следующие:
+          </para><itemizedlist>
+            <listitem><para>
+                <emphasis role="bold">Драйвер iSCSI.</emphasis>
+                Траспортирует блоки команд iSCSI через сеть IP. Этот
+                драйвер iSCSI устанавливается в хост iSCSI и входит
+                в состав инициатор iSCSI от Microsoft.
+              </para></listitem>
+            <listitem><para>
+                <emphasis role="bold">Адаптер Gigabit Ethernet.</emphasis>
+                Подключается к цели iSCSI. Используйте адаптер
+                Ethernet, который может передавать 1000 мегабит в
+                секунду (Мб/с). Как и стандартные 10/100 адаптеры,
+                большинство гигабитных адаптеров используют
+                существующие кабели категории 5 или 6Е. Каждый порт
+                адаптера идентифицируется уникальным IP адресом.
+              </para></listitem>
+            <listitem><para>
+                <emphasis role="bold">Цель iSCSI.</emphasis> Это любое
+                устройство, которое получает команды iSCSI. Устройством
+                может быть как конечный узел, например устройство хранения,
+                так и промежуточное устройство, например сетевой мост
+                между устройствами IP и Fibre Channel. Каждый порт
+                контроллера массива хранилищ или сетевого моста
+                идентифицируется одним или несколькими IP адресами.
+              </para></listitem>
+          </itemizedlist></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--intnet</option></term>
+        <listitem><para>
+            Указывает, подключаться ли к цели iSCSI, использующую
+            внутреннюю сеть. Эта настройка требует дальнейшую
+            настройку. Смотрите <xref linkend="iscsi-intnet" />.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда подключает образ диска <filename>o7.vdi</filename>
+      к указанному контроллеру SATA в ВМ <filename>ol7</filename>.
+    </para>
+<screen>$ storageattach ol7 --storagectl "SATA Controller" --port 0 --device 0 \
+--type hdd --medium /VirtualBox/ol7/ol7.vdi</screen>
+    <para>
+      Следующая команда подключает образ DVD <filename>o7-r6-dvd.iso</filename>
+      к указанному контроллеру IDE в ВМ <filename>ol7</filename>.
+    </para>
+<screen>$ VBoxManage storageattach ol7 --storagectl "IDE Controller" --port 0 --device 0 \
+--type dvddrive --medium ol7-r6-dvd.iso</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>Смотрите также</title>
+    <para>
+      <xref linkend="vboxmanage-list" />,
+      <xref linkend="vboxmanage-showvminfo" />,
+      <xref linkend="vboxmanage-storagectl" />
+    </para>
+  </refsect1>
+</refentry>

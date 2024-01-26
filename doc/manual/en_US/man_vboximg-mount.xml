@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: vboximg-mount
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="man_vboximg-mount" lang="en">
+  <refentryinfo>
+    <pubdate>November 2019</pubdate>
+    <title>vboximg-mount</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>vboximg-mount</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>vboximg-mount</refname>
+    <refpurpose>FUSE mount a virtual disk image for Mac OS and Linux hosts</refpurpose>
+    <refclass>Oracle VM VirtualBox</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboximg-mount-help">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>vboximg-mount</command>
+      <group choice="req">
+        <arg choice="plain">-?</arg>
+        <arg choice="plain">-h</arg>
+        <arg choice="plain">--help</arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboximg-mount-mount">
+      <command>vboximg-mount</command>
+      <arg choice="req">--image=<replaceable>image-UUID</replaceable></arg>
+      <arg>--guest-filesystem</arg>
+      <arg>-o=<replaceable>FUSE-option</replaceable>[,<replaceable>FUSE-option</replaceable>]</arg>
+      <arg>--root</arg>
+      <arg>--rw</arg>
+      <arg choice="req"><replaceable>mountpoint</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboximg-mount-list">
+      <command>vboximg-mount</command>
+      <arg choice="req">--list</arg>
+      <arg>--image=<replaceable>image-UUID</replaceable></arg>
+      <arg>--guest-filesystem</arg>
+      <arg>--verbose</arg>
+      <arg>--vm=<replaceable>vm-UUID</replaceable></arg>
+      <arg>--wide</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1 id="vboximg-mount-intro">
+    <title>Description</title>
+    <para>
+      The <command>vboximg-mount</command> command enables you to make
+      &product-name; disk images available to a Mac OS or Linux host
+      operating system (OS) for privileged or non-priviliged access. You
+      can mount any version of the disk from its available history of
+      snapshots. Use this command to mount, view, and optionally modify
+      the contents of an &product-name; virtual disk image, and you can
+      also use this command to view information about registered virtual
+      machines (VMs).
+    </para>
+    <para>
+      This command uses the Filesystem in Userspace (FUSE) technology to
+      provide raw access to an &product-name; virtual disk image.
+    </para>
+    <para>
+      When you use the <option>--image</option> option to specify a base
+      image identifier, only the base image is mounted. Any related
+      snapshots are disregarded. Alternatively, if you use the
+      <option>--image</option> option to specify a snapshot, the state
+      of the FUSE-mounted virtual disk is synthesized from the implied
+      chain of snapshots, including the base image.
+    </para>
+    <para>
+      The <command>vboximg-mount</command> command includes experimental
+      read-only access to file systems inside a VM disk image. This
+      feature enables you to extract some files from the VM disk image
+      without starting the VM and without requiring third-party file
+      system drivers on the host system. &product-name; supports the
+      FAT, NTFS, <filename>ext2</filename>, <filename>ext3</filename>,
+      and <filename>ext4</filename> file systems.
+    </para>
+    <para>
+      The virtual disk is exposed as a device node within a FUSE-based
+      file system that overlays the specified mount point.
+    </para>
+    <para>
+      The FUSE file system includes a directory that contains a number
+      of files. The file system can also contain a directory that
+      includes a symbolic link that has the same base name (see the
+      <command>basename</command>(1) man page) as the virtual disk base
+      image and points to the location of the virtual disk base image.
+      The directory can be of the following types:
+    </para>
+    <itemizedlist>
+      <listitem><para>
+          <filename>vhdd</filename> provides access to the raw disk
+          image data as a flat image
+        </para></listitem>
+      <listitem><para>
+          <literal>vol<replaceable>ID</replaceable></literal> provides
+          access to an individual volume on the specified disk image
+        </para></listitem>
+      <listitem><para>
+          <literal>fs<replaceable>ID</replaceable></literal> provides
+          access to a supported file system without requiring a host
+          file system driver
+        </para></listitem>
+    </itemizedlist>
+    <refsect2 id="vboximg-mount-help">
+      <title>General Command Options</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Use the following options to obtain information about the
+        <command>vboximg-mount</command> command and its options.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--help</option>, <option>--h</option>, or<option>--?</option></term>
+          <listitem><para>
+              Shows usage information.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboximg-mount-mount">
+      <title>Mounting an &product-name; Disk Image</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Use the <command>vboximg-mount</command> command to mount an
+        &product-name; virtual disk image on a Mac OS or Linux host
+        system. When mounted, you can view the contents of the disk
+        image or modify the contents of the disk image.
+      </para>
+      <para>
+        You can use the <command>vboximg-mount</command> command to
+        restrict FUSE-based access to a subsection of the virtual disk.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--image=<replaceable>disk-image</replaceable></option></term>
+          <listitem><para>
+              Specifies the Universally Unique Identifier (UUID), name,
+              or path of the &product-name; disk image.
+            </para><para>
+              The short form of the <option>--image</option> option is
+              <option>-i</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--guest-filesystem</option></term>
+          <listitem><para>
+              Enables experimental read-only support for guest file
+              systems. When you specify this option, all known file
+              systems are made available to access.
+            </para><para>
+              The short form of the <option>--guest-filesystem</option>
+              option is <option>-g</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-o=<replaceable>FUSE-option</replaceable>[,<replaceable>FUSE-option</replaceable>...]</option></term>
+          <listitem><para>
+              Specifies FUSE mount options.
+            </para><para>
+              The <command>vboximg-mount</command> command enables you
+              to use the FUSE mount options that are described in the
+              <command>mount.fuse</command>(8) man page.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--root</option></term>
+          <listitem><para>
+              Overrides the security measure that restricts file access
+              to the file system owner by also granting file access to
+              the <literal>root</literal> user.
+            </para><para>
+              Same as the <option>-o allow_root</option> option. See the
+              <option>-o</option> option description.
+            </para><para>
+              This option is incompatible with the <option>-o
+              allow_other</option> option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--rw</option></term>
+          <listitem><para>
+              Mounts the specified image as read-write, which is
+              required if you want to modify its contents. By default,
+              images are mounted as read-only.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>mount-point</replaceable></term>
+          <listitem><para>
+              Specifies the path name of a directory on which to mount
+              the &product-name; disk image.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboximg-mount-list">
+      <title>Viewing &product-name; Disk Image Information</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Use the <command>vboximg-mount</command> command to view
+        information about registered VMs or an &product-name; virtual
+        disk image.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--image=<replaceable>disk-image</replaceable></option></term>
+          <listitem><para>
+              Specifies the UUID, name, or path of the &product-name;
+              disk image.
+            </para><para>
+              The short form of the <option>--image</option> option is
+              <option>-i</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--guest-filesystem</option></term>
+          <listitem><para>
+              Enables experimental read-only support for guest file
+              systems. When you specify this option, all known file
+              systems are made available to access.
+            </para><para>
+              The short form of the <option>--guest-filesystem</option>
+              option is <option>-g</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Shows information about the disks that are associated with
+              the registered VMs. If you specify a disk image, this
+              option shows information about the partitions of the
+              specified image.
+            </para><para>
+              When you specify the <option>--verbose</option> option,
+              the output includes detailed information about the VMs and
+              media, including snapshot images and file paths.
+            </para><para>
+              The short form of the <option>--list</option> option is
+              <option>-l</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--verbose</option></term>
+          <listitem><para>
+              Shows or logs detailed information.
+            </para><para>
+              The short form of the <option>--verbose</option> option is
+              <option>-v</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vm=<replaceable>vm-UUID</replaceable></option></term>
+          <listitem><para>
+              Outputs information about the VM that is associated with
+              the specified UUID.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--wide</option></term>
+          <listitem><para>
+              Outputs information in a wide format. This output includes
+              the lock state information of running VMs. For VMs that
+              are not running, the state is <literal>created</literal>.
+            </para><para>
+              The wide output uses a tree-like structure in the VM
+              column to show the relationship between a VM base image
+              and its snapshots.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="MOUNT-MOUNT,MOUNT-LIST"/>
+    <para>
+      The following example shows how to mount a virtual disk image on
+      the host operating system (OS).
+    </para>
+<screen>$ mkdir fuse_mount_point
+$ vboximg-mount --image=b490e578-08be-4f7d-98e9-4c0ef0952377 fuse_mount_point
+$ ls fuse_mount_point
+ubu.vdi[32256:2053029880]   vhdd
+$ sudo mount fuse_mount_point/vhdd /mnt</screen>
+    <para>
+      The <command>mkdir</command> command creates a mount point called
+      <filename>fuse_mount_point</filename> on the host OS. The
+      <command>vboximg-mount</command> command is then used to mount the
+      specified disk image on the <filename>fuse_mount_point</filename>
+      mount point. The mount includes all snapshots for the disk image.
+    </para>
+    <para>
+      The <command>ls</command> command shows the contents of
+      <filename>fuse_mount_point</filename>. The
+      <command>mount</command> command is then used to mount the
+      FUSE-mounted device node, <command>vhdd</command>, on the
+      <filename>/mnt</filename> mount point. The <command>vhdd</command>
+      device node represents the virtual disk image.
+    </para>
+    <para>
+      The following example shows how to make the known file systems of
+      the <literal>b490e578-08be-4f7d-98e9-4c0ef0952377</literal> disk
+      image accessible when the image is mounted on the
+      <filename>fuse_mount_point</filename> mount point:
+    </para>
+<screen>$ vboximg-mount --image=b490e578-08be-4f7d-98e9-4c0ef0952377 \
+--guest-filesystem fuse_mount_point
+</screen>
+    <para>
+      The following command outputs detailed information about all
+      registered VMs and their snapshots:
+    </para>
+<screen>$ vboximg-mount --list --verbose</screen>
+    <para>
+      The following command shows an excerpt of the list output in wide
+      format.
+    </para>
+<screen>$ vboximg-mount --list --wide
+
+VM  Image                 Size Type State   UUID (hierarchy)
+------------------------------------------  ------------------------------------
+Proxy                                       0833f5bc-6304-42e1-b799-cdc81c576c60
+ |
+ +- Proxy.vdi             4.8G VDI  rlock   d5f84afb-0794-4952-ab71-6bbcbee07737
+ |  +- &lt;snapshot>        12.3G VDI  rlock     dffc67aa-3023-477f-8033-b27e3daf4f54
+ |  +- &lt;snapshot>         8.8G VDI  rlock       3b2755bd-5f2a-4171-98fe-647d510b6274
+ |  +- &lt;snapshot>        14.6G VDI  rlock         e2ccdb5f-49e8-4123-8623-c61f363cc5cf
+ |  +- &lt;snapshot>         7.4G VDI  wlock           3c1e6794-9091-4be3-9e80-11aba40c2649
+
+------------------------------------------  ------------------------------------
+Oracle Linux 7                              5365ab5f-470d-44c0-9863-dad532ee5905
+ |
+ +- Oracle Linux 7.vdi     7.0G VDI created 96d2e92e-0d4e-46ab-a0f1-008fdbf997e7
+ | +- &lt;snapshot>          15.9G VDI created   f9cc866a-9166-42e9-a503-bbfe9b7312e8
+ |
+ +- kernel.vdi            11.1G VDI created 79a370bd-0c4f-480a-30bb-10cdea68423f
+</screen>
+    <para>
+      The output shows that the Proxy VM is running the fourth snapshot
+      of the <command>Proxy.vdi</command> virtual disk image. The
+      running state is indicated by the <command>wlock</command> value
+      in the State column.
+    </para>
+    <para>
+      The Oracle Linux 7 VM is not running. It has two images:
+      <command>Oracle Linux 7.vdi</command> and
+      <command>kernel.vdi</command>. The <command>Oracle Linux
+      7.vdi</command> image has a snapshot.
+    </para>
+    <para>
+      The following command shows information about the VM with the
+      specified UUID:
+    </para>
+<screen>
+$ vboximg-mount --list --vm=b1d5563b-2a5b-4013-89f1-26c81d6bbfa0
+-----------------------------------------------------------------
+VM:   ubu
+UUID: b1d5563b-2a5b-4013-89f1-26c81d6bbfa0
+
+  Image:   ubu.vdi
+  UUID:    b490e578-08be-4f7d-98e9-4c0ef0952377
+
+       Snapshot: 35afe1e0-0a51-44f3-a228-caf172f3306f
+       Size:     12.1G
+
+       Snapshot: 874279c1-4425-4282-ada8-a9c07c00bbf9
+       Size:     13.6G
+
+  Image:   kernel.vdi
+  UUID:    79a370bd-6eb7-4dbf-8bc6-d29118f127e0</screen>
+  </refsect1>
+</refentry>

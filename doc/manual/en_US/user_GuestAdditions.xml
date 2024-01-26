@@ -1,0 +1,2672 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<chapter id="guestadditions">
+
+  <title>Guest Additions</title>
+
+  <para>
+    The previous chapter covered getting started with &product-name; and
+    installing operating systems in a virtual machine. For any serious
+    and interactive use, the &product-name; Guest Additions will make
+    your life much easier by providing closer integration between host
+    and guest and improving the interactive performance of guest
+    systems. This chapter describes the Guest Additions in detail.
+  </para>
+
+  <sect1 id="guestadd-intro">
+
+    <title>Introduction to Guest Additions</title>
+
+    <para>
+      As mentioned in <xref linkend="virtintro" />, the Guest Additions
+      are designed to be installed <emphasis>inside</emphasis> a virtual
+      machine after the guest operating system has been installed. They
+      consist of device drivers and system applications that optimize
+      the guest operating system for better performance and usability.
+      See <xref linkend="guestossupport" /> for details on what guest
+      operating systems are fully supported with Guest Additions by
+      &product-name;.
+    </para>
+
+    <para>
+      The &product-name; Guest Additions for all supported guest
+      operating systems are provided as a single CD-ROM image file which
+      is called <filename>VBoxGuestAdditions.iso</filename>. This image
+      file is located in the installation directory of &product-name;.
+      To install the Guest Additions for a particular VM, you mount this
+      ISO file in your VM as a virtual CD-ROM and install from there.
+    </para>
+
+    <para>
+      The Guest Additions offer the following features:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Mouse pointer integration</emphasis>. To
+          overcome the limitations for mouse support described in
+          <xref linkend="keyb_mouse_normal" />, this feature provides
+          you with seamless mouse support. You will only have one mouse
+          pointer and pressing the Host key is no longer required to
+          <emphasis>free</emphasis> the mouse from being captured by the
+          guest OS. To make this work, a special mouse driver is
+          installed in the guest that communicates with the physical
+          mouse driver on your host and moves the guest mouse pointer
+          accordingly.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Shared folders.</emphasis> These provide
+          an easy way to exchange files between the host and the guest.
+          Much like ordinary Windows network shares, you can tell
+          &product-name; to treat a certain host directory as a shared
+          folder, and &product-name; will make it available to the guest
+          operating system as a network share, irrespective of whether
+          the guest actually has a network. See
+          <xref linkend="sharedfolders" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Better video support.</emphasis> While
+          the virtual graphics card which &product-name; emulates for
+          any guest operating system provides all the basic features,
+          the custom video drivers that are installed with the Guest
+          Additions provide you with extra high and non-standard video
+          modes, as well as accelerated video performance.
+        </para>
+
+        <para>
+          In addition, with Windows, Linux, and Oracle Solaris guests,
+          you can resize the virtual machine's window if the Guest
+          Additions are installed. The video resolution in the guest
+          will be automatically adjusted, as if you had manually entered
+          an arbitrary resolution in the guest's
+          <emphasis role="bold">Display</emphasis> settings. See
+          <xref linkend="intro-resize-window" />.
+        </para>
+
+        <para>
+          If the Guest Additions are installed, 3D graphics and 2D video
+          for guest applications can be accelerated. See
+          <xref linkend="guestadd-video" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Seamless windows.</emphasis> With this
+          feature, the individual windows that are displayed on the
+          desktop of the virtual machine can be mapped on the host's
+          desktop, as if the underlying application was actually running
+          on the host. See <xref linkend="seamlesswindows" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Generic host/guest communication
+          channels.</emphasis> The Guest Additions enable you to control
+          and monitor guest execution. The <emphasis>guest
+          properties</emphasis> provide a generic string-based mechanism
+          to exchange data bits between a guest and a host, some of
+          which have special meanings for controlling and monitoring the
+          guest. See <xref linkend="guestadd-guestprops" />.
+        </para>
+
+        <para>
+          Additionally, applications can be started in a guest from the
+          host. See <xref linkend="guestadd-guestcontrol" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Time synchronization.</emphasis> With
+          the Guest Additions installed, &product-name; can ensure that
+          the guest's system time is better synchronized with that of
+          the host.
+        </para>
+
+        <para>
+          For various reasons, the time in the guest might run at a
+          slightly different rate than the time on the host. The host
+          could be receiving updates through NTP and its own time might
+          not run linearly. A VM could also be paused, which stops the
+          flow of time in the guest for a shorter or longer period of
+          time. When the wall clock time between the guest and host only
+          differs slightly, the time synchronization service attempts to
+          gradually and smoothly adjust the guest time in small
+          increments to either catch up or lose time. When the
+          difference is too great, for example if a VM paused for hours
+          or restored from saved state, the guest time is changed
+          immediately, without a gradual adjustment.
+        </para>
+
+        <para>
+          The Guest Additions will resynchronize the time regularly. See
+          <xref linkend="changetimesync" /> for how to configure the
+          parameters of the time synchronization mechanism.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Shared clipboard.</emphasis> With the
+          Guest Additions installed, the clipboard of the guest
+          operating system can optionally be shared with your host
+          operating system. See <xref linkend="generalsettings" />.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Automated logins.</emphasis> Also called
+          credentials passing. See <xref linkend="autologon" />.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      Each version of &product-name;, even minor releases, ship with
+      their own version of the Guest Additions. While the interfaces
+      through which the &product-name; core communicates with the Guest
+      Additions are kept stable so that Guest Additions already
+      installed in a VM should continue to work when &product-name; is
+      upgraded on the host, for best results, it is recommended to keep
+      the Guest Additions at the same version.
+    </para>
+
+    <para>
+      The Windows and Linux Guest Additions therefore check
+      automatically whether they have to be updated. If the host is
+      running a newer &product-name; version than the Guest Additions, a
+      notification with further instructions is displayed in the guest.
+    </para>
+
+    <para>
+      To disable this update check for the Guest Additions of a given
+      virtual machine, set the value of its
+      <literal>/VirtualBox/GuestAdd/CheckHostVersion</literal> guest
+      property to <literal>0</literal>. See
+      <xref linkend="guestadd-guestprops" />.
+    </para>
+
+  </sect1>
+
+  <sect1 id="guestadd-install">
+
+    <title>Installing and Maintaining Guest Additions</title>
+
+    <para>
+      Guest Additions are available for virtual machines running
+      Windows, Linux, Oracle Solaris, or OS/2. The following sections
+      describe the specifics of each variant in detail.
+    </para>
+
+    <sect2 id="additions-windows">
+
+      <title>Guest Additions for Windows</title>
+
+      <para>
+        The &product-name; Windows Guest Additions are designed to be
+        installed in a virtual machine running a Windows operating
+        system. The following versions of Windows guests are supported:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            Microsoft Windows NT 4.0 (any service pack)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows 2000 (any service pack)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows XP (any service pack)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows Server 2003 (any service pack)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows Server 2008
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows Vista (all editions)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows 7 (all editions)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows 8 (all editions)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows 10 RTM build 10240
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Microsoft Windows Server 2012
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <sect3 id="mountingadditionsiso">
+
+        <title>Installing the Windows Guest Additions</title>
+
+        <para>
+          In the <emphasis role="bold">Devices</emphasis> menu in the
+          virtual machine's menu bar, &product-name; has a menu item
+          <emphasis role="bold">Insert Guest Additions CD
+          Image</emphasis>, which mounts the Guest Additions ISO file
+          inside your virtual machine. A Windows guest should then
+          automatically start the Guest Additions installer, which
+          installs the Guest Additions on your Windows guest.
+        </para>
+
+        <para>
+          For other guest operating systems, or if automatic start of
+          software on a CD is disabled, you need to do a manual start of
+          the installer.
+        </para>
+
+        <note>
+          <para>
+            For the basic Direct3D acceleration to work in a Windows
+            guest, you have to install the WDDM video driver available
+            for Windows Vista or later.
+          </para>
+
+          <para>
+            For Windows 8 and later, only the WDDM Direct3D video driver
+            is available. For basic Direct3D acceleration to work in
+            Windows XP guests, you have to install the Guest Additions
+            in Safe Mode. See <xref linkend="KnownIssues" /> for
+            details.
+          </para>
+        </note>
+
+        <para>
+          If you prefer to mount the Guest Additions manually, you can
+          perform the following steps:
+        </para>
+
+        <orderedlist>
+
+          <listitem>
+            <para>
+              Start the virtual machine in which you have installed
+              Windows.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Select <emphasis role="bold">Optical Drives</emphasis>
+              from the <emphasis role="bold">Devices</emphasis> menu in
+              the virtual machine's menu bar and then
+              <emphasis role="bold">Choose/Create a Disk
+              Image</emphasis>. This displays the Virtual Media Manager,
+              described in <xref linkend="virtual-media-manager" />.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              In the Virtual Media Manager, click
+              <emphasis role="bold">Add</emphasis> and browse your host
+              file system for the
+              <filename>VBoxGuestAdditions.iso</filename> file.
+            </para>
+
+            <itemizedlist>
+
+              <listitem>
+                <para>
+                  On a Windows host, this file is in the &product-name;
+                  installation directory, usually in
+                  <filename>C:\Program
+                  files\Oracle\VirtualBox</filename>.
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  On macOS hosts, this file is in the application bundle
+                  of &product-name;. Right-click on the &product-name;
+                  icon in Finder and choose <emphasis role="bold">Show
+                  Package Contents</emphasis>. The file is located in
+                  the <filename>Contents/MacOS</filename> folder.
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  On a Linux host, this file is in the
+                  <filename>additions</filename> folder where you
+                  installed &product-name;, usually
+                  <filename>/opt/VirtualBox/</filename>.
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  On Oracle Solaris hosts, this file is in the
+                  <filename>additions</filename> folder where you
+                  installed &product-name;, usually
+                  <filename>/opt/VirtualBox</filename>.
+                </para>
+              </listitem>
+
+            </itemizedlist>
+          </listitem>
+
+          <listitem>
+            <para>
+              In the Virtual Media Manager, select the ISO file and
+              click the <emphasis role="bold">Add</emphasis> button.
+              This mounts the ISO file and presents it to your Windows
+              guest as a CD-ROM.
+            </para>
+          </listitem>
+
+        </orderedlist>
+
+        <para>
+          Unless you have the Autostart feature disabled in your Windows
+          guest, Windows will now autostart the &product-name; Guest
+          Additions installation program from the Additions ISO. If the
+          Autostart feature has been turned off, choose
+          <filename>VBoxWindowsAdditions.exe</filename> from the CD/DVD
+          drive inside the guest to start the installer.
+        </para>
+
+        <para>
+          The installer will add several device drivers to the Windows
+          driver database and then invoke the hardware detection wizard.
+        </para>
+
+        <para>
+          Depending on your configuration, it might display warnings
+          that the drivers are not digitally signed. You must confirm
+          these in order to continue the installation and properly
+          install the Additions.
+        </para>
+
+        <para>
+          After installation, reboot your guest operating system to
+          activate the Additions.
+        </para>
+
+      </sect3>
+
+      <sect3 id="additions-windows-updating">
+
+        <title>Updating the Windows Guest Additions</title>
+
+        <para>
+          Windows Guest Additions can be updated by running the
+          installation program again. This replaces the previous
+          Additions drivers with updated versions.
+        </para>
+
+        <para>
+          Alternatively, you can also open the Windows Device Manager
+          and select <emphasis role="bold">Update Driver...</emphasis>
+          for the following devices:
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              &product-name; Graphics Adapter
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              &product-name; System Device
+            </para>
+          </listitem>
+
+        </itemizedlist>
+
+        <para>
+          For each, choose the option to provide your own driver, click
+          <emphasis role="bold">Have Disk</emphasis> and navigate to the
+          CD-ROM drive with the Guest Additions.
+        </para>
+
+      </sect3>
+
+      <sect3 id="additions-windows-install-unattended">
+
+        <title>Unattended Installation of the Windows Guest Additions</title>
+
+        <para>
+          You can configure unattended installation of the
+          &product-name; Guest Additions when you create a new VM using
+          the <emphasis role="bold">Create Virtual Machine</emphasis>
+          wizard. Select the <emphasis role="bold">Guest
+          Additions</emphasis> check box on the
+          <emphasis role="bold">Unattended Guest OS Install</emphasis>
+          page of the wizard.
+        </para>
+
+        <para>
+          Guest Additions are installed automatically, following
+          completion of the guest OS installation.
+        </para>
+
+        <simplesect id="additions-windows-install-unattended-certs">
+
+          <title>Installing Code Signing Certificates</title>
+
+          <para>
+            To avoid popups when performing an unattended installation
+            of the &product-name; Guest Additions, the code signing
+            certificates used to sign the drivers needs to be installed
+            in the correct certificate stores on the guest operating
+            system. Failure to do this will cause a typical Windows
+            installation to display multiple dialogs asking whether you
+            want to install a particular driver.
+          </para>
+
+          <note>
+            <para>
+              On some legacy Windows versions, such as Windows 2000 and
+              Windows XP, the user intervention popups mentioned above
+              are always displayed, even after importing the Oracle
+              certificates.
+            </para>
+          </note>
+
+          <para>
+            Installing the code signing certificates on a Windows guest
+            can be done automatically. Use the
+            <filename>VBoxCertUtil.exe</filename> utility from the
+            <filename>cert</filename> folder on the Guest Additions
+            installation CD.
+          </para>
+
+          <para>
+            Use the following steps:
+          </para>
+
+          <orderedlist>
+
+            <listitem>
+              <para>
+                Log in as Administrator on the guest.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                Mount the &product-name; Guest Additions .ISO.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                Open a command line window on the guest and change to
+                the <filename>cert</filename> folder on the
+                &product-name; Guest Additions CD.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                Run the following command:
+              </para>
+
+<screen>VBoxCertUtil.exe add-trusted-publisher vbox*.cer --root vbox*.cer</screen>
+
+              <para>
+                This command installs the certificates to the
+                certificate store. When installing the same certificate
+                more than once, an appropriate error will be displayed.
+              </para>
+            </listitem>
+
+          </orderedlist>
+
+          <para>
+            To allow for completely unattended guest installations, you
+            can specify a command line parameter to the install
+            launcher:
+          </para>
+
+<screen>VBoxWindowsAdditions.exe /S</screen>
+
+          <para>
+            This automatically installs the right files and drivers for
+            the corresponding platform, either 32-bit or 64-bit.
+          </para>
+
+          <note>
+            <para>
+              By default on an unattended installation on a Vista or
+              Windows 7 guest, there will be the XPDM graphics driver
+              installed. This graphics driver does not support Windows
+              Aero / Direct3D on the guest. Instead, the WDDM graphics
+              driver needs to be installed. To select this driver by
+              default, add the command line parameter
+              <literal>/with_wddm</literal> when invoking the Windows
+              Guest Additions installer. This is only required for Vista
+              and Windows 7.
+            </para>
+          </note>
+
+          <note>
+            <para>
+              For Windows Aero to run correctly on a guest, the guest's
+              VRAM size needs to be configured to at least 128 MB.
+            </para>
+          </note>
+
+          <para>
+            For more options regarding unattended guest installations,
+            consult the command line help by using the command:
+          </para>
+
+<screen>VBoxWindowsAdditions.exe /?</screen>
+
+        </simplesect>
+
+      </sect3>
+
+      <sect3 id="windows-guest-file-extraction">
+
+        <title>Manual File Extraction</title>
+
+        <para>
+          If you would like to install the files and drivers manually,
+          you can extract the files from the Windows Guest Additions
+          setup as follows:
+        </para>
+
+<screen>VBoxWindowsAdditions.exe /extract</screen>
+
+        <para>
+          To explicitly extract the Windows Guest Additions for another
+          platform than the current running one, such as 64-bit files on
+          a 32-bit system, you must use the appropriate platform
+          installer. Use
+          <filename>VBoxWindowsAdditions-x86.exe</filename> or
+          <filename>VBoxWindowsAdditions-amd64.exe</filename> with the
+          <literal>/extract</literal> parameter.
+        </para>
+
+      </sect3>
+
+    </sect2>
+
+    <sect2 id="additions-linux">
+
+      <title>Guest Additions for Linux</title>
+
+      <para>
+        Like the Windows Guest Additions, the &product-name; Guest
+        Additions for Linux are a set of device drivers and system
+        applications which may be installed in the guest operating
+        system.
+      </para>
+
+      <para>
+        The following Linux distributions are officially supported:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            Oracle Linux as of version 5, including UEK kernels
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Fedora as of Fedora Core 4
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Red Hat Enterprise Linux as of version 3
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            SUSE and openSUSE Linux as of version 9
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Ubuntu as of version 5.10
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        Many other distributions are known to work with the Guest
+        Additions.
+      </para>
+
+      <para>
+        The version of the Linux kernel supplied by default in SUSE and
+        openSUSE 10.2, Ubuntu 6.10 (all versions) and Ubuntu 6.06
+        (server edition) contains a bug which can cause it to crash
+        during startup when it is run in a virtual machine. The Guest
+        Additions work in those distributions.
+      </para>
+
+      <para>
+        Note that some Linux distributions already come with all or part
+        of the &product-name; Guest Additions. You may choose to keep
+        the distribution's version of the Guest Additions but these are
+        often not up to date and limited in functionality, so we
+        recommend replacing them with the Guest Additions that come with
+        &product-name;. The &product-name; Linux Guest Additions
+        installer tries to detect an existing installation and replace
+        them but depending on how the distribution integrates the Guest
+        Additions, this may require some manual interaction. It is
+        highly recommended to take a snapshot of the virtual machine
+        before replacing preinstalled Guest Additions.
+      </para>
+
+      <sect3 id="additions-linux-install">
+
+        <title>Installing the Linux Guest Additions</title>
+
+        <para>
+          The &product-name; Guest Additions for Linux are provided on
+          the same virtual CD-ROM file as the Guest Additions for
+          Windows. See <xref linkend="mountingadditionsiso"/>. They also
+          come with an installation program that guides you through the
+          setup process. However, due to the significant differences
+          between Linux distributions, installation may be slightly more
+          complex when compared to Windows.
+        </para>
+
+        <para>
+          Installation generally involves the following steps:
+        </para>
+
+        <orderedlist>
+
+          <listitem>
+            <para>
+              Before installing the Guest Additions, you prepare your
+              guest system for building external kernel modules. This
+              works as described in
+              <xref linkend="externalkernelmodules" />, except that this
+              step must be performed in your Linux
+              <emphasis>guest</emphasis> instead of on a Linux host
+              system.
+            </para>
+
+            <para>
+              If you suspect that something has gone wrong, check that
+              your guest is set up correctly and run the following
+              command as root:
+            </para>
+
+<screen>rcvboxadd setup</screen>
+          </listitem>
+
+          <listitem>
+            <para>
+              Insert the <filename>VBoxGuestAdditions.iso</filename> CD
+              file into your Linux guest's virtual CD-ROM drive, as
+              described for a Windows guest in
+              <xref linkend="mountingadditionsiso" />.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Change to the directory where your CD-ROM drive is mounted
+              and run the following command as root:
+            </para>
+
+<screen>sh ./VBoxLinuxAdditions.run</screen>
+          </listitem>
+
+        </orderedlist>
+
+      </sect3>
+
+      <sect3 id="additions-linux-install-unattended">
+
+        <title>Unattended Installation of the Linux Guest Additions</title>
+
+        <para>
+          You can configure unattended installation of the
+          &product-name; Guest Additions when you create a new VM using
+          the <emphasis role="bold">Create Virtual Machine</emphasis>
+          wizard. Select the <emphasis role="bold">Guest
+          Additions</emphasis> check box on the
+          <emphasis role="bold">Unattended Guest OS Install</emphasis>
+          page of the wizard.
+        </para>
+
+        <para>
+          Guest Additions are installed automatically, following
+          completion of the guest OS installation.
+        </para>
+
+      </sect3>
+
+      <sect3 id="additions-linux-graphics-mouse">
+
+        <title>Graphics and Mouse Integration</title>
+
+        <para>
+          In Linux and Oracle Solaris guests, &product-name; graphics
+          and mouse integration goes through the X Window System.
+          &product-name; can use the X.Org variant of the system, or
+          XFree86 version 4.3 which is identical to the first X.Org
+          release. During the installation process, the X.Org display
+          server will be set up to use the graphics and mouse drivers
+          which come with the Guest Additions.
+        </para>
+
+        <para>
+          After installing the Guest Additions into a fresh installation
+          of a supported Linux distribution or Oracle Solaris system,
+          many unsupported systems will work correctly too, the guest's
+          graphics mode will change to fit the size of the
+          &product-name; window on the host when it is resized. You can
+          also ask the guest system to switch to a particular resolution
+          by sending a video mode hint using the
+          <command>VBoxManage</command> tool.
+        </para>
+
+        <para>
+          Multiple guest monitors are supported in guests using the
+          X.Org server version 1.3, which is part of release 7.3 of the
+          X Window System version 11, or a later version. The layout of
+          the guest screens can be adjusted as needed using the tools
+          which come with the guest operating system.
+        </para>
+
+        <para>
+          If you want to understand more about the details of how the
+          X.Org drivers are set up, in particular if you wish to use
+          them in a setting which our installer does not handle
+          correctly, see <xref linkend="guestxorgsetup" />.
+        </para>
+
+        <para>
+          Starting from &product-name; 7, Linux guest screen resize
+          functionality for guests running VMSVGA graphics configuration
+          has been changed. Since then, this functionality consists of a
+          standalone daemon called VBoxDRMClient and its Desktop
+          Environment helper counterpart.
+        </para>
+
+        <para>
+          VBoxDRMClient runs as a root process and is a bridge between
+          the host and the guest's vmwgfx driver. This means that
+          VBoxDRMClient listens to screen resize hints from the host and
+          forwards them to the vmwgfx driver. This enables guest screen
+          resize functionality to be available before the user has
+          performed a graphical login.
+        </para>
+
+        <para>
+          In order to perform Desktop Environment specific actions, such
+          as setting the primary screen in a multimonitor setup, a
+          Desktop Environment helper is used. Once the user has
+          performed a graphical login operation, the helper daemon
+          starts with user session scope and attempts to connect to
+          VBoxDRMClient using an IPC connection. When VBoxDRMClient has
+          received a corresponding command from the host, it is
+          forwarded to the helper daemon over IPC and the action is then
+          performed.
+        </para>
+
+        <para>
+          By default, VBoxDRMClient allows any process to connect to its
+          IPC socket. This can be restricted by using the following
+          steps:
+        </para>
+
+        <orderedlist>
+
+          <listitem>
+            <para>
+              The Guest Additions Linux installer creates a
+              <literal>vboxdrmipc</literal> user group. A corresponding
+              user needs to be added to this group.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              You must set the <literal>DRMIpcRestricted</literal> guest
+              property, as follows:
+            </para>
+
+<screen>VBoxManage guestproperty set "VM name" /VirtualBox/GuestAdd/DRMIpcRestricted 1 \
+--flags RDONLYGUEST</screen>
+
+            <para>
+              It is important to set only the RDONLYGUEST flag for the
+              property, so that it cannot be changed from inside the
+              guest.
+            </para>
+          </listitem>
+
+        </orderedlist>
+
+        <note>
+          <para>
+            Both steps are required. If one of them is missing, all
+            processes will have access to the IPC socket.
+          </para>
+        </note>
+
+        <para>
+          Restricted mode can be disabled by unsetting the guest
+          property, as follows:
+        </para>
+
+<screen>VBoxManage guestproperty unset "VM name" /VirtualBox/GuestAdd/DRMIpcRestricted</screen>
+
+      </sect3>
+
+      <sect3 id="additions-linux-updating">
+
+        <title>Updating the Linux Guest Additions</title>
+
+        <para>
+          The Guest Additions can simply be updated by going through the
+          installation procedure again with an updated CD-ROM image.
+          This will replace the drivers with updated versions. You
+          should reboot after updating the Guest Additions.
+        </para>
+
+      </sect3>
+
+      <sect3 id="additions-linux-uninstall">
+
+        <title>Uninstalling the Linux Guest Additions</title>
+
+        <para>
+          If you have a version of the Guest Additions installed on your
+          virtual machine and wish to remove it without installing new
+          ones, you can do so by inserting the Guest Additions CD image
+          into the virtual CD-ROM drive as described above. Then run the
+          installer for the current Guest Additions with the
+          <literal>uninstall</literal> parameter from the path that the
+          CD image is mounted on in the guest, as follows:
+        </para>
+
+<screen>sh ./VBoxLinuxAdditions.run uninstall</screen>
+
+        <para>
+          While this will normally work without issues, you may need to
+          do some manual cleanup of the guest in some cases, especially
+          of the XFree86Config or xorg.conf file. In particular, if the
+          Additions version installed or the guest operating system were
+          very old, or if you made your own changes to the Guest
+          Additions setup after you installed them.
+        </para>
+
+        <para>
+          You can uninstall the Additions as follows:
+        </para>
+
+<screen>/opt/VBoxGuestAdditions-<replaceable>version</replaceable>/uninstall.sh</screen>
+
+        <para>
+          Replace
+          <filename>/opt/VBoxGuestAdditions-<replaceable>version</replaceable></filename>
+          with the correct Guest Additions installation directory.
+        </para>
+
+      </sect3>
+
+    </sect2>
+
+    <sect2 id="additions-solaris">
+
+      <title>Guest Additions for Oracle Solaris</title>
+
+      <para>
+        Like the Windows Guest Additions, the &product-name; Guest
+        Additions for Oracle Solaris take the form of a set of device
+        drivers and system applications which may be installed in the
+        guest operating system.
+      </para>
+
+      <para>
+        The following Oracle Solaris distributions are officially
+        supported:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            Oracle Solaris 11, including Oracle Solaris 11 Express
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Oracle Solaris 10 4/08 and later
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        Other distributions may work if they are based on comparable
+        software releases.
+      </para>
+
+      <sect3 id="additions-solaris-install">
+
+        <title>Installing the Oracle Solaris Guest Additions</title>
+
+        <para>
+          The &product-name; Guest Additions for Oracle Solaris are
+          provided on the same ISO CD-ROM as the Additions for Windows
+          and Linux. They come with an installation program that guides
+          you through the setup process.
+        </para>
+
+        <para>
+          Installation involves the following steps:
+        </para>
+
+        <orderedlist>
+
+          <listitem>
+            <para>
+              Mount the <filename>VBoxGuestAdditions.iso</filename> file
+              as your Oracle Solaris guest's virtual CD-ROM drive,
+              exactly the same way as described for a Windows guest in
+              <xref linkend="mountingadditionsiso" />.
+            </para>
+
+            <para>
+              If the CD-ROM drive on the guest does not get mounted, as
+              seen with some versions of Oracle Solaris 10, run the
+              following command as root:
+            </para>
+
+<screen>svcadm restart volfs</screen>
+          </listitem>
+
+          <listitem>
+            <para>
+              Change to the directory where your CD-ROM drive is mounted
+              and run the following command as root:
+            </para>
+
+<screen>pkgadd -G -d ./VBoxSolarisAdditions.pkg</screen>
+          </listitem>
+
+          <listitem>
+            <para>
+              Choose <emphasis role="bold">1</emphasis> and confirm
+              installation of the Guest Additions package. After the
+              installation is complete, log out and log in to X server
+              on your guest, to activate the X11 Guest Additions.
+            </para>
+          </listitem>
+
+        </orderedlist>
+
+      </sect3>
+
+      <sect3 id="additions-solaris-install-unattended">
+
+        <title>Unattended Installation of the Oracle Solaris Guest Additions</title>
+
+        <para>
+          You can configure unattended installation of the
+          &product-name; Guest Additions when you create a new VM using
+          the <emphasis role="bold">Create Virtual Machine</emphasis>
+          wizard. Select the <emphasis role="bold">Guest
+          Additions</emphasis> check box on the
+          <emphasis role="bold">Unattended Guest OS Install</emphasis>
+          page of the wizard.
+        </para>
+
+        <para>
+          Guest Additions are installed automatically, following
+          completion of the guest OS installation.
+        </para>
+
+      </sect3>
+
+      <sect3 id="additions-solaris-uninstall">
+
+        <title>Uninstalling the Oracle Solaris Guest Additions</title>
+
+        <para>
+          The Oracle Solaris Guest Additions can be safely removed by
+          removing the package from the guest. Open a root terminal
+          session and run the following command:
+        </para>
+
+<screen>pkgrm SUNWvboxguest</screen>
+
+      </sect3>
+
+      <sect3 id="additions-solaris-updating">
+
+        <title>Updating the Oracle Solaris Guest Additions</title>
+
+        <para>
+          The Guest Additions should be updated by first uninstalling
+          the existing Guest Additions and then installing the new ones.
+          Attempting to install new Guest Additions without removing the
+          existing ones is not possible.
+        </para>
+
+      </sect3>
+
+    </sect2>
+
+    <sect2 id="additions-os2">
+
+      <title>Guest Additions for OS/2</title>
+
+      <para>
+        &product-name; also ships with a set of drivers that improve
+        running OS/2 in a virtual machine. Due to restrictions of OS/2
+        itself, this variant of the Guest Additions has a limited
+        feature set. See <xref linkend="KnownIssues" /> for details.
+      </para>
+
+      <para>
+        The OS/2 Guest Additions are provided on the same ISO CD-ROM as
+        those for the other platforms. Mount the ISO in OS/2 as
+        described previously. The OS/2 Guest Additions are located in
+        the directory <filename>\OS2</filename>.
+      </para>
+
+      <para>
+        We do not provide an automatic installer at this time. See the
+        <filename>readme.txt</filename> file in the CD-ROM directory,
+        which describes how to install the OS/2 Guest Additions
+        manually.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="sharedfolders">
+
+    <title>Shared Folders</title>
+
+    <para>
+      With the <emphasis>shared folders</emphasis> feature of
+      &product-name;, you can access files of your host system from
+      within the guest system. This is similar to how you would use
+      network shares in Windows networks, except that shared folders do
+      not require networking, only the Guest Additions. Shared folders
+      are supported with Windows 2000 or later, Linux, and Oracle
+      Solaris guests. &product-name; includes experimental support for
+      Mac OS X and OS/2 guests.
+    </para>
+
+    <para>
+      Shared folders physically reside on the <emphasis>host</emphasis>
+      and are then shared with the guest, which uses a special file
+      system driver in the Guest Additions to talk to the host. For
+      Windows guests, shared folders are implemented as a pseudo-network
+      redirector. For Linux and Oracle Solaris guests, the Guest
+      Additions provide a virtual file system.
+    </para>
+
+    <para>
+      To share a host folder with a virtual machine in &product-name;,
+      you must specify the path of the folder and choose a
+      <emphasis>share name</emphasis> that the guest can use to access
+      the shared folder. This happens on the host. In the guest you can
+      then use the share name to connect to it and access files.
+    </para>
+
+    <para>
+      There are several ways in which shared folders can be set up for a
+      virtual machine:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          In the window of a running VM, you select
+          <emphasis role="bold">Shared Folders</emphasis> from the
+          <emphasis role="bold">Devices</emphasis> menu, or click on the
+          folder icon on the status bar in the bottom right corner.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          If a VM is not currently running, you can configure shared
+          folders in the virtual machine's
+          <emphasis role="bold">Settings</emphasis> window.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          From the command line, you can create shared folders using
+          <command>VBoxManage</command>, as follows:
+        </para>
+
+<screen>VBoxManage sharedfolder add "VM name" --name "sharename" --hostpath "C:\test"</screen>
+
+        <para>
+          See <xref linkend="vboxmanage-sharedfolder" />.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      There are two types of shares:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          Permanent shares, that are saved with the VM settings.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Transient shares, that are added at runtime and disappear when
+          the VM is powered off. These can be created using a check box
+          in &vbox-mgr;, or by using the <option>--transient</option>
+          option of the <command>VBoxManage sharedfolder add</command>
+          command.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      Shared folders can either be read-write or read-only. This means
+      that the guest is either allowed to both read and write, or just
+      read files on the host. By default, shared folders are read-write.
+      Read-only folders can be created using a check box in the
+      &vbox-mgr;, or with the <option>--readonly</option> option of the
+      <command>VBoxManage sharedfolder add</command> command.
+    </para>
+
+    <para>
+      &product-name; shared folders also support symbolic links, also
+      called <emphasis>symlinks</emphasis>, under the following
+      conditions:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          The host operating system must support symlinks. For example,
+          a macOS, Linux, or Oracle Solaris host is required.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Currently only Linux and Oracle Solaris Guest Additions
+          support symlinks.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          For security reasons the guest OS is not allowed to create
+          symlinks by default. If you trust the guest OS to not abuse
+          the functionality, you can enable creation of symlinks for a
+          shared folder as follows:
+        </para>
+
+<screen>VBoxManage setextradata "VM name" VBoxInternal2/SharedFoldersEnableSymlinksCreate/<replaceable>sharename</replaceable> 1</screen>
+      </listitem>
+
+    </itemizedlist>
+
+    <sect2 id="sf_mount_manual">
+
+      <title>Manual Mounting</title>
+
+      <para>
+        You can mount the shared folder from inside a VM, in the same
+        way as you would mount an ordinary network share:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            In a Windows guest, shared folders are browseable and
+            therefore visible in Windows Explorer. To attach the host's
+            shared folder to your Windows guest, open Windows Explorer
+            and look for the folder in <emphasis role="bold">My
+            Networking Places</emphasis>, <emphasis role="bold">Entire
+            Network</emphasis>, <emphasis role="bold">&product-name;
+            Shared Folders</emphasis>. By right-clicking on a shared
+            folder and selecting <emphasis role="bold">Map Network
+            Drive</emphasis> from the menu that pops up, you can assign
+            a drive letter to that shared folder.
+          </para>
+
+          <para>
+            Alternatively, on the Windows command line, use the
+            following command:
+          </para>
+
+<screen>net use x: \\vboxsvr\sharename</screen>
+
+          <para>
+            While <literal>vboxsvr</literal> is a fixed name, note that
+            <literal>vboxsrv</literal> would also work, replace
+            <replaceable>x:</replaceable> with the drive letter that you
+            want to use for the share, and
+            <replaceable>sharename</replaceable> with the share name
+            specified with <command>VBoxManage</command>.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            In a Linux guest, use the following command:
+          </para>
+
+<screen>mount -t vboxsf [-o OPTIONS] sharename mountpoint</screen>
+
+          <para>
+            To mount a shared folder during boot, add the following
+            entry to <filename>/etc/fstab</filename>:
+          </para>
+
+<screen>sharename   mountpoint   vboxsf   defaults  0   0</screen>
+        </listitem>
+
+        <listitem>
+          <para>
+            In a Oracle Solaris guest, use the following command:
+          </para>
+
+<screen>mount -F vboxfs [-o OPTIONS] sharename mountpoint</screen>
+
+          <para>
+            Replace <replaceable>sharename</replaceable>, use a
+            lowercase string, with the share name specified with
+            <command>VBoxManage</command> or &vbox-mgr;. Replace
+            <replaceable>mountpoint</replaceable> with the path where
+            you want the share to be mounted on the guest, such as
+            <filename>/mnt/share</filename>. The usual mount rules
+            apply. For example, create this directory first if it does
+            not exist yet.
+          </para>
+
+          <para>
+            Here is an example of mounting the shared folder for the
+            user jack on Oracle Solaris:
+          </para>
+
+<screen>$ id
+uid=5000(jack) gid=1(other)
+$ mkdir /export/home/jack/mount
+$ pfexec mount -F vboxfs -o uid=5000,gid=1 jackshare /export/home/jack/mount
+$ cd ~/mount
+$ ls
+sharedfile1.mp3 sharedfile2.txt
+$</screen>
+
+          <para>
+            Beyond the standard options supplied by the
+            <command>mount</command> command, the following are
+            available:
+          </para>
+
+<screen>iocharset CHARSET</screen>
+
+          <para>
+            This option sets the character set used for I/O operations.
+            Note that on Linux guests, if the
+            <literal>iocharset</literal> option is not specified, then
+            the Guest Additions driver will attempt to use the character
+            set specified by the CONFIG_NLS_DEFAULT kernel option. If
+            this option is not set either, then UTF-8 is used.
+          </para>
+
+<screen>convertcp CHARSET</screen>
+
+          <para>
+            This option specifies the character set used for the shared
+            folder name. This is UTF-8 by default.
+          </para>
+
+          <para>
+            The generic mount options, documented in the
+            <command>mount</command> manual page, apply also. Especially
+            useful are the options <literal>uid</literal>,
+            <literal>gid</literal> and <literal>mode</literal>, as they
+            can allow access by normal users in read/write mode,
+            depending on the settings, even if root has mounted the
+            filesystem.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            In an OS/2 guest, use the <command>VBoxControl</command>
+            command to manage shared folders. For example:
+          </para>
+
+<screen>VBoxControl sharedfolder use D: MyShareName
+VBoxControl sharedfolder unuse D:
+VBoxControl sharedfolder list</screen>
+
+          <para>
+            As with Windows guests, shared folders can also be accessed
+            via UNC using <filename>\\VBoxSF\</filename>,
+            <filename>\\VBoxSvr\</filename> or
+            <filename>\\VBoxSrv\</filename> as the server name and the
+            shared folder name as <replaceable>sharename</replaceable>.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+    </sect2>
+
+    <sect2 id="sf_mount_auto">
+
+      <title>Automatic Mounting</title>
+
+      <para>
+        &product-name; provides the option to mount shared folders
+        automatically. When automatic mounting is enabled for a shared
+        folder, the Guest Additions service will mount it for you
+        automatically. For Windows or OS/2, a preferred drive letter can
+        also be specified. For Linux or Oracle Solaris, a mount point
+        directory can also be specified.
+      </para>
+
+      <para>
+        If a drive letter or mount point is not specified, or is in use
+        already, an alternative location is found by the Guest Additions
+        service. The service searches for an alternative location
+        depending on the guest OS, as follows:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Windows and OS/2 guests.</emphasis>
+            Search for a free drive letter, starting at
+            <filename>Z:</filename>. If all drive letters are assigned,
+            the folder is not mounted.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Linux and Oracle Solaris
+            guests.</emphasis> Folders are mounted under the
+            <filename>/media</filename> directory. The folder name is
+            normalized (no spaces, slashes or colons) and is prefixed
+            with <filename>sf_</filename>.
+          </para>
+
+          <para>
+            For example, if you have a shared folder called
+            <filename>myfiles</filename>, it will appear as
+            <filename>/media/sf_myfiles</filename> in the guest.
+          </para>
+
+          <para>
+            The guest properties
+            <literal>/VirtualBox/GuestAdd/SharedFolders/MountDir</literal>
+            and the more generic
+            <literal>/VirtualBox/GuestAdd/SharedFolders/MountPrefix</literal>
+            can be used to override the automatic mount directory and
+            prefix. See <xref linkend="guestadd-guestprops" />.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        Access to an automatically mounted shared folder is granted to
+        everyone in a Windows guest, including the guest user. For Linux
+        and Oracle Solaris guests, access is restricted to members of
+        the group <literal>vboxsf</literal> and the
+        <literal>root</literal> user.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="guestadd-dnd">
+
+    <title>Drag and Drop</title>
+
+    <para>
+      &product-name; enables you to drag and drop content from the host
+      to the guest, and vice versa. For this to work the latest version
+      of the Guest Additions must be installed on the guest.
+    </para>
+
+    <para>
+      Drag and drop transparently allows copying or opening files,
+      directories, and even certain clipboard formats from one end to
+      the other. For example, from the host to the guest or from the
+      guest to the host. You then can perform drag and drop operations
+      between the host and a VM, as it would be a native drag and drop
+      operation on the host OS.
+    </para>
+
+    <para>
+      At the moment drag and drop is implemented for Windows-based and
+      X-Windows-based systems, both on the host and guest side. As
+      X-Windows supports many different drag and drop protocols only the
+      most common one, XDND, is supported for now. Applications using
+      other protocols, such as Motif or OffiX, will not be recognized by
+      &product-name;.
+    </para>
+
+    <para>
+      In the context of using drag and drop, the origin of the data is
+      called the <emphasis>source</emphasis>. That is, where the actual
+      data comes from and is specified. The
+      <emphasis>destination</emphasis> specifies where the data from the
+      source should go to. Transferring data from the source to the
+      destination can be done in various ways, such as copying, moving,
+      or linking.
+    </para>
+
+    <note>
+      <para>
+        At the moment only copying of data is supported. Moving or
+        linking is not yet implemented.
+      </para>
+    </note>
+
+    <para>
+      When transferring data from the host to the guest OS, the host in
+      this case is the source, whereas the guest OS is the destination.
+      However, when transferring data from the guest OS to the host, the
+      guest OS this time became the source and the host is the
+      destination.
+    </para>
+
+    <para>
+      For security reasons drag and drop can be configured at runtime on
+      a per-VM basis either using the <emphasis role="bold">Drag and
+      Drop</emphasis> menu item in the
+      <emphasis role="bold">Devices</emphasis> menu of the virtual
+      machine, as shown below, or the <command>VBoxManage</command>
+      command.
+    </para>
+
+    <figure id="fig-drag-drop-options">
+      <title>Drag and Drop Menu Options</title>
+     <mediaobject>
+        <imageobject>
+          <imagedata align="center" fileref="images/dnd-modes.png"
+                   width="10cm" />
+        </imageobject>
+      </mediaobject>
+    </figure>
+
+    <para>
+      The following drag and drop modes are available:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Disabled.</emphasis> Disables the drag
+          and drop feature entirely. This is the default when creating a
+          new VM.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Host To Guest.</emphasis> Enables drag
+          and drop operations from the host to the guest only.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Guest To Host.</emphasis> Enables drag
+          and drop operations from the guest to the host only.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Bidirectional.</emphasis> Enables drag
+          and drop operations in both directions: from the host to the
+          guest, and from the guest to the host.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <note>
+      <para>
+        Drag and drop support depends on the frontend being used. At the
+        moment, only the &vbox-mgr; frontend provides this
+        functionality.
+      </para>
+    </note>
+
+    <para>
+      To use the <command>VBoxManage</command> command to control the
+      current drag and drop mode, see <xref linkend="vboxmanage" />. The
+      <command>modifyvm</command> and <command>controlvm</command>
+      commands enable setting of a VM's current drag and drop mode from
+      the command line.
+    </para>
+
+    <sect2 id="guestadd-dnd-formats">
+
+      <title>Supported Formats</title>
+
+      <para>
+        As &product-name; can run on a variety of host operating systems
+        and also supports a wide range of guests, certain data formats
+        must be translated after transfer. This is so that the
+        destination operating system, which receives the data, is able
+        to handle them in an appropriate manner.
+      </para>
+
+      <note>
+        <para>
+          When dragging files no data conversion is done in any way. For
+          example, when transferring a file from a Linux guest to a
+          Windows host the Linux-specific line endings are not converted
+          to Windows line endings.
+        </para>
+      </note>
+
+      <para>
+        The following formats are handled by the &product-name; drag and
+        drop service:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Plain text:</emphasis> From
+            applications such as text editors, internet browsers and
+            terminal windows.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Files:</emphasis> From file managers
+            such as Windows Explorer, Nautilus, and Finder.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Directories:</emphasis> For
+            directories, the same formats apply as for files.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+    </sect2>
+
+    <sect2 id="guestadd-dnd-limitations">
+
+      <title>Known Limitations</title>
+
+      <para>
+        The following limitations are known for drag and drop:
+      </para>
+
+      <para>
+        On Windows hosts, dragging and dropping content between
+        UAC-elevated (User Account Control) programs and
+        non-UAC-elevated programs is not allowed. If you start
+        &product-name; with Administrator privileges then drag and drop
+        will not work with Windows Explorer, which runs with regular
+        user privileges by default.
+      </para>
+
+      <para>
+        On Linux hosts and guests, programs can query for drag and drop
+        data while the drag operation is still in progress. For example,
+        on LXDE using the PCManFM file manager. This currently is not
+        supported. As a workaround, a different file manager, such as
+        Nautilus, can be used instead.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="guestadd-video">
+
+    <title>Hardware-Accelerated Graphics</title>
+
+    <sect2 id="guestadd-3d">
+
+      <title>Hardware 3D Acceleration (OpenGL and Direct3D 8/9)</title>
+
+      <para>
+        The &product-name; Guest Additions contain experimental hardware
+        3D support for Windows, Linux, and Oracle Solaris guests.
+      </para>
+
+      <para>
+        With this feature, if an application inside your virtual machine
+        uses 3D features through the OpenGL or Direct3D 8/9 programming
+        interfaces, instead of emulating them in software, which would
+        be slow, &product-name; will attempt to use your host's 3D
+        hardware. This works for all supported host platforms, provided
+        that your host operating system can make use of your accelerated
+        3D hardware in the first place.
+      </para>
+
+      <para>
+        The 3D acceleration feature currently has the following
+        preconditions:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            It is only available for certain Windows, Linux, and Oracle
+            Solaris guests. In particular:
+          </para>
+
+          <itemizedlist>
+
+            <listitem>
+              <para>
+                3D acceleration with Windows guests requires Windows
+                2000 or later. Apart from on Windows 2000 guests, both
+                OpenGL and Direct3D 8/9 are supported on an experimental
+                basis.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                OpenGL on Linux requires kernel 2.6.27 or later, as well
+                as X.org server version 1.5 or later. Ubuntu 10.10 and
+                Fedora 14 have been tested and confirmed as working.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                OpenGL on Oracle Solaris guests requires X.org server
+                version 1.5 or later.
+              </para>
+            </listitem>
+
+          </itemizedlist>
+        </listitem>
+
+        <listitem>
+          <para>
+            The Guest Additions must be installed.
+          </para>
+
+          <note>
+            <para>
+              For the basic Direct3D acceleration to work in a Windows
+              Guest, &product-name; needs to replace Windows system
+              files in the virtual machine. As a result, the Guest
+              Additions installation program offers Direct3D
+              acceleration as an option that must be explicitly enabled.
+              Also, you must install the Guest Additions in Safe Mode.
+              This does <emphasis>not</emphasis> apply to the WDDM
+              Direct3D video driver available for Windows Vista and
+              later. See <xref linkend="KnownIssues" /> for details.
+            </para>
+          </note>
+        </listitem>
+
+        <listitem>
+          <para>
+            Because 3D support is still experimental at this time, it is
+            disabled by default and must be <emphasis>manually
+            enabled</emphasis> in the VM settings. See
+            <xref linkend="settings-display" />.
+          </para>
+
+          <note>
+            <para>
+              Untrusted guest systems should not be allowed to use the
+              3D acceleration features of &product-name;, just as
+              untrusted host software should not be allowed to use 3D
+              acceleration. Drivers for 3D hardware are generally too
+              complex to be made properly secure and any software which
+              is allowed to access them may be able to compromise the
+              operating system running them. In addition, enabling 3D
+              acceleration gives the guest direct access to a large body
+              of additional program code in the &product-name; host
+              process which it might conceivably be able to use to crash
+              the virtual machine.
+            </para>
+          </note>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        To enable Aero theme support, the &product-name; WDDM video
+        driver must be installed, which is available with the Guest
+        Additions installation. The WDDM driver is not installed by
+        default for Vista and Windows 7 guests and must be
+        <emphasis>manually selected</emphasis> in the Guest Additions
+        installer by clicking <emphasis role="bold">No</emphasis> in the
+        <emphasis role="bold">Would You Like to Install Basic Direct3D
+        Support</emphasis> dialog displayed when the Direct3D feature is
+        selected.
+      </para>
+
+      <para>
+        The Aero theme is not enabled by default on Windows. See your
+        Windows platform documentation for details of how to enable the
+        Aero theme.
+      </para>
+
+      <para>
+        Technically, &product-name; implements 3D acceleration by
+        installing an additional hardware 3D driver inside the guest
+        when the Guest Additions are installed. This driver acts as a
+        hardware 3D driver and reports to the guest operating system
+        that the virtual hardware is capable of 3D hardware
+        acceleration. When an application in the guest then requests
+        hardware acceleration through the OpenGL or Direct3D programming
+        interfaces, these are sent to the host through a special
+        communication tunnel implemented by &product-name;. The
+        <emphasis>host</emphasis> then performs the requested 3D
+        operation using the host's programming interfaces.
+      </para>
+
+    </sect2>
+
+    <sect2 id="guestadd-2d">
+
+      <title>Hardware 2D Video Acceleration for Windows Guests</title>
+
+      <para>
+        The &product-name; Guest Additions contain experimental hardware
+        2D video acceleration support for Windows guests.
+      </para>
+
+      <para>
+        With this feature, if an application such as a video player
+        inside your Windows VM uses 2D video overlays to play a movie
+        clip, then &product-name; will attempt to use your host's video
+        acceleration hardware instead of performing overlay stretching
+        and color conversion in software, which would be slow. This
+        currently works for Windows, Linux and macOS host platforms,
+        provided that your host operating system can make use of 2D
+        video acceleration in the first place.
+      </para>
+
+      <para>
+        Hardware 2D video acceleration currently has the following
+        preconditions:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            Only available for Windows guests, running Windows XP or
+            later.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Guest Additions must be installed.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Because 2D support is still experimental at this time, it is
+            disabled by default and must be <emphasis>manually
+            enabled</emphasis> in the VM settings. See
+            <xref linkend="settings-display" />.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        Technically, &product-name; implements this by exposing video
+        overlay DirectDraw capabilities in the Guest Additions video
+        driver. The driver sends all overlay commands to the host
+        through a special communication tunnel implemented by
+        &product-name;. On the host side, OpenGL is then used to
+        implement color space transformation and scaling.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="seamlesswindows">
+
+    <title>Seamless Windows</title>
+
+    <para>
+      With the <emphasis>seamless windows</emphasis> feature of
+      &product-name;, you can have the windows that are displayed within
+      a virtual machine appear side by side next to the windows of your
+      host. This feature is supported for the following guest operating
+      systems, provided that the Guest Additions are installed:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          Windows guests.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Supported Linux or Oracle Solaris guests running the X Window
+          System.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      After seamless windows are enabled, &product-name; suppresses the
+      display of the desktop background of your guest, allowing you to
+      run the windows of your guest operating system seamlessly next to
+      the windows of your host.
+    </para>
+
+    <figure id="fig-seamless-windows">
+      <title>Seamless Windows on a Host Desktop</title>
+     <mediaobject>
+        <imageobject>
+          <imagedata align="center" fileref="images/seamless.png" width="14cm" />
+        </imageobject>
+      </mediaobject>
+    </figure>
+
+    <para>
+      To enable seamless mode, after starting the virtual machine, press
+      the <emphasis role="bold">Host key + L</emphasis>. The Host key is
+      normally the right control key. This will enlarge the size of the
+      VM's display to the size of your host screen and mask out the
+      guest operating system's background. To disable seamless windows
+      and go back to the normal VM display, press the Host key + L
+      again.
+    </para>
+
+  </sect1>
+
+  <sect1 id="guestadd-guestprops">
+
+    <title>Guest Properties</title>
+
+    <para>
+      &product-name; enables requests of some properties from a running
+      guest, provided that the &product-name; Guest Additions are
+      installed and the VM is running. This provides the following
+      advantages:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          A number of predefined VM characteristics are automatically
+          maintained by &product-name; and can be retrieved on the host.
+          For example, to monitor VM performance and statistics.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Arbitrary string data can be exchanged between guest and host.
+          This works in both directions.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>
+      To accomplish this, &product-name; establishes a private
+      communication channel between the &product-name; Guest Additions
+      and the host, and software on both sides can use this channel to
+      exchange string data for arbitrary purposes. Guest properties are
+      simply string keys to which a value is attached. They can be set,
+      or written to, by either the host and the guest. They can also be
+      read from both sides.
+    </para>
+
+    <para>
+      In addition to establishing the general mechanism of reading and
+      writing values, a set of predefined guest properties is
+      automatically maintained by the &product-name; Guest Additions to
+      allow for retrieving interesting guest data such as the guest's
+      exact operating system and service pack level, the installed
+      version of the Guest Additions, users that are currently logged
+      into the guest OS, network statistics and more. These predefined
+      properties are all prefixed with <literal>/VirtualBox/</literal>
+      and organized into a hierarchical tree of keys.
+    </para>
+
+    <para>
+      Some of this runtime information is shown when you select
+      <emphasis role="bold">Session Information Dialog</emphasis> from a
+      virtual machine's <emphasis role="bold">Machine</emphasis> menu.
+    </para>
+
+    <para>
+      A more flexible way to use this channel is with the
+      <command>VBoxManage guestproperty</command> command. See
+      <xref linkend="vboxmanage-guestproperty" />. For example, to have
+      <emphasis>all</emphasis> the available guest properties for a
+      given running VM listed with their respective values, use this
+      command:
+    </para>
+
+<screen>$ VBoxManage guestproperty enumerate "Windows Vista III"
+VirtualBox Command Line Management Interface Version <replaceable>version-number</replaceable>
+Copyright (C) 2005-2023 Oracle and/or its affiliates
+
+Name: /VirtualBox/GuestInfo/OS/Product, value: Windows Vista Business Edition,
+    timestamp: 1229098278843087000, flags:
+Name: /VirtualBox/GuestInfo/OS/Release, value: 6.0.6001,
+    timestamp: 1229098278950553000, flags:
+Name: /VirtualBox/GuestInfo/OS/ServicePack, value: 1,
+    timestamp: 1229098279122627000, flags:
+Name: /VirtualBox/GuestAdd/InstallDir,
+    value: C:/Program Files/Oracle/VirtualBox
+    Guest Additions, timestamp: 1229098279269739000, flags:
+Name: /VirtualBox/GuestAdd/Revision, value: 40720,
+    timestamp: 1229098279345664000, flags:
+Name: /VirtualBox/GuestAdd/Version, value: <replaceable>version-number</replaceable>,
+    timestamp: 1229098279479515000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxControl.exe, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279651731000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxHook.dll, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279804835000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxDisp.dll, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279880611000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxMRXNP.dll, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279882618000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxService.exe, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279883195000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxTray.exe, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279885027000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxGuest.sys, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279886838000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxMouse.sys, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279890600000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxSF.sys, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279893056000, flags:
+Name: /VirtualBox/GuestAdd/Components/VBoxVideo.sys, value: <replaceable>version-number</replaceable>r40720,
+    timestamp: 1229098279895767000, flags:
+Name: /VirtualBox/GuestInfo/OS/LoggedInUsers, value: 1,
+    timestamp: 1229099826317660000, flags:
+Name: /VirtualBox/GuestInfo/OS/NoLoggedInUsers, value: false,
+    timestamp: 1229098455580553000, flags:
+Name: /VirtualBox/GuestInfo/Net/Count, value: 1,
+    timestamp: 1229099826299785000, flags:
+Name: /VirtualBox/HostInfo/GUI/LanguageID, value: C,
+    timestamp: 1229098151272771000, flags:
+Name: /VirtualBox/GuestInfo/Net/0/V4/IP, value: 192.168.2.102,
+    timestamp: 1229099826300088000, flags:
+Name: /VirtualBox/GuestInfo/Net/0/V4/Broadcast, value: 255.255.255.255,
+    timestamp: 1229099826300220000, flags:
+Name: /VirtualBox/GuestInfo/Net/0/V4/Netmask, value: 255.255.255.0,
+    timestamp: 1229099826300350000, flags:
+Name: /VirtualBox/GuestInfo/Net/0/Status, value: Up,
+    timestamp: 1229099826300524000, flags:
+Name: /VirtualBox/GuestInfo/OS/LoggedInUsersList, value: username,
+    timestamp: 1229099826317386000, flags:</screen>
+
+    <para>
+      To query the value of a single property, use the
+      <command>get</command> subcommand as follows:
+    </para>
+
+<screen>$ VBoxManage guestproperty get "Windows Vista III" "/VirtualBox/GuestInfo/OS/Product"
+VirtualBox Command Line Management Interface Version <replaceable>version-number</replaceable>
+Copyright (C) 2005-2023 Oracle and/or its affiliates
+
+Value: Windows Vista Business Edition</screen>
+
+    <para>
+      To add or change guest properties from the guest, use the tool
+      <command>VBoxControl</command>. This tool is included in the Guest
+      Additions. When started from a Linux guest, this tool requires
+      root privileges for security reasons.
+    </para>
+
+<screen>$ sudo VBoxControl guestproperty enumerate
+VirtualBox Guest Additions Command Line Management Interface Version <replaceable>version-number</replaceable>
+Copyright (C) 2005-2023 Oracle and/or its affiliates
+
+Name: /VirtualBox/GuestInfo/OS/Release, value: 2.6.28-18-generic,
+    timestamp: 1265813265835667000, flags: &lt;NULL&gt;
+Name: /VirtualBox/GuestInfo/OS/Version, value: #59-Ubuntu SMP Thu Jan 28 01:23:03 UTC 2010,
+    timestamp: 1265813265836305000, flags: &lt;NULL&gt;
+      ...</screen>
+
+    <para>
+      For more complex needs, you can use the &product-name; programming
+      interfaces. See <xref linkend="VirtualBoxAPI" />.
+    </para>
+
+    <sect2 id="guestadd-guestprops-waits">
+
+      <title>Using Guest Properties to Wait on VM Events</title>
+
+      <para>
+        The properties <literal>/VirtualBox/HostInfo/VBoxVer</literal>,
+        <literal>/VirtualBox/HostInfo/VBoxVerExt</literal> or
+        <literal>/VirtualBox/HostInfo/VBoxRev</literal> can be waited on
+        to detect that the VM state was restored from saved state or
+        snapshot:
+      </para>
+
+<screen>$ VBoxControl guestproperty wait /VirtualBox/HostInfo/VBoxVer</screen>
+
+      <para>
+        Similarly the
+        <literal>/VirtualBox/HostInfo/ResumeCounter</literal> can be
+        used to detect that a VM was resumed from the paused state or
+        saved state.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="guestadd-gc-file-manager">
+
+    <title>Guest Control File Manager</title>
+
+    <para>
+      The Guest Control File Manager is a feature of the Guest Additions
+      that enables easy copying and moving of files between a guest and
+      the host system. Other file management operations provide support
+      to create new folders and to rename or delete files.
+    </para>
+
+    <para>
+      This feature is useful when the VM window of a guest is not
+      visible. For example, when the guest is running in headless mode.
+    </para>
+
+    <note>
+      <para>
+        To use the Guest Control File Manager, the guest must be
+        running. For powered-off guests, it is disabled automatically.
+      </para>
+    </note>
+
+    <figure id="fig-guest-control-fm">
+      <title>Guest Control File Manager</title>
+     <mediaobject>
+        <imageobject>
+          <imagedata align="center" fileref="images/guest-fm.png"
+            width="12cm" />
+        </imageobject>
+      </mediaobject>
+
+    </figure>
+
+    <para>
+      The Guest Control File Manager works by mounting the host file
+      system. Guest users must authenticate and create a guest session
+      before they can transfer files.
+    </para>
+
+    <sect2 id="guestadd-gc-file-manager-using">
+
+      <title>Using the Guest Control File Manager</title>
+
+      <para>
+        The following steps describe how to use the Guest Control File
+        Manager.
+      </para>
+
+      <orderedlist>
+
+        <listitem>
+          <para>
+            Open the Guest Control File Manager. Do either of the
+            following:
+          </para>
+
+          <itemizedlist>
+
+            <listitem>
+              <para>
+                In the guest VM, select
+                <emphasis role="bold">Machine</emphasis>,
+                <emphasis role="bold">File Manager</emphasis>.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                In &vbox-mgr;, click on the machine name. Click
+                <emphasis role="bold">File Manager</emphasis> in the
+                machine tools menu for the VM.
+              </para>
+            </listitem>
+
+          </itemizedlist>
+
+          <para>
+            The left pane shows the files on the host system.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Create a guest session.
+          </para>
+
+          <para>
+            At the bottom of the Guest Control File Manager, enter
+            authentication credentials for a user on the guest system.
+          </para>
+
+          <para>
+            Click <emphasis role="bold">Create Session</emphasis>.
+          </para>
+
+          <para>
+            The contents of the guest VM file system appears in the
+            right pane of the Guest Control File Manager.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Transfer files between the guest and the host system by
+            using the move and copy file transfer icons.
+          </para>
+
+          <para>
+            You can copy and move files from the guest to the host
+            system or from the host system to the guest.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Close the Guest Control File Manager.
+          </para>
+
+          <para>
+            Click <emphasis role="bold">Close</emphasis> to end the
+            guest session.
+          </para>
+        </listitem>
+
+      </orderedlist>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="guestadd-guestcontrol">
+
+    <title>Guest Control of Applications</title>
+
+    <para>
+      The Guest Additions enable starting of applications inside a guest
+      VM from the host system. This feature can be used to automate
+      deployment of software within the guest.
+    </para>
+
+    <para>
+      For this to work, the application needs to be installed on the
+      guest. No additional software needs to be installed on the host.
+      Additionally, text mode output to stdout and stderr can be shown
+      on the host for further processing. There are options to specify
+      user credentials and a timeout value, in milliseconds, to limit
+      the time the application is able to run.
+    </para>
+
+    <para>
+      The Guest Additions for Windows allow for automatic updating. This
+      applies for already installed Guest Additions versions. Also,
+      copying files from host to the guest as well as remotely creating
+      guest directories is available.
+    </para>
+
+    <para>
+      To use these features, use the &product-name; command line. See
+      <xref linkend="vboxmanage-guestcontrol" />.
+    </para>
+
+  </sect1>
+
+  <sect1 id="guestadd-memory-usage">
+
+    <title>Memory Overcommitment</title>
+
+    <para>
+      In server environments with many VMs, the Guest Additions can be
+      used to share physical host memory between several VMs. This
+      reduces the total amount of memory in use by the VMs. If memory
+      usage is the limiting factor and CPU resources are still
+      available, this can help with running more VMs on each host.
+    </para>
+
+    <sect2 id="guestadd-balloon">
+
+      <title>Memory Ballooning</title>
+
+      <para>
+        The Guest Additions can change the amount of host memory that a
+        VM uses, while the machine is running. Because of how this is
+        implemented, this feature is called <emphasis>memory
+        ballooning</emphasis>.
+      </para>
+
+      <note>
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              &product-name; supports memory ballooning only on 64-bit
+              hosts. It is not supported on macOS hosts.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Memory ballooning does not work well with large pages
+              enabled. To turn off large pages support for a VM, run
+              <command>VBoxManage modifyvm
+              <replaceable>vmname</replaceable> --large-pages
+              off</command>
+            </para>
+          </listitem>
+
+        </itemizedlist>
+      </note>
+
+      <para>
+        Normally, to change the amount of memory allocated to a virtual
+        machine, you have to shut down the virtual machine entirely and
+        modify its settings. With memory ballooning, memory that was
+        allocated for a virtual machine can be given to another virtual
+        machine without having to shut the machine down.
+      </para>
+
+      <para>
+        When memory ballooning is requested, the &product-name; Guest
+        Additions, which run inside the guest, allocate physical memory
+        from the guest operating system on the kernel level and lock
+        this memory down in the guest. This ensures that the guest will
+        not use that memory any longer. No guest applications can
+        allocate it, and the guest kernel will not use it either.
+        &product-name; can then reuse this memory and give it to another
+        virtual machine.
+      </para>
+
+      <para>
+        The memory made available through the ballooning mechanism is
+        only available for reuse by &product-name;. It is
+        <emphasis>not</emphasis> returned as free memory to the host.
+        Requesting balloon memory from a running guest will therefore
+        not increase the amount of free, unallocated memory on the host.
+        Effectively, memory ballooning is therefore a memory
+        overcommitment mechanism for multiple virtual machines while
+        they are running. This can be useful to temporarily start
+        another machine, or in more complicated environments, for
+        sophisticated memory management of many virtual machines that
+        may be running in parallel depending on how memory is used by
+        the guests.
+      </para>
+
+      <para>
+        At this time, memory ballooning is only supported through
+        <command>VBoxManage</command>. Use the following command to
+        increase or decrease the size of the memory balloon within a
+        running virtual machine that has Guest Additions installed:
+      </para>
+
+<screen>VBoxManage controlvm "VM name" guestmemoryballoon n</screen>
+
+      <para>
+        where <replaceable>VM name</replaceable> is the name or UUID of
+        the virtual machine in question and <replaceable>n</replaceable>
+        is the amount of memory to allocate from the guest in megabytes.
+        See <xref
+      linkend="vboxmanage-controlvm" />.
+      </para>
+
+      <para>
+        You can also set a default balloon that will automatically be
+        requested from the VM every time after it has started up with
+        the following command:
+      </para>
+
+<screen>VBoxManage modifyvm "VM name" --guest-memory-balloon n</screen>
+
+      <para>
+        By default, no balloon memory is allocated. This is a VM
+        setting, like other <command>modifyvm</command> settings, and
+        therefore can only be set while the machine is shut down. See
+        <xref
+      linkend="vboxmanage-modifyvm" />.
+      </para>
+
+    </sect2>
+
+    <sect2 id="guestadd-pagefusion">
+
+      <title>Page Fusion</title>
+
+      <para>
+        Whereas memory ballooning simply reduces the amount of RAM that
+        is available to a VM, Page Fusion works differently. It avoids
+        memory duplication between several similar running VMs.
+      </para>
+
+      <para>
+        In a server environment running several similar VMs on the same
+        host, lots of memory pages are identical. For example, if the
+        VMs are using identical operating systems. &product-name;'s Page
+        Fusion technology can efficiently identify these identical
+        memory pages and share them between multiple VMs.
+      </para>
+
+      <note>
+        <para>
+          &product-name; supports Page Fusion only on 64-bit hosts, and
+          it is not supported on macOS hosts. Page Fusion currently
+          works only with Windows 2000 and later guests.
+        </para>
+      </note>
+
+      <para>
+        The more similar the VMs on a given host are, the more
+        efficiently Page Fusion can reduce the amount of host memory
+        that is in use. It therefore works best if all VMs on a host run
+        identical operating systems. Instead of having a complete copy
+        of each operating system in each VM, Page Fusion identifies the
+        identical memory pages in use by these operating systems and
+        eliminates the duplicates, sharing host memory between several
+        machines. This is called <emphasis>deduplication</emphasis>. If
+        a VM tries to modify a page that has been shared with other VMs,
+        a new page is allocated again for that VM with a copy of the
+        shared page. This is called <emphasis>copy on write</emphasis>.
+        All this is fully transparent to the virtual machine.
+      </para>
+
+      <para>
+        You may be familiar with this kind of memory overcommitment from
+        other hypervisor products, which call this feature
+        <emphasis>page sharing</emphasis> or <emphasis>same page
+        merging</emphasis>. However, Page Fusion differs significantly
+        from those other solutions, whose approaches have several
+        drawbacks:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            Traditional hypervisors scan <emphasis>all</emphasis> guest
+            memory and compute checksums, also called hashes, for every
+            single memory page. Then, they look for pages with identical
+            hashes and compare the entire content of those pages. If two
+            pages produce the same hash, it is very likely that the
+            pages are identical in content. This process can take rather
+            long, especially if the system is not idling. As a result,
+            the additional memory only becomes available after a
+            significant amount of time, such as hours or sometimes days.
+            Even worse, this kind of page sharing algorithm generally
+            consumes significant CPU resources and increases the
+            virtualization overhead by 10 to 20%.
+          </para>
+
+          <para>
+            Page Fusion in &product-name; uses logic in the
+            &product-name; Guest Additions to quickly identify memory
+            cells that are most likely identical across VMs. It can
+            therefore achieve most of the possible savings of page
+            sharing almost immediately and with almost no overhead.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Page Fusion is also much less likely to be confused by
+            identical memory that it will eliminate, just to learn
+            seconds later that the memory will now change and having to
+            perform a highly expensive and often service-disrupting
+            reallocation.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        At this time, Page Fusion can only be controlled with
+        <command>VBoxManage</command>, and only while a VM is shut down.
+        To enable Page Fusion for a VM, use the following command:
+      </para>
+
+<screen>VBoxManage modifyvm "VM name" --page-fusion on</screen>
+
+      <para>
+        You can observe Page Fusion operation using some metrics.
+        <literal>RAM/VMM/Shared</literal> shows the total amount of
+        fused pages, whereas the per-VM metric
+        <literal>Guest/RAM/Usage/Shared</literal> will return the amount
+        of fused memory for a given VM. See
+        <xref linkend="vboxmanage-metrics" /> for information on how to
+        query metrics.
+      </para>
+
+      <note>
+        <para>
+          Enabling Page Fusion might indirectly increase the chances for
+          malicious guests to successfully attack other VMs running on
+          the same host. See <xref linkend="pot-insecure"/>.
+        </para>
+      </note>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="guestadd-resizing">
+
+    <title>Controlling Virtual Monitor Topology</title>
+
+    <sect2 id="guestadd-resizing-linux">
+
+      <title>X11/Wayland Desktop Environments</title>
+
+      <para>
+        The Guest Additions provide services for controlling the guest
+        system's monitor topology. Monitor topology means the resolution
+        of each virtual monitor and its state (disabled/enabled). The
+        resolution of a virtual monitor can be modified from the host
+        side either by resizing the window that hosts the virtual
+        monitor, by using the <emphasis role="bold">View</emphasis> menu
+        or the <command>VBoxManage controlvm
+        <replaceable>vmname</replaceable> setscreenlayout</command>
+        command. On guest operating systems with X11/Wayland desktops
+        this is put into effect by either of the following two services:
+      </para>
+
+<screen>
+        VBoxClient --vmsvga
+        VBoxDRMClient
+      </screen>
+
+      <para>
+        The following are some details about guest screen resolution
+        control functionality:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            On X11/Wayland desktops the resizing service is started
+            during desktop session initialization, that is desktop
+            login. On X11 desktops <code>VBoxClient --vmsvga</code>
+            handles screen topology through the RandR extension. On
+            Wayland clients <code>VBoxDRMClient</code> is used. The
+            decision is made automatically at each desktop session
+            start.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            On 32-bit guest operating systems
+            <command>VBoxDRMClient</command> is always used, in order to
+            work around bugs.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Since the monitor topology control services are initialized
+            during the desktop session start, it is impossible to
+            control the monitor resolution of display managers such as
+            GDM or LightDM. This default behavior can be changed by
+            setting the guest property
+            <literal>/VirtualBox/GuestAdd/DRMResize</literal> of the
+            virtual machine to any value. See
+            <xref linkend="guestadd-guestprops" /> for details of how to
+            update guest properties. When this guest property is set
+            then <command>VBoxDRMClient</command> is started during the
+            guest OS boot and stays active all the time, for both the
+            display manager login screen and the desktop session.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <sect3 id="guestadd-resizing-linux-limitations">
+
+        <title>Known Limitations</title>
+
+        <para>
+          <command>VBoxDRMClient</command> is not able to handle
+          arbitrary guest monitor topologies. Specifically, disabling a
+          guest monitor that is not the last one invalidates the monitor
+          topology due to limitations in the
+          <literal>vmwgfx.ko</literal> Linux kernel module. For example,
+          when the guest is configured to have four monitors it is not
+          recommended to disable the second or third monitor.
+        </para>
+
+      </sect3>
+
+    </sect2>
+
+  </sect1>
+
+</chapter>

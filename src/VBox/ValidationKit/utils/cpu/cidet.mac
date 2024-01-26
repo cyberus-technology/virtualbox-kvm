@@ -1,0 +1,75 @@
+; $Id: cidet.mac $ ;
+;; @file
+; CPU Instruction Decoding & Execution Tests - Assembly Header.
+;
+
+;
+; Copyright (C) 2014-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+%ifndef ___cidet_mac___
+%define ___cidet_mac___
+
+struc CIDETCPUCTX
+    .rip                resq 1
+    .rfl                resq 1
+    .aGRegs             resq 16
+    .aSRegs             resw 6
+
+%ifndef CIDET_REDUCED_CTX
+    .tr                 resw 1
+    .ldtr               resw 1
+    .cr0                resq 1
+%else
+    .au16Padding        resw 2
+%endif
+    .cr2                resq 1
+%ifndef CIDET_REDUCED_CTX
+    .cr3                resq 1
+    .cr4                resq 1
+    .cr8                resq 1
+    .dr0                resq 1
+    .dr1                resq 1
+    .dr2                resq 1
+    .dr3                resq 1
+    .dr6                resq 1
+    .dr7                resq 1
+%endif
+
+    .uErr               resq 1
+    .uXcpt              resd 1
+
+    .fIgnoredRFlags     resd 1
+    .fTrickyStack       resb 1
+endstruc
+
+%endif
+

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage encryptvm
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-encryptvm" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage encryptvm</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-encryptvm</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-encryptvm</refname>
+    <refpurpose>change encryption and passwords of the VM</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-encryptvm-setencryption">
+    <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage encryptvm</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="plain">setencryption</arg>
+      <arg choice="plain">--old-password <replaceable>file</replaceable></arg>
+      <arg choice="plain">--cipher <replaceable>cipher-identifier</replaceable></arg>
+      <arg choice="plain">--new-password <replaceable>file</replaceable></arg>
+      <arg choice="plain">--new-password-id <replaceable>password-identifier</replaceable></arg>
+      <arg choice="plain">--force</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-encryptvm-checkpassword">
+      <command>VBoxManage encryptvm</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="plain">checkpassword</arg>
+      <arg choice="req"><replaceable>file</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-encryptvm-addpassword">
+      <command>VBoxManage encryptvm</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="plain">addpassword</arg>
+      <arg choice="plain">--password <replaceable>file</replaceable></arg>
+      <arg choice="plain">--password-id <replaceable>password-identifier</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-encryptvm-removepassword">
+      <command>VBoxManage encryptvm</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="plain">removepassword</arg>
+      <arg choice="req"><replaceable>password-identifier</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage encryptvm</command> command enables you to
+      change the encryption or add and remove user passwords for the
+      virtual machine (VM). The following sections describe the subcommands
+      that you can use:
+    </para>
+    <refsect2 id="vboxmanage-encryptvm-setencryption">
+      <title>Set encryption of the Virtual Machine</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage encryptvm
+        <replaceable>vmname</replaceable> setencryption</command> command
+        changes encryption of a VM.
+      </para>
+      <para>
+        Use the <option>--old-password</option> to supply old encryption
+        password. Either specify the absolute pathname of a password file
+        on the host operating system, or <literal>-</literal> to prompt
+        you for the old password.
+      </para>
+      <para>
+        Use the <option>--cipher</option> option to specify the
+        new cipher for encryption of the VM. Only <literal>AES-128</literal>
+        and <literal>AES-256</literal> are supported. Appropriate mode
+        GCM, CTR or XTS will be selected by VM depending on encrypting
+        component.
+      </para>
+      <para>
+        Use the <option>--new-password</option> option to specify the
+        new password for encryption of the VM. Either specify the absolute
+        pathname of a password file on the host operating system, or
+        <literal>-</literal> to prompt you for the new password.
+      </para>
+      <para>
+        Use the <option>--new-password-id</option> option to specify the
+        new id for the password for encryption of the VM.
+      </para>
+      <para>
+        Use the <option>--force</option> option to make the system
+        to reencrypt the VM instead of simple changing the password.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-encryptvm-checkpassword">
+      <title>Check the supplied password is correct</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage encryptvm
+        <replaceable>vmname</replaceable> checkpassword</command> command
+        checks the correctness of the supplied password.
+      </para>
+      <para>
+        The password can be supplied from file. Specify the absolute
+        pathname of a password file on the host operating system. Also,
+        you can specify <literal>-</literal> to prompt you for the password.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-encryptvm-addpassword">
+      <title>Add password for decrypting the Virtual Machine</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage encryptvm
+        <replaceable>vmname</replaceable> addpassword</command> command
+        adds a password for decrypting the VM.
+      </para>
+      <para>
+        Use the <option>--password</option> to supply the encryption
+        password. Either specify the absolute pathname of a password file
+        on the host operating system, or <literal>-</literal> to prompt
+        you for the password.
+      </para>
+      <para>
+        Use the <option>--password-id</option> option to specify the
+        id the password is supplied for.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-encryptvm-removepassword">
+      <title>Remove password used for decrypting the Virtual Machine</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage encryptvm
+        <replaceable>vmname</replaceable> removepassword</command> command
+        removes a password used for decrypting the VM.
+      </para>
+      <para>
+        Specify the password identifier for removing. The password becomes
+        unknown and the VM can not be decrypted.
+      </para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command encrypts the <filename>ol7</filename> VM using
+      AES-256 giving password via command prompt:
+    </para>
+<screen>$ VBoxManage encryptvm ol7 setencryption --cipher=AES-256 --new-password - --new-password-id vmid</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <xref linkend="vboxmanage-createvm" />,
+    </para>
+  </refsect1>
+</refentry>

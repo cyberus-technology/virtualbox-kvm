@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage sharedfolder
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-sharedfolder" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage sharedfolder</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-sharedfolder</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-sharedfolder</refname>
+    <refpurpose>add and remove shared folders</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-sharedfolder-add">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage sharedfolder add</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="req">--name=<replaceable>name</replaceable></arg>
+      <arg choice="req">--hostpath=<replaceable>hostpath</replaceable></arg>
+      <arg>--readonly</arg>
+      <arg>--transient</arg>
+      <arg>--automount</arg>
+      <arg>--auto-mount-point=<replaceable>path</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-sharedfolder-remove">
+      <command>VBoxManage sharedfolder remove</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="req">--name=<replaceable>name</replaceable></arg>
+      <arg>--transient</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      Shared folders enable you to share data between the host system
+      and guests. To use shared folders, you must first install the
+      &product-name; Guest Additions software on the guest OS.
+    </para>
+    <para>
+      The shared folder is associated with a share name and the full
+      path name of the folder or directory on the host system. The share
+      name is a unique name within the namespace of the host OS.
+    </para>
+    <refsect2 id="vboxmanage-sharedfolder-add">
+      <title>Add a Shared Folder</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage sharedfolder add</command> command
+        creates a shared folder. The folder you specify is on the host
+        computer. When configured, the contents of the folder on the
+        host system can be shared with the guest OS.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable>|<replaceable>vmname</replaceable></term>
+          <listitem><para>
+              Specifies the name or UUID of the guest VM that shares a
+              folder with the host system.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--name=<replaceable>name</replaceable></term>
+          <listitem><para>
+              Specifies the name of the share, which is a unique name
+              within the namespace of the host OS.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--hostpath=<replaceable>hostpath</replaceable></term>
+          <listitem><para>
+              Specifies the absolute path of the folder or directory on
+              the host OS to share with the guest OS.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--readonly</term>
+          <listitem><para>
+              Specifies that the share has only read-only access to
+              files at the host path.
+            </para><para>
+              By default, shared folders have read-write access to the
+              files at the host path. However on Linux distributions,
+              shared folders are mounted with 770 file permissions with
+              the <literal>root</literal> user and the
+              <literal>vboxsf</literal> group. By using this option, the
+              file permissions become 700.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--transient</term>
+          <listitem><para>
+              Specifies that the share is transient, which means that it
+              can be added and removed at runtime and does not persist
+              after the VM stops.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--automount</term>
+          <listitem><para>
+              Specifies that the share is automatically mounted.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+           <term>--auto-mount-point=<replaceable>path</replaceable></term>
+           <listitem><para>
+               Specifies the mount point of the share.  This guest OS specific.
+             </para><para>
+               For Windows and OS/2 guest this must be an unused drive letter.
+               If left blank (or if the drive letter is already in use), the
+               last unused drive letter is used instead (i.e. searching from
+               <literal>Z:</literal> thru <literal>A:</literal>).
+             </para><para>
+               For Linux, Solaris and other unix guest, it must be an absolute
+               path like <filename>/mnt/mysharedfolder</filename>.  If left
+               empty the default location is
+               <filename>/media/sf_<replaceable>sharename</replaceable></filename>.
+             </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-sharedfolder-remove">
+      <title>Remove a Shared Folder</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage sharedfolder remove</command> command
+        removes a shared folder.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable>|<replaceable>vmname</replaceable></term>
+          <listitem><para>
+              Specifies the name or UUID of the guest VM that shares a
+              folder with the host system.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--name=<replaceable>name</replaceable></term>
+          <listitem><para>
+              Specifies the name of the share to remove.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--transient</term>
+          <listitem><para>
+              Specifies that the share is transient, which means that it
+              can be added and removed at runtime and does not persist
+              after the VM stops.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command creates a shared folder called
+      <filename>o7share</filename> for the <filename>ol7</filename> VM.
+      The share is mounted automatically when the VM is started.
+    </para>
+<screen>$ VBoxManage sharedfolder add ol7 --name ol7share --hostpath "/home/user/ol7share" --automount</screen>
+    <para>
+      The following command removes the shared folder called
+      <filename>o7share</filename> for the <filename>ol7</filename> VM.
+    </para>
+<screen>$ VBoxManage sharedfolder remove ol7 --name ol7share</screen>
+  </refsect1>
+</refentry>

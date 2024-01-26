@@ -1,0 +1,95 @@
+# $Id: VBoxIso9660.inf $
+## @file
+# VBox ISO9660 FS driver
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+[Defines]
+        INF_VERSION                = 0x00010005
+        BASE_NAME                  = VBoxIso9600
+        FILE_GUID                  = B34E57EE-2E02-4DAF-867F-7F40BE6FC33D
+        MODULE_TYPE                = UEFI_DRIVER
+        VERSION_STRING             = 1.0
+        EDK_RELEASE_VERSION        = 0x00020000
+        EFI_SPECIFICATION_VERSION  = 0x00020000
+        ENTRY_POINT                = fsw_efi_main
+
+[Sources.common]
+        fsw_iso9660.c
+        fsw_core.c
+        fsw_efi_lib.c
+        fsw_efi.c
+        fsw_lib.c
+
+[Packages]
+        MdePkg/MdePkg.dec
+        MdeModulePkg/MdeModulePkg.dec
+        VBoxPkg/VBoxPkg.dec
+
+[LibraryClasses]
+   UefiRuntimeServicesTableLib
+   UefiBootServicesTableLib
+   MemoryAllocationLib
+   BaseMemoryLib
+   BaseLib
+   UefiLib
+   UefiDriverEntryPoint
+   DebugLib
+   PcdLib
+   DevicePathLib
+
+[Guids]
+  gEfiFileInfoGuid
+  gEfiFileSystemInfoGuid
+  gEfiFileSystemVolumeLabelInfoIdGuid
+
+
+[Protocols]
+  gEfiDiskIoProtocolGuid
+  gEfiBlockIoProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiUnicodeCollationProtocolGuid
+  gEfiUnicodeCollation2ProtocolGuid
+  gEfiDevicePathToTextProtocolGuid                ## CONSUMED
+
+[Pcd]
+  gEfiMdePkgTokenSpaceGuid.PcdUefiVariableDefaultLang
+  gEfiMdePkgTokenSpaceGuid.PcdUefiVariableDefaultPlatformLang
+
+[BuildOptions.common]
+  GCC:*_*_*_CC_FLAGS = -DFSTYPE=iso9660
+
+  INTEL:*_*_*_CC_FLAGS = -DFSTYPE=iso9660
+
+  MSFT:*_*_*_CC_FLAGS = -DFSTYPE=iso9660
+

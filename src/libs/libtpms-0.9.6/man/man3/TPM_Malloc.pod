@@ -1,0 +1,72 @@
+=head1 NAME
+
+TPM_Malloc    - Allocate memory
+ 
+TPM_Realloc   - Reallocate memory
+
+TPM_Free      - Free memory
+
+=head1 SYNOPSIS
+
+B<#include <libtpms/tpm_types.h>>
+
+B<#include <libtpms/tpm_memory.h>>
+
+B<#include <libtpms/tpm_error.h>>
+
+B<TPM_RESULT TPM_Malloc(unsigned char> **I<buffer>B<,
+                       uint32_t> I<size>B<);>
+
+B<TPM_RESULT TPM_Realloc(unsigned char> **I<buffer>B<,
+                       uint32_t> I<size>B<);>
+
+B<void TPM_Free(unsigned char> *I<buffer>B<);>
+
+=head1 DESCRIPTION
+
+The B<TPM_Malloc()> function is used to allocate a buffer of the given size.
+The allocated buffer will be returned in the I<buffer> parameter.
+
+The B<TPM_Realloc()> function is used to resize a buffer. The new size of
+the buffer is given in the I<size> parameter. The reallocated buffer will
+contain the data from the original buffer.
+
+Both functions have the restriction that the buffer they can allocate
+is limited to B<TPM_ALLOC_MAX> (64k) bytes. This size is sufficient
+for all buffers needed by the TPM.
+
+Upon successful completion, the functions return B<TPM_SUCCESS>. In case the
+requested buffer exceeds the limit, B<TPM_SIZE> will be returned. See further
+possible error codes below.
+
+The B<TPM_Free()> function frees the memory previously allocated using
+either B<TPM_Malloc()> or B<TPM_Realloc()>.
+
+=head1 ERRORS
+
+=over 4
+
+=item B<TPM_SUCCESS>
+
+The function completed successfully.
+
+=item B<TPM_SIZE>
+
+The size of the requested buffer exceeds the limit or the
+system is out of memory.
+
+=item B<TPM_FAIL>
+
+Requested buffer is of size 0.
+
+=back
+
+For a complete list of TPM error codes please consult the include file
+B<libtpms/tpm_error.h>
+
+=head1 SEE ALSO
+
+B<TPMLIB_MainInit>(3), B<TPMLIB_Terminate>(3)
+B<TPMLIB_Process>(3), B<TPMLIB_RegisterCallbacks>(3), B<TPMLIB_GetVersion>(3)
+
+=cut

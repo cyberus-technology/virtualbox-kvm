@@ -1,0 +1,179 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for the external libraries.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Note! A number of the libs may be detected on the host system by the configure script.
+#       The usual way for testing for this is to see whether the Config.kmk default
+#       include path specific to the lib has been changed.
+#
+# Note! Mostly alphabetical ordering here, please.
+#
+
+# cURL/libcurl used by the IPRT http API.
+if   defined(VBOX_WITH_LIBCURL) \
+  && !defined(VBOX_ONLY_ADDITIONS) \
+  && !defined(VBOX_ONLY_EXTPACKS_USE_IMPLIBS) \
+  && !defined(VBOX_ONLY_SDK) \
+  && (!defined(VBOX_ONLY_VALIDATIONKIT) || defined(VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING)) \
+  && "$(SDK_VBoxLibCurl_INCS)" == "$(PATH_ROOT)/src/libs/curl-8.4.0/include"
+ include $(PATH_SUB_CURRENT)/curl-8.4.0/Makefile.kmk
+endif
+
+
+# dxvk-native for supporting DirectX over Vulkan on platforms other than Windows.
+if   defined(VBOX_WITH_DXVK) \
+  && !defined(VBOX_ONLY_BUILD) \
+  && "$(SDK_VBoxDxVk_INCS)" == "$(SDK_VBoxDxVk_DEFAULT_INCS)" \
+  && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" != ""
+ include $(PATH_SUB_CURRENT)/dxvk-native-1.9.2a/Makefile.kmk
+endif
+
+
+# libjpeg for VRDP video redirection and ExtPack's DrvHostWebcam.
+if   (defined(VBOX_WITH_VRDP) || defined(VBOX_WITH_EXTPACK_PUEL)) \
+  && !defined(VBOX_ONLY_ADDITIONS) \
+  && !defined(VBOX_ONLY_SDK)
+ include $(PATH_SUB_CURRENT)/libjpeg-turbo-2.1.3/Makefile.kmk
+endif
+
+
+# liblzf is used by the IPRT compression code (saved state compression).
+if   "$(SDK_VBoxLzf_INCS)" == "$(PATH_ROOT)/src/libs/liblzf-3.6" \
+  && !defined(VBOX_ONLY_SDK)
+ include $(PATH_SUB_CURRENT)/liblzf-3.6/Makefile.kmk
+endif
+
+# libssh for cloud integration.
+if   defined(VBOX_WITH_LIBSSH) \
+  && !defined(VBOX_ONLY_BUILD) \
+  && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" != ""
+ include $(PATH_SUB_CURRENT)/libssh-0.10.5/Makefile.kmk
+endif
+
+
+# libtpms for supporting the in process TPM emulation.
+if   defined(VBOX_WITH_LIBTPMS) \
+  && !defined(VBOX_ONLY_BUILD) \
+  && ("$(SDK_VBoxLibTpms_INCS)" == "$(SDK_VBoxLibTpms_DEFAULT_INCS)")
+ include $(PATH_SUB_CURRENT)/libtpms-0.9.6/Makefile.kmk
+endif
+
+
+# libxml2 used by the IPRT xml C++ API.
+if   !defined(VBOX_ONLY_EXTPACKS_USE_IMPLIBS) \
+  && !defined(VBOX_ONLY_ADDITIONS) \
+  && !defined(VBOX_ONLY_SDK)
+ ifeq ($(SDK_VBoxLibXml2_INCS),$(PATH_ROOT)/src/libs/libxml2-2.9.14/include)
+  include $(PATH_SUB_CURRENT)/libxml2-2.9.14/Makefile.kmk
+ endif
+endif
+
+
+# OpenSSL.
+if   !defined(VBOX_ONLY_SDK) \
+  && (!defined(VBOX_ONLY_ADDITIONS) || !defined(VBOX_ONLY_ADDITIONS_WITHOUT_RTISOMAKER)) \
+  && (!defined(VBOX_ONLY_EXTPACKS) || defined(VBOX_NEED_EXTPACK_OPENSSL) || defined(VBOX_WITH_BLD_RTSIGNTOOL_SIGNING) || !defined(VBOX_ONLY_EXTPACKS_USE_IMPLIBS)) \
+  && ("$(SDK_VBoxOpenSslStatic_INCS)" == "$(SDK_VBoxOpenSslStatic_VBOX_DEFAULT_INCS)" || defined(VBOX_NEED_EXTPACK_OPENSSL))
+ include $(PATH_SUB_CURRENT)/openssl-3.1.4/Makefile.kmk
+endif
+
+
+# SoftFloat is used by the VMM for FPU emulation.
+if   (!defined(VBOX_ONLY_BUILD) && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" != "") \
+  || (   defined(VBOX_WITH_NOCRT_STATIC) \
+      && "$(KBUILD_TARGET)" == "win" \
+      && (   defined(VBOX_ONLY_ADDITIONS) \
+  || (!defined(VBOX_ONLY_BUILD) && defined(VBOX_WITH_ADDITIONS))))
+ include $(PATH_SUB_CURRENT)/softfloat-3e/Makefile.kmk
+endif
+
+
+# zlib is used by the IPRT compression code, libpng and others.
+if   !defined(VBOX_ONLY_SDK) \
+  && "$(SDK_VBoxZlib_INCS)" == "$(PATH_ROOT)/src/libs/zlib-1.2.13"
+ include $(PATH_SUB_CURRENT)/zlib-1.2.13/Makefile.kmk
+endif
+
+
+# liblzma is used by the IPRT compression code and the iPXE ROM tool.
+if   defined(VBOX_WITH_LIBLZMA) \
+  && !defined(VBOX_ONLY_SDK) \
+  && "$(SDK_VBoxLibLzma_INCS)" == "$(PATH_ROOT)/src/libs/liblzma-5.4.1/api"
+ include $(PATH_SUB_CURRENT)/liblzma-5.4.1/Makefile.kmk
+endif
+
+
+#
+# Main related things - XPCOM and XSLT.
+#
+if   defined(VBOX_WITH_MAIN) \
+  && !defined(VBOX_ONLY_ADDITIONS) \
+  && !defined(VBOX_ONLY_VALIDATIONKIT) \
+  && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" != ""
+
+ if   !defined(VBOX_ONLY_DOCS) \
+   && !defined(VBOX_ONLY_EXTPACKS) \
+   && !defined(VBOX_ONLY_SDK)
+
+  # libogg, needed for building libvorbis.
+  if   defined(VBOX_WITH_LIBOGG) \
+    && ("$(SDK_VBoxLibOgg_INCS)" == "$(SDK_VBoxLibOgg_DEFAULT_INCS)")
+   include $(PATH_SUB_CURRENT)/libogg-1.3.5/Makefile.kmk
+  endif
+
+  # libvorbis for supporting audio with video recording.
+  if   defined(VBOX_WITH_LIBVORBIS) \
+    && ("$(SDK_VBoxLibVorbis_INCS)" == "$(SDK_VBoxLibVorbis_DEFAULT_INCS)")
+   include $(PATH_SUB_CURRENT)/libvorbis-1.3.7/Makefile.kmk
+  endif
+
+  # libpng for screenshots in main.
+  if   !defined(VBOX_ONLY_DOCS) \
+    && "$(SDK_VBoxLibPng_INCS)" == "$(PATH_ROOT)/src/libs/libpng-1.6.37"
+   include $(PATH_SUB_CURRENT)/libpng-1.6.37/Makefile.kmk
+  endif
+
+
+  # libvpx is used for video capture.
+  if   defined(VBOX_WITH_LIBVPX) \
+    && ("$(SDK_VBoxLibVpx_INCS)" == "$(SDK_VBoxLibVpx_DEFAULT_INCS)")
+   include $(PATH_SUB_CURRENT)/libvpx-1.11.0/Makefile.kmk
+  endif
+
+ endif # !VBOX_ONLY_DOCS && !VBOX_ONLY_EXTPACKS && !VBOX_ONLY_SDK
+
+ # XPCOM is used as a COM on non-Windows platforms.
+ if defined(VBOX_WITH_XPCOM) && !defined(VBOX_ONLY_DOCS)
+  include $(PATH_SUB_CURRENT)/xpcom18a4/Makefile.kmk
+ endif
+
+endif # MAIN stuff
+
+include $(FILE_KBUILD_SUB_FOOTER)

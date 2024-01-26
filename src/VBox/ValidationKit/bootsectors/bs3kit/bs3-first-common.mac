@@ -1,0 +1,281 @@
+; $Id: bs3-first-common.mac $
+;; @file
+; BS3Kit - First Object, common stuff.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+%define BS3_BEGIN_TEXT16_WITHOUT_GROUP
+%define BS3_BEGIN_DATA16_WITHOUT_GROUP
+%define BS3_BEGIN_RMTEXT16_WITHOUT_GROUP
+%define BS3_BEGIN_X0TEXT16_WITHOUT_GROUP
+%define BS3_BEGIN_X1TEXT16_WITHOUT_GROUP
+
+%include "bs3kit.mac"
+
+
+;
+;
+; Define all the segments and their grouping, just to get that right once at
+; the start of everything.
+;
+;
+
+;
+; 16-bit text
+;
+%ifndef BS3_IS_DOS_EXE
+BS3_BEGIN_TEXT16
+%else
+section BEGTEXT align=2 CLASS=BS3CLASS16CODE PUBLIC USE16
+BS3_BEGIN_TEXT16
+section BEGTEXT
+%endif
+BS3_GLOBAL_DATA Bs3Text16_StartOfSegment, 0
+
+; Entry point with eye-catcher.
+GLOBALNAME start
+global __ImageBase                      ; for MS compiler - must be first!
+__ImageBase:
+global ___begtext                       ; for DOS EXEs (causes harmless duplicate symbol warning)
+___begtext:
+%ifndef BS3_IS_DOS_EXE
+    jmp     .after_eye_catcher
+%else
+    int3
+    jmp     __ImageBase
+%endif
+    db      10,13,'eye-catcher: BS3TEXT16',10,13
+BS3_BEGIN_TEXT16
+.after_eye_catcher:
+
+section _TEXT               align=2 CLASS=BS3CLASS16CODE PUBLIC USE16
+section BS3TEXT16_NEARSTUBS align=1 CLASS=BS3CLASS16CODE PUBLIC USE16
+section BS3TEXT16_FARSTUBS  align=1 CLASS=BS3CLASS16CODE PUBLIC USE16
+section BS3TEXT16_END       align=1 CLASS=BS3CLASS16CODE PUBLIC USE16
+
+BS3_GLOBAL_DATA Bs3Text16_EndOfSegment, 0
+
+%ifndef BS3_IS_DOS_EXE
+GROUP CGROUP16 BS3TEXT16 _TEXT BS3TEXT16_NEARSTUBS BS3TEXT16_FARSTUBS BS3TEXT16_END
+%else
+GROUP CGROUP16 BEGTEXT BS3TEXT16 _TEXT BS3TEXT16_NEARSTUBS BS3TEXT16_FARSTUBS BS3TEXT16_END
+%endif
+
+
+;
+; 16-bit data
+;
+BS3_BEGIN_DATA16
+BS3_GLOBAL_DATA Bs3Data16_StartOfSegment, 0
+    db      10,13,'eye-catcher: BS3DATA16',10,13
+
+ALIGNDATA(16)
+BS3_GLOBAL_DATA Bs3Data16_Size, 4
+    dd  BS3_DATA_NM(Bs3Data16_EndOfSegment) wrt BS3KIT_GRPNM_DATA16
+BS3_GLOBAL_DATA Bs3Data16Thru64Text32And64_TotalSize, 4
+    dd  BS3_DATA_NM(Bs3Data64_EndOfSegment) wrt BS3KIT_GRPNM_DATA16
+BS3_GLOBAL_DATA Bs3TotalImageSize, 4
+    dd  BS3_DATA_NM(Bs3Text64_EndOfSegment) wrt CGROUP16 ; ASSUMES TEXT64 is last.
+
+BS3_GLOBAL_DATA Bs3Text16_Size, 2
+    dw  BS3_DATA_NM(Bs3Text16_EndOfSegment) wrt CGROUP16
+BS3_GLOBAL_DATA Bs3RmText16_Size, 2
+    dw  BS3_DATA_NM(Bs3RmText16_EndOfSegment) wrt BS3GROUPRMTEXT16
+BS3_GLOBAL_DATA Bs3X0Text16_Size, 2
+    dw  BS3_DATA_NM(Bs3X0Text16_EndOfSegment) wrt BS3GROUPX0TEXT16
+BS3_GLOBAL_DATA Bs3X1Text16_Size, 2
+    dw  BS3_DATA_NM(Bs3X1Text16_EndOfSegment) wrt BS3GROUPX1TEXT16
+
+BS3_GLOBAL_DATA Bs3RmText16_FlatAddr, 4
+    dd  BS3_DATA_NM(Bs3RmText16_StartOfSegment) wrt BS3FLAT
+BS3_GLOBAL_DATA Bs3X0Text16_FlatAddr, 4
+    dd  BS3_DATA_NM(Bs3X0Text16_StartOfSegment) wrt BS3FLAT
+BS3_GLOBAL_DATA Bs3X1Text16_FlatAddr, 4
+    dd  BS3_DATA_NM(Bs3X1Text16_StartOfSegment) wrt BS3FLAT
+
+section BS3DATA16CONST  align=2   CLASS=BS3KIT_CLASS_DATA16 PUBLIC USE16
+section BS3DATA16CONST2 align=2   CLASS=BS3KIT_CLASS_DATA16 PUBLIC USE16
+section BS3DATA16_DATA  align=2   CLASS=BS3KIT_CLASS_DATA16 PUBLIC USE16
+%ifdef BS3_IS_DOS_EXE
+section _NULL           align=16  CLASS=BEGDATA  PUBLIC USE16
+section _AFTERNULL      align=2   CLASS=BEGDATA  PUBLIC USE16
+%endif
+section CONST           align=2   CLASS=DATA     PUBLIC USE16
+section CONST2          align=2   CLASS=DATA     PUBLIC USE16
+section _DATA           align=2   CLASS=DATA     PUBLIC USE16
+%ifdef BS3_IS_DOS_EXE
+section XIB             align=1   CLASS=DATA     PUBLIC USE16
+section XI              align=1   CLASS=DATA     PUBLIC USE16
+section XIE             align=1   CLASS=DATA     PUBLIC USE16
+section YIB             align=1   CLASS=DATA     PUBLIC USE16
+section YI              align=1   CLASS=DATA     PUBLIC USE16
+section YIE             align=1   CLASS=DATA     PUBLIC USE16
+%endif
+section STRINGS         align=2   CLASS=DATA     PUBLIC USE16
+section DATA            align=2   CLASS=DATA     PUBLIC USE16
+section _BSS            align=2   CLASS=BS3KIT_CLASS_BSS16 PUBLIC USE16
+section BSS             align=2   CLASS=BS3KIT_CLASS_BSS16 PUBLIC USE16
+%ifdef BS3_IS_DOS_EXE
+section STACK           align=16  CLASS=STACK    STACK  USE16
+%endif
+section BS3DATA16_END   align=2   CLASS=BS3KIT_CLASS_BSS16 PUBLIC USE16
+
+BS3_GLOBAL_DATA Bs3Data16_EndOfSegment, 0
+
+%ifndef BS3_IS_DOS_EXE
+GROUP BS3KIT_GRPNM_DATA16 BS3DATA16 BS3DATA16_DATA _DATA DATA BS3DATA16CONST CONST BS3DATA16CONST2 CONST2 STRINGS _BSS BSS BS3DATA16_END
+%else
+GROUP BS3KIT_GRPNM_DATA16 \
+    _NULL _AFTERNULL \
+    CONST BS3DATA16CONST CONST2 BS3DATA16CONST2 _DATA XIB XI XIE YIB YI YIE STRINGS DATA BS3DATA16 BS3DATA16_DATA \
+    _BSS BSS BS3DATA16_END \
+    STACK
+%endif
+
+;
+; 16-bit real-mode text
+;
+section BS3RMTEXT16_START   align=16 CLASS=BS3CLASS16RMCODE PUBLIC USE16
+BS3_GLOBAL_DATA Bs3RmText16_StartOfSegment, 0
+    ;db      10,13,'eye-catcher: BS3RMTEXT16',10,13 - messes up switch in C code. Alt. is fConvertFixupp VBoxBs3ObjConverter.cpp.
+BS3_BEGIN_RMTEXT16
+section BS3RMTEXT16_END   align=1 CLASS=BS3CLASS16RMCODE PUBLIC USE16
+BS3_GLOBAL_DATA Bs3RmText16_EndOfSegment, 0
+GROUP BS3GROUPRMTEXT16 BS3RMTEXT16_START BS3RMTEXT16 BS3RMTEXT16_END
+
+
+;
+; 16-bit extra text segment #0.
+;
+section BS3X0TEXT16_START   align=16 CLASS=BS3CLASS16X0CODE PUBLIC USE16
+BS3_GLOBAL_DATA Bs3X0Text16_StartOfSegment, 0
+    ;db      10,13,'eye-catcher: BS3X0TEXT16',10,13 - messes up switch in C code. Alt. is fConvertFixupp VBoxBs3ObjConverter.cpp.
+BS3_BEGIN_X0TEXT16 4
+section BS3X0TEXT16_END   align=16 CLASS=BS3CLASS16X0CODE PUBLIC USE16
+BS3_GLOBAL_DATA Bs3X0Text16_EndOfSegment, 0
+GROUP BS3GROUPX0TEXT16 BS3X0TEXT16_START BS3X0TEXT16 BS3X0TEXT16_END
+
+
+;
+; 16-bit extra text segment #1.
+;
+section BS3X1TEXT16_START   align=16 CLASS=BS3CLASS16X1CODE PUBLIC USE16
+BS3_GLOBAL_DATA Bs3X1Text16_StartOfSegment, 0
+    ;db      10,13,'eye-catcher: BS3X1TEXT16',10,13 - messes up switch in C code. Alt. is fConvertFixupp VBoxBs3ObjConverter.cpp.
+BS3_BEGIN_X1TEXT16 4
+section BS3X1TEXT16_END   align=16 CLASS=BS3CLASS16X1CODE PUBLIC USE16
+BS3_GLOBAL_DATA Bs3X1Text16_EndOfSegment, 0
+GROUP BS3GROUPX1TEXT16 BS3X1TEXT16_START BS3X1TEXT16 BS3X1TEXT16_END
+
+
+;
+; 32-bit text
+;
+BS3_BEGIN_TEXT32
+BS3_GLOBAL_DATA Bs3Text32_StartOfSegment, 0
+    db      10,13,'eye-catcher: BS3TEXT32',10,13
+section BS3TEXT32_END   align=1 CLASS=BS3CLASS32CODE PUBLIC USE32 FLAT
+BS3_GLOBAL_DATA Bs3Text32_EndOfSegment, 0
+
+
+;
+; This is a hack to separate the 32-bit and 64-bit text segments when linking,
+; such that they don't share the same base frame because they're both assigned
+; to the AUTO group by the linker.
+;
+section BS3SEPARATE32AND64BITCODE     align=16   CLASS=BS3CLASSSEPARATE32AND64BITCODE PUBLIC USE16
+BS3_GLOBAL_DATA Bs3Separate32And64BitCode_StartOfSegment, 0
+    db      10,13,'eye-catcher: 32-64 wedge',10,13
+section BS3SEPARATE32AND64BITCODE_END align=16   CLASS=BS3CLASSSEPARATE32AND64BITCODE PUBLIC USE16
+BS3_GLOBAL_DATA Bs3Separate32And64BitCode_EndOfSegment, 0
+GROUP BS3SEPARATE32AND64BITCODEGROUP BS3SEPARATE32AND64BITCODE BS3SEPARATE32AND64BITCODE_END
+
+
+;
+; 64-bit text
+;
+BS3_BEGIN_TEXT64
+BS3_GLOBAL_DATA Bs3Text64_StartOfSegment, 0
+    db      10,13,'eye-catcher: BS3TEXT64',10,13
+section BS3TEXT64_END   align=1 CLASS=BS3CLASS64CODE PUBLIC USE32 FLAT
+BS3_GLOBAL_DATA Bs3Text64_EndOfSegment, 0
+
+
+;
+; FAR_DATA segment in DOS EXEs should be near the other FAR_DATA class segments.
+;
+%ifdef BS3_IS_DOS_EXE
+section FAR_DATA        align=1 CLASS=FAR_DATA PUBLIC USE16
+%endif
+
+;
+; 32-bit data
+;
+BS3_BEGIN_DATA32
+BS3_GLOBAL_DATA Bs3Data32_StartOfSegment, 0
+    db      10,13,'eye-catcher: BS3DATA32',10,13
+section BS3DATA32CONST  align=16   CLASS=FAR_DATA PUBLIC USE32
+section BS3DATA32CONST2 align=16   CLASS=FAR_DATA PUBLIC USE32
+section BS3DATA32_DATA  align=16   CLASS=FAR_DATA PUBLIC USE32
+section BS3DATA32_BSS   align=16   CLASS=FAR_DATA PUBLIC USE32
+section BS3DATA32_END   align=16   CLASS=FAR_DATA PUBLIC USE32
+BS3_GLOBAL_DATA Bs3Data32_EndOfSegment, 0
+GROUP BS3DATA32_GROUP BS3DATA32 BS3DATA32_DATA BS3DATA32CONST BS3DATA32CONST2 BS3DATA32_BSS BS3DATA32_END
+
+;
+; 64-bit data
+;
+BS3_BEGIN_DATA64
+BS3_GLOBAL_DATA Bs3Data64_StartOfSegment, 0
+    db      10,13,'eye-catcher: BS3DATA64',10,13
+section BS3DATA64CONST  align=16   CLASS=FAR_DATA PUBLIC USE32
+section BS3DATA64_BSS   align=16   CLASS=FAR_DATA PUBLIC USE32
+section BS3DATA64_END   align=16   CLASS=FAR_DATA PUBLIC USE32
+BS3_GLOBAL_DATA Bs3Data64_EndOfSegment, 0
+GROUP BS3DATA64_GROUP BS3DATA64 BS3DATA64CONST BS3DATA64_BSS BS3DATA64_END
+
+
+;
+; 16-bit accessible system data.
+; No need to do anything here.
+;
+BS3_BEGIN_SYSTEM16
+
+
+;
+; Switch back to the 16-bit code segment and the startup code.
+;
+BS3_BEGIN_TEXT16
+BS3_GLOBAL_NAME_EX Bs3KitEntryPoint, function, 0
+

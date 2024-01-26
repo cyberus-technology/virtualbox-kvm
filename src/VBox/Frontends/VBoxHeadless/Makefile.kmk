@@ -1,0 +1,75 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the headless frontend.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+
+#
+# Hardened VBoxHeadless.
+#
+ifdef VBOX_WITH_HARDENING
+ PROGRAMS += VBoxHeadlessHardened
+ VBoxHeadlessHardened_TEMPLATE = VBoxR3HardenedExe
+ VBoxHeadlessHardened_DEFS   += $(if $(VBOX_WITH_DRIVERLESS_NEM_FALLBACK),VBOX_WITH_DRIVERLESS_NEM_FALLBACK,)
+ VBoxHeadlessHardened_SOURCES = VBoxHeadlessHardened.cpp
+ VBoxHeadlessHardened_NAME = VBoxHeadless
+ $(call VBOX_SET_VER_INFO_DLL,VBoxHeadlessHardened,VirtualBox Headless Frontend,$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+endif
+
+
+#
+# VBoxHeadless
+#
+ifdef VBOX_WITH_HARDENING
+ DLLS    += VBoxHeadless
+else
+ PROGRAMS += VBoxHeadless
+endif
+VBoxHeadless_TEMPLATE := $(if $(VBOX_WITH_HARDENING),VBoxMainClientDll,VBoxMainClientExe)
+VBoxHeadless_DEFS     += $(if $(VBOX_WITH_RECORDING),VBOX_WITH_RECORDING,)
+VBoxHeadless_INCS      = \
+	$(VBOX_GRAPHICS_INCS) \
+	../Common
+VBoxHeadless_SOURCES   = \
+	VBoxHeadless.cpp \
+	../Common/PasswordInput.cpp
+ifdef VBOX_WITH_GUEST_PROPS
+ VBoxHeadless_DEFS    += VBOX_WITH_GUEST_PROPS
+endif
+ifdef VBOX_WITH_HARDENING
+ VBoxHeadless_LDFLAGS.darwin += -install_name $(VBOX_DYLD_EXECUTABLE_PATH)/VBoxHeadless.dylib
+endif
+ifdef VBOX_WITH_HARDENING
+ $(call VBOX_SET_VER_INFO_DLL,VBoxHeadless,VirtualBox Headless Frontend (dll),$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+else
+ $(call VBOX_SET_VER_INFO_EXE,VBoxHeadless,VirtualBox Headless Frontend,$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

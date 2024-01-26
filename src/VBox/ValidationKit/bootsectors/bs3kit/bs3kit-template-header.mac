@@ -1,0 +1,532 @@
+; $Id: bs3kit-template-header.mac $
+;; @file
+; BS3Kit header for multi-mode code templates.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%include "bs3kit.mac"
+
+;
+; Check and expand the mode defines.
+; One of the following must be defined:
+;       - TMPL_RM    - real mode.
+;       - TMPL_PE16  - 16-bit protected mode, unpaged.
+;       - TMPL_PE32  - 32-bit protected mode, unpaged.
+;       - TMPL_PEV86 - virtual 8086 mode under protected mode, unpaged.
+;       - TMPL_PP16  - 16-bit protected mode, paged.
+;       - TMPL_PP32  - 32-bit protected mode, paged.
+;       - TMPL_PPV86 - virtual 8086 mode under protected mode, paged.
+;       - TMPL_PAE16 - 16-bit protected mode with PAE (paged).
+;       - TMPL_PAE32 - 16-bit protected mode with PAE (paged).
+;       - TMPL_PAEV86- virtual 8086 mode under protected mode with PAE (paged).
+;       - TMPL_LM16  - 16-bit long mode (paged).
+;       - TMPL_LM32  - 32-bit long mode (paged).
+;       - TMPL_LM64  - 64-bit long mode (paged).
+;
+; Derived indicators:
+;       - TMPL_CMN_PE  = TMPL_PE16  | TMPL_PE32  | TMPL_PEV86
+;       - TMPL_CMN_PP  = TMPL_PP16  | TMPL_PP32  | TMPL_PPV86
+;       - TMPL_CMN_PAE = TMPL_PAE16 | TMPL_PAE32 | TMPL_PAEV86
+;       - TMPL_CMN_LM  = TMPL_LM16  | TMPL_LM32  | TMPL_LM64
+;       - TMPL_CMN_V86 = TMPL_PEV86 | TMPL_PPV86 | TMPL_PAEV86
+;       - TMPL_CMN_R86 = TMPL_CMN_V86 | TMPL_RM
+;       - TMPL_CMN_PAGING = TMPL_CMN_PP | TMPL_CMN_PAE | TMPL_CMN_LM
+;
+
+
+;
+; Convert TMPL_XXX to TMPL_MODE.
+;
+%ifndef TMPL_MODE
+ %ifdef TMPL_RM
+  %define TMPL_MODE         BS3_MODE_RM
+ %elifdef TMPL_PE16
+  %define TMPL_MODE         BS3_MODE_PE16
+ %elifdef TMPL_PE16_32
+  %define TMPL_MODE         BS3_MODE_PE16_32
+ %elifdef TMPL_PE16_V86
+  %define TMPL_MODE         BS3_MODE_PE16_V86
+ %elifdef TMPL_PE32
+  %define TMPL_MODE         BS3_MODE_PE32
+ %elifdef TMPL_PE32_16
+  %define TMPL_MODE         BS3_MODE_PE32_16
+ %elifdef TMPL_PEV86
+  %define TMPL_MODE         BS3_MODE_PEV86
+ %elifdef TMPL_PP16
+  %define TMPL_MODE         BS3_MODE_PP16
+ %elifdef TMPL_PP16_32
+  %define TMPL_MODE         BS3_MODE_PP16_32
+ %elifdef TMPL_PP16_V86
+  %define TMPL_MODE         BS3_MODE_PP16_V86
+ %elifdef TMPL_PP32
+  %define TMPL_MODE         BS3_MODE_PP32
+ %elifdef TMPL_PP32_16
+  %define TMPL_MODE         BS3_MODE_PP32_16
+ %elifdef TMPL_PPV86
+  %define TMPL_MODE         BS3_MODE_PPV86
+ %elifdef TMPL_PAE16
+  %define TMPL_MODE         BS3_MODE_PAE16
+ %elifdef TMPL_PAE16_32
+  %define TMPL_MODE         BS3_MODE_PAE16_32
+ %elifdef TMPL_PAE16_V86
+  %define TMPL_MODE         BS3_MODE_PAE16_V86
+ %elifdef TMPL_PAE32
+  %define TMPL_MODE         BS3_MODE_PAE32
+ %elifdef TMPL_PAE32_16
+  %define TMPL_MODE         BS3_MODE_PAE32_16
+ %elifdef TMPL_PAEV86
+  %define TMPL_MODE         BS3_MODE_PAEV86
+ %elifdef TMPL_LM16
+  %define TMPL_MODE         BS3_MODE_LM16
+ %elifdef TMPL_LM32
+  %define TMPL_MODE         BS3_MODE_LM32
+ %elifdef TMPL_LM64
+  %define TMPL_MODE         BS3_MODE_LM64
+ %else
+  %error "Unable to to figure out the template mode."
+ %endif
+%endif
+
+;
+; Check the code bitness and set TMPL_XXBITS, TMPL_BITS, BS3_CMN_NM
+;
+%if (TMPL_MODE & BS3_MODE_CODE_MASK) == BS3_MODE_CODE_16
+ %define TMPL_16BIT
+ %define TMPL_BITS              16
+ %define TMPL_PTR_DEF           dw
+ %define TMPL_UNDERSCORE        _
+ %define BS3_CMN_NM(Name)       _ %+ Name %+ _c16
+
+%elif (TMPL_MODE & BS3_MODE_CODE_MASK) == BS3_MODE_CODE_32
+ %define TMPL_32BIT
+ %define TMPL_BITS              32
+ %define TMPL_PTR_DEF           dd
+ %define TMPL_UNDERSCORE        _
+ %define BS3_CMN_NM(Name)       _ %+ Name %+ _c32
+
+%elif (TMPL_MODE & BS3_MODE_CODE_MASK) == BS3_MODE_CODE_V86
+ %define TMPL_16BIT
+ %define TMPL_BITS              16
+ %define TMPL_UNDERSCORE        _
+ %define BS3_CMN_NM(Name)       _ %+ Name %+ _c16
+ %define TMPL_CMN_R86
+ %define TMPL_CMN_V86
+
+%elif (TMPL_MODE & BS3_MODE_CODE_MASK) == BS3_MODE_CODE_64
+ %define TMPL_64BIT
+ %define TMPL_BITS              64
+ %define TMPL_PTR_DEF           dq
+ %define TMPL_UNDERSCORE        _
+ %define BS3_CMN_NM(Name)       _ %+ Name %+ _c64
+
+%else
+ %error "Invalid TMPL_MODE value!"
+%endif
+
+;
+; Check the system specific mask and set derived values.
+;
+%if (TMPL_MODE & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_RM
+ %define TMPL_HAVE_BIOS
+ %define TMPL_CMN_R86
+
+%elif (TMPL_MODE & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PE16
+ %define TMPL_SYS_PE16
+ %define TMPL_CMN_PE
+
+%elif (TMPL_MODE & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PE32
+ %define TMPL_SYS_PE32
+ %define TMPL_CMN_PE
+
+%elif (TMPL_MODE & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PP16
+ %define TMPL_SYS_PP16
+ %define TMPL_CMN_PP
+ %define TMPL_CMN_PAGING
+
+%elif (TMPL_MODE & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PP32
+ %define TMPL_SYS_PP32
+ %define TMPL_CMN_PP
+ %define TMPL_CMN_PAGING
+
+%elif (TMPL_MODE & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PAE16
+ %define TMPL_SYS_PAE16
+ %define TMPL_CMN_PAE
+ %define TMPL_CMN_PAGING
+
+%elif (TMPL_MODE & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PAE32
+ %define TMPL_SYS_PAE32
+ %define TMPL_CMN_PAE
+ %define TMPL_CMN_PAGING
+
+%elif (TMPL_MODE & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_LM
+ %define TMPL_SYS_LM
+ %define TMPL_CMN_LM
+ %define TMPL_CMN_PAGING
+
+%else
+ %error "Invalid TMPL_MODE value!"
+%endif
+
+
+;
+; Mode specific stuff.
+;
+%if   TMPL_MODE == BS3_MODE_RM
+ %define TMPL_RM
+ %define TMPL_MODE_STR          "real mode"
+ %define TMPL_NM(Name)          _ %+ Name %+ _rm
+ %define TMPL_MODE_LNAME        rm
+ %define TMPL_MODE_UNAME        RM
+
+
+%elif TMPL_MODE == BS3_MODE_PE16
+ %define TMPL_PE16
+ %define TMPL_MODE_STR          "16-bit prot, 16-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pe16
+ %define TMPL_MODE_LNAME        pe16
+ %define TMPL_MODE_UNAME        PE16
+
+%elif TMPL_MODE == BS3_MODE_PE16_32
+ %define TMPL_PE16_32
+ %define TMPL_MODE_STR          "16-bit prot, 32-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pe16_32
+ %define TMPL_MODE_LNAME        pe16_32
+ %define TMPL_MODE_UNAME        PE16_32
+ %define TMPL_CMN_WEIRD
+
+%elif TMPL_MODE == BS3_MODE_PE16_V86
+ %define TMPL_PE16_V86
+ %define TMPL_MODE_STR          "16-bit prot, v8086"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pe16_v86
+ %define TMPL_MODE_LNAME        pe16_v86
+ %define TMPL_MODE_UNAME        PE16_v86
+ %define TMPL_CMN_WEIRD
+ %define TMPL_CMN_WEIRD_V86
+
+
+%elif TMPL_MODE == BS3_MODE_PE32
+ %define TMPL_PE32
+ %define TMPL_MODE_STR          "32-bit prot, 32-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pe32
+ %define TMPL_MODE_LNAME        pe32
+ %define TMPL_MODE_UNAME        PE32
+
+%elif TMPL_MODE == BS3_MODE_PE32_16
+ %define TMPL_PE32_16
+ %define TMPL_MODE_STR          "32-bit prot, 16-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pe32_16
+ %define TMPL_MODE_LNAME        pe32_16
+ %define TMPL_MODE_UNAME        PE32_16
+ %define TMPL_CMN_WEIRD
+
+%elif TMPL_MODE == BS3_MODE_PEV86
+ %define TMPL_PEV86
+ %define TMPL_MODE_STR          "32-bit prot, v8086"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pev86
+ %define TMPL_MODE_LNAME        pev86
+ %define TMPL_MODE_UNAME        PEV86
+
+
+%elif TMPL_MODE == BS3_MODE_PP16
+ %define TMPL_PP16
+ %define TMPL_MODE_STR          "16-bit paged, 16-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pp16
+ %define TMPL_MODE_LNAME        pp16
+ %define TMPL_MODE_UNAME        PP16
+
+%elif TMPL_MODE == BS3_MODE_PP16_32
+ %define TMPL_PP16_32
+ %define TMPL_MODE_STR          "16-bit paged, 32-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pp16_32
+ %define TMPL_MODE_LNAME        pp16_32
+ %define TMPL_MODE_UNAME        PP16_32
+ %define TMPL_CMN_WEIRD
+
+%elif TMPL_MODE == BS3_MODE_PP16_V86
+ %define TMPL_PP16_V86
+ %define TMPL_MODE_STR          "16-bit paged, v8086"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pp16_v86
+ %define TMPL_MODE_LNAME        pp16_v86
+ %define TMPL_MODE_UNAME        PP16_v86
+ %define TMPL_CMN_WEIRD
+ %define TMPL_CMN_WEIRD_V86
+
+
+%elif TMPL_MODE == BS3_MODE_PP32
+ %define TMPL_PP32
+ %define TMPL_MODE_STR          "32-bit paged, 32-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pp32
+ %define TMPL_MODE_LNAME        pp32
+ %define TMPL_MODE_UNAME        PP32
+
+%elif TMPL_MODE == BS3_MODE_PP32_16
+ %define TMPL_PP32_16
+ %define TMPL_MODE_STR          "32-bit paged, 16-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pp32_16
+ %define TMPL_MODE_LNAME        pp32_16
+ %define TMPL_MODE_UNAME        PP32_16
+ %define TMPL_CMN_WEIRD
+
+%elif TMPL_MODE == BS3_MODE_PPV86
+ %define TMPL_PPV86
+ %define TMPL_MODE_STR          "32-bit paged, v8086"
+ %define TMPL_NM(Name)          _ %+ Name %+ _ppv86
+ %define TMPL_MODE_LNAME        ppv86
+ %define TMPL_MODE_UNAME        PPV86
+
+
+%elif TMPL_MODE == BS3_MODE_PAE16
+ %define TMPL_PAE16
+ %define TMPL_MODE_STR          "16-bit pae, 16-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pae16
+ %define TMPL_MODE_LNAME        pae16
+ %define TMPL_MODE_UNAME        PAE16
+
+%elif TMPL_MODE == BS3_MODE_PAE16_32
+ %define TMPL_PAE16_32
+ %define TMPL_MODE_STR          "16-bit pae, 32-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pae16_32
+ %define TMPL_MODE_LNAME        pae16_32
+ %define TMPL_MODE_UNAME        PAE16_32
+ %define TMPL_CMN_WEIRD
+
+%elif TMPL_MODE == BS3_MODE_PAE16_V86
+ %define TMPL_PAE16_V86
+ %define TMPL_MODE_STR          "16-bit pae, v8086"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pae16_v86
+ %define TMPL_MODE_LNAME        pae16_v86
+ %define TMPL_MODE_UNAME        PAE16_v86
+ %define TMPL_CMN_WEIRD
+ %define TMPL_CMN_WEIRD_V86
+
+
+%elif TMPL_MODE == BS3_MODE_PAE32
+ %define TMPL_PAE32
+ %define TMPL_MODE_STR          "32-bit pae, 32-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pae32
+ %define TMPL_MODE_LNAME        pae32
+ %define TMPL_MODE_UNAME        PAE32
+
+%elif TMPL_MODE == BS3_MODE_PAE32_16
+ %define TMPL_PAE32_16
+ %define TMPL_MODE_STR          "32-bit pae, 16-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _pae32_16
+ %define TMPL_MODE_LNAME        pae32_16
+ %define TMPL_MODE_UNAME        PAE32_16
+ %define TMPL_CMN_WEIRD
+
+%elif TMPL_MODE == BS3_MODE_PAEV86
+ %define TMPL_PAEV86
+ %define TMPL_MODE_STR          "32-bit pae, v8086 pae"
+ %define TMPL_NM(Name)          _ %+ Name %+ _paev86
+ %define TMPL_MODE_LNAME        paev86
+ %define TMPL_MODE_UNAME        PAEV86
+
+
+%elif TMPL_MODE == BS3_MODE_LM16
+ %define TMPL_LM16
+ %define TMPL_MODE_STR          "long, 16-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _lm16
+ %define TMPL_MODE_LNAME        lm16
+ %define TMPL_MODE_UNAME        LM16
+
+%elif TMPL_MODE == BS3_MODE_LM32
+ %define TMPL_LM32
+ %define TMPL_MODE_STR          "long, 32-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _lm32
+ %define TMPL_MODE_LNAME        lm32
+ %define TMPL_MODE_UNAME        LM32
+
+%elif TMPL_MODE == BS3_MODE_LM64
+ %define TMPL_LM64
+ %define TMPL_MODE_STR          "long, 64-bit"
+ %define TMPL_NM(Name)          _ %+ Name %+ _lm64
+ %define TMPL_MODE_LNAME        lm64
+ %define TMPL_MODE_UNAME        LM64
+
+%else
+ %error "Invalid TMPL_MODE value!!"
+%endif
+
+%ifnidn TMPL_UNDERSCORE,_; RT_CONCAT3 doesn't work with TMPL_UNDERSCORE being empty. duh.
+ %ifidn RT_CONCAT(TestName_,TMPL_MODE_LNAME),TMPL_NM(TestName)
+ %else
+  %error internal error: RT_CONCAT(TestName_,TMPL_MODE_LNAME) vs TMPL_NM(TestName)
+ %endif
+%else
+ %ifidn RT_CONCAT3(TMPL_UNDERSCORE,TestName_,TMPL_MODE_LNAME),TMPL_NM(TestName)
+ %else
+  %error internal error: RT_CONCAT3(TMPL_UNDERSCORE,TestName_,TMPL_MODE_LNAME) vs TMPL_NM(TestName)
+ %endif
+%endif
+
+; TMPL_NM version with uppercased suffix and no underscore separating them.
+%define TMPL_NM_U(Name)         TMPL_UNDERSCORE %+ Name %+ TMPL_MODE_UNAME
+
+; TMPL_FAR_NM
+%if TMPL_MODE & (BS3_MODE_CODE_16 | BS3_MODE_CODE_V86)
+ %define TMPL_FAR_NM(Name)      TMPL_NM(Name) %+ _far
+%else
+ %define TMPL_FAR_NM(Name)      TMPL_NM(Name)
+%endif
+
+
+;; @def TMPL_WRT_FLAT
+; WRT flat when not in 16-bit modes.
+;
+%ifdef TMPL_16BIT
+ %define TMPL_WRT_FLAT
+%else
+ %define TMPL_WRT_FLAT              wrt FLAT
+%endif
+
+;; @def TMPL_WRT_DATA16_OR_FLAT
+; WRT DATA16 in 16-bit mode, WRT FLAT in 32- and 64-bit modes.
+; This is important when accessing global variables.
+;
+%ifdef TMPL_16BIT
+ %define TMPL_WRT_DATA16_OR_FLAT    wrt BS3KIT_GRPNM_DATA16
+%else
+ %define TMPL_WRT_DATA16_OR_FLAT    wrt FLAT
+%endif
+
+;; @def TMPL_DATA16_WRT
+; WRT DATA16 in 16-bit mode, WRT FLAT in 32- and 64-bit modes.
+; This is important when accessing global variables.
+;
+%if TMPL_BITS == 16
+ %define TMPL_DATA16_WRT(a_Var)     a_Var wrt BS3KIT_GRPNM_DATA16
+%elif TMPL_BITS == 32
+ %define TMPL_DATA16_WRT(a_Var)     a_Var wrt FLAT
+%elif TMPL_BITS == 64
+ %define TMPL_DATA16_WRT(a_Var)     rel a_Var wrt FLAT
+%else
+ %error TMPL_BITS
+%endif
+
+;; @def TMPL_WRT_SYSTEM16_OR_FLAT
+; WRT BS3SYSTEM16 in 16-bit mode, WRT FLAT in 32- and 64-bit modes.
+; This is important when accessing global variables in the BS3SYSTEM16 segment.
+%ifdef TMPL_16BIT
+ %define TMPL_WRT_SYSTEM16_OR_FLAT  wrt BS3SYSTEM16
+%else
+ %define TMPL_WRT_SYSTEM16_OR_FLAT  wrt FLAT
+%endif
+
+;; @def TONLY16
+; Version of BONLY16 that follows the code template.
+; Like BONLY16 this normally goes in column 1.
+%if TMPL_BITS == 16
+ %macro TONLY16 1+
+        %1
+ %endmacro
+%else
+ %macro TONLY16 1+
+ %endmacro
+%endif
+
+;; @def TONLY32
+; Version of BONLY32 that follows the code template.
+; Like BONLY32 this normally goes in column 1.
+%if TMPL_BITS == 32
+ %macro TONLY32 1+
+        %1
+ %endmacro
+%else
+ %macro TONLY32 1+
+ %endmacro
+%endif
+
+;; @def TONLY64
+; Version of BONLY64 that follows the code template.
+; Like BONLY64 this normally goes in column 1.
+%if TMPL_BITS == 64
+ %macro TONLY64 1+
+        %1
+ %endmacro
+%else
+ %macro TONLY64 1+
+ %endmacro
+%endif
+
+;; @def TNOT16
+; Version of BNOT16 that follows the code template.
+; Like BNOT16 this normally goes in column 1.
+%if TMPL_BITS == 16
+ %macro TNOT16 1+
+ %endmacro
+%else
+ %macro TNOT16 1+
+        %1
+ %endmacro
+%endif
+
+;; @def TNOT32
+; Version of BNOT32 that follows the code template.
+; Like BNOT32 this normally goes in column 1.
+%if TMPL_BITS == 32
+ %macro TNOT32 1+
+ %endmacro
+%else
+ %macro TNOT32 1+
+        %1
+ %endmacro
+%endif
+
+;; @def TNOT64
+; Version of BNOT64 that follows the code template.
+; Like BNOT64 this normally goes in column 1.
+%if TMPL_BITS == 64
+ %macro TNOT64 1+
+ %endmacro
+%else
+ %macro TNOT64 1+
+        %1
+ %endmacro
+%endif
+
+
+;
+; Default code segment (changes BITS too).
+;
+%ifdef TMPL_64BIT
+ %define TMPL_BEGIN_TEXT BS3_BEGIN_TEXT64
+%elifdef TMPL_32BIT
+ %define TMPL_BEGIN_TEXT BS3_BEGIN_TEXT32
+%elifdef TMPL_16BIT
+ %define TMPL_BEGIN_TEXT BS3_BEGIN_TEXT16
+%else
+ %error "Missing TMPL_xxBIT!"
+%endif
+TMPL_BEGIN_TEXT
+

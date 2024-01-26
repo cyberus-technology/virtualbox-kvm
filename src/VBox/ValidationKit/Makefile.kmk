@@ -1,0 +1,400 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Make sure our Config.kmk is included.
+ifndef VBOX_VALIDATIONKIT_CONFIG_KMK_INCLUDED
+ include $(PATH_SUB_CURRENT)/Config.kmk
+endif
+
+# Collect install targets
+VBOX_VALIDATIONKIT_INSTALLS := $(INSTALLS)
+
+#
+# Include sub-makefiles.
+#
+include $(PATH_SUB_CURRENT)/tests/Makefile.kmk
+ifneq ($(KBUILD_HOST),os2)            # needs yasm
+ if1of ($(KBUILD_TARGET_ARCH), amd64 x86) # needs yasm
+  include $(PATH_SUB_CURRENT)/bootsectors/Makefile.kmk
+ endif
+endif
+include $(PATH_SUB_CURRENT)/utils/Makefile.kmk
+include $(PATH_SUB_CURRENT)/common/Makefile.kmk
+include $(PATH_SUB_CURRENT)/testboxscript/Makefile.kmk
+include $(PATH_SUB_CURRENT)/testdriver/Makefile.kmk
+include $(PATH_SUB_CURRENT)/testmanager/Makefile.kmk
+
+#
+# Globals.
+#
+
+# The current target is enabled by default.
+VBOX_WITH_VALIDATIONKIT_PACKING.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH) = 1
+ifdef VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+ VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH) = 1
+endif
+
+#
+# Install the test driver framework.
+#
+INSTALLS += ValidationKit-testdriver
+ValidationKit-testdriver_TEMPLATE = VBoxValidationKitR3
+ValidationKit-testdriver_INST = $(INST_VALIDATIONKIT)testdriver/
+ValidationKit-testdriver_MODE = a+r,u+w
+ValidationKit-testdriver_SOURCES := \
+	$(PATH_SUB_CURRENT)/testdriver/__init__.py \
+	$(PATH_SUB_CURRENT)/testdriver/base.py \
+	$(PATH_SUB_CURRENT)/testdriver/btresolver.py \
+	$(PATH_SUB_CURRENT)/testdriver/reporter.py \
+	$(PATH_SUB_CURRENT)/testdriver/testfileset.py \
+	$(PATH_SUB_CURRENT)/testdriver/tst-txsclient.py \
+	$(PATH_SUB_CURRENT)/testdriver/txsclient.py \
+	$(PATH_SUB_CURRENT)/testdriver/vbox.py \
+	$(PATH_SUB_CURRENT)/testdriver/vboxcon.py \
+	$(PATH_SUB_CURRENT)/testdriver/vboxtestfileset.py \
+	$(PATH_SUB_CURRENT)/testdriver/vboxtestvms.py \
+	$(PATH_SUB_CURRENT)/testdriver/vboxwrappers.py \
+	$(PATH_SUB_CURRENT)/testdriver/winbase.py \
+	$(PATH_SUB_CURRENT)/testdriver/win-vbox-net-uninstall.ps1
+ValidationKit-testdriver_EXEC_SOURCES := \
+	$(PATH_SUB_CURRENT)/testdriver/vboxinstaller.py
+$(PATH_SUB_CURRENT)/testdriver/txsclient.py_VBOX_PYCHECKER_FLAGS = --no-reimport
+
+
+#
+# Packing target.
+#
+ifndef VBOX_WITHOUT_VALIDATIONKIT_ZIP
+
+ VBOX_VALIDATIONKIT_INSTALLS := $(filter-out $(VBOX_VALIDATIONKIT_INSTALLS), $(INSTALLS))
+
+ #
+ # VBoxValidationKit.zip.
+ # TODO: Don't pack the python stuff multiple times?  Lazy works for now.
+ #
+ PACKING += $(PATH_OUT)/VBoxValidationKit.zip
+ $(PATH_OUT)/VBoxValidationKit.zip: \
+ 		$(VBOX_PATH_VALIDATIONKIT)/VBoxValidationKit.iso \
+ 		$(VBOX_PATH_VALIDATIONKIT)/ \
+ 		$$(foreach inst, $$(VBOX_VALIDATIONKIT_INSTALLS), \
+ 			$$(filter $(PATH_STAGE)/$(INST_VALIDATIONKIT)%, $$($$(inst)_2_STAGE_TARGETS)))
+	$(call MSG_L1,Packing the Test Suite $@)
+	$(QUIET)$(RM) -f $@
+	# Note: Exclude packing the testcase directory into .zip, as that directory only needs to be
+	#       included in VBoxValidationKit.iso.
+	$(foreach os, darwin freebsd linux os2 solaris win,$(foreach arch, x86 amd64 \
+	,$(if-expr defined(VBOX_WITH_VALIDATIONKIT_PACKING.$(os).$(arch))\
+		,$(NLTAB)$(QUIET)$(REDIRECT) -C $(PATH_OUT_BASE)/$(os).$(arch)/$(KBUILD_TYPE)/ \
+			-- $(VBOX_ZIP) -r9 $@ $(INST_VALIDATIONKIT) -x '$(INST_VALIDATIONKIT)testcase/*' -x '*.pyc',)))
+
+ #
+ # VBoxTestBoxScript.zip - For setting up the testboxes.
+ #
+ PACKING += $(PATH_OUT)/VBoxTestBoxScript.zip
+ $(PATH_OUT)/VBoxTestBoxScript.zip: \
+ 		$$(testboxscript_2_STAGE_TARGETS) \
+ 		$$(testboxscript-common_2_STAGE_TARGETS) \
+ 		$$(TestBoxHelper_2_STAGE_TARGETS)
+	$(call MSG_L1,Packing the TestBox Script files to $@)
+	$(QUIET)$(RM) -f $@
+	$(foreach os, darwin freebsd linux os2 solaris win,$(foreach arch, x86 amd64 \
+	,$(if-expr defined(VBOX_WITH_VALIDATIONKIT_PACKING.$(os).$(arch))\
+		,$(NLTAB)$(QUIET)$(REDIRECT) -C $(PATH_OUT_BASE)/$(os).$(arch)/$(KBUILD_TYPE)/ \
+			-- $(VBOX_ZIP) -r9X $@ $(INST_TESTBOXSCRIPT) -x '*.pyc',)))
+
+endif # !VBOX_WITHOUT_VALIDATIONKIT_ZIP
+
+
+#
+# Automatically lint python code and python unit tests during build.
+#
+if defined(VBOX_WITH_PYLINT) && !defined(VBOX_WITHOUT_AUTO_PYLINT)
+ OTHERS      += $(PATH_TARGET)/pylint.run
+ OTHER_CLEAN += $(PATH_TARGET)/pylint.run
+ $(PATH_TARGET)/pylint.run: $$(filter-out %/testboxscript.o, $$(VBOX_VALIDATIONKIT_PYLINT_TARGETS))
+	$(QUIET)$(APPEND) -t "$@"
+endif
+if defined(VBOX_WITH_PYLINT) && !defined(VBOX_WITHOUT_AUTO_PYUNITTEST) # Tied to pylint for hysterical raisins.
+ OTHERS      += $(PATH_TARGET)/pyunittest.run
+ OTHER_CLEAN += $(PATH_TARGET)/pyunittest.run
+ $(PATH_TARGET)/pyunittest.run: $$(VBOX_VALIDATIONKIT_PYUNITTEST_TARGETS)
+	$(QUIET)$(APPEND) -t "$@"
+endif
+
+$(evalcall def_vbox_validationkit_process_python_sources,FORCE)
+$(evalcall def_vbox_validationkit_process_js_sources,FORCE)
+include $(FILE_KBUILD_SUB_FOOTER)
+
+
+VBOX_VALIDATIONKIT_ISO_RSP = $(PATH_TARGET)/VBoxValidationKitISO.rsp
+OTHERS_CLEAN              += $(VBOX_VALIDATIONKIT_ISO_RSP)
+
+#
+# Construct the file spec for creating the Validation Kit guest iso.
+#
+VBOX_VALIDATIONKIT_FILESPEC = \
+	valkit.txt=$(VBOX_PATH_VALIDATIONKIT_SRC)/docs/valkit.txt \
+	$(VBOX_PATH_VALIDATIONKIT)/vboxtxs-readme.txt
+ifneq ($(KBUILD_HOST),os2)
+ if1of ($(KBUILD_TARGET_ARCH), amd64 x86)
+  VBOX_VALIDATIONKIT_FILESPEC += \
+  	$(VBOX_PATH_VALIDATIONKIT)/bootsectors/bootsector-pae.img \
+  	$(VBOX_PATH_VALIDATIONKIT)/bootsectors/bootsector-shutdown.img
+ endif
+endif
+
+VBOX_VALIDATIONKIT_FILESPEC_UNITTESTS =
+
+# Generate VBOX_PATH_VALIDATIONKIT.os.arch variables.
+$(foreach os, darwin freebsd linux os2 solaris win,$(foreach arch, x86 amd64, \
+	$(eval VBOX_PATH_VALIDATIONKIT.$(os).$(arch) = $(PATH_OUT_BASE)/$(os).$(arch)/$(KBUILD_TYPE)/$(INST_VALIDATIONKIT)$(os)/$(arch)) \
+	$(eval VBOX_PATH_VALIDATIONKIT_UNITTESTS.$(os).$(arch) = $(abspath $(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/../../testcase/$(os)/$(arch)/testcase)) \
+))
+
+# Common files first.
+define def_vbox_validationkit_common_files
+ ifdef VBOX_WITH_VALIDATIONKIT_PACKING.$(os).$(arch)
+  VBOX_VALIDATIONKIT_FILESPEC += \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/exceptionsR3$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/cpu-alloc-all-mem$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/cpu-numa$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/FsPerf$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/IoPerf$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/NetPerf$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/LoadGenerator$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/SerialTest$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/TestExecService$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/vts_rm$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/vts_shutdown$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/vts_tar$(TMP_SUFF_EXE) \
+  	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/xmmsaving$(TMP_SUFF_EXE)
+  if1of ($(arch), amd64) ## HACK ALERT! This mirrors VBOX_WITH_R0_MODULES logic in /Config.kmk.
+   VBOX_VALIDATIONKIT_FILESPEC += \
+   	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/loadgeneratorR0.r0
+  endif
+  ifn1of ($(os), os2) ## not compiling bootsectors, no yasm.  could fix this better.
+   VBOX_VALIDATIONKIT_FILESPEC += \
+   	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/bs3-timing-1$(TMP_SUFF_EXE)
+  endif
+  ifn1of ($(os), os2 freebsd netbsd openbsd) ## must match utils/audio/Makefile.kmk
+   VBOX_VALIDATIONKIT_FILESPEC += \
+   	$$(VBOX_PATH_VALIDATIONKIT.$(os).$(arch))/vkat$(TMP_SUFF_EXE)
+  endif
+ endif
+endef
+
+TMP_SUFF_EXE = .exe
+$(foreach os, os2 win,$(foreach arch, x86 amd64, \
+	$(eval $(def_vbox_validationkit_common_files)) \
+))
+TMP_SUFF_EXE =
+$(foreach os, darwin freebsd linux solaris,$(foreach arch, x86 amd64, \
+	$(eval $(def_vbox_validationkit_common_files)) \
+))
+
+# OS specific files - Linux
+ifdef VBOX_WITH_VALIDATIONKIT_PACKING.linux.x86
+ VBOX_VALIDATIONKIT_FILESPEC += \
+ 	$(VBOX_PATH_VALIDATIONKIT.linux.x86)/UsbTest
+endif
+ifdef VBOX_WITH_VALIDATIONKIT_PACKING.linux.amd64
+ VBOX_VALIDATIONKIT_FILESPEC += \
+ 	$(VBOX_PATH_VALIDATIONKIT.linux.amd64)/UsbTest
+endif
+ifdef VBOX_WITH_VALIDATIONKIT_PACKING.linux.x86
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.linux.x86)/../vboxtxs)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.linux.x86)/../vboxtxs-nat)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.linux.x86)/../vboxtxs.service)
+
+else ifdef VBOX_WITH_VALIDATIONKIT_PACKING.linux.amd64
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.linux.amd64)/../vboxtxs)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.linux.amd64)/../vboxtxs-nat)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.linux.amd64)/../vboxtxs.service)
+endif
+
+# OS specific files - OS/2
+ifdef VBOX_WITH_VALIDATIONKIT_PACKING.os2.x86
+ VBOX_VALIDATIONKIT_FILESPEC += \
+ 	$(VBOX_PATH_VALIDATIONKIT.os2.x86)/libc06.dll \
+ 	$(VBOX_PATH_VALIDATIONKIT.os2.x86)/libc061.dll \
+ 	$(VBOX_PATH_VALIDATIONKIT.os2.x86)/libc062.dll \
+ 	$(VBOX_PATH_VALIDATIONKIT.os2.x86)/libc063.dll \
+ 	$(VBOX_PATH_VALIDATIONKIT.os2.x86)/libc064.dll \
+ 	$(VBOX_PATH_VALIDATIONKIT.os2.x86)/libc065.dll \
+ 	$(VBOX_PATH_VALIDATIONKIT.os2.x86)/libc066.dll
+endif
+
+# OS specific files - Solaris
+ifdef VBOX_WITH_VALIDATIONKIT_PACKING.solaris.x86
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.solaris.x86)/../vboxtxs.sh)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.solaris.x86)/../vboxtxs.xml)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.solaris.x86)/../vboxtxs-sol10.xml)
+else ifdef VBOX_WITH_VALIDATIONKIT_PACKING.solaris.amd64
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.solaris.amd64)/../vboxtxs.sh)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.solaris.amd64)/../vboxtxs.xml)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.solaris.amd64)/../vboxtxs-sol10.xml)
+endif
+
+# OS specific files - Windows
+ifdef VBOX_WITH_VALIDATIONKIT_PACKING.win.x86
+ VBOX_VALIDATIONKIT_FILESPEC += \
+ 	$(VBOX_PATH_VALIDATIONKIT.win.x86)/ntSetFreq.exe \
+ 	$(VBOX_PATH_VALIDATIONKIT.win.x86)/ntTimeSources.exe
+ # Disabled for now; does not work without WinMM.dll export verification files.
+ #ifdef VBOX_WITH_AUDIO_VALIDATIONKIT
+ # VBOX_VALIDATIONKIT_FILESPEC += \
+ # 	$(VBOX_PATH_VALIDATIONKIT.win.x86)/ntPlayToneWaveX.exe
+ #endif
+endif
+ifdef VBOX_WITH_VALIDATIONKIT_PACKING.win.amd64
+ VBOX_VALIDATIONKIT_FILESPEC += \
+ 	$(VBOX_PATH_VALIDATIONKIT.win.amd64)/ntSetFreq.exe \
+ 	$(VBOX_PATH_VALIDATIONKIT.win.amd64)/ntTimeSources.exe
+ # Disabled for now; does not work without WinMM.dll export verification files.
+ #ifdef VBOX_WITH_AUDIO_VALIDATIONKIT
+ # VBOX_VALIDATIONKIT_FILESPEC += \
+ # 	$(VBOX_PATH_VALIDATIONKIT.win.amd64)/ntPlayToneWaveX.exe
+ #endif
+endif
+ifdef VBOX_WITH_VALIDATIONKIT_PACKING.win.x86
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.win.x86)/../vboxtxs.cmd)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.win.x86)/../vboxtxs.reg)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.win.x86)/../vboxtxs-nat.cmd)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.win.x86)/../vboxtxs-nat.reg)
+else ifdef VBOX_WITH_VALIDATIONKIT_PACKING.win.amd64
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.win.amd64)/../vboxtxs.cmd)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.win.amd64)/../vboxtxs.reg)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.win.amd64)/../vboxtxs-nat.cmd)
+ VBOX_VALIDATIONKIT_FILESPEC += $(abspath $(VBOX_PATH_VALIDATIONKIT.win.amd64)/../vboxtxs-nat.reg)
+endif
+
+#
+# If enabled, this includes specially built unit tests (statically linked, for guests) located
+# in the $(VBOX_PATH_VALIDATIONKIT)/../../testcase/ directory.
+#
+# This is useful if we want to run those on platforms where we don't have / support
+# any host support anymore (like Windows XP, for instance).
+#
+# Note that executing the tests require an additional component (tdUnitTest test driver)
+# which runs as part of the Validation Kit.
+#
+# See @bugref{10195}
+#
+ifdef VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+ define def_vbox_validationkit_unittests
+  # IPRT unit tests.
+  VBOX_VALIDATIONKIT_FILESPEC_UNITTESTS += \
+  	$(foreach whitelisted, $(VALKIT_UNITTESTS_WHITELIST_IPRT) $(VALKIT_UNITTESTS_WHITELIST_IPRT.$(os)), \
+  	$$(wildcard $(VBOX_PATH_VALIDATIONKIT_UNITTESTS.$(os).$(arch))/$(whitelisted)$(TMP_SUFF_EXE)))
+  # Unit tests which utilize parts of the Guest Additions.
+  VBOX_VALIDATIONKIT_FILESPEC_UNITTESTS += \
+  	$(foreach whitelisted, $(VALKIT_UNITTESTS_WHITELIST_GUEST_ADDITIONS) $(VALKIT_UNITTESTS_WHITELIST_GUEST_ADDITIONS.$(os)), \
+  	$$(wildcard $(VBOX_PATH_VALIDATIONKIT_UNITTESTS.$(os).$(arch))/$(whitelisted)$(TMP_SUFF_EXE)))
+ endef
+
+ TMP_SUFF_EXE = .exe
+ $(foreach os, win,$(foreach arch, x86 amd64, \
+ 	$(eval $(def_vbox_validationkit_unittests)) \
+ ))
+ TMP_SUFF_EXE =
+ $(foreach os, darwin freebsd linux solaris,$(foreach arch, x86 amd64, \
+ 	$(eval $(def_vbox_validationkit_unittests)) \
+ ))
+
+endif # VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+
+#
+# Build the Validation Kit guest ISO response file for RTIsoMaker.
+#
+# We need this response file because passing all those arguments to RTIsoMaker
+# will blow up the maximum command line length on some OSes.
+#
+$(VBOX_VALIDATIONKIT_ISO_RSP): | $$(dir $$@)
+	$(call MSG_L1,Creating Validation Kit guest ISO response file $@ )
+	kmk_builtin_append -nt "$@" \
+		'--iso-level=3' \
+		'--rock-ridge' \
+		'--joliet' \
+		'--rational-attribs' \
+		'--random-order-verification=2048' \
+		$(foreach spec,$(VBOX_VALIDATIONKIT_FILESPEC) \
+			,$(if $(findstring =,$(spec)), $(spec), /$(lastword $(subst /$(INST_VALIDATIONKIT), ,$(spec))=$(spec))) ) \
+		$(foreach spec,$(VBOX_VALIDATIONKIT_FILESPEC_UNITTESTS) \
+			,$(if $(findstring =,$(spec)), $(spec), /$(lastword $(subst /$(INST_VALIDATIONKIT), ,$(spec))=$(spec))) ) \
+		$(foreach spec,$(filter-out %.txt %.dll %.xml %.reg %.img, $(VBOX_VALIDATIONKIT_FILESPEC)) \
+			,--chmod=a+x:/$(lastword $(if $(findstring =,$(spec)), \
+				        	   $(subst =, $(SP), $(spec)), \
+						   $(subst /$(INST_VALIDATIONKIT), ,$(spec))))) \
+		$(foreach spec,$(filter-out %.txt %.dll %.xml %.reg %.img, $(VBOX_VALIDATIONKIT_FILESPEC_UNITTESTS)) \
+			,--chmod=a+x:/$(lastword $(if $(findstring =,$(spec)), \
+				        	   $(subst =, $(SP), $(spec)), \
+						   $(subst $(INST_VALIDATIONKIT), ,$(spec))))) \
+		'--volume-id="VBOXVALK_$(VBOX_SVN_REV)_$(VBOX_VERSION_STRING_RAW)"' \
+		'--name-setup=joliet' \
+		'--volume-id="VBoxValK $(VBOX_SVN_REV)"'
+
+#
+# Build the Validation Kit guest ISO.
+#
+$(VBOX_PATH_VALIDATIONKIT)/VBoxValidationKit.iso: \
+		$(filter-out %=deleteme=, $(subst =,=deleteme= , $(VBOX_VALIDATIONKIT_FILESPEC))) \
+		$(VBOX_SVN_REV_KMK) \
+		$(VBOX_PATH_VALIDATIONKIT_SRC)/Makefile.kmk \
+		$(VBOX_VALIDATIONKIT_ISO_RSP) \
+		| $(if-expr defined(VBOX_USE_RTISOMAKER),$(VBOX_RTISOMAKER),)
+	$(call MSG_TOOL,RTIsoMaker,,$@)
+	$(QUIET)$(MKDIR) -p $(@D)
+ifneq ($(KBUILD_TARGET),os2)
+	$(QUIET)$(ECHO) VBOX_VALIDATIONKIT_FILESPEC $(VBOX_VALIDATIONKIT_FILESPEC)
+endif
+ifdef VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+	$(foreach os, darwin linux solaris win,$(foreach arch, x86 amd64, \
+		$(call MSG_L1, VBOX_PATH_VALIDATIONKIT_UNITTESTS.$(os).$(arch): $(VBOX_PATH_VALIDATIONKIT_UNITTESTS.$(os).$(arch))) \
+	))
+	$(call MSG_L1, VBOX_VALIDATIONKIT_FILESPEC_UNITTESTS $(VBOX_VALIDATIONKIT_FILESPEC_UNITTESTS))
+endif
+	$(VBOX_RTISOMAKER) \
+		@$(VBOX_VALIDATIONKIT_ISO_RSP) \
+		--output $@
+
+
+
+# Alias for creating the iso.
+.PHONY: validationkit-iso
+validationkit-iso: $(VBOX_PATH_VALIDATIONKIT)/VBoxValidationKit.iso

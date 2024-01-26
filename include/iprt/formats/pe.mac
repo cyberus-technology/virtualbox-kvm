@@ -1,0 +1,732 @@
+;; @file
+; IPRT - Windows PE definitions for YASM/NASM.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___iprt_format_pe_mac
+%define ___iprt_format_pe_mac
+
+
+;*******************************************************************************
+;*  Header Files                                                               *
+;*******************************************************************************
+%include "iprt/asmdefs.mac"
+
+
+;*******************************************************************************
+;*  Defined Constants And Macros                                               *
+;*******************************************************************************
+%define  IMAGE_NT_SIGNATURE  0x00004550
+
+; file header
+%define  IMAGE_FILE_MACHINE_I386  0x014c
+%define  IMAGE_FILE_MACHINE_AMD64  0x8664
+
+%define  IMAGE_FILE_RELOCS_STRIPPED  0x0001
+%define  IMAGE_FILE_EXECUTABLE_IMAGE  0x0002
+%define  IMAGE_FILE_LINE_NUMS_STRIPPED  0x0004
+%define  IMAGE_FILE_LOCAL_SYMS_STRIPPED  0x0008
+%define  IMAGE_FILE_AGGRESIVE_WS_TRIM  0x0010
+%define  IMAGE_FILE_LARGE_ADDRESS_AWARE  0x0020
+%define  IMAGE_FILE_16BIT_MACHINE  0x0040
+%define  IMAGE_FILE_BYTES_REVERSED_LO  0x0080
+%define  IMAGE_FILE_32BIT_MACHINE  0x0100
+%define  IMAGE_FILE_DEBUG_STRIPPED  0x0200
+%define  IMAGE_FILE_REMOVABLE_RUN_FROM_SWAP  0x0400
+%define  IMAGE_FILE_NET_RUN_FROM_SWAP  0x0800
+%define  IMAGE_FILE_SYSTEM  0x1000
+%define  IMAGE_FILE_DLL  0x2000
+%define  IMAGE_FILE_UP_SYSTEM_ONLY  0x4000
+%define  IMAGE_FILE_BYTES_REVERSED_HI  0x8000
+
+
+; optional header
+%define  IMAGE_NT_OPTIONAL_HDR32_MAGIC  0x10B
+%define  IMAGE_NT_OPTIONAL_HDR64_MAGIC  0x20B
+
+%define  IMAGE_SUBSYSTEM_UNKNOWN  0x0
+%define  IMAGE_SUBSYSTEM_NATIVE  0x1
+%define  IMAGE_SUBSYSTEM_WINDOWS_GUI  0x2
+%define  IMAGE_SUBSYSTEM_WINDOWS_CUI  0x3
+%define  IMAGE_SUBSYSTEM_OS2_GUI  0x4
+%define  IMAGE_SUBSYSTEM_OS2_CUI  0x5
+%define  IMAGE_SUBSYSTEM_POSIX_CUI  0x7
+
+%define  IMAGE_LIBRARY_PROCESS_INIT  0x0001
+%define  IMAGE_LIBRARY_PROCESS_TERM  0x0002
+%define  IMAGE_LIBRARY_THREAD_INIT  0x0004
+%define  IMAGE_LIBRARY_THREAD_TERM  0x0008
+%define  IMAGE_DLLCHARACTERISTICS_NO_ISOLATION  0x0200
+%define  IMAGE_DLLCHARACTERISTICS_NO_SEH  0x0400
+%define  IMAGE_DLLCHARACTERISTICS_NO_BIND  0x0800
+%define  IMAGE_DLLCHARACTERISTICS_WDM_DRIVER  0x2000
+%define  IMAGE_DLLCHARACTERISTICS_TERMINAL_SERVER_AWARE  0x8000
+
+%define  IMAGE_NUMBEROF_DIRECTORY_ENTRIES  0x10
+
+%define  IMAGE_DIRECTORY_ENTRY_EXPORT  0x0
+%define  IMAGE_DIRECTORY_ENTRY_IMPORT  0x1
+%define  IMAGE_DIRECTORY_ENTRY_RESOURCE  0x2
+%define  IMAGE_DIRECTORY_ENTRY_EXCEPTION  0x3
+%define  IMAGE_DIRECTORY_ENTRY_SECURITY  0x4
+%define  IMAGE_DIRECTORY_ENTRY_BASERELOC  0x5
+%define  IMAGE_DIRECTORY_ENTRY_DEBUG  0x6
+%define  IMAGE_DIRECTORY_ENTRY_ARCHITECTURE  0x7
+%define  IMAGE_DIRECTORY_ENTRY_COPYRIGHT IMAGE_DIRECTORY_ENTRY_ARCHITECTURE
+%define  IMAGE_DIRECTORY_ENTRY_GLOBALPTR  0x8
+%define  IMAGE_DIRECTORY_ENTRY_TLS  0x9
+%define  IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG  0xa
+%define  IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT  0xb
+%define  IMAGE_DIRECTORY_ENTRY_IAT  0xc
+%define  IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT  0xd
+%define  IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR  0xe
+
+
+; section header
+%define  IMAGE_SIZEOF_SHORT_NAME  0x8
+
+%define  IMAGE_SCN_TYPE_REG  0x00000000
+%define  IMAGE_SCN_TYPE_DSECT  0x00000001
+%define  IMAGE_SCN_TYPE_NOLOAD  0x00000002
+%define  IMAGE_SCN_TYPE_GROUP  0x00000004
+%define  IMAGE_SCN_TYPE_NO_PAD  0x00000008
+%define  IMAGE_SCN_TYPE_COPY  0x00000010
+
+%define  IMAGE_SCN_CNT_CODE  0x00000020
+%define  IMAGE_SCN_CNT_INITIALIZED_DATA  0x00000040
+%define  IMAGE_SCN_CNT_UNINITIALIZED_DATA  0x00000080
+
+%define  IMAGE_SCN_LNK_OTHER  0x00000100
+%define  IMAGE_SCN_LNK_INFO  0x00000200
+%define  IMAGE_SCN_TYPE_OVER  0x00000400
+%define  IMAGE_SCN_LNK_REMOVE  0x00000800
+%define  IMAGE_SCN_LNK_COMDAT  0x00001000
+%define  IMAGE_SCN_MEM_PROTECTED  0x00004000
+%define  IMAGE_SCN_NO_DEFER_SPEC_EXC  0x00004000
+%define  IMAGE_SCN_GPREL  0x00008000
+%define  IMAGE_SCN_MEM_FARDATA  0x00008000
+%define  IMAGE_SCN_MEM_SYSHEAP  0x00010000
+%define  IMAGE_SCN_MEM_PURGEABLE  0x00020000
+%define  IMAGE_SCN_MEM_16BIT  0x00020000
+%define  IMAGE_SCN_MEM_LOCKED  0x00040000
+%define  IMAGE_SCN_MEM_PRELOAD  0x00080000
+
+%define  IMAGE_SCN_ALIGN_1BYTES  0x00100000
+%define  IMAGE_SCN_ALIGN_2BYTES  0x00200000
+%define  IMAGE_SCN_ALIGN_4BYTES  0x00300000
+%define  IMAGE_SCN_ALIGN_8BYTES  0x00400000
+%define  IMAGE_SCN_ALIGN_16BYTES  0x00500000
+%define  IMAGE_SCN_ALIGN_32BYTES  0x00600000
+%define  IMAGE_SCN_ALIGN_64BYTES  0x00700000
+%define  IMAGE_SCN_ALIGN_128BYTES  0x00800000
+%define  IMAGE_SCN_ALIGN_256BYTES  0x00900000
+%define  IMAGE_SCN_ALIGN_512BYTES  0x00A00000
+%define  IMAGE_SCN_ALIGN_1024BYTES  0x00B00000
+%define  IMAGE_SCN_ALIGN_2048BYTES  0x00C00000
+%define  IMAGE_SCN_ALIGN_4096BYTES  0x00D00000
+%define  IMAGE_SCN_ALIGN_8192BYTES  0x00E00000
+%define  IMAGE_SCN_ALIGN_MASK   0x00F00000
+%define  IMAGE_SCN_ALIGN_SHIFT  20
+
+%define  IMAGE_SCN_LNK_NRELOC_OVFL  0x01000000
+%define  IMAGE_SCN_MEM_DISCARDABLE  0x02000000
+%define  IMAGE_SCN_MEM_NOT_CACHED  0x04000000
+%define  IMAGE_SCN_MEM_NOT_PAGED  0x08000000
+%define  IMAGE_SCN_MEM_SHARED  0x10000000
+%define  IMAGE_SCN_MEM_EXECUTE  0x20000000
+%define  IMAGE_SCN_MEM_READ  0x40000000
+%define  IMAGE_SCN_MEM_WRITE  0x80000000
+
+
+; relocations
+%define  IMAGE_REL_BASED_ABSOLUTE  0x0
+%define  IMAGE_REL_BASED_HIGH  0x1
+%define  IMAGE_REL_BASED_LOW  0x2
+%define  IMAGE_REL_BASED_HIGHLOW  0x3
+%define  IMAGE_REL_BASED_HIGHADJ  0x4
+%define  IMAGE_REL_BASED_MIPS_JMPADDR  0x5
+%define  IMAGE_REL_BASED_MIPS_JMPADDR16 0x9
+%define  IMAGE_REL_BASED_IA64_IMM64  0x9
+%define  IMAGE_REL_BASED_DIR64  0xa
+%define  IMAGE_REL_BASED_HIGH3ADJ 0xb
+
+
+; imports
+%define  IMAGE_ORDINAL_FLAG32  0x80000000
+%define  IMAGE_ORDINAL_FLAG64  UINT64_MAX(0x8000000000000000)
+
+
+; debug dir
+%define  IMAGE_DEBUG_TYPE_UNKNOWN           UINT32_C(0x0)
+%define  IMAGE_DEBUG_TYPE_COFF              UINT32_C(0x1)
+%define  IMAGE_DEBUG_TYPE_CODEVIEW          UINT32_C(0x2)
+%define  IMAGE_DEBUG_TYPE_FPO               UINT32_C(0x3)
+%define  IMAGE_DEBUG_TYPE_MISC              UINT32_C(0x4)
+%define  IMAGE_DEBUG_TYPE_EXCEPTION         UINT32_C(0x5)
+%define  IMAGE_DEBUG_TYPE_FIXUP             UINT32_C(0x6)
+%define  IMAGE_DEBUG_TYPE_OMAP_TO_SRC       UINT32_C(0x7)
+%define  IMAGE_DEBUG_TYPE_OMAP_FROM_SRC     UINT32_C(0x8)
+%define  IMAGE_DEBUG_TYPE_BORLAND           UINT32_C(0x9)
+%define  IMAGE_DEBUG_TYPE_RESERVED10        UINT32_C(0x10)
+
+%define  IMAGE_DEBUG_MISC_EXENAME           UINT32_C(1)
+
+; security directory
+%define  WIN_CERT_REVISION_1_0              UINT16_C(0x0100)
+%define  WIN_CERT_REVISION_2_0              UINT16_C(0x0200)
+
+%define  WIN_CERT_TYPE_X509                 UINT16_C(1)
+%define  WIN_CERT_TYPE_PKCS_SIGNED_DATA     UINT16_C(2)
+%define  WIN_CERT_TYPE_RESERVED_1           UINT16_C(3)
+%define  WIN_CERT_TYPE_TS_STACK_SIGNED      UINT16_C(4)
+%define  WIN_CERT_TYPE_EFI_PKCS115          UINT16_C(0x0ef0)
+%define  WIN_CERT_TYPE_EFI_GUID             UINT16_C(0x0ef1)
+
+
+; For .DBG files.
+%define  IMAGE_SEPARATE_DEBUG_SIGNATURE     UINT16_C(0x4944)
+
+%define  IMAGE_SIZE_OF_SYMBOL               18
+%define  IMAGE_SIZE_OF_SYMBOL_EX            20
+
+%define  IMAGE_SYM_UNDEFINED                INT16_C(0)
+%define  IMAGE_SYM_ABSOLUTE                 INT16_C(-1)
+%define  IMAGE_SYM_DEBUG                    INT16_C(-2)
+
+%define  IMAGE_SYM_CLASS_END_OF_FUNCTION    UINT8_C(0xff) ; -1
+%define  IMAGE_SYM_CLASS_NULL               UINT8_C(0)
+%define  IMAGE_SYM_CLASS_AUTOMATIC          UINT8_C(1)
+%define  IMAGE_SYM_CLASS_EXTERNAL           UINT8_C(2)
+%define  IMAGE_SYM_CLASS_STATIC             UINT8_C(3)
+%define  IMAGE_SYM_CLASS_REGISTER           UINT8_C(4)
+%define  IMAGE_SYM_CLASS_EXTERNAL_DEF       UINT8_C(5)
+%define  IMAGE_SYM_CLASS_LABEL              UINT8_C(6)
+%define  IMAGE_SYM_CLASS_UNDEFINED_LABEL    UINT8_C(7)
+%define  IMAGE_SYM_CLASS_MEMBER_OF_STRUCT   UINT8_C(8)
+%define  IMAGE_SYM_CLASS_ARGUMENT           UINT8_C(9)
+%define  IMAGE_SYM_CLASS_STRUCT_TAG         UINT8_C(10)
+%define  IMAGE_SYM_CLASS_MEMBER_OF_UNION    UINT8_C(11)
+%define  IMAGE_SYM_CLASS_UNION_TAG          UINT8_C(12)
+%define  IMAGE_SYM_CLASS_TYPE_DEFINITION    UINT8_C(13)
+%define  IMAGE_SYM_CLASS_UNDEFINED_STATIC   UINT8_C(14)
+%define  IMAGE_SYM_CLASS_ENUM_TAG           UINT8_C(15)
+%define  IMAGE_SYM_CLASS_MEMBER_OF_ENUM     UINT8_C(16)
+%define  IMAGE_SYM_CLASS_REGISTER_PARAM     UINT8_C(17)
+%define  IMAGE_SYM_CLASS_BIT_FIELD          UINT8_C(18)
+%define  IMAGE_SYM_CLASS_FAR_EXTERNAL       UINT8_C(68)
+%define  IMAGE_SYM_CLASS_BLOCK              UINT8_C(100)
+%define  IMAGE_SYM_CLASS_FUNCTION           UINT8_C(101)
+%define  IMAGE_SYM_CLASS_END_OF_STRUCT      UINT8_C(102)
+%define  IMAGE_SYM_CLASS_FILE               UINT8_C(103)
+%define  IMAGE_SYM_CLASS_SECTION            UINT8_C(104)
+%define  IMAGE_SYM_CLASS_WEAK_EXTERNAL      UINT8_C(105)
+%define  IMAGE_SYM_CLASS_CLR_TOKEN          UINT8_C(107)
+
+
+%define  IMAGE_SYM_TYPE_NULL                UINT16_C(0x0000)
+%define  IMAGE_SYM_TYPE_VOID                UINT16_C(0x0001)
+%define  IMAGE_SYM_TYPE_CHAR                UINT16_C(0x0002)
+%define  IMAGE_SYM_TYPE_SHORT               UINT16_C(0x0003)
+%define  IMAGE_SYM_TYPE_INT                 UINT16_C(0x0004)
+%define  IMAGE_SYM_TYPE_LONG                UINT16_C(0x0005)
+%define  IMAGE_SYM_TYPE_FLOAT               UINT16_C(0x0006)
+%define  IMAGE_SYM_TYPE_DOUBLE              UINT16_C(0x0007)
+%define  IMAGE_SYM_TYPE_STRUCT              UINT16_C(0x0008)
+%define  IMAGE_SYM_TYPE_UNION               UINT16_C(0x0009)
+%define  IMAGE_SYM_TYPE_ENUM                UINT16_C(0x000a)
+%define  IMAGE_SYM_TYPE_MOE                 UINT16_C(0x000b)
+%define  IMAGE_SYM_TYPE_BYTE                UINT16_C(0x000c)
+%define  IMAGE_SYM_TYPE_WORD                UINT16_C(0x000d)
+%define  IMAGE_SYM_TYPE_UINT                UINT16_C(0x000e)
+%define  IMAGE_SYM_TYPE_DWORD               UINT16_C(0x000f)
+%define  IMAGE_SYM_TYPE_PCODE               UINT16_C(0x8000)
+
+%define  IMAGE_SYM_DTYPE_NULL               UINT16_C(0x0)
+%define  IMAGE_SYM_DTYPE_POINTER            UINT16_C(0x1)
+%define  IMAGE_SYM_DTYPE_FUNCTION           UINT16_C(0x2)
+%define  IMAGE_SYM_DTYPE_ARRAY              UINT16_C(0x3)
+
+
+%define N_BTMASK                            UINT16_C(0x000f)
+%define N_TMASK                             UINT16_C(0x0030)
+%define N_TMASK1                            UINT16_C(0x00c0)
+%define N_TMASK2                            UINT16_C(0x00f0)
+%define N_BTSHFT                            4
+%define N_TSHIFT                            2
+
+
+;*******************************************************************************
+;*  Structures and Typedefs                                                    *
+;*******************************************************************************
+
+struc IMAGE_FILE_HEADER
+    .Machine resw 1                      ;;< 0x00
+    .NumberOfSections resw 1             ;;< 0x02
+    .TimeDateStamp resd 1                ;;< 0x04
+    .PointerToSymbolTable resd 1         ;;< 0x08
+    .NumberOfSymbols resd 1              ;;< 0x0c
+    .SizeOfOptionalHeader resw 1         ;;< 0x10
+    .Characteristics resw 1              ;;< 0x12
+endstruc
+AssertCompileSize(IMAGE_FILE_HEADER, 0x14)
+
+struc IMAGE_DATA_DIRECTORY
+    .VirtualAddress resd 1
+    .Size resd 1
+endstruc
+
+
+struc IMAGE_OPTIONAL_HEADER32
+    .Magic resw 1                        ;;< 0x00
+    .MajorLinkerVersion resb 1           ;;< 0x02
+    .MinorLinkerVersion resb 1           ;;< 0x03
+    .SizeOfCode resd 1                   ;;< 0x04
+    .SizeOfInitializedData resd 1        ;;< 0x08
+    .SizeOfUninitializedData resd 1      ;;< 0x0c
+    .AddressOfEntryPoint resd 1          ;;< 0x10
+    .BaseOfCode resd 1                   ;;< 0x14
+    .BaseOfData resd 1                   ;;< 0x18
+    .ImageBase resd 1                    ;;< 0x1c
+    .SectionAlignment resd 1             ;;< 0x20
+    .FileAlignment resd 1                ;;< 0x24
+    .MajorOperatingSystemVersion resw 1  ;;< 0x28
+    .MinorOperatingSystemVersion resw 1  ;;< 0x2a
+    .MajorImageVersion resw 1            ;;< 0x2c
+    .MinorImageVersion resw 1            ;;< 0x2e
+    .MajorSubsystemVersion resw 1        ;;< 0x30
+    .MinorSubsystemVersion resw 1        ;;< 0x32
+    .Win32VersionValue resd 1            ;;< 0x34
+    .SizeOfImage resd 1                  ;;< 0x38
+    .SizeOfHeaders resd 1                ;;< 0x3c
+    .CheckSum resd 1                     ;;< 0x40
+    .Subsystem resw 1                    ;;< 0x44
+    .DllCharacteristics resw 1           ;;< 0x46
+    .SizeOfStackReserve resd 1           ;;< 0x48
+    .SizeOfStackCommit resd 1            ;;< 0x4c
+    .SizeOfHeapReserve resd 1            ;;< 0x50
+    .SizeOfHeapCommit resd 1             ;;< 0x54
+    .LoaderFlags resd 1                  ;;< 0x58
+    .NumberOfRvaAndSizes resd 1          ;;< 0x5c
+    .DataDirectory resb IMAGE_DATA_DIRECTORY_size * IMAGE_NUMBEROF_DIRECTORY_ENTRIES ;;< 0x60; 0x10*8 = 0x80
+endstruc
+AssertCompileSize(IMAGE_OPTIONAL_HEADER32, 0xe0);
+
+struc IMAGE_OPTIONAL_HEADER64
+    .Magic resw 1                        ;;< 0x00
+    .MajorLinkerVersion resb 1           ;;< 0x02
+    .MinorLinkerVersion resb 1           ;;< 0x03
+    .SizeOfCode resd 1                   ;;< 0x04
+    .SizeOfInitializedData resd 1        ;;< 0x08
+    .SizeOfUninitializedData resd 1      ;;< 0x0c
+    .AddressOfEntryPoint resd 1          ;;< 0x10
+    .BaseOfCode resd 1                   ;;< 0x14
+    .ImageBase resq 1                    ;;< 0x18
+    .SectionAlignment resd 1             ;;< 0x20
+    .FileAlignment resd 1                ;;< 0x24
+    .MajorOperatingSystemVersion resw 1  ;;< 0x28
+    .MinorOperatingSystemVersion resw 1  ;;< 0x2a
+    .MajorImageVersion resw 1            ;;< 0x2c
+    .MinorImageVersion resw 1            ;;< 0x2e
+    .MajorSubsystemVersion resw 1        ;;< 0x30
+    .MinorSubsystemVersion resw 1        ;;< 0x32
+    .Win32VersionValue resd 1            ;;< 0x34
+    .SizeOfImage resd 1                  ;;< 0x38
+    .SizeOfHeaders resd 1                ;;< 0x3c
+    .CheckSum resd 1                     ;;< 0x40
+    .Subsystem resw 1                    ;;< 0x44
+    .DllCharacteristics resw 1           ;;< 0x46
+    .SizeOfStackReserve resq 1           ;;< 0x48
+    .SizeOfStackCommit resq 1            ;;< 0x50
+    .SizeOfHeapReserve resq 1            ;;< 0x58
+    .SizeOfHeapCommit resq 1             ;;< 0x60
+    .LoaderFlags resd 1                  ;;< 0x68
+    .NumberOfRvaAndSizes resd 1          ;;< 0x6c
+    .DataDirectory resb IMAGE_DATA_DIRECTORY_size * IMAGE_NUMBEROF_DIRECTORY_ENTRIES ;;< 0x70; 0x10*8 = 0x80
+endstruc                                 ; size: 0xf0
+AssertCompileSize(IMAGE_OPTIONAL_HEADER64, 0xf0);
+
+
+struc IMAGE_NT_HEADERS32
+    .Signature resd 1                    ;;< 0x00
+    .FileHeader resb IMAGE_FILE_HEADER_size ;           ;;< 0x04
+    .OptionalHeader resb IMAGE_OPTIONAL_HEADER32_size   ;;< 0x18
+endstruc                                 ; size:  0xf8
+AssertCompileSize(IMAGE_NT_HEADERS32, 0xf8);
+AssertCompileMemberOffset(IMAGE_NT_HEADERS32, FileHeader, 4);
+AssertCompileMemberOffset(IMAGE_NT_HEADERS32, OptionalHeader, 24);
+
+struc IMAGE_NT_HEADERS64
+    .Signature resd 1                                  ;;< 0x00
+    .FileHeader resb IMAGE_FILE_HEADER_size            ;;< 0x04
+    .OptionalHeader resb IMAGE_OPTIONAL_HEADER64_size  ;;< 0x18
+endstruc                                 ; size: 0x108
+AssertCompileSize(IMAGE_NT_HEADERS64, 0x108);
+AssertCompileMemberOffset(IMAGE_NT_HEADERS64, FileHeader, 4);
+AssertCompileMemberOffset(IMAGE_NT_HEADERS64, OptionalHeader, 24);
+
+
+struc IMAGE_SECTION_HEADER
+    .Name resb IMAGE_SIZEOF_SHORT_NAME
+    .Misc.VirtualSize resd 1
+    .VirtualAddress resd 1
+    .SizeOfRawData resd 1
+    .PointerToRawData resd 1
+    .PointerToRelocations resd 1
+    .PointerToLinenumbers resd 1
+    .NumberOfRelocations resw 1
+    .NumberOfLinenumbers resw 1
+    .Characteristics resd 1
+endstruc
+%define IMAGE_SECTION_HEADER.Misc.PhysicalAddress IMAGE_SECTION_HEADER.Misc.VirtualSize
+
+
+struc IMAGE_BASE_RELOCATION
+    .VirtualAddress resd 1
+    .SizeOfBlock resd 1
+endstruc
+
+
+struc IMAGE_EXPORT_DIRECTORY
+    .Characteristics resd 1
+    .TimeDateStamp resd 1
+    .MajorVersion resw 1
+    .MinorVersion resw 1
+    .Name resd 1
+    .Base resd 1
+    .NumberOfFunctions resd 1
+    .NumberOfNames resd 1
+    .AddressOfFunctions resd 1
+    .AddressOfNames resd 1
+    .AddressOfNameOrdinals resd 1
+endstruc
+
+
+struc IMAGE_IMPORT_DESCRIPTOR
+    .u.Characteristics resd 1
+    .TimeDateStamp resd 1
+    .ForwarderChain resd 1
+    .Name resd 1
+    .FirstThunk resd 1
+endstruc
+%define IMAGE_IMPORT_DESCRIPTOR.u.OriginalFirstThunk IMAGE_IMPORT_DESCRIPTOR.u.Characteristics
+
+struc IMAGE_IMPORT_BY_NAME
+    .Hint resw 1
+    .Name resb 1
+endstruc
+
+
+struc IMAGE_THUNK_DATA64
+    .u1.ForwarderString resq 1
+endstruc
+%define IMAGE_THUNK_DATA64.u1.Function      IMAGE_THUNK_DATA64.u1.ForwarderString
+%define IMAGE_THUNK_DATA64.u1.Ordinal       IMAGE_THUNK_DATA64.u1.ForwarderString
+%define IMAGE_THUNK_DATA64.u1.AddressOfData IMAGE_THUNK_DATA64.u1.ForwarderString
+
+struc IMAGE_THUNK_DATA32
+    .u1.ForwarderString resd 1
+endstruc
+%define IMAGE_THUNK_DATA32.u1.Function      IMAGE_THUNK_DATA32.u1.ForwarderString
+%define IMAGE_THUNK_DATA32.u1.Ordinal       IMAGE_THUNK_DATA32.u1.ForwarderString
+%define IMAGE_THUNK_DATA32.u1.AddressOfData IMAGE_THUNK_DATA32.u1.ForwarderString
+
+
+struc IMAGE_LOAD_CONFIG_DIRECTORY32
+    .Size resd 1
+    .TimeDateStamp resd 1
+    .MajorVersion resw 1
+    .MinorVersion resw 1
+    .GlobalFlagsClear resd 1
+    .GlobalFlagsSet resd 1
+    .CriticalSectionDefaultTimeout resd 1
+    .DeCommitFreeBlockThreshold resd 1
+    .DeCommitTotalFreeThreshold resd 1
+    .LockPrefixTable resd 1
+    .MaximumAllocationSize resd 1
+    .VirtualMemoryThreshold resd 1
+    .ProcessHeapFlags resd 1
+    .ProcessAffinityMask resd 1
+    .CSDVersion resw 1
+    .Reserved1 resw 1
+    .EditList resd 1
+    .SecurityCookie resd 1
+    .SEHandlerTable resd 1
+    .SEHandlerCount resd 1
+endstruc
+
+struc IMAGE_LOAD_CONFIG_DIRECTORY64
+    .Size resd 1
+    .TimeDateStamp resd 1
+    .MajorVersion resw 1
+    .MinorVersion resw 1
+    .GlobalFlagsClear resd 1
+    .GlobalFlagsSet resd 1
+    .CriticalSectionDefaultTimeout resd 1
+    .DeCommitFreeBlockThreshold resq 1
+    .DeCommitTotalFreeThreshold resq 1
+    .LockPrefixTable resq 1
+    .MaximumAllocationSize resq 1
+    .VirtualMemoryThreshold resq 1
+    .ProcessAffinityMask resq 1
+    .ProcessHeapFlags resd 1
+    .CSDVersion resw 1
+    .Reserved1 resw 1
+    .EditList resq 1
+    .SecurityCookie resq 1
+    .SEHandlerTable resq 1
+    .SEHandlerCount resq 1
+endstruc
+
+
+struc IMAGE_DEBUG_DIRECTORY
+    .Characteristics resd 1
+    .TimeDateStamp resd 1
+    .MajorVersion resw 1
+    .MinorVersion resw 1
+    .Type resd 1
+    .SizeOfData resd 1
+    .AddressOfRawData resd 1
+    .PointerToRawData resd 1
+endstruc
+
+struc IMAGE_DEBUG_MISC
+    .DataType resd 1
+    .Length resd 1
+    .Unicode resb 1
+    .Reserved resb 3
+    .Data resb 1
+endstruc
+
+
+struc WIN_CERTIFICATE
+    .dwLength  resd 1
+    .wRevision resw 1
+    .wCertificateType resw 1
+    .bCertificate resb 8
+endstruc
+
+;; The header of a .DBG file (NT4).
+struc IMAGE_SEPARATE_DEBUG_HEADER
+    .Signature resw 1              ;;< 0x00
+    .Flags resw 1                  ;;< 0x02
+    .Machine resw 1                ;;< 0x04
+    .Characteristics resw 1        ;;< 0x06
+    .TimeDateStamp resd 1          ;;< 0x08
+    .CheckSum resd 1               ;;< 0x0c
+    .ImageBase resd 1              ;;< 0x10
+    .SizeOfImage resd 1            ;;< 0x14
+    .NumberOfSections resd 1       ;;< 0x18
+    .ExportedNamesSize resd 1      ;;< 0x1c
+    .DebugDirectorySize resd 1     ;;< 0x20
+    .SectionAlignment resd 1       ;;< 0x24
+    .Reserved resd 2               ;;< 0x28
+endstruc                           ; size: 0x30
+AssertCompileSize(IMAGE_SEPARATE_DEBUG_HEADER, 0x30);
+
+
+struc IMAGE_COFF_SYMBOLS_HEADER
+    .NumberOfSymbols resd 1
+    .LvaToFirstSymbol resd 1
+    .NumberOfLinenumbers resd 1
+    .LvaToFirstLinenumber resd 1
+    .RvaToFirstByteOfCode resd 1
+    .RvaToLastByteOfCode resd 1
+    .RvaToFirstByteOfData resd 1
+    .RvaToLastByteOfData resd 1
+endstruc
+AssertCompileSize(IMAGE_COFF_SYMBOLS_HEADER, 0x20);
+
+
+struc IMAGE_LINENUMBER
+    .Type.VirtualAddress resd 1
+    .Linenumber resw 1
+endstruc
+AssertCompileSize(IMAGE_LINENUMBER, 6);
+%define IMAGE_LINENUMBER.Type.SymbolTableIndex IMAGE_LINENUMBER.Type.VirtualAddress
+
+
+;;#pragma pack(2)
+;;struc IMAGE_SYMBOL
+;;{
+;;    union
+;;    {
+;;        uint8_t         ShortName[8];
+;;        struct
+;;        {
+;;            .Short resd 1
+;;            .Long resd 1
+;;        } Name;
+;;        uint32_t        LongName[2];
+;;    } N;
+;;
+;;    .Value resd 1
+;;    int16_t     SectionNumber;
+;;    .Type resw 1
+;;    .StorageClass resb 1
+;;    .NumberOfAuxSymbols resb 1
+;;} IMAGE_SYMBOL;
+;;#pragma pack()
+;;AssertCompileSize(IMAGE_SYMBOL, IMAGE_SIZE_OF_SYMBOL);
+;;
+;;
+;;#pragma pack(2)
+;;typedef struct IMAGE_AUX_SYMBOL_TOKEN_DEF
+;;{
+;;    .bAuxType resb 1
+;;    .bReserved resb 1
+;;    .SymbolTableIndex resd 1
+;;    uint8_t     rgbReserved[12];
+;;} IMAGE_AUX_SYMBOL_TOKEN_DEF;
+;;#pragma pack()
+;;AssertCompileSize(IMAGE_AUX_SYMBOL_TOKEN_DEF, IMAGE_SIZE_OF_SYMBOL);
+;;
+;;
+;;#pragma pack(1)
+;;typedef union _IMAGE_AUX_SYMBOL
+;;{
+;;    struct
+;;    {
+;;        .TagIndex resd 1
+;;        union
+;;        {
+;;            struct
+;;            {
+;;                .Linenumber resw 1
+;;                .Size resw 1
+;;            } LnSz;
+;;        } Misc;
+;;        union
+;;        {
+;;            struct
+;;            {
+;;                .PointerToLinenumber resd 1
+;;                .PointerToNextFunction resd 1
+;;            } Function;
+;;            struct
+;;            {
+;;                uint16_t    Dimension[4];
+;;            } Array;
+;;        } FcnAry;
+;;        .TvIndex resw 1
+;;    } Sym;
+;;
+;;    struct
+;;    {
+;;        uint8_t     Name[IMAGE_SIZE_OF_SYMBOL];
+;;    } File;
+;;
+;;    struct
+;;    {
+;;        .Length resd 1
+;;        .NumberOfRelocations resw 1
+;;        .NumberOfLinenumbers resw 1
+;;        .CheckSum resd 1
+;;        .Number resw 1
+;;        .Selection resb 1
+;;        .bReserved resb 1
+;;        .HighNumber resw 1
+;;    } Section;
+;;
+;;    IMAGE_AUX_SYMBOL_TOKEN_DEF TokenDef;
+;;    struct
+;;    {
+;;        .crc resd 1
+;;        uint8_t     rgbReserved[14];
+;;    } CRC;
+;;} IMAGE_AUX_SYMBOL;
+;;#pragma pack()
+;;AssertCompileSize(IMAGE_AUX_SYMBOL, IMAGE_SIZE_OF_SYMBOL);
+;;
+;;
+;;
+;;struc IMAGE_SYMBOL_EX
+;;{
+;;    union
+;;    {
+;;        uint8_t         ShortName[8];
+;;        struct
+;;        {
+;;            .Short resd 1
+;;            .Long resd 1
+;;        } Name;
+;;        uint32_t        LongName[2];
+;;    } N;
+;;
+;;    .Value resd 1
+;;    int32_t     SectionNumber;          /* The difference from IMAGE_SYMBOL
+;;    .Type resw 1
+;;    .StorageClass resb 1
+;;    .NumberOfAuxSymbols resb 1
+;;} IMAGE_SYMBOL_EX;
+;;AssertCompileSize(IMAGE_SYMBOL_EX, IMAGE_SIZE_OF_SYMBOL_EX);
+;;
+;;
+;;typedef union _IMAGE_AUX_SYMBOL_EX
+;;{
+;;    struct
+;;    {
+;;        .WeakDefaultSymIndex resd 1
+;;        .WeakSearchType resd 1
+;;        uint8_t     rgbReserved[12];
+;;    } Sym;
+;;
+;;    struct
+;;    {
+;;        uint8_t     Name[IMAGE_SIZE_OF_SYMBOL_EX];
+;;    } File;
+;;
+;;    struct
+;;    {
+;;        .Length resd 1
+;;        .NumberOfRelocations resw 1
+;;        .NumberOfLinenumbers resw 1
+;;        .CheckSum resd 1
+;;        .Number resw 1
+;;        .Selection resb 1
+;;        .bReserved resb 1
+;;        .HighNumber resw 1
+;;        uint8_t     rgbReserved[2];
+;;    } Section;
+;;
+;;    IMAGE_AUX_SYMBOL_TOKEN_DEF TokenDef;
+;;
+;;    struct
+;;    {
+;;        .crc resd 1
+;;        uint8_t     rgbReserved[16];
+;;    } CRC;
+;;} IMAGE_AUX_SYMBOL_EX;
+;;AssertCompileSize(IMAGE_AUX_SYMBOL_EX, IMAGE_SIZE_OF_SYMBOL_EX);
+
+%endif
+

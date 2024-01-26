@@ -1,0 +1,65 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Guest Control Host Service.
+#
+
+#
+# Copyright (C) 2011-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefile(s).
+# include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+
+#
+# The drag and drop service DLL.
+#
+DLLS += VBoxDragAndDropSvc
+VBoxDragAndDropSvc_TEMPLATE  = VBoxR3Dll
+VBoxDragAndDropSvc_NAME.os2  = VBoxDnD
+VBoxDragAndDropSvc_DEFS      = \
+	VBOX_WITH_HGCM \
+	$(if $(VBOX_WITH_DRAG_AND_DROP_GH),VBOX_WITH_DRAG_AND_DROP_GH,)
+VBoxDragAndDropSvc_INCS      = $(PATH_ROOT)/src/VBox/Main/include ./
+VBoxDragAndDropSvc_INCS.win  = \
+	$(VBOX_PATH_SDK)
+
+VBoxDragAndDropSvc_SOURCES = \
+	VBoxDragAndDropSvc.cpp \
+	dndmanager.cpp
+
+VBoxDragAndDropSvc_SOURCES += \
+	../common/client.cpp \
+	../common/message.cpp
+
+VBoxDragAndDropSvc_SOURCES.win = \
+	VBoxDragAndDropSvc.rc
+
+VBoxDragAndDropSvc_LIBS = \
+	$(LIB_RUNTIME) \
+	$(PATH_STAGE_LIB)/VBoxDnDHostR3Lib$(VBOX_SUFF_LIB)
+
+VBoxDragAndDropSvc_LDFLAGS.darwin = \
+	-install_name $(VBOX_DYLD_EXECUTABLE_PATH)/VBoxDragAndDropSvc.dylib
+
+include $(FILE_KBUILD_SUB_FOOTER)

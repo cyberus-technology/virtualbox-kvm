@@ -1,0 +1,456 @@
+# $Id: VCC100AMD64.kmk 3313 2020-03-16 02:31:38Z bird $
+## @file
+# kBuild Tool Config - Visual C++ 10.0 (aka Visual 2010 and MSC v16), targeting AMD64.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_VCC100AMD64 := Visual C++ 10.0 (aka Visual 2010 and MSC v16), targeting AMD64
+
+# Tool Specific Properties
+ifndef PATH_TOOL_VCC100AMD64
+ PATH_TOOL_VCC100AMD64 := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/vcc/v10*)
+ ifeq ($(PATH_TOOL_VCC100AMD64),)
+  PATH_TOOL_VCC100AMD64 := $(PATH_TOOL_VCC100)
+ endif
+ ifeq ($(PATH_TOOL_VCC100AMD64),)
+  PATH_TOOL_VCC100AMD64 := $(PATH_TOOL_VCC100X86)
+ endif
+ ifeq ($(PATH_TOOL_VCC100AMD64),)
+  PATH_TOOL_VCC100AMD64 := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/vcc/v10*)
+ endif
+ ifneq ($(PATH_TOOL_VCC100AMD64),)
+  PATH_TOOL_VCC100AMD64 := $(lastword $(sort $(PATH_TOOL_VCC100AMD64)))
+ else
+  $(warning kBuild: PATH_TOOL_VCC100AMD64 cannot be determined!)
+  PATH_TOOL_VCC100AMD64 := $(KBUILD_DEVTOOLS)/win.x86/vcc/v10
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_TOOL_VCC100AMD64 := $(PATH_TOOL_VCC100AMD64)
+endif
+ifeq ($(KBUILD_HOST).$(KBUILD_HOST_ARCH),win.amd64)
+PATH_TOOL_VCC100AMD64_BIN ?= $(PATH_TOOL_VCC100AMD64)/bin/amd64
+else
+PATH_TOOL_VCC100AMD64_BIN ?= $(PATH_TOOL_VCC100AMD64)/bin/x86_amd64
+endif
+PATH_TOOL_VCC100AMD64_LIB ?= $(PATH_TOOL_VCC100AMD64)/lib/amd64
+PATH_TOOL_VCC100AMD64_INC ?= $(PATH_TOOL_VCC100AMD64)/include
+PATH_TOOL_VCC100AMD64_ATLMFC ?= $(PATH_TOOL_VCC100AMD64)/atlmfc
+PATH_TOOL_VCC100AMD64_ATLMFC_INC ?= $(PATH_TOOL_VCC100AMD64_ATLMFC)/include
+PATH_TOOL_VCC100AMD64_ATLMFC_LIB ?= $(PATH_TOOL_VCC100AMD64_ATLMFC)/lib/amd64
+TOOL_VCC100AMD64_CC  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC100AMD64_BIN)/cl.exe
+TOOL_VCC100AMD64_CXX ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC100AMD64_BIN)/cl.exe
+TOOL_VCC100AMD64_AS  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC100AMD64_BIN)/ml64.exe
+#TOOL_VCC100AMD64_AR  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC100AMD64_BIN)/lib.exe - just an exec wrapper for the below
+TOOL_VCC100AMD64_AR  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC100AMD64_BIN)/link.exe /LIB
+TOOL_VCC100AMD64_LD  ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC100AMD64_BIN)/link.exe
+TOOL_VCC100AMD64_DUMPBIN ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC100AMD64_BIN)/dumpbin.exe
+TOOL_VCC100AMD64_EDITBIN ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC100AMD64_BIN)/editbin.exe
+TOOL_VCC100AMD64_RC  ?= $(EXEC_X86_WIN32) $(call TOOL_VCC100_FN_FIND_SDK_TOOL,rc.exe,[Rr][Cc].[Ee][Xx][Ee],TOOL_VCC100_RC_CACHED)
+TOOL_VCC100AMD64_MT  ?= $(EXEC_X86_WIN32) $(call TOOL_VCC100_FN_FIND_SDK_TOOL,mt.exe,[Mm][Tt].[Ee][Xx][Ee],TOOL_VCC100_MT_CACHED)
+ifdef TOOL_VCC100AMD64_USE_KSUBMIT
+ ifeq ($(KBUILD_HOST),win)
+  ifneq ($(substr $(PATH_TOOL_VCC100AMD64_BIN),-9),x86_amd64)
+   TOOL_VCC100AMD64_KSUBMIT ?= kmk_builtin_kSubmit --64-bit
+   if $(KBUILD_KMK_REVISION) > 3311
+    TOOL_VCC100AMD64_KSUBMIT_SPECIAL_ENV = -s "_MSPDBSRV_ENDPOINT_=kBuild_vcc10_amd64_@@AUTHENTICATION_ID@@_$(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB),common,@@PROCESS_GROUP@@)"
+   endif
+   TOOL_VCC100AMD64_KSUBMIT_DD = $(TOOL_VCC100AMD64_KSUBMIT) $(TOOL_VCC100AMD64_KSUBMIT_SPECIAL_ENV) --
+  else
+   # "fatal error C1902: Program database manager mismatch; please check your installation" when mixing with the 32-bit compiler.
+   #TOOL_VCC100AMD64_KSUBMIT ?= kmk_builtin_kSubmit --32-bit
+   #TOOL_VCC100AMD64_KSUBMIT_DD = $(TOOL_VCC100AMD64_KSUBMIT) --
+  endif
+ endif
+endif
+
+# The following in duplicated in VCC100.kmk and VCC100X86.kmk.
+TOOL_VCC100_FN_FIND_SDK_TOOL_SUB = $(eval $3 := $(firstword  \
+       $(if-expr defined(PATH_SDK_WINPSDK71_BIN), $(wildcard $(PATH_SDK_WINPSDK71_BIN)/$2)) \
+       $(if-expr defined(PATH_SDK_WINPSDK_BIN)  , $(wildcard $(PATH_SDK_WINPSDK_BIN)/$2)) \
+	$(rsort $(wildcard $(KBUILD_DEVTOOLS_HST)/sdk/*/[Bb][Ii][Nn]/$2)) \
+	$(rsort $(wildcard $(KBUILD_DEVTOOLS_HST_ALT)/sdk/*/[Bb][Ii][Nn]/$2)) \
+	$1))
+TOOL_VCC100_FN_FIND_SDK_TOOL = $(if-expr !defined($3),$(TOOL_VCC100_FN_FIND_SDK_TOOL_SUB),)$($3)
+
+## Disabled fast DEP_IDB based dependencies.
+#VCC100AMD64_OLD_DEPS = 1
+
+## Constructs the correct .pdb name (the name is lowercased).
+# @param    $(1)        Base name, no extention.
+# @param    $(2)        The extension.
+TOOL_VCC100AMD64_PDB = $(dir $(1))$(tolower $(notdir $(1))).$(2)
+
+
+# General Properties used by kBuild
+TOOL_VCC100AMD64_COBJSUFF         ?= .obj
+TOOL_VCC100AMD64_CFLAGS           ?= -TC -nologo -Zi
+TOOL_VCC100AMD64_CFLAGS.debug     ?=
+TOOL_VCC100AMD64_CFLAGS.dbgopt    ?= -O2
+TOOL_VCC100AMD64_CFLAGS.release   ?= -O2
+TOOL_VCC100AMD64_CFLAGS.profile   ?= -O2
+TOOL_VCC100AMD64_CINCS            ?= $(PATH_TOOL_VCC100AMD64_INC)
+TOOL_VCC100AMD64_CDEFS            ?=
+
+TOOL_VCC100AMD64_CXXOBJSUFF       ?= .obj
+TOOL_VCC100AMD64_CXXFLAGS         ?= -TP -nologo -Zi
+TOOL_VCC100AMD64_CXXFLAGS.debug   ?=
+TOOL_VCC100AMD64_CXXFLAGS.dbgopt  ?= -O2
+TOOL_VCC100AMD64_CXXFLAGS.release ?= -O2
+TOOL_VCC100AMD64_CXXFLAGS.profile ?= -O2
+TOOL_VCC100AMD64_CXXINCS          ?= $(PATH_TOOL_VCC100AMD64_INC) $(PATH_TOOL_VCC100AMD64_ATLMFC_INC)
+TOOL_VCC100AMD64_CXXDEFS          ?=
+
+TOOL_VCC100AMD64_ASOBJSUFF        ?= .obj
+
+TOOL_VCC100AMD64_RCOBJSUFF        ?= .res
+TOOL_VCC100AMD64_RCINCS           ?= $(PATH_TOOL_VCC100AMD64_INC) $(PATH_TOOL_VCC100AMD64_ATLMFC_INC)
+
+TOOL_VCC100AMD64_ARFLAGS          ?= -nologo -machine:amd64
+TOOL_VCC100AMD64_ARLIBSUFF        ?= .lib
+
+TOOL_VCC100AMD64_LDFLAGS          ?= -nologo -machine:amd64
+TOOL_VCC100AMD64_LDFLAGS.debug    ?= -debug
+TOOL_VCC100AMD64_LDFLAGS.dbgopt   ?= -debug
+TOOL_VCC100AMD64_LDFLAGS.profile  ?= -debug
+TOOL_VCC100AMD64_LDFLAGS.release  ?=
+
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC100AMD64_COMPILE_C_DEPEND =
+TOOL_VCC100AMD64_COMPILE_C_DEPORD =
+TOOL_VCC100AMD64_COMPILE_C_OUTPUT =
+TOOL_VCC100AMD64_COMPILE_C_OUTPUT_MAYBE = $(call TOOL_VCC100AMD64_PDB, $(outbase)-obj,pdb) $(call TOOL_VCC100AMD64_PDB, $(outbase)-obj,idb)
+ifdef TOOL_VCC100AMD64_KSUBMIT
+ TOOL_VCC100AMD64_COMPILE_C_DONT_PURGE_OUTPUT := 1 # speed
+ define TOOL_VCC100AMD64_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VCC100AMD64_KSUBMIT) $(TOOL_VCC100AMD64_KSUBMIT_SPECIAL_ENV) \
+		-P $(DEP_OBJ_INT) -f -s -q -o $(dep) -t $(obj) $(obj)\
+		-- $(TOOL_VCC100AMD64_CC) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Fd$(outbase)-obj.pdb \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC100AMD64_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VCC100AMD64_CC) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Fd$(outbase)-obj.pdb \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q -o $(dep) -t $(obj) $(obj)
+ endef
+endif # !TOOL_VCC100AMD64_KSUBMIT
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC100AMD64_COMPILE_CXX_DEPEND = $($(target)_1_VCC_PCH_FILE)
+TOOL_VCC100AMD64_COMPILE_CXX_DEPORD =
+TOOL_VCC100AMD64_COMPILE_CXX_OUTPUT =
+TOOL_VCC100AMD64_COMPILE_CXX_OUTPUT_MAYBE = $(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB)\
+	,,$(call TOOL_VCC100AMD64_PDB, $(outbase)-obj,pdb) $(call TOOL_VCC100AMD64_PDB, $(outbase)-obj,idb))
+ifdef TOOL_VCC100AMD64_KSUBMIT
+ TOOL_VCC100AMD64_COMPILE_CXX_DONT_PURGE_OUTPUT := 1 # speed
+ define TOOL_VCC100AMD64_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VCC100AMD64_KSUBMIT) $(TOOL_VCC100AMD64_KSUBMIT_SPECIAL_ENV) \
+		-P $(DEP_OBJ_INT) -f -s -q -o $(dep) -t $(obj) $(obj) -- $(TOOL_VCC100AMD64_CXX) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		$(if-expr defined($(target)_PCH_HDR)\
+		,-FI$($(target)_PCH_HDR) -Yu$($(target)_PCH_HDR) -Fp$($(target)_1_VCC_PCH_FILE),)\
+		-Fd$(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB),$($(target)_1_VCC_COMMON_OBJ_PDB),$(outbase)-obj.pdb) \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC100AMD64_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VCC100AMD64_CXX) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		$(if-expr defined($(target)_PCH_HDR)\
+		,-FI$($(target)_PCH_HDR) -Yu$($(target)_PCH_HDR) -Fp$($(target)_1_VCC_PCH_FILE),)\
+		-Fd$(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB),$($(target)_1_VCC_COMMON_OBJ_PDB),$(outbase)-obj.pdb) \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q -o $(dep) -t $(obj) $(obj)
+ endef
+endif # !TOOL_VCC100AMD64_KSUBMIT
+
+
+#
+# Helper tool for creating the precompiled C++ header.
+#
+# It only have the C++ compile bits and it's purpose is to skip bits
+# related _1_VCC_PCH_FILE and add -Yc.
+#
+TOOL_VCC100AMD64-PCH                         := Helper for creating precompiled header using CXX handling.
+TOOL_VCC100AMD64-PCH_EXTENDS                 := VCC100AMD64
+TOOL_VCC100AMD64-PCH_CXXOBJSUFF              := .obj
+TOOL_VCC100AMD64-PCH_CXXINCS                  = $(TOOL_VCC100AMD64_CXXINCS)
+TOOL_VCC100AMD64-PCH_CXXFLAGS.debug           = $(TOOL_VCC100AMD64_CXXFLAGS.debug)
+TOOL_VCC100AMD64-PCH_CXXFLAGS.dbgopt          = $(TOOL_VCC100AMD64_CXXFLAGS.dbgopt)
+TOOL_VCC100AMD64-PCH_CXXFLAGS.release         = $(TOOL_VCC100AMD64_CXXFLAGS.release)
+TOOL_VCC100AMD64-PCH_CXXFLAGS.profile         = $(TOOL_VCC100AMD64_CXXFLAGS.profile)
+TOOL_VCC100AMD64-PCH_COMPILE_CXX_DEPEND       = $(NO_SUCH_VARIABLE)
+TOOL_VCC100AMD64-PCH_COMPILE_CXX_DEPORD       = $(NO_SUCH_VARIABLE)
+TOOL_VCC100AMD64-PCH_COMPILE_CXX_OUTPUT       = $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+TOOL_VCC100AMD64-PCH_COMPILE_CXX_OUTPUT_MAYBE = $(NO_SUCH_VARIABLE)
+ifdef TOOL_VCC100AMD64_KSUBMIT
+ define TOOL_VCC100AMD64-PCH_COMPILE_CXX_CMDS
+	$(QUIET)$(RM) -f -- $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+	$(QUIET)$(TOOL_VCC100AMD64_KSUBMIT) --no-pch-caching $(TOOL_VCC100AMD64_KSUBMIT_SPECIAL_ENV) \
+		-P $(DEP_OBJ_INT) -f -s -q -e .pch -o $(dep) -t $(obj) $(obj)\
+		-- $(TOOL_VCC100AMD64_CXX) -c -Yc\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+               -Fp$($(target)_1_VCC_PCH_FILE) \
+		-Fd$($(target)_1_VCC_COMMON_OBJ_PDB) \
+		-Fo$(obj)\
+               -TP \
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC100AMD64-PCH_COMPILE_CXX_CMDS
+	$(QUIET)$(RM) -f -- $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+	$(QUIET)$(TOOL_VCC100AMD64_CXX) -c -Yc\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+               -Fp$($(target)_1_VCC_PCH_FILE) \
+		-Fd$($(target)_1_VCC_COMMON_OBJ_PDB) \
+		-Fo$(obj)\
+               -TP \
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q  -e .pch -o $(dep) -t $(obj) $(obj)
+
+ endef
+endif # !TOOL_VCC100AMD64_KSUBMIT
+
+
+## @todo configure the assembler template.
+
+## Compile resource source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC100AMD64_COMPILE_RC_DEPEND =
+TOOL_VCC100AMD64_COMPILE_RC_DEPORD =
+TOOL_VCC100AMD64_COMPILE_RC_OUTPUT =
+define TOOL_VCC100AMD64_COMPILE_RC_CMDS
+	$(QUIET)$(TOOL_VCC100AMD64_RC) \
+		$(flags) $(addprefix /i, $(subst /,\\,$(incs))) $(addprefix /d, $(defs))\
+		/fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+TOOL_VCC100AMD64_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_VCC100AMD64_LINK_LIBRARY_DEPORD =
+TOOL_VCC100AMD64_LINK_LIBRARY_OUTPUT = $(outbase).rsp
+TOOL_VCC100AMD64_LINK_LIBRARY_OUTPUT_MAYBE = $(outbase).lst $(outbase).exp $(outbase).pdb
+define TOOL_VCC100AMD64_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(foreach arg,\
+			$(subst /,\\,$(objs) \
+			$(filter-out %.def,$(othersrc))) \
+			$(addprefix /DEF:,$(filter %.def,$(othersrc))) \
+			,\"$(arg)\")
+	$(QUIET)$(TOOL_VCC100AMD64_KSUBMIT_DD) $(TOOL_VCC100AMD64_AR) $(flags) /OUT:$(out) @$(outbase).rsp
+endef
+
+
+## Link program
+# @param    $(target)       Normalized main target name.
+# @param    $(out)          Program name.
+# @param    $(objs)         Object files to link together.
+# @param    $(libs)         Libraries to search.
+# @param    $(libpath)      Library search paths.
+# @param    $(flags)        Flags.
+# @param    $(dirdep)       Directory creation dependency.
+# @param    $(deps)         Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)      Output basename (full). Use this for list files and such.
+#
+TOOL_VCC100AMD64_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC100AMD64_LINK_PROGRAM_DEPORD =
+TOOL_VCC100AMD64_LINK_PROGRAM_OUTPUT_MAYBE = $(outbase).lib $(outbase).exp $(outbase).ilk $(out).manifest
+TOOL_VCC100AMD64_LINK_PROGRAM_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_VCC100AMD64_LINK_PROGRAM_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC100AMD64_LINK_PROGRAM_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC100AMD64_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(foreach arg,\
+		    $(subst /,\\,$(objs)) \
+		    $(subst /,\\,$(libs)) \
+			,\"$(arg)\")
+	$(QUIET)$(TOOL_VCC100AMD64_KSUBMIT_DD) $(TOOL_VCC100AMD64_LD) $(flags) \
+		/OUT:$(out) \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(foreach p,$(libpath), /LIBPATH:$(p)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC100AMD64_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC100AMD64_MT) -manifest $(subst /,\\,$(out)).manifest -outputresource:$(subst /,\\,$(out))
+endif
+endef
+
+
+## Link DLL.
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      DLL name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VCC100AMD64_LINK_DLL_DEPEND = $(objs) $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC100AMD64_LINK_DLL_DEPORD = $(call DIRDEP,$(PATH_STAGE_LIB))
+TOOL_VCC100AMD64_LINK_DLL_OUTPUT = $(outbase).lib $(outbase).exp
+TOOL_VCC100AMD64_LINK_DLL_OUTPUT_MAYBE = $(outbase).ilk $(out).manifest $(PATH_STAGE_LIB)/$(notdir $(outbase)).exp
+TOOL_VCC100AMD64_LINK_DLL_OUTPUT_MAYBE_PRECIOUS = $(PATH_STAGE_LIB)/$(notdir $(outbase)).lib $(outbase).map $(outbase).rsp
+TOOL_VCC100AMD64_LINK_DLL_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC100AMD64_LINK_DLL_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC100AMD64_LINK_DLL_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(foreach arg,\
+		    $(subst /,\\,$(objs)) \
+		    $(subst /,\\,$(libs)) \
+			,\"$(arg)\")
+	$(QUIET)$(TOOL_VCC100AMD64_KSUBMIT_DD) $(TOOL_VCC100AMD64_LD) $(flags) \
+		/OUT:$(out) \
+		/IMPLIB:$(outbase).lib \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		/DLL \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(foreach p,$(libpath), /LIBPATH:$(p)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC100AMD64_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC100AMD64_MT) -manifest $(subst /,\\,$(out)).manifest '-outputresource:$(subst /,\\,$(out));#2'
+endif
+	$(QUIET)$(TEST) -f $(outbase).lib -- $(KLIBTWEAKER_EXT) --clear-timestamps $(outbase).lib
+	$(QUIET)$(CP) --changed -v --ignore-non-existing $(outbase).exp $(outbase).lib $(PATH_STAGE_LIB)/
+$(eval _DIRS += $(PATH_STAGE_LIB))
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)       Normalized main target name.
+# @param    $(out)          System module name.
+# @param    $(objs)         Object files to link together.
+# @param    $(libs)         Libraries to search.
+# @param    $(libpath)      Library search paths.
+# @param    $(flags)        Flags.
+# @param    $(dirdep)       Directory creation dependency.
+# @param    $(deps)         Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VCC100AMD64_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC100AMD64_LINK_SYSMOD_DEPORD =
+TOOL_VCC100AMD64_LINK_SYSMOD_OUTPUT_MAYBE = $(outbase).lib $(outbase).exp $(outbase).ilk $(out).manifest
+TOOL_VCC100AMD64_LINK_SYSMOD_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_VCC100AMD64_LINK_SYSMOD_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC100AMD64_LINK_SYSMOD_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC100AMD64_LINK_SYSMOD_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(foreach arg,\
+		    $(subst /,\\,$(objs)) \
+		    $(subst /,\\,$(libs)) \
+			,\"$(arg)\")
+	$(QUIET)$(TOOL_VCC100AMD64_KSUBMIT_DD) $(TOOL_VCC100AMD64_LD) $(flags) \
+		/OUT:$(out) \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(foreach p,$(libpath), /LIBPATH:$(p)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC100AMD64_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC100AMD64_MT) -manifest $(subst /,\\,$(out)).manifest '-outputresource:$(subst /,\\,$(out));#2'
+endif
+endef
+

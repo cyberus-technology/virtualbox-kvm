@@ -1,0 +1,346 @@
+# $Id: GCC64.kmk 3567 2022-06-26 20:00:02Z bird $
+## @file
+# kBuild Tool Config - Generic 64-bit GCC v3.2.x or later Using The System GCC.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_GCC64 := Generic 64-bit GCC v3.2.x or later Using The System GCC. \
+	More or less Linux/ELF specfic.
+
+# Tool Specific Properties
+ifndef TOOL_GCC64_PREFIX
+ TOOL_GCC64_PREFIX :=
+endif
+ifndef TOOL_GCC64_SUFFIX
+ TOOL_GCC64_SUFFIX := $(HOSTSUFF_EXE)
+endif
+if1of ($(KBUILD_HOST), solaris)
+ TOOL_GCC64_PREFIX2  ?= g
+else
+ TOOL_GCC64_PREFIX2  ?=
+endif
+TOOL_GCC64_SUFFIX2   ?= $(HOSTSUFF_EXE)
+TOOL_GCC64_PREFIX3   ?=
+TOOL_GCC64_SUFFIX3   ?= $(HOSTSUFF_EXE)
+TOOL_GCC64_CC        ?= $(TOOL_GCC64_PREFIX)gcc$(TOOL_GCC64_SUFFIX) -m64
+TOOL_GCC64_CXX       ?= $(TOOL_GCC64_PREFIX)g++$(TOOL_GCC64_SUFFIX) -m64
+TOOL_GCC64_AS        ?= $(TOOL_GCC64_PREFIX)gcc$(TOOL_GCC64_SUFFIX) -m64
+TOOL_GCC64_AR        ?= $(TOOL_GCC64_PREFIX2)ar$(TOOL_GCC64_SUFFIX2)
+TOOL_GCC64_LD        ?= $(TOOL_GCC64_PREFIX)gcc$(TOOL_GCC64_SUFFIX) -m64
+if1of ($(KBUILD_HOST), solaris)
+ TOOL_GCC64_LD_SYSMOD ?= $(TOOL_GCC64_PREFIX3)ld$(TOOL_GCC64_SUFFIX3)
+else
+ TOOL_GCC64_LD_SYSMOD ?= $(TOOL_GCC64_PREFIX2)ld$(TOOL_GCC64_SUFFIX2)
+endif
+ifndef TOOL_GCC64_LDFLAGS.$(KBUILD_TARGET)
+ TOOL_GCC64_LDFLAGS.dll ?= -shared
+else
+ TOOL_GCC64_LDFLAGS.dll ?= $(TOOL_GCC64_LDFLAGS.$(KBUILD_TARGET))
+endif
+TOOL_GCC64_LDFLAGS.sysmod ?= -r -m elf_x86_64$(if-expr "$(KBUILD_TARGET)" == "freebsd" || "$(KBUILD_TARGET)" == "gnukfbsd",_fbsd,)
+TOOL_GCC64_LD_SONAME ?= -Wl,-soname=$(firstword $($(1)_SONAME.$(KBUILD_TARGET).$(KBUILD_TYPE)) $($(1)_SONAME.$(KBUILD_TARGET)) $($(1)_SONAME.$(KBUILD_TYPE)) $($(1)_SONAME) $(notdir $(2)))
+ifeq ($(KBUILD_TARGET),os2)
+ TOOL_GCC64_LD_MAP ?= -Zmap=$(1)
+else
+ TOOL_GCC64_LD_MAP ?=
+endif
+ifeq ($(KBUILD_TARGET),os2)
+ TOOL_GCC64_LD_SYSMOD_MAP ?= -Zmap=$(1)
+else
+ TOOL_GCC64_LD_SYSMOD_MAP ?=
+endif
+TOOL_GCC64_OBJCOPY ?= $(TOOL_GCC64_PREFIX2)gobjcopy$(TOOL_GCC64_SUFFIX2)
+
+# General Properties used by kBuild
+TOOL_GCC64_COBJSUFF         ?= .o
+TOOL_GCC64_CFLAGS           ?=
+TOOL_GCC64_CFLAGS.debug     ?= -g
+TOOL_GCC64_CFLAGS.profile   ?= -O2 #-g -pg
+TOOL_GCC64_CFLAGS.release   ?= -O2
+TOOL_GCC64_CINCS            ?=
+TOOL_GCC64_CDEFS            ?=
+
+TOOL_GCC64_CXXOBJSUFF       ?= .o
+TOOL_GCC64_CXXOBJSUFF       ?= .o
+TOOL_GCC64_CXXFLAGS         ?=
+TOOL_GCC64_CXXFLAGS.debug   ?= -g
+TOOL_GCC64_CXXFLAGS.profile ?= -O2 #-g -pg
+TOOL_GCC64_CXXFLAGS.release ?= -O2
+TOOL_GCC64_CXXINCS          ?=
+TOOL_GCC64_CXXDEFS          ?=
+
+TOOL_GCC64_ASFLAGS          ?= -x assembler-with-cpp
+TOOL_GCC64_ASFLAGS.debug    ?= -g
+TOOL_GCC64_ASFLAGS.profile  ?= -g
+TOOL_GCC64_ASOBJSUFF        ?= .o
+
+TOOL_GCC64_ARFLAGS          ?= cr
+TOOL_GCC64_ARLIBSUFF        ?= .a
+
+TOOL_GCC64_LDFLAGS          ?=
+TOOL_GCC64_LDFLAGS.debug    ?= -g
+TOOL_GCC64_LDFLAGS.profile  ?= -g
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC64_COMPILE_C_DEPEND =
+TOOL_GCC64_COMPILE_C_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC64_COMPILE_C_USES_KOBJCACHE = 1
+TOOL_GCC64_COMPILE_C_OUTPUT = $(outbase).i
+define TOOL_GCC64_COMPILE_C_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).i\
+		$(TOOL_GCC64_CC) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC64_CC) -c\
+		$(flags) -fpreprocessed -x c\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else # !KBUILD_USE_KOBJCACHE
+TOOL_GCC64_COMPILE_C_OUTPUT =
+define TOOL_GCC64_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_GCC64_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC64_COMPILE_CXX_DEPEND =
+TOOL_GCC64_COMPILE_CXX_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC64_COMPILE_CXX_USES_KOBJCACHE = 1
+TOOL_GCC64_COMPILE_CXX_OUTPUT = $(outbase).ii
+define TOOL_GCC64_COMPILE_CXX_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).ii\
+		$(TOOL_GCC64_CXX) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC64_CXX) -c\
+		$(flags) -fpreprocessed -x c++\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else # !KBUILD_USE_KOBJCACHE
+TOOL_GCC64_COMPILE_CXX_OUTPUT =
+define TOOL_GCC64_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_GCC64_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_GCC64_COMPILE_AS_OUTPUT =
+TOOL_GCC64_COMPILE_AS_DEPEND =
+TOOL_GCC64_COMPILE_AS_DEPORD =
+define TOOL_GCC64_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_GCC64_AS) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC64_LINK_LIBRARY_OUTPUT = $(out).ar-script
+TOOL_GCC64_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_GCC64_LINK_LIBRARY_DEPORD =
+define TOOL_GCC64_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) $(out).ar-script 'CREATE $(out)'
+	$(QUIET)$(APPEND) -n $(out).ar-script \
+		$(foreach o,$(objs), 'ADDMOD $(o)') \
+		$(foreach o,$(othersrc), 'ADDLIB $(o)')
+	$(QUIET)$(APPEND) $(out).ar-script 'SAVE'
+	$(QUIET)$(APPEND) $(out).ar-script 'END'
+	$(QUIET)$(REDIRECT) -rti $(out).ar-script -- $(TOOL_GCC64_AR) -M
+endef
+
+
+## Link program
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC64_LINK_PROGRAM_OUTPUT =
+TOOL_GCC64_LINK_PROGRAM_OUTPUT_MAYBE = $(outbase).map
+TOOL_GCC64_LINK_PROGRAM_OUTPUT_DEBUG = $(outbase).debug
+TOOL_GCC64_LINK_PROGRAM_DEBUG_INSTALL_FN = $(2).debug=>$(basename $(3)).debug
+TOOL_GCC64_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_GCC64_LINK_PROGRAM_DEPORD =
+define TOOL_GCC64_LINK_PROGRAM_CMDS
+	$(QUIET)$(TOOL_GCC64_LD) $(flags) -o $(out) $(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
+		$(call TOOL_GCC64_LD_MAP,$(outbase).map)
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_GCC64_OBJCOPY) --only-keep-debug $(out) $(outbase).debug
+	$(QUIET)$(CHMOD) a-x $(outbase).debug
+	$(QUIET)$(TOOL_GCC64_OBJCOPY) --strip-debug --strip-unneeded --add-gnu-debuglink=$(outbase).debug $(out)
+ endif
+endef
+
+
+## Link DLL
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC64_LINK_DLL_OUTPUT =
+TOOL_GCC64_LINK_DLL_OUTPUT_MAYBE = $(outbase).map
+TOOL_GCC64_LINK_DLL_OUTPUT_DEBUG = $(outbase).debug
+TOOL_GCC64_LINK_DLL_DEBUG_INSTALL_FN = $(2).debug=>$(basename $(3)).debug
+TOOL_GCC64_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_GCC64_LINK_DLL_DEPORD =
+define TOOL_GCC64_LINK_DLL_CMDS
+	$(QUIET)$(TOOL_GCC64_LD) $(TOOL_GCC64_LDFLAGS.dll) $(flags) -o $(out)\
+		$(if $(filter-out win os2, $(KBUILD_TARGET)),$(call TOOL_GCC64_LD_SONAME,$(target),$(out)))\
+		$(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
+		$(call TOOL_GCC64_LD_MAP,$(outbase).map)
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_GCC64_OBJCOPY) --only-keep-debug $(out) $(outbase).debug
+	$(QUIET)$(CHMOD) a-x $(outbase).debug
+	$(QUIET)$(TOOL_GCC64_OBJCOPY) --strip-debug --strip-unneeded --add-gnu-debuglink=$(outbase).debug $(out)
+ endif
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		System module name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC64_LINK_SYSMOD_OUTPUT =
+TOOL_GCC64_LINK_SYSMOD_OUTPUT_MAYBE = $(outbase).map
+TOOL_GCC64_LINK_SYSMOD_OUTPUT_DEBUG = $(outbase).debug
+TOOL_GCC64_LINK_SYSMOD_DEBUG_INSTALL_FN = $(2).debug=>$(basename $(3)).debug
+TOOL_GCC64_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_GCC64_LINK_SYSMOD_DEPORD =
+define TOOL_GCC64_LINK_SYSMOD_CMDS
+	$(QUIET)$(TOOL_GCC64_LD_SYSMOD) $(TOOL_GCC64_LDFLAGS.sysmod) $(flags) -o $(out) $(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
+		$(call TOOL_GCC64_LD_SYSMOD_MAP,$(outbase).map)
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_GCC64_OBJCOPY) --only-keep-debug $(out) $(outbase).debug
+	$(QUIET)$(CHMOD) a-x $(outbase).debug
+	$(QUIET)$(TOOL_GCC64_OBJCOPY) --strip-debug --strip-unneeded --add-gnu-debuglink=$(outbase).debug $(out)
+ endif
+endef
+

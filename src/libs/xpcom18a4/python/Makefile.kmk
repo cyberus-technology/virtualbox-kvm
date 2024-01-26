@@ -1,0 +1,730 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for Python bindings
+#
+
+#
+# Copyright (C) 2009-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# List of supported Python versions, defining a number of
+# VBOX_PYTHON[26|27|31|32|32M|33|33M|34|34M|35|35M|36|36M|37|37M|38|38M|39|39M|310|310M|DEF]_[INC|LIB] variables
+# which get picked up below.
+#
+ifeq ($(KBUILD_TARGET),darwin) # Relatively predictable, don't script.
+ ifn1of ($(VBOX_DEF_MACOSX_VERSION_MIN), 10.10 10.9 10.8 10.7 10.6 10.5 10.4) ## @todo @bugref{9790}: if $(VBOX_DEF_MACOSX_VERSION_MIN) vge 10.11
+  VBOX_PYTHON_SUFFTBD := .tbd
+ else
+  VBOX_PYTHON_SUFFTBD :=
+ endif
+ ifndef VBOX_WITHOUT_VBOXPYTHON_FOR_OSX_10_6
+  if1of ($(VBOX_DEF_MACOSX_VERSION_MIN), 10.5 10.4)
+   VBOX_PYTHON26_INC = $(VBOX_PATH_MACOSX_SDK_10_6)/usr/include/python2.6
+   VBOX_PYTHON26_LIB = $(VBOX_PATH_MACOSX_SDK_10_6)/usr/lib/libpython2.6.dylib
+  else if "$(VBOX_DEF_MACOSX_VERSION_MIN)" == "10.9" && "$(VBOX_XCODE_VERSION)" == "6.2" # 'effing 10.9 SDK in Xcode 6.2 is missing python. Stupid, stupid Apple!!
+   VBOX_PYTHON26_INC = $(VBOX_PATH_MACOSX_SDK)/../MacOSX10.10.sdk/System/Library/Frameworks/Python.framework/Versions/2.6/Headers
+   VBOX_PYTHON26_LIB = $(VBOX_PATH_MACOSX_SDK)/../MacOSX10.10.sdk/System/Library/Frameworks/Python.framework/Versions/2.6/Python
+  else if "$(VBOX_DEF_MACOSX_VERSION_MIN)" vlt "10.13"
+   VBOX_PYTHON26_INC = $(VBOX_PATH_MACOSX_SDK)/System/Library/Frameworks/Python.framework/Versions/2.6/Headers
+   VBOX_PYTHON26_LIB = $(VBOX_PATH_MACOSX_SDK)/System/Library/Frameworks/Python.framework/Versions/2.6/Python$(VBOX_PYTHON_SUFFTBD)
+  endif
+  if !defined(VBOX_OSE) || "$(wildcard $(VBOX_PYTHON26_LIB))" != ""
+   VBOX_PYTHON26_LIB_X86 = $(VBOX_PYTHON26_LIB)
+  else
+   VBOX_PYTHON26_INC =
+   VBOX_PYTHON26_LIB =
+  endif
+ endif
+ ifndef VBOX_WITHOUT_VBOXPYTHON_FOR_OSX_10_7
+  if1of ($(VBOX_DEF_MACOSX_VERSION_MIN), 10.6 10.5 10.4)
+   VBOX_PYTHON27_INC = $(VBOX_PATH_MACOSX_SDK_10_7)/usr/include/python2.7
+   VBOX_PYTHON27_LIB = $(VBOX_PATH_MACOSX_SDK_10_7)/usr/lib/libpython2.7.dylib
+  else if "$(VBOX_DEF_MACOSX_VERSION_MIN)" == "10.9" && "$(VBOX_XCODE_VERSION)" == "6.2" # 'effing 10.9 SDK in Xcode 6.2 is missing python. Stupid, stupid Apple!!
+   VBOX_PYTHON27_INC = $(VBOX_PATH_MACOSX_SDK)/../MacOSX10.10.sdk/System/Library/Frameworks/Python.framework/Versions/2.7/Headers
+   VBOX_PYTHON27_LIB = $(VBOX_PATH_MACOSX_SDK)/../MacOSX10.10.sdk/System/Library/Frameworks/Python.framework/Versions/2.7/Python
+  else
+   VBOX_PYTHON27_INC = $(VBOX_PATH_MACOSX_SDK)/System/Library/Frameworks/Python.framework/Versions/2.7/Headers
+   VBOX_PYTHON27_LIB = $(VBOX_PATH_MACOSX_SDK)/System/Library/Frameworks/Python.framework/Versions/2.7/Python$(VBOX_PYTHON_SUFFTBD)
+  endif
+  if !defined(VBOX_OSE) || "$(wildcard $(VBOX_PYTHON27_LIB))" != ""
+   VBOX_PYTHON27_LIB_X86 = $(VBOX_PYTHON27_LIB)
+  else
+   VBOX_PYTHON27_INC =
+   VBOX_PYTHON27_LIB =
+  endif
+ endif
+ # No Python 3.x yet as part of OSX versions including El Capitan, 10.11.
+
+else
+ # Use the script.
+ $(eval $(subst |,$(NL),$(shell $(VBOX_BLD_PYTHON) \
+	$(PATH_SUB_CURRENT)/gen_python_deps.py \
+	$(KBUILD_TARGET) \
+	$(KBUILD_TARGET_ARCH) \
+	$(if-expr defined(VBOX_WITH_MULTIVERSION_PYTHON),1,0))))
+endif
+
+ifndef VBOX_ONLY_SDK
+
+ #
+ # Base Python Client Module - the C++/XPCOM bits (not actually built).
+ #
+ VBoxPythonBase_TEMPLATE = XPComDll
+ VBoxPythonBase_CXXFLAGS = -Wno-write-strings
+ VBoxPythonBase_CXXFLAGS.solaris = $(VBOX_GCC_Wno-unknown-pragmas) # /usr/include/python[23].[75]*/ceval.h:67: warning: ignoring #pragma no_inline(PyEval_EvalFrameEx)
+ VBoxPythonBase_DLLSUFF.darwin = .so
+ VBoxPythonBase_DEFS    = \
+ 	_IMPL_NS_COM \
+ 	_IMPL_NS_BASE \
+ 	EXPORT_XPTI_API \
+ 	EXPORT_XPT_API \
+ 	VBOX_PYXPCOM \
+ 	VBOX_WITH_XPCOM \
+ 	VBOX_PYXPCOM_VERSIONED
+ #VBoxPythonBase_DEFS.debug = \
+ #	VBOX_DEBUG_LIFETIMES
+ VBoxPythonBase_INCS    = \
+ 	src
+ VBoxPythonBase_SOURCES = \
+ 	src/module/_xpcom.cpp \
+ 	src/dllmain.cpp \
+ 	src/ErrorUtils.cpp \
+ 	src/PyGBase.cpp \
+ 	src/PyGInputStream.cpp \
+ 	src/PyGModule.cpp \
+ 	src/PyGStub.cpp \
+ 	src/PyGWeakReference.cpp \
+ 	src/PyIClassInfo.cpp \
+ 	src/PyIComponentManager.cpp \
+ 	src/PyIComponentManagerObsolete.cpp \
+ 	src/PyIEnumerator.cpp \
+ 	src/PyIID.cpp \
+ 	src/PyIInputStream.cpp \
+ 	src/PyIInterfaceInfo.cpp \
+ 	src/PyIInterfaceInfoManager.cpp \
+ 	src/PyISimpleEnumerator.cpp \
+ 	src/PyISupports.cpp \
+ 	src/PyIVariant.cpp \
+ 	src/Pyxpt_info.cpp \
+ 	src/TypeObject.cpp \
+ 	src/VariantUtils.cpp
+ VBoxPythonBase_LIBS    = \
+ 	$(PATH_STAGE_LIB)/VBoxCOM$(VBOX_SUFF_LIB) \
+ 	$(PATH_STAGE_BIN)/VBoxXPCOM$(VBOX_SUFF_DLL)
+
+ # pymalloc abi variant.
+ VBoxPythonBase_m_EXTENDS   = VBoxPythonBase
+ VBoxPythonBase_m_DEFS      = MODULE_NAME_SUFFIX=m $(VBoxPythonBase_DEFS)
+
+ # 32-bit base.
+ VBoxPythonBase_x86_TEMPLATE = XPComDll-x86
+ VBoxPythonBase_x86_EXTENDS = VBoxPythonBase
+ VBoxPythonBase_x86_DEFS    = MODULE_NAME_SUFFIX=_x86 $(VBoxPythonBase_DEFS)
+ VBoxPythonBase_x86_LIBS    = \
+ 	$(PATH_STAGE_LIB)/VBoxCOM-x86$(VBOX_SUFF_LIB) \
+ 	$(PATH_STAGE_BIN)/VBoxXPCOM-x86$(VBOX_SUFF_DLL)
+
+ # 32-bit pymalloc abi variant.
+ VBoxPythonBase_x86_m_EXTENDS   = VBoxPythonBase_x86
+ VBoxPythonBase_x86_m_DEFS      = MODULE_NAME_SUFFIX=_x86m $(VBoxPythonBase_DEFS)
+
+
+ ifdef VBOX_PYTHON26_INC
+  #
+  # Python 2.6 version
+  #
+  DLLS += VBoxPython2_6
+  VBoxPython2_6_EXTENDS  = VBoxPythonBase
+  VBoxPython2_6_EXTENDS_BY = appending
+  ifdef KMK_WITH_VERSION_COMPARE
+   VBoxPython2_6_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" vle "10.6",OSX106,)
+  else
+   VBoxPython2_6_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" <= "10.6",OSX106,)
+  endif
+  VBoxPython2_6_INCS     = $(VBOX_PYTHON26_INC)
+  VBoxPython2_6_LIBS     = $(VBOX_PYTHON26_LIB)
+
+  ifdef VBOX_WITH_32_ON_64_MAIN_API
+   ifdef VBOX_PYTHON26_LIB_X86
+    DLLS += VBoxPython2_6_x86
+    VBoxPython2_6_x86_EXTENDS = VBoxPythonBase_x86
+    VBoxPython2_6_x86_EXTENDS_BY = appending
+    ifdef KMK_WITH_VERSION_COMPARE
+     VBoxPython2_6_x86_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" vle "10.6",OSX106,-x86)
+    else
+     VBoxPython2_6_x86_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" <= "10.6",OSX106,-x86)
+    endif
+    VBoxPython2_6_x86_INCS   = $(VBOX_PYTHON26_INC)
+    VBoxPython2_6_x86_LIBS   = $(VBOX_PYTHON26_LIB_X86)
+   endif
+  endif
+ endif
+
+ ifdef VBOX_PYTHON27_INC
+  #
+  # Python 2.7 version
+  #
+  DLLS += VBoxPython2_7
+  VBoxPython2_7_EXTENDS  = VBoxPythonBase
+  VBoxPython2_7_EXTENDS_BY = appending
+  ifdef KMK_WITH_VERSION_COMPARE
+   VBoxPython2_7_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" vle "10.7",OSX107,)
+  else
+   VBoxPython2_7_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" <= "10.7" && "$(length-var VBOX_DEF_MACOSX_VERSION_MIN)" == "4",OSX107,)
+  endif
+  VBoxPython2_7_INCS     = $(VBOX_PYTHON27_INC)
+  VBoxPython2_7_LIBS     = $(VBOX_PYTHON27_LIB)
+
+  ifdef VBOX_WITH_32_ON_64_MAIN_API
+   ifdef VBOX_PYTHON27_LIB_X86
+    DLLS += VBoxPython2_7_x86
+    VBoxPython2_7_x86_EXTENDS = VBoxPythonBase_x86
+    VBoxPython2_7_x86_EXTENDS_BY = appending
+    ifdef KMK_WITH_VERSION_COMPARE
+     VBoxPython2_7_x86_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" vle "10.7",OSX107,-x86)
+    else
+     VBoxPython2_7_x86_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" <= "10.7" && "$(length-var VBOX_DEF_MACOSX_VERSION_MIN)" == "4",OSX107,-x86)
+    endif
+    VBoxPython2_7_x86_INCS   = $(VBOX_PYTHON27_INC)
+    VBoxPython2_7_x86_LIBS   = $(VBOX_PYTHON27_LIB_X86)
+   endif
+  endif
+ endif
+
+ #
+ # Unversioned Python 2.x.
+ #
+ if defined(VBOX_PYTHON27_INC) || defined(VBOX_PYTHON26_INC)
+  DLLS += VBoxPython2
+  VBoxPython2_EXTENDS  = VBoxPythonBase
+  VBoxPython2_EXTENDS_BY = appending
+  VBoxPython2_DEFS     = VBOX_PYXPCOM_MAJOR_VERSIONED
+  ifdef KMK_WITH_VERSION_COMPARE
+   VBoxPython2_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" vle "10.7",OSX107,)
+  else
+   VBoxPython2_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" <= "10.7" && "$(length-var VBOX_DEF_MACOSX_VERSION_MIN)" == "4",OSX107,)
+  endif
+  if defined(VBOX_PYTHON26_INC)
+   VBoxPython2_INCS    = $(VBOX_PYTHON26_INC)
+   ifn1of ($(KBUILD_TARGET), linux)
+    VBoxPython2_LIBS   = $(VBOX_PYTHON26_LIB)
+   endif
+  else
+   VBoxPython2_INCS    = $(VBOX_PYTHON27_INC)
+   ifn1of ($(KBUILD_TARGET), linux)
+    VBoxPython2_LIBS   = $(VBOX_PYTHON27_LIB)
+   endif
+  endif
+ endif
+
+ if defined(VBOX_WITH_32_ON_64_MAIN_API) && (defined(VBOX_PYTHON27_LIB_X86) || defined(VBOX_PYTHON26_INC_X86))
+  DLLS += VBoxPython2_x86
+  VBoxPython2_x86_EXTENDS  = VBoxPythonBase_x86
+  VBoxPython2_x86_EXTENDS_BY = appending
+  VBoxPython2_x86_DEFS     = VBOX_PYXPCOM_MAJOR_VERSIONED $(VBoxPythonBase_x86_DEFS)
+  ifdef KMK_WITH_VERSION_COMPARE
+   VBoxPython2_x86_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" vle "10.7",OSX107,-x86)
+  else
+   VBoxPython2_x86_TEMPLATE = XPComDll$(if-expr "$(KBUILD_TARGET)" == "darwin" && "$(VBOX_DEF_MACOSX_VERSION_MIN)" <= "10.7" && "$(length-var VBOX_DEF_MACOSX_VERSION_MIN)" == "4",OSX107,-x86)
+  endif
+  if defined(VBOX_PYTHON26LIB_X86)
+   VBoxPython2_x86_INCS    = $(VBOX_PYTHON26_INC)
+   ifn1of ($(KBUILD_TARGET), linux)
+    VBoxPython2_x86_LIBS   = $(VBOX_PYTHON26_LIB_X86)
+   endif
+  else
+   VBoxPython2_x86_INCS    = $(VBOX_PYTHON27_INC)
+   ifn1of ($(KBUILD_TARGET), linux)
+    VBoxPython2_x86_LIBS   = $(VBOX_PYTHON27_LIB_X86)
+   endif
+  endif
+ endif
+
+
+ ifdef VBOX_PYTHON31_INC
+  #
+  # Python 3.1 version
+  #
+  DLLS += VBoxPython3_1
+  VBoxPython3_1_EXTENDS  = VBoxPythonBase
+  VBoxPython3_1_EXTENDS_BY = appending
+  VBoxPython3_1_INCS     = $(VBOX_PYTHON31_INC)
+  VBoxPython3_1_LIBS     = $(VBOX_PYTHON31_LIB)
+
+  ifdef VBOX_WITH_32_ON_64_MAIN_API
+   ifdef VBOX_PYTHON31_LIB_X86
+    DLLS += VBoxPython3_1_x86
+    VBoxPython3_1_x86_EXTENDS = VBoxPythonBase_x86
+    VBoxPython3_1_x86_EXTENDS_BY = appending
+    VBoxPython3_1_x86_INCS   = $(VBOX_PYTHON31_INC)
+    VBoxPython3_1_x86_LIBS   = $(VBOX_PYTHON31_LIB_X86)
+   endif
+  endif
+ endif
+
+ ifdef VBOX_PYTHON32_INC
+  #
+  # Python 3.2 version
+  #
+  DLLS += VBoxPython3_2
+  VBoxPython3_2_EXTENDS  = VBoxPythonBase
+  VBoxPython3_2_EXTENDS_BY = appending
+  VBoxPython3_2_INCS     = $(VBOX_PYTHON32_INC)
+  VBoxPython3_2_LIBS     = $(VBOX_PYTHON32_LIB)
+
+  ifdef VBOX_WITH_32_ON_64_MAIN_API
+   ifdef VBOX_PYTHON32_LIB_X86
+    DLLS += VBoxPython3_2_x86
+    VBoxPython3_2_x86_EXTENDS = VBoxPythonBase_x86
+    VBoxPython3_2_x86_EXTENDS_BY = appending
+    VBoxPython3_2_x86_INCS   = $(VBOX_PYTHON32_INC)
+    VBoxPython3_2_x86_LIBS   = $(VBOX_PYTHON32_LIB_X86)
+   endif
+  endif
+ endif
+
+ ifdef VBOX_PYTHON32M_INC
+  #
+  # Python 3.2 version with pymalloc
+  #
+  DLLS += VBoxPython3_2m
+  VBoxPython3_2m_EXTENDS  = VBoxPythonBase_m
+  VBoxPython3_2m_EXTENDS_BY = appending
+  VBoxPython3_2m_INCS     = $(VBOX_PYTHON32M_INC)
+  VBoxPython3_2m_LIBS     = $(VBOX_PYTHON32M_LIB)
+  VBoxPython3_2m_DEFS     = MODULE_NAME_SUFFIX
+
+  ifdef VBOX_WITH_32_ON_64_MAIN_API
+   ifdef VBOX_PYTHON32M_LIB_X86
+    DLLS += VBoxPython3_2m_x86
+    VBoxPython3_2m_x86_EXTENDS = VBoxPythonBase_x86_m
+    VBoxPython3_2m_x86_EXTENDS_BY = appending
+    VBoxPython3_2m_x86_INCS   = $(VBOX_PYTHON32M_INC)
+    VBoxPython3_2m_x86_LIBS   = $(VBOX_PYTHON32M_LIB_X86)
+   endif
+  endif
+ endif
+
+ ifndef VBOX_WITH_ONLY_PYTHON_LIMITED_API
+
+  ifdef VBOX_PYTHON33_INC
+   #
+   # Python 3.3 version
+   #
+   DLLS += VBoxPython3_3
+   VBoxPython3_3_EXTENDS = VBoxPythonBase
+   VBoxPython3_3_EXTENDS_BY = appending
+   VBoxPython3_3_INCS    = $(VBOX_PYTHON33_INC)
+   VBoxPython3_3_LIBS    = $(VBOX_PYTHON33_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON33_LIB_X86
+     DLLS += VBoxPython3_3_x86
+     VBoxPython3_3_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_3_x86_EXTENDS_BY = appending
+     VBoxPython3_3_x86_INCS  = $(VBOX_PYTHON33_INC)
+     VBoxPython3_3_x86_LIBS  = $(VBOX_PYTHON33_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON33M_INC
+   #
+   # Python 3.3 version with pymalloc
+   #
+   DLLS += VBoxPython3_3m
+   VBoxPython3_3m_EXTENDS = VBoxPythonBase_m
+   VBoxPython3_3m_EXTENDS_BY = appending
+   VBoxPython3_3m_INCS    = $(VBOX_PYTHON33M_INC)
+   VBoxPython3_3m_LIBS    = $(VBOX_PYTHON33M_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON33M_LIB_X86
+     DLLS += VBoxPython3_3m_x86
+     VBoxPython3_3m_x86_EXTENDS = VBoxPythonBase_x86_m
+     VBoxPython3_3m_x86_EXTENDS_BY = appending
+     VBoxPython3_3m_x86_INCS  = $(VBOX_PYTHON33M_INC)
+     VBoxPython3_3m_x86_LIBS  = $(VBOX_PYTHON33M_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON34_INC
+   #
+   # Python 3.4 version
+   #
+   DLLS += VBoxPython3_4
+   VBoxPython3_4_EXTENDS = VBoxPythonBase
+   VBoxPython3_4_EXTENDS_BY = appending
+   VBoxPython3_4_INCS    = $(VBOX_PYTHON34_INC)
+   VBoxPython3_4_LIBS    = $(VBOX_PYTHON34_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON34_LIB_X86
+     DLLS += VBoxPython3_4_x86
+     VBoxPython3_4_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_4_x86_EXTENDS_BY = appending
+     VBoxPython3_4_x86_INCS  = $(VBOX_PYTHON34_INC)
+     VBoxPython3_4_x86_LIBS  = $(VBOX_PYTHON34_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON34M_INC
+   #
+   # Python 3.4 version with pymalloc
+   #
+   DLLS += VBoxPython3_4m
+   VBoxPython3_4m_EXTENDS = VBoxPythonBase_m
+   VBoxPython3_4m_EXTENDS_BY = appending
+   VBoxPython3_4m_INCS    = $(VBOX_PYTHON34M_INC)
+   VBoxPython3_4m_LIBS    = $(VBOX_PYTHON34M_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON34M_LIB_X86
+     DLLS += VBoxPython3_4m_x86
+     VBoxPython3_4m_x86_EXTENDS = VBoxPythonBase_x86_m
+     VBoxPython3_4m_x86_EXTENDS_BY = appending
+     VBoxPython3_4m_x86_INCS  = $(VBOX_PYTHON34M_INC)
+     VBoxPython3_4m_x86_LIBS  = $(VBOX_PYTHON34M_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON35_INC
+   #
+   # Python 3.5 version
+   #
+   DLLS += VBoxPython3_5
+   VBoxPython3_5_EXTENDS = VBoxPythonBase
+   VBoxPython3_5_EXTENDS_BY = appending
+   VBoxPython3_5_INCS    = $(VBOX_PYTHON35_INC)
+   VBoxPython3_5_LIBS    = $(VBOX_PYTHON35_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON35_LIB_X86
+     DLLS += VBoxPython3_5_x86
+     VBoxPython3_5_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_5_x86_EXTENDS_BY = appending
+     VBoxPython3_5_x86_INCS  = $(VBOX_PYTHON35_INC)
+     VBoxPython3_5_x86_LIBS  = $(VBOX_PYTHON35_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON35M_INC
+   #
+   # Python 3.5 version with pymalloc
+   #
+   DLLS += VBoxPython3_5m
+   VBoxPython3_5m_EXTENDS = VBoxPythonBase_m
+   VBoxPython3_5m_EXTENDS_BY = appending
+   VBoxPython3_5m_INCS    = $(VBOX_PYTHON35M_INC)
+   VBoxPython3_5m_LIBS    = $(VBOX_PYTHON35M_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON35M_LIB_X86
+     DLLS += VBoxPython3_5m_x86
+     VBoxPython3_5m_x86_EXTENDS = VBoxPythonBase_x86_m
+     VBoxPython3_5m_x86_EXTENDS_BY = appending
+     VBoxPython3_5m_x86_INCS  = $(VBOX_PYTHON35M_INC)
+     VBoxPython3_5m_x86_LIBS  = $(VBOX_PYTHON35M_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON36_INC
+   #
+   # Python 3.6 version
+   #
+   DLLS += VBoxPython3_6
+   VBoxPython3_6_EXTENDS = VBoxPythonBase
+   VBoxPython3_6_EXTENDS_BY = appending
+   VBoxPython3_6_INCS    = $(VBOX_PYTHON36_INC)
+   VBoxPython3_6_LIBS    = $(VBOX_PYTHON36_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON36_LIB_X86
+     DLLS += VBoxPython3_6_x86
+     VBoxPython3_6_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_6_x86_EXTENDS_BY = appending
+     VBoxPython3_6_x86_INCS  = $(VBOX_PYTHON36_INC)
+     VBoxPython3_6_x86_LIBS  = $(VBOX_PYTHON36_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON36M_INC
+   #
+   # Python 3.6 version with pymalloc
+   #
+   DLLS += VBoxPython3_6m
+   VBoxPython3_6m_EXTENDS = VBoxPythonBase_m
+   VBoxPython3_6m_EXTENDS_BY = appending
+   VBoxPython3_6m_INCS    = $(VBOX_PYTHON36M_INC)
+   VBoxPython3_6m_LIBS    = $(VBOX_PYTHON36M_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON36M_LIB_X86
+     DLLS += VBoxPython3_6m_x86
+     VBoxPython3_6m_x86_EXTENDS = VBoxPythonBase_x86_m
+     VBoxPython3_6m_x86_EXTENDS_BY = appending
+     VBoxPython3_6m_x86_INCS  = $(VBOX_PYTHON36M_INC)
+     VBoxPython3_6m_x86_LIBS  = $(VBOX_PYTHON36M_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON37_INC
+   #
+   # Python 3.7 version
+   #
+   DLLS += VBoxPython3_7
+   VBoxPython3_7_EXTENDS = VBoxPythonBase
+   VBoxPython3_7_EXTENDS_BY = appending
+   VBoxPython3_7_INCS    = $(VBOX_PYTHON37_INC)
+   VBoxPython3_7_LIBS    = $(VBOX_PYTHON37_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON37_LIB_X86
+     DLLS += VBoxPython3_7_x86
+     VBoxPython3_7_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_7_x86_EXTENDS_BY = appending
+     VBoxPython3_7_x86_INCS  = $(VBOX_PYTHON37_INC)
+     VBoxPython3_7_x86_LIBS  = $(VBOX_PYTHON37_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON37M_INC
+   #
+   # Python 3.7 version with pymalloc
+   #
+   DLLS += VBoxPython3_7m
+   VBoxPython3_7m_EXTENDS = VBoxPythonBase_m
+   VBoxPython3_7m_EXTENDS_BY = appending
+   VBoxPython3_7m_INCS    = $(VBOX_PYTHON37M_INC)
+   VBoxPython3_7m_LIBS    = $(VBOX_PYTHON37M_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON37M_LIB_X86
+     DLLS += VBoxPython3_7m_x86
+     VBoxPython3_7m_x86_EXTENDS = VBoxPythonBase_x86_m
+     VBoxPython3_7m_x86_EXTENDS_BY = appending
+     VBoxPython3_7m_x86_INCS  = $(VBOX_PYTHON37M_INC)
+     VBoxPython3_7m_x86_LIBS  = $(VBOX_PYTHON37M_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON38_INC
+   #
+   # Python 3.8 version (implicitly with pymalloc)
+   #
+   DLLS += VBoxPython3_8
+   VBoxPython3_8_EXTENDS = VBoxPythonBase
+   VBoxPython3_8_EXTENDS_BY = appending
+   VBoxPython3_8_INCS    = $(VBOX_PYTHON38_INC)
+   VBoxPython3_8_LIBS    = $(VBOX_PYTHON38_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON38_LIB_X86
+     DLLS += VBoxPython3_8_x86
+     VBoxPython3_8_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_8_x86_EXTENDS_BY = appending
+     VBoxPython3_8_x86_INCS  = $(VBOX_PYTHON38_INC)
+     VBoxPython3_8_x86_LIBS  = $(VBOX_PYTHON38_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON39_INC
+   #
+   # Python 3.9 version (implicitly with pymalloc)
+   #
+   DLLS += VBoxPython3_9
+   VBoxPython3_9_EXTENDS = VBoxPythonBase
+   VBoxPython3_9_EXTENDS_BY = appending
+   VBoxPython3_9_INCS    = $(VBOX_PYTHON39_INC)
+   VBoxPython3_9_LIBS    = $(VBOX_PYTHON39_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON39_LIB_X86
+     DLLS += VBoxPython3_9_x86
+     VBoxPython3_9_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_9_x86_EXTENDS_BY = appending
+     VBoxPython3_9_x86_INCS  = $(VBOX_PYTHON39_INC)
+     VBoxPython3_9_x86_LIBS  = $(VBOX_PYTHON39_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON310_INC
+   #
+   # Python 3.10 version (implicitly with pymalloc)
+   #
+   DLLS += VBoxPython3_10
+   VBoxPython3_10_EXTENDS = VBoxPythonBase
+   VBoxPython3_10_EXTENDS_BY = appending
+   VBoxPython3_10_INCS    = $(VBOX_PYTHON310_INC)
+   VBoxPython3_10_LIBS    = $(VBOX_PYTHON310_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON310_LIB_X86
+     DLLS += VBoxPython3_10_x86
+     VBoxPython3_10_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_10_x86_EXTENDS_BY = appending
+     VBoxPython3_10_x86_INCS  = $(VBOX_PYTHON310_INC)
+     VBoxPython3_10_x86_LIBS  = $(VBOX_PYTHON310_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON311_INC
+   #
+   # Python 3.11 version (implicitly with pymalloc)
+   #
+   DLLS += VBoxPython3_11
+   VBoxPython3_11_EXTENDS = VBoxPythonBase
+   VBoxPython3_11_EXTENDS_BY = appending
+   VBoxPython3_11_INCS    = $(VBOX_PYTHON311_INC)
+   VBoxPython3_11_LIBS    = $(VBOX_PYTHON311_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON311_LIB_X86
+     DLLS += VBoxPython3_11_x86
+     VBoxPython3_11_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_11_x86_EXTENDS_BY = appending
+     VBoxPython3_11_x86_INCS  = $(VBOX_PYTHON311_INC)
+     VBoxPython3_11_x86_LIBS  = $(VBOX_PYTHON311_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHON312_INC
+   #
+   # Python 3.12 version (implicitly with pymalloc)
+   #
+   DLLS += VBoxPython3_12
+   VBoxPython3_12_EXTENDS = VBoxPythonBase
+   VBoxPython3_12_EXTENDS_BY = appending
+   VBoxPython3_12_INCS    = $(VBOX_PYTHON312_INC)
+   VBoxPython3_12_LIBS    = $(VBOX_PYTHON312_LIB)
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHON312_LIB_X86
+     DLLS += VBoxPython3_12_x86
+     VBoxPython3_12_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython3_12_x86_EXTENDS_BY = appending
+     VBoxPython3_12_x86_INCS  = $(VBOX_PYTHON312_INC)
+     VBoxPython3_12_x86_LIBS  = $(VBOX_PYTHON312_LIB_X86)
+    endif
+   endif
+  endif
+
+  ifdef VBOX_PYTHONDEF_INC
+   #
+   # Python without versioning
+   #
+   DLLS += VBoxPython
+   VBoxPython_EXTENDS   = VBoxPythonBase
+   VBoxPython_DEFS      = $(filter-out VBOX_PYXPCOM_VERSIONED,$(VBoxPythonBase_DEFS))
+   VBoxPython_INCS      = $(VBoxPythonBase_INCS) $(VBOX_PYTHONDEF_INC)
+   if "$(KBUILD_TARGET)" == "linux"
+    VBoxPython_LIBS     = $(VBoxPythonBase_LIBS)
+   else
+    VBoxPython_LIBS     = $(VBoxPythonBase_LIBS) $(VBOX_PYTHONDEF_LIB)
+   endif
+
+   ifdef VBOX_WITH_32_ON_64_MAIN_API
+    ifdef VBOX_PYTHONDEF_LIB_X86
+     VBoxPython_x86_EXTENDS = VBoxPythonBase_x86
+     VBoxPython_x86_DEFS    = $(filter-out VBOX_PYXPCOM_VERSIONED,$(VBoxPythonBase_x86_DEFS))
+     VBoxPython_x86_INCS    = $(VBoxPythonBase_x86_INCS) $(VBOX_PYTHONDEF_INC)
+     if "$(KBUILD_TARGET)" == "linux"
+      VBoxPython_x86_LIBS   = $(VBoxPythonBase_x86_LIBS)
+     else
+      VBoxPython_x86_LIBS   = $(VBoxPythonBase_x86_LIBS) $(VBOX_PYTHONDEF_LIB_X86)
+     endif
+    endif
+   endif
+  endif
+
+ endif # !VBOX_WITH_ONLY_PYTHON_LIMITED_API
+
+ ifndef VBOX_WITHOUT_PYTHON_LIMITED_API
+  #
+  # If there is python 3.3 or later present, we can build a generic
+  # 3.x extension.  Since 3.3 and 3.4 are rather old, we will pick
+  # those headers last.
+  #
+  # Note! No library dependencies are needed here (at least that's
+  #       how the xxlimited.so demo extension is done on linux and darwin).
+  # Note! The 'm' ABI suffix was discontinued in 3.8.
+  # TODO: ASSUMING that we don't need a different headers for pymalloc
+  #       ('m' builds < 3.8) and CRT malloc.
+  #
+  VBOX_PYTHON_LIMITED_API_VER := $(firstword $(foreach ver, 35 36 38 39 310 311 312   34 33 \
+  	,$(if-expr defined(VBOX_PYTHON$(ver)_INC),$(ver),)$(if-expr defined(VBOX_PYTHON$(ver)M_INC),$(ver)M,)))
+  ifneq ($(VBOX_PYTHON_LIMITED_API_VER),)
+   DLLS += VBoxPython3
+   VBoxPython3_EXTENDS   = VBoxPythonBase
+   VBoxPython3_DEFS      = $(filter-out VBOX_PYXPCOM_VERSIONED,$(VBoxPythonBase_DEFS)) Py_LIMITED_API=0x03030000
+   VBoxPython3_INCS      = $(VBoxPythonBase_INCS) $(VBOX_PYTHON$(VBOX_PYTHON_LIMITED_API_VER)_INC)
+
+   DLLS += VBoxPython3m
+   VBoxPython3m_EXTENDS  = VBoxPythonBase_m
+   VBoxPython3m_DEFS     = $(filter-out VBOX_PYXPCOM_VERSIONED,$(VBoxPythonBase_m_DEFS)) Py_LIMITED_API=0x03030000
+   VBoxPython3m_INCS     = $(VBoxPythonBase_m_INCS) $(VBOX_PYTHON$(VBOX_PYTHON_LIMITED_API_VER)_INC)
+  endif
+ endif # VBOX_WITH_PYTHON_LIMITED_API
+
+endif # VBOX_ONLY_SDK
+
+#
+# Install the python modules.
+#
+INSTALLS += VBoxPython-inst-py-xpcom
+VBoxPython-inst-py-xpcom_INST = $(INST_SDK)bindings/xpcom/python/xpcom/
+VBoxPython-inst-py-xpcom_MODE = a+r,u+w
+VBoxPython-inst-py-xpcom_SOURCES = \
+	vboxxpcom.py \
+	components.py \
+	file.py \
+	__init__.py \
+	nsError.py \
+	primitives.py \
+	xpcom_consts.py \
+	xpt.py \
+	client/__init__.py=>client/__init__.py \
+	server/__init__.py=>server/__init__.py \
+	server/enumerator.py=>server/enumerator.py \
+	server/factory.py=>server/factory.py \
+	server/loader.py=>server/loader.py \
+	server/module.py=>server/module.py \
+	server/policy.py=>server/policy.py
+
+
+include $(FILE_KBUILD_SUB_FOOTER)

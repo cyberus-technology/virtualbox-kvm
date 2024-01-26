@@ -1,0 +1,367 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-makefile for VBoxDTrace.
+#
+# Contributed by: bird
+#
+
+#
+# Copyright (C) 2012-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from http://www.virtualbox.org.
+#
+# The contents of this file are subject to the terms of the Common
+# Development and Distribution License Version 1.0 (CDDL) only, as it
+# comes in the "COPYING.CDDL" file of the VirtualBox distribution.
+#
+# SPDX-License-Identifier: CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# Globals.
+#
+VBOX_EXTPACK_VBOXDTRACE_NAME         := Oracle VBoxDTrace Extension Pack
+VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME := Oracle_VBoxDTrace_Extension_Pack
+VBOX_PATH_EXTPACK_VBOXDTRACE = $(PATH_STAGE)/$(INST_EXTPACK)$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)
+INST_EXTPACK_VBOXDTRACE = $(INST_EXTPACK)$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)/
+
+VBOXDT_PATH                := $(PATH_ROOT)/src/VBox/ExtPacks/VBoxDTrace
+VBOXDT_PATH_ONNV           := $(VBOXDT_PATH)/onnv
+VBOXDT_PATH_UTS            := $(VBOXDT_PATH_ONNV)/uts
+VBOXDT_PATH_CMD            := $(VBOXDT_PATH_ONNV)/cmd
+VBOXDT_PATH_LIBCTF         := $(VBOXDT_PATH_ONNV)/lib/libctf
+VBOXDT_PATH_CMN_CTF        := $(VBOXDT_PATH_ONNV)/common/ctf
+VBOXDT_PATH_LIBDTRACE      := $(VBOXDT_PATH_ONNV)/lib/libdtrace
+VBOXDT_PATH_CMN_DTRACE     := $(VBOXDT_PATH_ONNV)/common/dtrace
+
+
+ifndef VBOX_ONLY_EXTPACKS
+ #
+ # The generic wrapper that selects native or extpack dtrace cmd and adds our
+ # library path to the command line.
+ #
+ # Note! This is not installed as part of the extension pack, but always shipped
+ #       with the base VBox installation.
+ #
+ PROGRAMS += VBoxDTrace
+ VBoxDTrace_TEMPLATE := VBoxR3Exe
+ VBoxDTrace_SOURCES := VBoxDTraceWrapper.cpp
+ VBoxDTrace_LIBS = $(LIB_RUNTIME)
+ $(call VBOX_SET_VER_INFO_DLL,VBoxDTrace,VirtualBox DTrace Chooser)
+endif
+
+
+if defined(VBOX_WITH_EXTPACK_VBOXDTRACE) && defined(VBOX_WITH_EXTPACK)
+
+ #
+ # Extend the extension pack templates.
+ #
+ TEMPLATE_VBoxR3ExtPackDTrace = For the ring-3 context modules in the VBoxDTrace extension pack.
+ TEMPLATE_VBoxR3ExtPackDTrace_EXTENDS = VBoxR3ExtPack
+ TEMPLATE_VBoxR3ExtPackDTrace_INST = $(INST_EXTPACK_VBOXDTRACE)$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/
+ TEMPLATE_VBoxR3ExtPackDTrace_DEFS = $(TEMPLATE_VBoxR3ExtPack_DEFS) VBOX_IN_DTRACE_EXTPACK
+ if "$(VBOX_VCC_TOOL_STEM)" >= "VCC140"
+  # -wd4456: declaration of 'rval' hides previous local declaration
+  # -wd4477: 'fprintf' : format string '%02lu' requires an argument of type 'unsigned long', but variadic argument 1 has type 'ulong_t'
+  # -wd4457: warning C4457: declaration of 'arg' hides function parameter
+  TEMPLATE_VBoxR3ExtPackDTrace_CFLAGS.win = $(TEMPLATE_VBoxR3ExtPack_CFLAGS.win) -wd4456 -wd4477 -wd4457
+ endif
+
+ TEMPLATE_VBoxR0ExtPackDTrace = For the ring-0 context modules in the VBoxDTrace extension pack.
+ TEMPLATE_VBoxR0ExtPackDTrace_EXTENDS = VBoxR0ExtPack
+ TEMPLATE_VBoxR0ExtPackDTrace_INST = $(INST_EXTPACK_VBOXDTRACE)$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/
+ TEMPLATE_VBoxR0ExtPackDTrace_DEFS = $(TEMPLATE_VBoxR0ExtPack_DEFS) VBOX_IN_DTRACE_EXTPACK
+
+ TEMPLATE_VBoxInsExtPackDTrace = For the install targets for the VBoxDTrace extension pack.
+ TEMPLATE_VBoxInsExtPackDTrace_EXTENDS = VBoxR0ExtPack
+ TEMPLATE_VBoxInsExtPackDTrace_INST = $(INST_EXTPACK_VBOXDTRACE)
+
+
+ #
+ # Install the description.
+ #
+ INSTALLS += VBoxDTraceIns
+ VBoxDTraceIns_TEMPLATE = VBoxInsExtPackDTrace
+ VBoxDTraceIns_SOURCES = \
+ 	$(VBoxDTraceIns_0_OUTDIR)/ExtPack.xml \
+ 	COPYING=>ExtPack-SourceCodeLicense.txt
+ $(call VBOX_EDIT_VERSION_RULE_FN,VBoxDTraceIns,ExtPack.xml)
+
+
+ #
+ # VBoxDTraceMain - The module which the VirtualBox Main API talks to.
+ #
+ DLLS += VBoxDTraceMain
+ VBoxDTraceMain_TEMPLATE = VBoxR3ExtPackDTrace
+ VBoxDTraceMain_SOURCES = VBoxDTraceMain.cpp
+ $(call VBOX_SET_VER_INFO_DLL,VBoxDTraceMain,VBoxDTrace Main module)
+
+
+ #
+ # The ring-3 VBoxDTrace command implementation (library).
+ #
+ ifneq ($(KBUILD_TARGET),solaris) # Temporarily disabled on Solaris (not really needed)...
+  DLLS += VBoxDTraceCmd
+  VBoxDTraceCmd_TEMPLATE = VBoxR3ExtPackDTrace
+  ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+   VBoxDTraceCmd_DEFS = RTMEM_WRAP_TO_EF_APIS VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME="$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)"
+  else
+   VBoxDTraceCmd_DEFS = RTMEM_WRAP_TO_EF_APIS VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME=\"$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)\"
+  endif
+  #VBoxDTraceCmd_DEFS += YYDEBUG
+  VBoxDTraceCmd_DEFS.linux = _XOPEN_SOURCE=700 _LARGEFILE64_SOURCE
+  VBoxDTraceCmd_DEFS.win = YY_USE_PROTOS=1 YYENABLE_NLS=0 YYLTYPE_IS_TRIVIAL=0
+  VBoxDTraceCmd_SDKS = VBoxZlib
+  ifn1of ($(KBUILD_TARGET), win)
+   VBoxDTraceCmd_CFLAGS = -Wno-format $(VBOX_GCC_Wno-overlength-strings) -Wno-sign-compare -Wno-strict-prototypes -Wno-missing-prototypes -Wno-missing-declarations -Wno-shadow
+  endif
+  VBoxDTraceCmd_INCS = \
+  	include \
+  	$(VBOXDT_PATH_UTS)/common \
+  	$(VBOXDT_PATH_LIBCTF)/common \
+  	$(VBOXDT_PATH_LIBDTRACE)/common \
+  	$(VBOXDT_PATH_CMN_CTF)
+  VBoxDTraceCmd_SOURCES = \
+  	$(VBOXDT_PATH_CMD)/dtrace/dtrace.c \
+  	\
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_as.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_aggregate.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_buf.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_cc.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_cg.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_consume.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_decl.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_dis.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_dof.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_error.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_handle.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_ident.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_inttab.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_list.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_map.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_module.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_program.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_open.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_options.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_parser.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_pcb.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_pragma.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_printf.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_proc.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_provider.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_regset.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_string.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_strtab.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_subr.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_work.c \
+  	$(VBOXDT_PATH_LIBDTRACE)/common/dt_xlator.c \
+  	\
+  	$(VBoxDTraceCmd_0_OUTDIR)/dt_errtags.c \
+  	$(VBoxDTraceCmd_0_OUTDIR)/dt_names.c \
+  	\
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_create.c \
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_error.c \
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_decl.c \
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_hash.c \
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_labels.c \
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_lookup.c \
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_open.c \
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_types.c \
+  	$(VBOXDT_PATH_CMN_CTF)/ctf_util.c \
+  	\
+  	$(VBOXDT_PATH_LIBCTF)/common/ctf_subr.c \
+  	$(VBOXDT_PATH_LIBCTF)/common/ctf_lib.c
+
+  # Source not used or wanted:
+  #	$(VBOXDT_PATH_LIBDTRACE)/common/dt_link.c
+  #	$(VBOXDT_PATH_LIBDTRACE)/common/dt_pid.c
+
+  # Generate sources
+  VBoxDTraceCmd_CLEAN = \
+  	$(VBoxDTraceCmd_0_OUTDIR)/dt_errtags.c \
+  	$(VBoxDTraceCmd_0_OUTDIR)/dt_names.c
+
+  $$(VBoxDTraceCmd_0_OUTDIR)/dt_errtags.c: \
+  		$(VBOXDT_PATH_LIBDTRACE)/common/dt_errtags.h \
+  		$(VBOXDT_PATH_LIBDTRACE)/common/mkerrtags.sed \
+  		| $$(dir $$@)
+	$(MSG_GENERATE,VBoxDTraceCmd,$@,$<)
+	$(SED) -n -f $(VBOXDT_PATH_LIBDTRACE)/common/mkerrtags.sed --output $@ $<
+
+  $$(VBoxDTraceCmd_0_OUTDIR)/dt_names.c: \
+  		$(VBOXDT_PATH_UTS)/common/sys/dtrace.h \
+  		$(VBOXDT_PATH_LIBDTRACE)/common/mknames.sed \
+  		| $$(dir $$@)
+	$(MSG_GENERATE,VBoxDTraceCmd,$@,$<)
+	$(SED) -n -f $(VBOXDT_PATH_LIBDTRACE)/common/mknames.sed --output $@ $<
+
+  ifdef VBOX_HAVE_BISON
+   USES                  += yacc
+   VBoxDTraceCmd_USES    += yacc
+   VBoxDTraceCmd_YACCTOOL = BISON
+   VBoxDTraceCmd_YACCFLAGS = -d -y
+   VBoxDTraceCmd_SOURCES += \
+   	$(VBOXDT_PATH_LIBDTRACE)/common/dt_grammar.y
+   VBoxDTraceCmd_INCS    += $(VBoxDTraceCmd_0_OUTDIR)/src/VBox/ExtPacks/VBoxDTrace/onnv/lib/libdtrace/common
+  else
+   VBoxDTraceCmd_SOURCES += \
+   	$(VBOXDT_PATH)/generated/dt_grammar.c
+   VBoxDTraceCmd_INCS    += \
+   	$(VBOXDT_PATH)/generated/
+  endif
+
+  ifdef VBOX_HAVE_FLEX
+   USES                  += lex
+   VBoxDTraceCmd_USES    += lex
+   VBoxDTraceCmd_LEXTOOL  = FLEX
+   VBoxDTraceCmd_LEXFLAGS = -l -B #-d -T
+   VBoxDTraceCmd_SOURCES += \
+   	$(VBOXDT_PATH_LIBDTRACE)/common/dt_lex.l
+  else
+   VBoxDTraceCmd_SOURCES += \
+   	$(VBOXDT_PATH)/generated/dt_lex.c
+  endif
+  ifeq ($(KBUILD_HOST),linux)
+   if $(VBOX_GCC_VERSION_CXX) >= 70000
+    VBoxDTraceCmd_CFLAGS += -Wno-implicit-fallthrough
+   endif
+  endif
+  VBoxDTraceCmd_DEFS     += USING_FLEX
+  $(call VBOX_SET_VER_INFO_DLL,VBoxDTraceCmd,VBoxDTrace Command Implementation)
+
+  #
+  # Updates the sources generated by flex and biosn.
+  # The SED processing removes the paths the from #line statements.
+  #
+  vboxdtrace-update-generated-sources: \
+  		$$(VBoxDTraceCmd_0_OUTDIR)/src/VBox/ExtPacks/VBoxDTrace/onnv/lib/libdtrace/common/dt_grammar.c \
+  		$$(VBoxDTraceCmd_0_OUTDIR)/src/VBox/ExtPacks/VBoxDTrace/onnv/lib/libdtrace/common/dt_grammar.h \
+  		$$(VBoxDTraceCmd_0_OUTDIR)/src/VBox/ExtPacks/VBoxDTrace/onnv/lib/libdtrace/common/dt_lex.c
+	$(foreach file,dt_grammar.c dt_grammar.h dt_lex.c \
+		,$(NLTAB)$(SED)  -e 's,$(VBOXDT_PATH_LIBDTRACE)/common/,,g'\
+ 		-e 's,$(VBoxDTraceCmd_0_OUTDIR)/src/VBox/ExtPacks/VBoxDTrace/onnv/lib/libdtrace/common/,,g' \
+ 		--output $(VBOXDT_PATH)/generated/$(file) \
+ 		$(VBoxDTraceCmd_0_OUTDIR)/src/VBox/ExtPacks/VBoxDTrace/onnv/lib/libdtrace/common/$(file))
+ endif # Temporarily disabled on Solaris.
+
+ #
+ # The ring-0 part of VBoxDTrace.
+ #
+ ifneq ($(KBUILD_TARGET),solaris) # disabled on solaris - neiter needed nor currently able to build it here.
+  $(if-expr defined(VBOX_WITH_VBOXR0_AS_DLL),DLLS,SYSMODS) += VBoxDTraceR0
+ endif
+ VBoxDTraceR0_TEMPLATE = VBoxR0ExtPackDTrace
+ VBoxDTraceR0_DEFS = IN_VBOXDTRACE_R0 IN_RT_R0
+ ifeq ($(VBOX_LDR_FMT),elf)
+  VBoxDTraceR0_LDFLAGS = -e ModuleInit
+ endif
+ VBoxDTraceR0_INCS = \
+ 	include \
+ 	$(VBOXDT_PATH_UTS)/common
+ VBoxDTraceR0_SOURCES = \
+ 	VBoxDTraceR0.cpp \
+ 	VBoxDTraceR0A.asm \
+ 	$(VBOXDT_PATH_UTS)/common/dtrace/dtrace.c
+ VBoxDTraceR0_LIBS = \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ $(call VBOX_SET_VER_INFO_R0,VBoxDTraceR0,VBoxDTrace Core (ring-0))
+
+
+ #
+ # Packing.
+ #
+ ifndef VBOX_WITHOUT_EXTPACK_VBOXDTRACE_PACKING
+  PACKING += $(VBOX_PATH_PACKAGES)/$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)-$(VBOX_VERSION_STRING)r$(VBOX_SVN_REV).vbox-extpack
+ endif
+
+ ifndef VBOX_WITH_EXTPACK_OS_ARCHS
+  ifeq ($(USER),bird) # for now
+   VBOX_WITH_EXTPACK_OS_ARCHS = $(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)
+  endif
+ endif
+
+ # Build the file list.  The macro takes 1=darwin.x86, 2=dist/VirtualBox.app/Contents/MacOS, 3=dylib
+ VBOX_VBOXDTRACE_FILES_MACRO = \
+ 	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)/$(1)/VBoxDTraceMain.$(3)=>$(1)/VBoxDTraceMain.$(3) \
+ 	$(if $(intersects $1, solaris.x86 solaris.amd64),, \
+ 	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)/$(1)/VBoxDTraceCmd.$(3)=>$(1)/VBoxDTraceCmd.$(3) \
+ 	$(PATH_OUT_BASE)/$(1)/$(KBUILD_TYPE)/$(2)/ExtensionPacks/$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)/$(1)/VBoxDTraceR0.r0=>$(1)/VBoxDTraceR0.r0 \
+ 	)
+
+ VBOX_VBOXDTRACE_FILES := \
+ 	$(VBOX_PATH_EXTPACK_VBOXDTRACE)/ExtPack.xml=>ExtPack.xml \
+ 	$(VBOX_PATH_EXTPACK_VBOXDTRACE)/ExtPack-SourceCodeLicense.txt=>ExtPack-SourceCodeLicense.txt
+
+ if1of (darwin.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,darwin.amd64,dist/VirtualBox.app/Contents/MacOS,dylib)
+ endif
+ if1of (darwin.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,darwin.x86,dist/VirtualBox.app/Contents/MacOS,dylib)
+ endif
+ if1of (freebsd.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,freebsd.amd64,bin,so)
+ endif
+ if1of (freebsd.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,freebsd.x86,bin,so)
+ endif
+ if1of (linux.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,linux.amd64,bin,so)
+ endif
+ if1of (linux.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,linux.x86,bin,so)
+ endif
+ if1of (os2.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,os2.x86,bin,so)
+ endif
+ if1of (solaris.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,solaris.amd64,bin,so)
+ endif
+ if1of (solaris.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,solaris.x86,bin,so)
+ endif
+ if1of (win.amd64, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,win.amd64,bin,dll)
+ endif
+ if1of (win.x86, $(VBOX_WITH_EXTPACK_OS_ARCHS))
+  VBOX_VBOXDTRACE_FILES += $(call VBOX_VBOXDTRACE_FILES_MACRO,win.x86,bin,dll)
+ endif
+
+ # Pack it all up using a temporary staging directory.
+ $(VBOX_PATH_PACKAGES)/$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)-$(VBOX_VERSION_STRING)r$(VBOX_SVN_REV).vbox-extpack: \
+ 		$$(foreach file, $$(VBOX_VBOXDTRACE_FILES), $$(firstword $$(subst =>,$$(SP),$$(file)))) \
+ 		| $(VBOX_PATH_PACKAGES)/
+	$(RM) -f $(wildcard $(VBOX_PATH_PACKAGES)/$(VBOX_EXTPACK_VBOXDTRACE_MANGLED_NAME)-*.vbox-extpack) \
+		$(VBoxDTraceIns_0_OUTDIR)/ExtPack.manifest \
+		$(VBoxDTraceIns_0_OUTDIR)/ExtPack.signature
+ # Stage all the files
+	$(RM) -Rf $(VBoxDTraceIns_0_OUTDIR)/Stage/
+	$(foreach file, $(VBOX_VBOXDTRACE_FILES),\
+		$(NLTAB)$(MKDIR) -p $(dir $(lastword $(subst =>,$(SP)$(VBoxDTraceIns_0_OUTDIR)/Stage/,$(file)))) \
+		$(NLTAB)$(CP) $(subst =>,$(SP)$(VBoxDTraceIns_0_OUTDIR)/Stage/,$(file)) )
+ # Create the manifest
+	$(VBOX_RTMANIFEST) \
+		--manifest $(VBoxDTraceIns_0_OUTDIR)/Stage/ExtPack.manifest \
+		--chdir $(VBoxDTraceIns_0_OUTDIR)/Stage/ \
+		$(foreach file, $(VBOX_VBOXDTRACE_FILES), $(lastword $(subst =>,$(SP),$(file))))
+	$(APPEND) $(VBoxDTraceIns_0_OUTDIR)/Stage/ExtPack.signature "todo"
+	$(CHMOD) a+r \
+		$(VBoxDTraceIns_0_OUTDIR)/Stage/ExtPack.manifest \
+		$(VBoxDTraceIns_0_OUTDIR)/Stage/ExtPack.signature
+ # Tar it up.
+	tar -cvf - -C $(VBoxDTraceIns_0_OUTDIR)/Stage/ . | gzip -9c > $@
+ # Clean up
+	$(RM) -Rf $(VBoxDTraceIns_0_OUTDIR)/Stage/
+
+ BLDDIRS += $(VBOX_PATH_PACKAGES)/
+
+endif # VBOX_WITH_EXTPACK_VBOXDTRACE
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

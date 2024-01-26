@@ -1,0 +1,287 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the IPRT tools.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+if !defined(VBOX_ONLY_EXTPACKS) && !defined(VBOX_ONLY_DOCS)
+ # RTIsoMaker - ISO image maker - build version.
+ ifeq ($(KBUILD_TARGET),win)  # Needed for repacking guest additions.
+  PROGRAMS += bldRTIsoMaker
+  bldRTIsoMaker_INSTTYPE = stage
+ else
+  BLDPROGS += bldRTIsoMaker
+ endif
+ bldRTIsoMaker_TEMPLATE = VBoxAdvBldProg
+ bldRTIsoMaker_SOURCES = \
+ 	RTIsoMaker.cpp \
+ 	../common/misc/buildconfig.cpp
+ bldRTIsoMaker_DEFS = \
+ 	IPRT_BLDCFG_SCM_REV=$(if $(VBOX_SVN_REV_FALLBACK),$(VBOX_SVN_REV_FALLBACK),$(VBOX_SVN_REV)) \
+ 	IPRT_BLDCFG_VERSION_MAJOR=$(VBOX_VERSION_MAJOR) \
+ 	IPRT_BLDCFG_VERSION_MINOR=$(VBOX_VERSION_MINOR) \
+ 	IPRT_BLDCFG_VERSION_BUILD=$(VBOX_VERSION_BUILD)
+ ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+  bldRTIsoMaker_DEFS += \
+  	IPRT_BLDCFG_VERSION_STRING="$(VBOX_VERSION_STRING)" \
+  	IPRT_BLDCFG_TARGET="$(KBUILD_TARGET)" \
+  	IPRT_BLDCFG_TARGET_ARCH="$(KBUILD_TARGET_ARCH)" \
+  	IPRT_BLDCFG_TYPE="$(KBUILD_TYPE)"
+ else
+  bldRTIsoMaker_DEFS += \
+  	IPRT_BLDCFG_VERSION_STRING=\"$(VBOX_VERSION_STRING)\" \
+  	IPRT_BLDCFG_TARGET=\"$(KBUILD_TARGET)\" \
+  	IPRT_BLDCFG_TARGET_ARCH=\"$(KBUILD_TARGET_ARCH)\" \
+  	IPRT_BLDCFG_TYPE=\"$(KBUILD_TYPE)\"
+ endif
+ bldRTIsoMaker_INCS = ../include
+endif
+
+
+if !defined(VBOX_ONLY_DOCS)
+
+ # RTManifest is a tool for creating and verifying manifest files - build version.
+ BLDPROGS += bldRTManifest
+ bldRTManifest_TEMPLATE = VBoxAdvBldProg
+ bldRTManifest_SOURCES  = RTManifest.cpp
+
+
+ if !defined(VBOX_ONLY_EXTPACKS) || "$(KBUILD_TARGET)" == "win" || "$(KBUILD_TARGET)" == "darwin"
+  # RTSignTool - Signing utility - build version.  Signed on windows so we can get the certificate from it.
+  BLDPROGS += bldRTSignTool
+  bldRTSignTool_TEMPLATE  := VBoxAdvBldProg
+  bldRTSignTool_INCS      := ../include
+  bldRTSignTool_SOURCES   := RTSignTool.cpp
+  bldRTSignTool_DEFS      := IPRT_IN_BUILD_TOOL
+  bldRTSignTool_LDFLAGS.darwin := \
+  	-framework CoreFoundation \
+  	-framework Security
+  bldRTSignTool_LIBS.win  := Crypt32.lib NCrypt.lib
+  ifndef VBOX_WITH_BLD_RTSIGNTOOL_SIGNING
+   bldRTSignTool_DEFS     += IPRT_SIGNTOOL_NO_SIGNING
+  else # RuntimeBldProg is missing a lot and is built w/o IPRT_WITH_OPENSSL. So, include missing and rebuilt openssl deps.
+   bldRTSignTool_SDKS     += VBoxOpenSslBldProg
+   bldRTSignTool_DEFS     += IPRT_WITH_OPENSSL
+   bldRTSignTool_SOURCES  += \
+   	../common/crypto/pkix-signature-builtin.cpp \
+   	../common/crypto/pkix-signature-ossl.cpp \
+   	../common/crypto/store.cpp \
+   	../common/crypto/digest-builtin.cpp \
+   	../common/crypto/iprt-openssl.cpp \
+   	../common/crypto/key.cpp \
+   	../common/crypto/key-file.cpp \
+   	../common/crypto/key-openssl.cpp \
+   	../common/crypto/pkcs7-sign.cpp \
+   	../common/crypto/RTCrRandBytes-openssl.cpp
+   if1of ($(KBUILD_HOST), darwin win)
+    bldRTSignTool_SOURCES += ../r3/$(KBUILD_HOST)/RTCrStoreCreateSnapshotById-$(KBUILD_HOST).cpp
+   else
+    bldRTSignTool_SOURCES += ../generic/RTCrStoreCreateSnapshotById-generic.cpp
+   endif
+  endif
+ endif
+
+ if !defined(VBOX_ONLY_EXTPACKS)
+  # RTLdrCheckImports - import checker.
+  PROGRAMS += bldRTLdrCheckImports
+  bldRTLdrCheckImports_TEMPLATE = VBoxAdvBldProg
+  bldRTLdrCheckImports_DEFS = IPRT_IN_BUILD_TOOL
+  bldRTLdrCheckImports_SOURCES = RTLdrCheckImports.cpp
+ endif
+endif
+
+if !defined(VBOX_ONLY_BUILD)
+
+ # RTCat is a tool for displaying files.
+ PROGRAMS += RTCat
+ RTCat_TEMPLATE = VBoxR3Tool
+ RTCat_SOURCES = RTCat.cpp
+ RTCat_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTChMod - our chmod clone.
+ PROGRAMS += RTChMod
+ RTChMod_TEMPLATE = VBoxR3Tool
+ RTChMod_SOURCES = RTChMod.cpp
+
+ # RTCp - our cp clone.
+ PROGRAMS += RTCp
+ RTCp_TEMPLATE = VBoxR3Tool
+ RTCp_SOURCES = RTCp.cpp
+ RTCp_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTIsoMaker - ISO image maker - build version.
+ PROGRAMS += RTIsoMaker
+ RTIsoMaker_TEMPLATE = VBoxR3Tool
+ RTIsoMaker_SOURCES = RTIsoMaker.cpp
+ RTIsoMaker_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTLs is a tool for listing file information.
+ PROGRAMS += RTLs
+ RTLs_TEMPLATE = VBoxR3Tool
+ RTLs_SOURCES = RTLs.cpp
+ RTLs_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTRm is a tool for removing files and directories.
+ PROGRAMS += RTRm
+ RTRm_TEMPLATE = VBoxR3Tool
+ RTRm_SOURCES = RTRm.cpp
+ RTRm_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTManifest is a tool for creating and verifying manifest files.
+ PROGRAMS += RTManifest
+ RTManifest_TEMPLATE = VBoxR3Tool
+ RTManifest_SOURCES = RTManifest.cpp
+ RTManifest_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTLdrFlt is similar to c++filt, except that it's for VMMR0.r0 stacks.
+ PROGRAMS += RTLdrFlt
+ RTLdrFlt_TEMPLATE = VBoxR3Tool
+ RTLdrFlt_SOURCES = RTLdrFlt.cpp
+
+ # RTFtpServer implements a simple FTP server.
+ PROGRAMS += RTFtpServer
+ RTFtpServer_TEMPLATE = VBoxR3Tool
+ RTFtpServer_SOURCES = RTFtpServer.cpp
+
+ # RTGzip - our gzip clone (for testing the gzip/gunzip streaming code)
+ PROGRAMS += RTGzip
+ RTGzip_TEMPLATE = VBoxR3Tool
+ RTGzip_SOURCES = RTGzip.cpp
+ RTGzip_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ ifdef VBOX_WITH_LIBCURL
+  # RTHttp - our http/https fetcher (for testing the http client API).
+  PROGRAMS += RTHttp
+  RTHttp_TEMPLATE = VBoxR3Tool
+  RTHttp_SOURCES = RTHttp.cpp
+ endif
+
+ # RTHttpServer implements a simple HTTP server.
+ PROGRAMS += RTHttpServer
+ RTHttpServer_TEMPLATE = VBoxR3Tool
+ RTHttpServer_SOURCES = RTHttpServer.cpp
+ ifdef IPRT_HTTP_WITH_WEBDAV
+  RTHttpServer_DEFS   += IPRT_HTTP_WITH_WEBDAV
+ endif
+
+ # RTLdrCheckImports - import checker.
+ PROGRAMS += RTLdrCheckImports
+ RTLdrCheckImports_TEMPLATE = VBoxR3Tool
+ RTLdrCheckImports_SOURCES = RTLdrCheckImports.cpp
+ RTLdrCheckImports_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTMkDir - our mkdir clone.
+ PROGRAMS += RTMkDir
+ RTMkDir_TEMPLATE = VBoxR3Tool
+ RTMkDir_SOURCES = RTMkDir.cpp
+
+ # RTRmDir - our mkdir clone.
+ PROGRAMS += RTRmDir
+ RTRmDir_TEMPLATE = VBoxR3Tool
+ RTRmDir_SOURCES = RTRmDir.cpp
+
+ # RTShutdown - similar (but not identical) to a typical unix shutdown command.
+ PROGRAMS += RTShutdown
+ RTShutdown_TEMPLATE = VBoxR3Tool
+ RTShutdown_SOURCES = RTShutdown.cpp
+
+ # RTTar - our tar clone (for testing the tar/gzip/gunzip streaming code)
+ PROGRAMS += RTTar
+ RTTar_TEMPLATE = VBoxR3Tool
+ RTTar_SOURCES = RTTar.cpp
+ RTTar_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTUnzip - our unzip clone (for testing the unzip streaming code)
+ PROGRAMS += RTUnzip
+ RTUnzip_TEMPLATE = VBoxR3Tool
+ RTUnzip_SOURCES = RTUnzip.cpp
+ RTUnzip_SOURCES += ../VBox/LoadVBoxDDU.cpp
+
+ # RTNtDbgHelp - our tar clone (for testing the tar/gzip/gunzip streaming code)
+ PROGRAMS.win += RTNtDbgHelp
+ RTNtDbgHelp_TEMPLATE = VBoxR3Tool
+ RTNtDbgHelp_SOURCES = RTNtDbgHelp.cpp
+
+ # RTDbgSymCache - Symbol cache manager.
+ PROGRAMS += RTDbgSymCache
+ RTDbgSymCache_TEMPLATE = VBoxR3Tool
+ RTDbgSymCache_SOURCES = RTDbgSymCache.cpp
+
+ # RTSignTool - Signing utility.
+ PROGRAMS += RTSignTool
+ RTSignTool_TEMPLATE := VBoxR3Tool
+ RTSignTool_INCS     := ../include
+ RTSignTool_SOURCES  := RTSignTool.cpp
+ RTSignTool_LIBS     = $(PATH_STAGE_LIB)/SUPR3$(VBOX_SUFF_LIB)
+ RTSignTool_LIBS.win  = Crypt32.lib NCrypt.lib
+
+ # RTTraceLogTool - Trace log collection and dissection tool.
+ PROGRAMS += RTTraceLogTool
+ RTTraceLogTool_TEMPLATE = VBoxR3Tool
+ RTTraceLogTool_SOURCES = RTTraceLogTool.cpp
+
+ # RTFuzzMaster - Fuzzing master tool.
+ PROGRAMS += RTFuzzMaster
+ RTFuzzMaster_TEMPLATE = VBoxR3Tool
+ RTFuzzMaster_SOURCES = RTFuzzMaster.cpp
+
+ # RTFuzzClient - Fuzzing client tool.
+ PROGRAMS += RTFuzzClient
+ RTFuzzClient_TEMPLATE = VBoxR3Tool
+ RTFuzzClient_SOURCES = RTFuzzClient.cpp
+
+ # RTEfiFatExtract - Extracting single files from a fat EFI binary.
+ PROGRAMS += RTEfiFatExtract
+ RTEfiFatExtract_TEMPLATE = VBoxR3Tool
+ RTEfiFatExtract_SOURCES = RTEfiFatExtract.cpp
+
+ # RTEfiSigDb - EFI signature database management tool.
+ PROGRAMS += RTEfiSigDb
+ RTEfiSigDb_TEMPLATE = VBoxR3Tool
+ RTEfiSigDb_SOURCES = RTEfiSigDb.cpp
+
+ if1of ($(KBUILD_TARGET), darwin linux solaris win)
+  # RTKrnlModInfo - our lsmod/kextstat clone (for testing the RTKrnlMod code).
+  PROGRAMS += RTKrnlModInfo
+  RTKrnlModInfo_TEMPLATE = VBoxR3Tool
+  RTKrnlModInfo_SOURCES = RTKrnlModInfo.cpp
+ endif
+
+endif # !VBOX_ONLY_BUILD
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

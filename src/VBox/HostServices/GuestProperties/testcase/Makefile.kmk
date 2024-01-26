@@ -1,0 +1,56 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Guest Properties Host Service testcases.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+if defined(VBOX_WITH_TESTCASES) && !defined(VBOX_ONLY_ADDITIONS) && !defined(VBOX_ONLY_SDK)
+
+ # Set this in LocalConfig.kmk if you are working on the guest property
+ # service to automatically run the testcase at build time.
+ #    OTHERS += $(tstGuestPropSvc_0_OUTDIR)/tstGuestPropSvc.run
+ #
+
+ PROGRAMS += tstGuestPropSvc
+ TESTING  += $(tstGuestPropSvc_0_OUTDIR)/tstGuestPropSvc.run
+ tstGuestPropSvc_TEMPLATE = VBoxR3TstExe
+ # The second define here is to ensure that the testcase will run fast,
+ # without waiting for any thread synchronisation.
+ tstGuestPropSvc_DEFS     = VBOX_WITH_HGCM VBOX_GUEST_PROP_TEST_NOTHREAD
+ tstGuestPropSvc_SOURCES  = \
+ 	tstGuestPropSvc.cpp \
+ 	../VBoxGuestPropSvc.cpp
+ tstGuestPropSvc_LIBS     = $(LIB_RUNTIME)
+
+ $$(tstGuestPropSvc_0_OUTDIR)/tstGuestPropSvc.run: $$(tstGuestPropSvc_1_STAGE_TARGET)
+	export VBOX_LOG_DEST=nofile; $(tstGuestPropSvc_1_STAGE_TARGET) quiet
+	$(QUIET)$(APPEND) -t "$@" "done"
+
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

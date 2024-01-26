@@ -1,0 +1,158 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the SUPLib testcases.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# We need the VMM/Config.kmk one for the VMM_COMMON_DEFS variable.
+ifndef VBOX_VMM_CONFIG_KMK_INCLUDED
+ include $(PATH_ROOT)/src/VBox/VMM/Config.kmk
+endif
+
+PROGRAMS += \
+	SUPInstall \
+	SUPUninstall \
+	SUPLoggerCtl
+ifdef VBOX_WITH_TESTCASES
+ if defined(VBOX_WITH_HARDENING)
+  PROGRAMS += \
+  	tstSupVerify
+ endif
+ if !defined(VBOX_WITH_HARDENING) || "$(KBUILD_TARGET)" != "win"
+  PROGRAMS += \
+  	tstPage \
+  	tstContiguous \
+  	tstInit \
+  	tstInt \
+  	tstLow \
+  	tstPin \
+  	tstGetPagingMode \
+  	tstSupLoadModule \
+  	tstSupSem \
+  	tstSupSem-Zombie \
+  	tstSupTscDelta
+ endif
+ PROGRAMS.win += \
+ 	tstNtQueryStuff
+endif # VBOX_WITH_TESTCASES
+
+SUPInstall_TEMPLATE   = VBoxR3Exe
+SUPInstall_SOURCES    = SUPInstall.cpp
+SUPInstall_LIBS       = $(LIB_RUNTIME)
+
+SUPUninstall_TEMPLATE = VBoxR3Exe
+SUPUninstall_SOURCES  = SUPUninstall.cpp
+SUPUninstall_LIBS     = $(LIB_RUNTIME)
+
+SUPLoggerCtl_TEMPLATE = VBoxR3Exe
+SUPLoggerCtl_SOURCES  = SUPLoggerCtl.cpp
+SUPLoggerCtl_LIBS     = $(LIB_RUNTIME)
+
+tstInt_TEMPLATE       = VBoxR3Exe
+tstInt_DEFS           = $(VMM_COMMON_DEFS)
+tstInt_SOURCES        = tstInt.cpp
+tstInt_LIBS           = $(LIB_RUNTIME)
+
+tstContiguous_TEMPLATE = VBoxR3TstExe
+tstContiguous_SOURCES = tstContiguous.cpp
+
+tstInit_TEMPLATE      = VBoxR3TstExe
+tstInit_SOURCES       = tstInit.cpp
+
+tstLow_TEMPLATE       = VBoxR3TstExe
+tstLow_SOURCES        = tstLow.cpp
+
+tstNtQueryStuff_TEMPLATE = VBoxR3TstExe
+tstNtQueryStuff_SDKS     = VBoxNtDll
+tstNtQueryStuff_SOURCES  = tstNtQueryStuff.cpp
+
+tstPin_TEMPLATE       = VBoxR3TstExe
+tstPin_SOURCES        = tstPin.cpp
+
+tstPage_TEMPLATE      = VBoxR3TstExe
+tstPage_SOURCES       = tstPage.cpp
+
+#
+# tstGIP-2
+#
+ifdef VBOX_WITH_TESTCASES
+ if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+  PROGRAMS += tstGIP-2Hardened
+  DLLS += tstGIP-2
+ else
+  PROGRAMS += tstGIP-2
+ endif
+endif
+
+tstGIP-2Hardened_TEMPLATE = VBoxR3HardenedTstExe
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ tstGIP-2Hardened_DEFS = PROGRAM_NAME_STR="tstGIP-2"
+else
+ tstGIP-2Hardened_DEFS = PROGRAM_NAME_STR=\"tstGIP-2\"
+endif
+tstGIP-2Hardened_SOURCES = ../SUPR3HardenedMainTemplateTestcase.cpp
+tstGIP-2Hardened_NAME = tstGIP-2
+
+if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+ tstGIP-2_TEMPLATE  := VBoxR3HardenedTstDll
+else
+ tstGIP-2_TEMPLATE  := VBoxR3TstExe
+endif
+tstGIP-2_SOURCES = tstGIP-2.cpp
+
+tstGetPagingMode_TEMPLATE = VBoxR3TstExe
+tstGetPagingMode_SOURCES = tstGetPagingMode.cpp
+
+tstSupLoadModule_TEMPLATE = VBoxR3TstExe
+tstSupLoadModule_SOURCES  = tstSupLoadModule.cpp
+
+tstSupSem_TEMPLATE    = VBoxR3TstExe
+tstSupSem_SOURCES     = tstSupSem.cpp
+
+tstSupSem-Zombie_TEMPLATE = VBoxR3TstExe
+tstSupSem-Zombie_SOURCES  = tstSupSem-Zombie.cpp
+
+tstSupTscDelta_TEMPLATE = VBoxR3TstExe
+tstSupTscDelta_SOURCES  = tstSupTscDelta.cpp
+
+# For testing supR3HardenedVerifyFile on windows.
+tstSupVerify_TEMPLATE = VBoxR3TstExe
+tstSupVerify_SOURCES  = tstSupVerify.cpp
+
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

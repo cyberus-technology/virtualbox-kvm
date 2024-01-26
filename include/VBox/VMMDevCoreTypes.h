@@ -1,0 +1,548 @@
+/** @file
+ * Virtual Device for Guest <-> VMM/Host communication, Core Types. (ADD,DEV)
+ *
+ * These types are needed by several headers VBoxGuestLib.h and are kept
+ * separate to avoid having to include the whole VMMDev.h fun.
+ */
+
+/*
+ * Copyright (C) 2006-2023 Oracle and/or its affiliates.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#ifndef VBOX_INCLUDED_VMMDevCoreTypes_h
+#define VBOX_INCLUDED_VMMDevCoreTypes_h
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#include <iprt/assertcompile.h>
+#include <iprt/types.h>
+#ifdef __cplusplus
+# include <iprt/assert.h>
+# include <iprt/errcore.h>
+#endif
+
+
+/** @addtogroup grp_vmmdev
+ * @{
+ */
+
+/* Helpful forward declarations: */
+struct VMMDevRequestHeader;
+struct VMMDevReqMousePointer;
+struct VMMDevMemory;
+
+
+/** @name VMMDev events.
+ *
+ * Used mainly by VMMDevReq_AcknowledgeEvents/VMMDevEvents and version 1.3 of
+ * VMMDevMemory.
+ *
+ * @{
+ */
+/** Host mouse capabilities has been changed. */
+#define VMMDEV_EVENT_MOUSE_CAPABILITIES_CHANGED             RT_BIT(0)
+/** HGCM event. */
+#define VMMDEV_EVENT_HGCM                                   RT_BIT(1)
+/** A display change request has been issued. */
+#define VMMDEV_EVENT_DISPLAY_CHANGE_REQUEST                 RT_BIT(2)
+/** Credentials are available for judgement. */
+#define VMMDEV_EVENT_JUDGE_CREDENTIALS                      RT_BIT(3)
+/** The guest has been restored. */
+#define VMMDEV_EVENT_RESTORED                               RT_BIT(4)
+/** Seamless mode state changed. */
+#define VMMDEV_EVENT_SEAMLESS_MODE_CHANGE_REQUEST           RT_BIT(5)
+/** Memory balloon size changed. */
+#define VMMDEV_EVENT_BALLOON_CHANGE_REQUEST                 RT_BIT(6)
+/** Statistics interval changed. */
+#define VMMDEV_EVENT_STATISTICS_INTERVAL_CHANGE_REQUEST     RT_BIT(7)
+/** VRDP status changed. */
+#define VMMDEV_EVENT_VRDP                                   RT_BIT(8)
+/** New mouse position data available. */
+#define VMMDEV_EVENT_MOUSE_POSITION_CHANGED                 RT_BIT(9)
+/** CPU hotplug event occurred. */
+#define VMMDEV_EVENT_CPU_HOTPLUG                            RT_BIT(10)
+/** The mask of valid events, for sanity checking. */
+#define VMMDEV_EVENT_VALID_EVENT_MASK                       UINT32_C(0x000007ff)
+/** @} */
+
+
+/** @name The ballooning chunk size which VMMDev works at.
+ * @{ */
+#define VMMDEV_MEMORY_BALLOON_CHUNK_PAGES            (_1M/4096)
+#define VMMDEV_MEMORY_BALLOON_CHUNK_SIZE             (VMMDEV_MEMORY_BALLOON_CHUNK_PAGES*4096)
+/** @} */
+
+
+/**
+ * Seamless mode.
+ *
+ * Used by VbglR3SeamlessWaitEvent
+ *
+ * @ingroup grp_vmmdev_req
+ */
+typedef enum
+{
+    VMMDev_Seamless_Disabled         = 0,     /**< normal mode; entire guest desktop displayed. */
+    VMMDev_Seamless_Visible_Region   = 1,     /**< visible region mode; only top-level guest windows displayed. */
+    VMMDev_Seamless_Host_Window      = 2,     /**< windowed mode; each top-level guest window is represented in a host window. */
+    VMMDev_Seamless_SizeHack         = 0x7fffffff
+} VMMDevSeamlessMode;
+AssertCompileSize(VMMDevSeamlessMode, 4);
+
+
+/**
+ * CPU event types.
+ *
+ * Used by VbglR3CpuHotplugWaitForEvent
+ *
+ * @ingroup grp_vmmdev_req
+ */
+typedef enum
+{
+    VMMDevCpuEventType_Invalid  = 0,
+    VMMDevCpuEventType_None     = 1,
+    VMMDevCpuEventType_Plug     = 2,
+    VMMDevCpuEventType_Unplug   = 3,
+    VMMDevCpuEventType_SizeHack = 0x7fffffff
+} VMMDevCpuEventType;
+AssertCompileSize(VMMDevCpuEventType, 4);
+
+
+/** @name Guest capability bits.
+ * Used by VMMDevReq_ReportGuestCapabilities and VMMDevReq_SetGuestCapabilities.
+ * @{ */
+/** The guest supports seamless display rendering. */
+#define VMMDEV_GUEST_SUPPORTS_SEAMLESS                      RT_BIT_32(0)
+/** The guest supports mapping guest to host windows. */
+#define VMMDEV_GUEST_SUPPORTS_GUEST_HOST_WINDOW_MAPPING     RT_BIT_32(1)
+/** The guest graphical additions are active.
+ * Used for fast activation and deactivation of certain graphical operations
+ * (e.g. resizing & seamless). The legacy VMMDevReq_ReportGuestCapabilities
+ * request sets this automatically, but VMMDevReq_SetGuestCapabilities does
+ * not. */
+#define VMMDEV_GUEST_SUPPORTS_GRAPHICS                      RT_BIT_32(2)
+/** The mask of valid events, for sanity checking. */
+#define VMMDEV_GUEST_CAPABILITIES_MASK                      UINT32_C(0x00000007)
+/** @} */
+
+
+/**
+ * The guest facility.
+ * This needs to be kept in sync with AdditionsFacilityType of the Main API!
+ */
+typedef enum
+{
+    VBoxGuestFacilityType_Unknown         = 0,
+    VBoxGuestFacilityType_VBoxGuestDriver = 20,
+    VBoxGuestFacilityType_AutoLogon       = 90,  /* VBoxGINA / VBoxCredProv / pam_vbox. */
+    VBoxGuestFacilityType_VBoxService     = 100,
+    VBoxGuestFacilityType_VBoxTrayClient  = 101, /* VBoxTray (Windows), VBoxClient (Linux, Unix). */
+    VBoxGuestFacilityType_Seamless        = 1000,
+    VBoxGuestFacilityType_Graphics        = 1100,
+    VBoxGuestFacilityType_MonitorAttach   = 1101,
+    VBoxGuestFacilityType_All             = 0x7ffffffe,
+    VBoxGuestFacilityType_SizeHack        = 0x7fffffff
+} VBoxGuestFacilityType;
+AssertCompileSize(VBoxGuestFacilityType, 4);
+
+
+/**
+ * The current guest status of a facility.
+ * This needs to be kept in sync with AdditionsFacilityStatus of the Main API!
+ *
+ * @remarks r=bird: Pretty please, for future types like this, simply do a
+ *          linear allocation without any gaps.  This stuff is impossible work
+ *          efficiently with, let alone validate.  Applies to the other facility
+ *          enums too.
+ */
+typedef enum
+{
+    VBoxGuestFacilityStatus_Inactive    = 0,
+    VBoxGuestFacilityStatus_Paused      = 1,
+    VBoxGuestFacilityStatus_PreInit     = 20,
+    VBoxGuestFacilityStatus_Init        = 30,
+    VBoxGuestFacilityStatus_Active      = 50,
+    VBoxGuestFacilityStatus_Terminating = 100,
+    VBoxGuestFacilityStatus_Terminated  = 101,
+    VBoxGuestFacilityStatus_Failed  =     800,
+    VBoxGuestFacilityStatus_Unknown     = 999,
+    VBoxGuestFacilityStatus_SizeHack    = 0x7fffffff
+} VBoxGuestFacilityStatus;
+AssertCompileSize(VBoxGuestFacilityStatus, 4);
+
+
+/**
+ * The current status of specific guest user.
+ * This needs to be kept in sync with GuestUserState of the Main API!
+ */
+typedef enum VBoxGuestUserState
+{
+    VBoxGuestUserState_Unknown            = 0,
+    VBoxGuestUserState_LoggedIn           = 1,
+    VBoxGuestUserState_LoggedOut          = 2,
+    VBoxGuestUserState_Locked             = 3,
+    VBoxGuestUserState_Unlocked           = 4,
+    VBoxGuestUserState_Disabled           = 5,
+    VBoxGuestUserState_Idle               = 6,
+    VBoxGuestUserState_InUse              = 7,
+    VBoxGuestUserState_Created            = 8,
+    VBoxGuestUserState_Deleted            = 9,
+    VBoxGuestUserState_SessionChanged     = 10,
+    VBoxGuestUserState_CredentialsChanged = 11,
+    VBoxGuestUserState_RoleChanged        = 12,
+    VBoxGuestUserState_GroupAdded         = 13,
+    VBoxGuestUserState_GroupRemoved       = 14,
+    VBoxGuestUserState_Elevated           = 15,
+    VBoxGuestUserState_SizeHack           = 0x7fffffff
+} VBoxGuestUserState;
+AssertCompileSize(VBoxGuestUserState, 4);
+
+
+
+/**
+ * HGCM service location types.
+ * @ingroup grp_vmmdev_req
+ */
+typedef enum
+{
+    VMMDevHGCMLoc_Invalid    = 0,
+    VMMDevHGCMLoc_LocalHost  = 1,
+    VMMDevHGCMLoc_LocalHost_Existing = 2,
+    VMMDevHGCMLoc_SizeHack   = 0x7fffffff
+} HGCMServiceLocationType;
+AssertCompileSize(HGCMServiceLocationType, 4);
+
+/**
+ * HGCM host service location.
+ * @ingroup grp_vmmdev_req
+ */
+typedef struct
+{
+    char achName[128]; /**< This is really szName. */
+} HGCMServiceLocationHost;
+AssertCompileSize(HGCMServiceLocationHost, 128);
+
+/**
+ * HGCM service location.
+ * @ingroup grp_vmmdev_req
+ */
+typedef struct HGCMSERVICELOCATION
+{
+    /** Type of the location. */
+    HGCMServiceLocationType type;
+
+    union
+    {
+        HGCMServiceLocationHost host;
+    } u;
+} HGCMServiceLocation;
+AssertCompileSize(HGCMServiceLocation, 128+4);
+
+
+/**
+ * HGCM parameter type.
+ */
+typedef enum
+{
+    VMMDevHGCMParmType_Invalid            = 0,
+    VMMDevHGCMParmType_32bit              = 1,
+    VMMDevHGCMParmType_64bit              = 2,
+    VMMDevHGCMParmType_PhysAddr           = 3,  /**< @deprecated Doesn't work, use PageList. */
+    VMMDevHGCMParmType_LinAddr            = 4,  /**< In and Out */
+    VMMDevHGCMParmType_LinAddr_In         = 5,  /**< In  (read;  host<-guest) */
+    VMMDevHGCMParmType_LinAddr_Out        = 6,  /**< Out (write; host->guest) */
+    VMMDevHGCMParmType_LinAddr_Locked     = 7,  /**< Locked In and Out - for VBoxGuest, not host. */
+    VMMDevHGCMParmType_LinAddr_Locked_In  = 8,  /**< Locked In  (read;  host<-guest) - for VBoxGuest, not host. */
+    VMMDevHGCMParmType_LinAddr_Locked_Out = 9,  /**< Locked Out (write; host->guest) - for VBoxGuest, not host. */
+    VMMDevHGCMParmType_PageList           = 10, /**< Physical addresses of locked pages for a buffer. */
+    VMMDevHGCMParmType_Embedded           = 11, /**< Small buffer embedded in request. */
+    VMMDevHGCMParmType_ContiguousPageList = 12, /**< Like PageList but with physically contiguous memory, so only one page entry. */
+    VMMDevHGCMParmType_NoBouncePageList   = 13, /**< Like PageList but host function requires no bounce buffering. */
+    VMMDevHGCMParmType_SizeHack           = 0x7fffffff
+} HGCMFunctionParameterType;
+AssertCompileSize(HGCMFunctionParameterType, 4);
+
+
+# ifdef VBOX_WITH_64_BITS_GUESTS
+/**
+ * HGCM function parameter, 32-bit client.
+ */
+#  pragma pack(4) /* We force structure dword packing here for hysterical raisins.  Saves us 4 bytes, at the cost of
+                     misaligning the value64 member of every other parameter structure. */
+typedef struct HGCMFunctionParameter32
+{
+    HGCMFunctionParameterType type;
+    union
+    {
+        uint32_t   value32;
+        uint64_t   value64;
+        struct
+        {
+            uint32_t size;
+
+            union
+            {
+                RTGCPHYS32 physAddr;
+                RTGCPTR32  linearAddr;
+            } u;
+        } Pointer;
+        struct
+        {
+            uint32_t  cb;
+            RTGCPTR32 uAddr;
+        } LinAddr;                      /**< Shorter version of the above Pointer structure. */
+        struct
+        {
+            uint32_t size;              /**< Size of the buffer described by the page list. */
+            uint32_t offset;            /**< Relative to the request header of a HGCMPageListInfo structure, valid if size != 0. */
+        } PageList;
+        struct
+        {
+            uint32_t fFlags : 8;        /**< VBOX_HGCM_F_PARM_*. */
+            uint32_t offData : 24;      /**< Relative to the request header, valid if cb != 0. */
+            uint32_t cbData;            /**< The buffer size. */
+        } Embedded;
+    } u;
+#  ifdef __cplusplus
+    void SetUInt32(uint32_t u32)
+    {
+        type = VMMDevHGCMParmType_32bit;
+        u.value64 = 0; /* init unused bits to 0 */
+        u.value32 = u32;
+    }
+
+    int GetUInt32(uint32_t RT_FAR *pu32)
+    {
+        AssertMsgReturnStmt(type == VMMDevHGCMParmType_32bit, ("type=%d\n", type),
+                            *pu32 = UINT32_MAX /* shut up gcc */, VERR_WRONG_PARAMETER_TYPE);
+        *pu32 = u.value32;
+        return VINF_SUCCESS;
+    }
+
+    void SetUInt64(uint64_t u64)
+    {
+        type      = VMMDevHGCMParmType_64bit;
+        u.value64 = u64;
+    }
+
+    int GetUInt64(uint64_t RT_FAR *pu64)
+    {
+        AssertMsgReturnStmt(type == VMMDevHGCMParmType_64bit, ("type=%d\n", type),
+                            *pu64 = UINT64_MAX /* shut up gcc */, VERR_WRONG_PARAMETER_TYPE);
+        *pu64 = u.value64;
+        return VINF_SUCCESS;
+    }
+
+    void SetPtr(void RT_FAR *pv, uint32_t cb)
+    {
+        type                    = VMMDevHGCMParmType_LinAddr;
+        u.Pointer.size          = cb;
+        u.Pointer.u.linearAddr  = (RTGCPTR32)(uintptr_t)pv;
+    }
+#  endif /* __cplusplus */
+} HGCMFunctionParameter32;
+#  pragma pack()
+AssertCompileSize(HGCMFunctionParameter32, 4+8);
+
+/**
+ * HGCM function parameter, 64-bit client.
+ */
+#  pragma pack(4)/* We force structure dword packing here for hysterical raisins.  Saves us 4 bytes,
+                    at the cost of misaligning the value64 members. */
+typedef struct HGCMFunctionParameter64
+{
+    HGCMFunctionParameterType type;
+    union
+    {
+        uint32_t   value32;
+        uint64_t   value64;
+        struct
+        {
+            uint32_t size;
+
+            union
+            {
+                RTGCPHYS64 physAddr;
+                RTGCPTR64  linearAddr;
+            } u;
+        } Pointer;
+        struct
+        {
+            uint32_t  cb;
+            RTGCPTR64 uAddr;
+        } LinAddr;                      /**< Shorter version of the above Pointer structure. */
+        struct
+        {
+            uint32_t size;              /**< Size of the buffer described by the page list. */
+            uint32_t offset;            /**< Relative to the request header, valid if size != 0. */
+        } PageList;
+        struct
+        {
+            uint32_t fFlags : 8;        /**< VBOX_HGCM_F_PARM_*. */
+            uint32_t offData : 24;      /**< Relative to the request header, valid if cb != 0. */
+            uint32_t cbData;            /**< The buffer size. */
+        } Embedded;
+    } u;
+#  ifdef __cplusplus
+    void SetUInt32(uint32_t u32)
+    {
+        type = VMMDevHGCMParmType_32bit;
+        u.value64 = 0; /* init unused bits to 0 */
+        u.value32 = u32;
+    }
+
+    int GetUInt32(uint32_t RT_FAR *pu32)
+    {
+        AssertMsgReturnStmt(type == VMMDevHGCMParmType_32bit, ("type=%d\n", type),
+                            *pu32 = UINT32_MAX /* shut up gcc */, VERR_WRONG_PARAMETER_TYPE);
+        *pu32 = u.value32;
+        return VINF_SUCCESS;
+    }
+
+    void SetUInt64(uint64_t u64)
+    {
+        type      = VMMDevHGCMParmType_64bit;
+        u.value64 = u64;
+    }
+
+    int GetUInt64(uint64_t RT_FAR *pu64)
+    {
+        AssertMsgReturnStmt(type == VMMDevHGCMParmType_64bit, ("type=%d\n", type),
+                            *pu64 = UINT64_MAX /* shut up gcc */, VERR_WRONG_PARAMETER_TYPE);
+        *pu64 = u.value64;
+        return VINF_SUCCESS;
+    }
+
+    void SetPtr(void RT_FAR *pv, uint32_t cb)
+    {
+        type                    = VMMDevHGCMParmType_LinAddr;
+        u.Pointer.size          = cb;
+        u.Pointer.u.linearAddr  = (uintptr_t)pv;
+    }
+#  endif /** __cplusplus */
+} HGCMFunctionParameter64;
+#  pragma pack()
+AssertCompileSize(HGCMFunctionParameter64, 4+12);
+
+/* Redefine the structure type for the guest code. */
+#  ifndef VBOX_HGCM_HOST_CODE
+#   if ARCH_BITS == 64
+#     define HGCMFunctionParameter  HGCMFunctionParameter64
+#   elif ARCH_BITS == 32 || ARCH_BITS == 16
+#     define HGCMFunctionParameter  HGCMFunctionParameter32
+#   else
+#    error "Unsupported sizeof (void *)"
+#   endif
+#  endif /* !VBOX_HGCM_HOST_CODE */
+
+# else /* !VBOX_WITH_64_BITS_GUESTS */
+
+/**
+ * HGCM function parameter, 32-bit client.
+ *
+ * @todo If this is the same as HGCMFunctionParameter32, why the duplication?
+ */
+#  pragma pack(4) /* We force structure dword packing here for hysterical raisins.  Saves us 4 bytes, at the cost of
+                     misaligning the value64 member of every other parameter structure. */
+typedef struct
+{
+    HGCMFunctionParameterType type;
+    union
+    {
+        uint32_t   value32;
+        uint64_t   value64;
+        struct
+        {
+            uint32_t size;
+
+            union
+            {
+                RTGCPHYS32 physAddr;
+                RTGCPTR32  linearAddr;
+            } u;
+        } Pointer;
+        struct
+        {
+            uint32_t  cb;
+            RTGCPTR32 uAddr;
+        } LinAddr;                      /**< Shorter version of the above Pointer structure. */
+        struct
+        {
+            uint32_t size;              /**< Size of the buffer described by the page list. */
+            uint32_t offset;            /**< Relative to the request header, valid if size != 0. */
+        } PageList;
+        struct
+        {
+            uint32_t fFlags : 8;        /**< VBOX_HGCM_F_PARM_*. */
+            uint32_t offData : 24;      /**< Relative to the request header (must be a valid offset even if cbData is zero). */
+            uint32_t cbData;            /**< The buffer size. */
+        } Embedded;
+    } u;
+#  ifdef __cplusplus
+    void SetUInt32(uint32_t u32)
+    {
+        type = VMMDevHGCMParmType_32bit;
+        u.value64 = 0; /* init unused bits to 0 */
+        u.value32 = u32;
+    }
+
+    int GetUInt32(uint32_t *pu32)
+    {
+        AssertMsgReturnStmt(type == VMMDevHGCMParmType_32bit, ("type=%d\n", type),
+                            *pu32 = UINT32_MAX /* shut up gcc */, VERR_WRONG_PARAMETER_TYPE)
+        *pu32 = u.value32;
+        return VINF_SUCCESS;
+    }
+
+    void SetUInt64(uint64_t u64)
+    {
+        type      = VMMDevHGCMParmType_64bit;
+        u.value64 = u64;
+    }
+
+    int GetUInt64(uint64_t *pu64)
+    {
+        AssertMsgReturnStmt(type == VMMDevHGCMParmType_64bit, ("type=%d\n", type),
+                            *pu64 = UINT64_MAX /* shut up gcc */, VERR_WRONG_PARAMETER_TYPE);
+        *pu64 = u.value64;
+        return VINF_SUCCESS;
+    }
+
+    void SetPtr(void *pv, uint32_t cb)
+    {
+        type                    = VMMDevHGCMParmType_LinAddr;
+        u.Pointer.size          = cb;
+        u.Pointer.u.linearAddr  = (uintptr_t)pv;
+    }
+#  endif /* __cplusplus */
+} HGCMFunctionParameter;
+#  pragma pack()
+AssertCompileSize(HGCMFunctionParameter, 4+8);
+# endif /* !VBOX_WITH_64_BITS_GUESTS */
+
+/** @} */
+
+#endif /* !VBOX_INCLUDED_VMMDevCoreTypes_h */
+

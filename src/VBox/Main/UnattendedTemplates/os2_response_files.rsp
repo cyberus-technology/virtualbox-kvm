@@ -1,0 +1,325 @@
+@@VBOX_SPLITTER_START[CONFIG.SYS]@@
+REM
+REM $Id: os2_response_files.rsp $
+REM VirtualBox CID Installation CONFIG.SYS for boot CD/floppy.
+REM
+
+REM Put the CDROM as letter S:.
+RESERVEDRIVELETTER=R
+LASTDRIVE=Z
+
+BUFFERS=32
+DISKCACHE=D2,LW
+
+MEMMAN=NOSWAP,PROTECT
+PROTECTONLY=YES
+IOPL=YES
+
+PAUSEONERROR=NO
+BREAK=OFF
+
+REM Just to be on the safe side, all paths include disk #0 thru #6.
+REM as it doesn't contain much interesting.
+REM Also adding typical C:\ locations for good measure...
+  LIBPATH=.;A:\;S:\OS2IMAGE\DISK_0;S:\OS2IMAGE\DISK_1;S:\OS2IMAGE\DISK_2;S:\OS2IMAGE\DISK_3;S:\OS2IMAGE\DISK_4;S:\OS2IMAGE\DISK_5;S:\OS2IMAGE\DISK_6;S:\OS2IMAGE\DISK_7;C:\OS2\DLL;C:\MPTN\DLL;C:\TCPIP\DLL;C:\IBMCOM\DLL;
+SET  PATH=.;A:\;S:\OS2IMAGE\DISK_0;S:\OS2IMAGE\DISK_1;S:\OS2IMAGE\DISK_2;S:\OS2IMAGE\DISK_3;S:\OS2IMAGE\DISK_4;S:\OS2IMAGE\DISK_5;S:\OS2IMAGE\DISK_6;S:\OS2IMAGE\DISK_7;C:\OS2;C:\OS2\SYSTEM;
+SET DPATH=.;A:\;S:\OS2IMAGE\DISK_0;S:\OS2IMAGE\DISK_1;S:\OS2IMAGE\DISK_2;S:\OS2IMAGE\DISK_3;S:\OS2IMAGE\DISK_4;S:\OS2IMAGE\DISK_5;S:\OS2IMAGE\DISK_6;S:\OS2IMAGE\DISK_7;C:\OS2;C:\OS2\SYSTEM;
+
+COUNTRY=001,COUNT437.SYS
+CODEPAGE=850,437
+DEVINFO=KBD,US,KEYBOARD.DCP
+DEVINFO=SCR,VGA,VIO437.DCP
+
+BASEDEV=IBMKBD.SYS
+BASEDEV=IBM1FLPY.ADD
+BASEDEV=IBM1S506.ADD
+BASEDEV=IBMIDECD.FLT
+BASEDEV=OS2DASD.DMD
+BASEDEV=OS2LVM.DMD
+DEVICE=TESTCFG.SYS
+DEVICE=OS2CDROM.DMD
+DEVICE=DOS.SYS
+
+IFS=CDFS.IFS
+REM From here on we can load off the ISO.
+IFS=S:\OS2IMAGE\DISK_2\HPFS.IFS /C:2048
+IFS=S:\OS2IMAGE\DISK_2\JFS.IFS
+
+SET OS2_SHELL=S:\OS2IMAGE\DISK_2\CMD.EXE
+REM PROTSHELL=S:\OS2IMAGE\DISK_2\CMD.EXE
+REM Run the os2_cid_install.cmd file (renamed to VBOXCID.CMD on the ISO).
+REM PROTSHELL=S:\OS2IMAGE\DISK_2\CMD.EXE /C S:\VBOXCID\OS2_UTIL.EXE --tee-to-backdoor --tee-to-file C:\VBoxCID\Phase1.log --append -- S:\OS2IMAGE\DISK_2\CMD.EXE /C S:\VBOXCID.CMD PHASE1
+PROTSHELL=S:\VBOXCID\OS2_UTIL.EXE --tee-to-backdoor --tee-to-file C:\VBoxCID\Phase1.log --append -- S:\OS2IMAGE\DISK_2\CMD.EXE /C S:\VBOXCID.CMD PHASE1
+
+@@VBOX_SPLITTER_END[CONFIG.SYS]@@
+
+#
+# An "Y" for the format command.
+#
+@@VBOX_SPLITTER_START[YES.TXT]@@
+Y
+@@VBOX_SPLITTER_END[YES.TXT]@@
+
+#
+# This is the startup.cmd file that ends up on the final C:.
+#
+@@VBOX_SPLITTER_START[STARTUP.CMD]@@
+@REM
+@REM $Id: os2_response_files.rsp $
+@REM The startup file for C: for use after the successful install.
+@REM
+@@VBOX_COND_IS_INSTALLING_ADDITIONS@@
+C:\VBoxAdd\VBoxService.exe
+@@VBOX_COND_END@@
+dhcpstrt -i lan0
+@@VBOX_COND_IS_INSTALLING_TEST_EXEC_SERVICE@@
+SET ENDLIBPATH=C:\VBoxValKit
+C:\VBoxValKit\TestExecService.exe --scratch=D:\TestArea --cdrom=E:\ --foreground
+pause
+@@VBOX_COND_END@@
+
+@@VBOX_SPLITTER_END[STARTUP.CMD]@@
+
+#
+# The OS2.RSP file is the main installer response file.
+#
+@@VBOX_SPLITTER_START[OS2.RSP]@@
+RebootRequired=0
+ExitOnError=1
+BaseFileSystem=1
+AlternateAdapter=0
+CDROM=2
+APM=1
+AdditionalPrinters=0
+CountryCode=001
+CountryKeyboard=US
+DefaultPrinter=0
+DisplayAdapter=7
+Documentation=1
+DOSSupport=1
+WIN-OS/2Support=1
+WIN-OS/2Desktop=0
+DPMI=1
+IBMFONTA.Selection=0
+IBMFONTG.Selection=0
+IBMFONTT.Selection=0
+IBMFONTJ.Selection=0
+IBMFONTC.Selection=0
+IBMFONTS.Selection=0
+IBMFONTK.Selection=0
+IBMFONTU.Selection=1
+XIBMFONT.InstDrive=C:
+FormatPartition=0
+Locale=en_US
+MigrateConfigFiles=0
+Mouse=1
+MousePort=0
+OptionalSystemUtilities=1
+OptionalSystemComponents=1
+PCMCIA=0
+PCMCIAOptions=0
+Optical=0
+HOTPLUG.Selection=0
+WARMSWAP.Selection=0
+PrimaryCodePage=1
+PrinterPort=1
+ProcessEnvironment=1
+ProgressIndication=1
+SCSI=0
+SerialDeviceSupport=1
+SourcePath=S:\os2image
+TargetDrive=C:
+*WIN-OS/2TargetDrive=C:
+SMP=0
+SMPPath=C:\OS2\BOOT
+ToolsAndGames=1
+MultimediaSupport=1
+PUMARKNET.Selection=0
+PUMARKNET.TarDrv=C:
+PUMARKVIS.Selection=0
+PUMARKVIS.TarDrv=C:
+LVMGUI.Selection=1
+Java11.Selection=1
+Runtime.Selection=1
+FIBASE.JavaDrive=C:
+SeedConfigSysLine=PAUSEONERROR=NO
+@@VBOX_SPLITTER_END[OS2.RSP]@@
+
+#
+# Multi-Protocol Transport Services (MPTS) response file.
+#
+@@VBOX_SPLITTER_START[MPTS.RSP]@@
+INST_SECTION = (
+  UPGRADE_LEVEL = SAME
+  INSTALL = PRODUCT
+)
+MPTS = (
+  [CONTROL]
+    Local_IPC = YES
+    INET_Access = YES
+    NETBIOS_Access = YES
+)
+
+PROTOCOL = (
+[PROT_MAN]
+
+   DRIVERNAME = PROTMAN$
+
+[IBMLXCFG]
+
+   netbeui_nif = netbeui.nif
+   tcpbeui_nif = tcpbeui.nif
+   tcpip_nif   = tcpip.nif
+   IBMEAN_nif  = IBMEAN.nif
+
+[NETBIOS]
+
+   DriverName = netbios$
+   ADAPTER0 = netbeui$,0
+   ADAPTER1 = tcpbeui$,1
+
+[netbeui_nif]
+
+   DriverName = netbeui$
+   Bindings = IBMEAN_nif
+   ETHERAND_TYPE = "I"
+   USEADDRREV = "YES"
+   OS2TRACEMASK = 0x0
+   SESSIONS = 130
+   NCBS = 225
+   NAMES = 21
+   SELECTORS = 50
+   USEMAXDATAGRAM = "NO"
+   ADAPTRATE = 1000
+   WINDOWERRORS = 0
+   MAXDATARCV = 4168
+   TI = 30000
+   T1 = 1000
+   T2 = 200
+   MAXIN = 1
+   MAXOUT = 1
+   NETBIOSTIMEOUT = 500
+   NETBIOSRETRIES = 3
+   NAMECACHE = 1000
+   RNDOPTION = 1
+   PIGGYBACKACKS = 1
+   DATAGRAMPACKETS = 50
+   PACKETS = 300
+   LOOPPACKETS = 8
+   PIPELINE = 5
+   MAXTRANSMITS = 6
+   MINTRANSMITS = 2
+   DLCRETRIES = 10
+   FCPRIORITY = 5
+   NETFLAGS = 0x0
+
+[tcpbeui_nif]
+
+   DriverName = tcpbeui$
+   Bindings = ,IBMEAN_nif
+   NODETYPE = "B-Node"
+   OS2TRACEMASK = 0x0
+   SESSIONS = 130
+   NCBS = 225
+   NAMES = 21
+   SELECTORS = 15
+   USEMAXDATAGRAM = "NO"
+   NETBIOSTIMEOUT = 500
+   NETBIOSRETRIES = 2
+   NAMECACHE = 1000
+   PURGECACHE = 0
+   PRELOADCACHE = "NO"
+   NAMESFILE = 0
+   DATAGRAMPACKETS = 20
+   PACKETS = 50
+   ENABLEDNS = 0
+   INTERFACERATE = 300
+
+[tcpip_nif]
+
+   DriverName = TCPIP$
+   Bindings = IBMEAN_nif
+
+[IBMEAN_nif]
+
+   DriverName = IBMEAN$
+)
+@@VBOX_SPLITTER_END[MPTS.RSP]@@
+
+#
+# IBM Lan Manager response file installing both TCP and old NETBIOS.
+#
+@@VBOX_SPLITTER_START[IBMLAN.RSP]@@
+UPDATEIBMLAN = Networks<
+  net1 = NETBEUI$,0,LM10,34,70,14
+  net2 = TCPBEUI$,1,LM10,34,70,14
+>
+
+ADDIBMLAN = Requester<
+wrkservices = MESSENGER
+wrknets = NET1, NET2
+>
+
+UPDATEIBMLAN = Requester<
+Computername = VBOXACP2
+Domain = VBOXGUEST
+useallmem = Yes
+>
+
+UPDATEIBMLAN = Peer<
+srvnets = NET1,NET2
+>
+
+ConfigTargetDrive = C
+ConfigAutoStartLS = Migrate
+ConfigSourceDrive = C
+InstallAPI = INSTALLIFREQUIRED
+InstallDosLanApi = INSTALLIFREQUIRED
+InstallInstallProgram = INSTALLIFREQUIRED
+InstallPeerService = INSTALL
+InstallRequester = INSTALLIFREQUIRED
+InstallUPM = INSTALLIFREQUIRED
+InstallMSGPopup = INSTALLIFREQUIRED
+InstallGUI = INSTALL
+InstallClipBoard = INSTALLIFREQUIRED
+InstallDesktopIcons = YES
+
+@@VBOX_SPLITTER_END[IBMLAN.RSP]@@
+
+#
+# Multimedia Presentation Manager/2 response file - Setting up SB16.
+#
+@@VBOX_SPLITTER_START[MMOS2.RSP]@@
+MMINSTSOURCE = "C:\\mmtemp"
+MMINSTTARGET = "C:"
+CHANGECONFIG = "Y"
+
+MMINSTGROUPS =
+  (
+  GROUP.1 = " "
+  GROUP.2 = "Software Motion Video=NUM=1,"
+  GROUP.4 = "IBM Video Capture Adapter=NUM=0,"
+  GROUP.5 = "1"
+  GROUP.14 = " "
+  GROUP.19 = " "
+  GROUP.20 = " "
+  GROUP.43 = "Sound Blaster 16=NUM=1,V1=1,V1=5,V1=5,V1=220,V1=330,"
+  )
+@@VBOX_SPLITTER_END[MMOS2.RSP]@@
+
+#
+# Good old netscape communicator.
+#
+@@VBOX_SPLITTER_START[NETSCAPE.RSP]@@
+COMP             = Netscape Communicator 4.61 for OS/2
+FILE             = C:\NETSCAPE
+CFGUPDATE        = AUTO
+DELETEBACKUP     = NO
+OVERWRITE        = YES
+SAVEBACKUP       = NO
+NSCONVERTBROWSER = YES
+NSCONVERTQL      = YES
+NSASSOCIATEHTML  = YES
+@@VBOX_SPLITTER_END[NETSCAPE.RSP]@@
+
+

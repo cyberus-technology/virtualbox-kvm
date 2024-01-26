@@ -1,0 +1,398 @@
+/** @file
+ * IPRT / No-CRT - Minimal C++ std::vector.
+ */
+
+/*
+ * Copyright (C) 2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+#ifndef VBOX_INCLUDED_SRC_nocrt_vector
+#define VBOX_INCLUDED_SRC_nocrt_vector
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#include <iprt/nocrt/memory>
+
+namespace std
+{
+    template<typename a_Type, class a_Container>
+    class RTCNoCrtVectorIterator
+    {
+    public:
+        typedef a_Type                                 &reference;
+        typedef a_Type                                 *pointer;
+        typedef typename a_Container::difference_type   difference_type;
+
+    protected:
+            a_Type *m_pItem;
+
+    public:
+        RTCNoCrtVectorIterator() RT_NOEXCEPT
+            : m_pItem(NULL)
+        { }
+
+        RTCNoCrtVectorIterator(a_Type *a_pItem) RT_NOEXCEPT
+            : m_pItem(a_pItem)
+        { }
+
+        ~RTCNoCrtVectorIterator()
+        {
+            m_pItem = NULL;
+        }
+
+        /** @name Moving the iterator.
+         * @{  */
+
+        RTCNoCrtVectorIterator &operator++() RT_NOEXCEPT
+        {
+            ++m_pItem;
+            return *this;
+        }
+
+        RTCNoCrtVectorIterator &operator--() RT_NOEXCEPT
+        {
+            --m_pItem;
+            return *this;
+        }
+
+        RTCNoCrtVectorIterator operator++(int) RT_NOEXCEPT
+        {
+            return RTCNoCrtVectorIterator(m_pItem++);
+        }
+
+        RTCNoCrtVectorIterator operator--(int) RT_NOEXCEPT
+        {
+            return RTCNoCrtVectorIterator(m_pItem--);
+        }
+
+        RTCNoCrtVectorIterator &operator+=(difference_type cItems) RT_NOEXCEPT
+        {
+            m_pItem += cItems;
+            return *this;
+        }
+
+        RTCNoCrtVectorIterator &operator-=(difference_type cItems) RT_NOEXCEPT
+        {
+            m_pItem -= cItems;
+            return *this;
+        }
+
+        RTCNoCrtVectorIterator operator+(difference_type cItems) const RT_NOEXCEPT
+        {
+            return RTCNoCrtVectorIterator(m_pItem + cItems);
+        }
+
+        RTCNoCrtVectorIterator operator-(difference_type cItems) const RT_NOEXCEPT
+        {
+            return RTCNoCrtVectorIterator(m_pItem - cItems);
+        }
+
+        /** @} */
+
+        /** @name Item access
+         * @{ */
+        reference operator*() const RT_NOEXCEPT
+        {
+            return *m_pItem;
+        }
+
+        pointer operator->() const RT_NOEXCEPT
+        {
+            return m_pItem;
+        }
+
+        reference operator[](difference_type iItem) const RT_NOEXCEPT
+        {
+            return m_pItem[iItem];
+        }
+
+        /** @} */
+
+        /** Helper for const/non-const iterator comparisons: */
+        inline typename a_Container::const_pointer getConst() const RT_NOEXCEPT
+        {
+            return m_pItem;
+        }
+    };
+
+    template<typename a_TypeLeft, typename a_TypeRight, class a_Container>
+    inline bool operator==(const RTCNoCrtVectorIterator<a_TypeLeft,  a_Container> &a_rLeft,
+                           const RTCNoCrtVectorIterator<a_TypeRight, a_Container> &a_rRight) RT_NOEXCEPT
+    {
+        return a_rLeft.getConst() == a_rRight.getConst();
+    }
+
+    template<typename a_TypeLeft, typename a_TypeRight, class a_Container>
+    inline bool operator!=(const RTCNoCrtVectorIterator<a_TypeLeft,  a_Container> &a_rLeft,
+                           const RTCNoCrtVectorIterator<a_TypeRight, a_Container> &a_rRight) RT_NOEXCEPT
+    {
+        return a_rLeft.getConst() != a_rRight.getConst();
+    }
+
+    template<typename a_TypeLeft, typename a_TypeRight, class a_Container>
+    inline bool operator<(const RTCNoCrtVectorIterator<a_TypeLeft,  a_Container> &a_rLeft,
+                          const RTCNoCrtVectorIterator<a_TypeRight, a_Container> &a_rRight) RT_NOEXCEPT
+    {
+        return (uintptr_t)a_rLeft.getConst() < (uintptr_t)a_rRight.getConst();
+    }
+
+    template<typename a_TypeLeft, typename a_TypeRight, class a_Container>
+    inline bool operator<=(const RTCNoCrtVectorIterator<a_TypeLeft,  a_Container> &a_rLeft,
+                           const RTCNoCrtVectorIterator<a_TypeRight, a_Container> &a_rRight) RT_NOEXCEPT
+    {
+        return (uintptr_t)a_rLeft.getConst() <= (uintptr_t)a_rRight.getConst();
+    }
+
+    template<typename a_TypeLeft, typename a_TypeRight, class a_Container>
+    inline bool operator>(const RTCNoCrtVectorIterator<a_TypeLeft,  a_Container> &a_rLeft,
+                          const RTCNoCrtVectorIterator<a_TypeRight, a_Container> &a_rRight) RT_NOEXCEPT
+    {
+        return (uintptr_t)a_rLeft.getConst() > (uintptr_t)a_rRight.getConst();
+    }
+
+    template<typename a_TypeLeft, typename a_TypeRight, class a_Container>
+    inline bool operator>=(const RTCNoCrtVectorIterator<a_TypeLeft,  a_Container> &a_rLeft,
+                           const RTCNoCrtVectorIterator<a_TypeRight, a_Container> &a_rRight) RT_NOEXCEPT
+    {
+        return (uintptr_t)a_rLeft.getConst() >= (uintptr_t)a_rRight.getConst();
+    }
+
+
+
+    template<class a_Type, class a_Allocator = std::allocator<a_Type> >
+    class vector
+    {
+    public:
+        typedef a_Type                                  value_type;
+        typedef a_Type                                 &reference;
+        typedef a_Type const                           &const_reference;
+        typedef a_Allocator                             allocator_type;
+        typedef typename a_Allocator::size_type         size_type;
+        typedef typename a_Allocator::difference_type   difference_type;
+        typedef typename a_Allocator::pointer           pointer;
+        typedef typename a_Allocator::const_pointer     const_pointer;
+
+        typedef RTCNoCrtVectorIterator<a_Type, vector>          iterator;
+        typedef RTCNoCrtVectorIterator<const a_Type, vector>    const_iterator;
+
+    protected:
+        pointer         m_paItems;
+        size_t          m_cItems;
+        size_t          m_cAllocated;
+        allocator_type  m_Allocator;
+
+    public:
+        vector() RT_NOEXCEPT
+            : m_paItems(NULL)
+            , m_cItems(0)
+            , m_cAllocated(0)
+        { }
+
+        vector(size_type a_cAllocate)
+            : m_paItems(NULL)
+            , m_cItems(0)
+            , m_cAllocated(0)
+        {
+            m_paItems = m_Allocator.allocate(a_cAllocate);
+            if (m_paItems)
+                m_cAllocated = a_cAllocate;
+        }
+
+        ~vector()
+        {
+            clear();
+        }
+
+        /** @name Iterators
+         * @{ */
+        iterator begin() RT_NOEXCEPT
+        {
+            return iterator(m_paItems);
+        }
+
+        const_iterator begin() const RT_NOEXCEPT
+        {
+            return const_iterator(m_paItems);
+        }
+
+        const_iterator cbegin() const RT_NOEXCEPT
+        {
+            return const_iterator(m_paItems);
+        }
+
+        iterator end() RT_NOEXCEPT
+        {
+            return iterator(m_paItems + m_cItems);
+        }
+
+        const_iterator end() const RT_NOEXCEPT
+        {
+            return const_iterator(m_paItems + m_cItems);
+        }
+
+        const_iterator cend() const RT_NOEXCEPT
+        {
+            return const_iterator(m_paItems + m_cItems);
+        }
+        /** @} */
+
+        /** @name Element access
+         * @{  */
+        reference operator[](size_type iItem) RT_NOEXCEPT
+        {
+            Assert(iItem < m_cAllocated);
+            return m_paItems[iItem];
+        }
+
+        const_reference operator[](size_type iItem) const RT_NOEXCEPT
+        {
+            Assert(iItem < m_cAllocated);
+            return m_paItems[iItem];
+        }
+
+        reference front() RT_NOEXCEPT
+        {
+            return m_paItems[0];
+        }
+
+        const_reference front() const RT_NOEXCEPT
+        {
+            return m_paItems[0];
+        }
+
+        reference back() RT_NOEXCEPT
+        {
+            return m_paItems[m_cItems - 1];
+        }
+
+        const_reference back() const RT_NOEXCEPT
+        {
+            return m_paItems[m_cItems - 1];
+        }
+
+        pointer data() RT_NOEXCEPT
+        {
+            return m_paItems;
+        }
+
+        const_pointer data() const RT_NOEXCEPT
+        {
+            return m_paItems;
+        }
+
+        /** @}  */
+
+        /** @name Capacity
+         * @{ */
+        bool empty() const RT_NOEXCEPT
+        {
+            return m_cItems == 0;
+        }
+
+        size_type size() const RT_NOEXCEPT
+        {
+            return m_cItems;
+        }
+
+        size_type max_size() const RT_NOEXCEPT
+        {
+            return m_Allocator.max_size();
+        }
+
+        void reserve(size_type a_cNewAllocated)
+        {
+            Assert(a_cNewAllocated <= max_size());
+
+            if (a_cNewAllocated > m_cAllocated)
+            {
+                vector Temp(a_cNewAllocated);
+                if (Temp.m_paItems)
+                {
+                    /* Copy over the data: */
+                    size_type const cItems = m_cItems;
+                    const_pointer   paSrc  = m_paItems;
+                    pointer         paDst  = Temp.m_paItems;
+                    for (size_type i = 0; i < cItems; Temp.m_cItems = ++i)
+                        m_Allocator.construct(&paDst[i], paSrc[i]);
+
+                    /* Swap the data. */
+                    size_type const cOldAllocated = m_cAllocated;
+                    Temp.m_paItems    = m_paItems;
+                    m_paItems         = paDst;
+                    m_cAllocated      = Temp.m_cAllocated;
+                    Temp.m_cAllocated = cOldAllocated;
+                }
+            }
+        }
+
+        /** @} */
+
+        /** @name Modifiers
+         * @{ */
+        void push_back(const_reference a_rValue)
+        {
+            if (m_cItems < m_cAllocated)
+            { }
+            else
+            {
+                Assert(m_cItems * 2 >= m_cItems);
+                reserve(m_cItems < 8 ? 8 : m_cItems * 2); /* This might be non-standard. */
+                AssertReturnVoid(m_cItems < m_cAllocated);
+            }
+            m_paItems[m_cItems] = a_rValue;
+            m_cItems++;
+        }
+
+        void pop_back() RT_NOEXCEPT
+        {
+            if (m_cItems > 0)
+                m_cItems -= 1;
+        }
+
+        void clear() RT_NOEXCEPT
+        {
+            size_type i = m_cItems;
+            while (i-- > 0)
+            {
+                m_Allocator.destroy(&m_paItems[i]);
+                m_cItems = i;
+            }
+            m_Allocator.deallocate(m_paItems, m_cAllocated);
+            m_paItems = NULL;
+            m_cAllocated = 0;
+        }
+        /** @} */
+    };
+
+}
+
+#endif /* !VBOX_INCLUDED_SRC_nocrt_vector */
+

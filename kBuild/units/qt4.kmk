@@ -1,0 +1,1107 @@
+# $Id: qt4.kmk 3284 2019-01-05 01:40:31Z bird $
+## @file
+# Qt 4 unit.
+#
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+
+ifdef UNIT_qt4
+ $(error kBuild: The qt4 unit was included twice!)
+endif
+UNIT_qt4 = qt4
+
+
+if !defined(UNIT_qt3) && !defined(UNIT_qt5)
+ # Add our target properties (same as qt3 & qt5).
+ PROPS_SINGLE += QTTOOL MOCTOOL UICTOOL LRCTOOL QT_TRANSLATIONS_INST QT_TRANSLATIONS_TEMPLATE QT_PREFIX
+ PROPS_ACCUMULATE_R += MOCDEFS MOCFLAGS UICFLAGS LRCFLAGS QT_TRANSLATIONS QT_MOCSRCS QT_MOCHDRS
+endif
+PROPS_SINGLE += RCCTOOL QT_INFIX
+PROPS_ACCUMULATE_R += RCCFLAGS QT_MODULES
+
+
+## @todo use pkg-config?
+
+#
+# The QT4 SDK.
+#
+# This is implemented here rather than in sdks/QT4.kmk to enforce the global USES.
+# It also makes things easier to develop, with fewer files I mean.
+#
+## @todo the SDK might actually not be necessary as it turns out... For now it servers
+# a purpose if the host differs from the target, in theory at least.
+SDK_QT4 = Qt4
+
+# SDK Specific Properties
+#       PATH_SDK_QT4	       - The general Qt4 root directory.
+#       PATH_SDK_QT4_INC       - The include directory.
+#       PATH_SDK_QT4_LIB.amd64 - The lib directory for AMD64.
+#       PATH_SDK_QT4_LIB.x86   - The lib directory for X86.
+#       PATH_SDK_QT4_LIB       - The lib directory for KBUILD_TARGET.
+ifndef PATH_SDK_QT4
+ PATH_SDK_QT4 := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_TRG)/qt/v4*)))
+ ifeq ($(PATH_SDK_QT4),)
+  # If target == host, try look for Qt in the various platform specific places.
+  ifeq ($(KBUILD_TARGET),$(KBUILD_HOST))
+   ifeq ($(KBUILD_TARGET),darwin)
+    PATH_SDK_QT4 := $(patsubst %/Frameworks/QtCore.framework/Versions/4,%,$(firstword $(wildcard /Library/Frameworks/QtCore.framework/Versions/4)))
+   else ifeq ($(KBUILD_TARGET),win)
+    # No idea here yet...
+   else ifeq ($(KBUILD_TARGET),ose)
+    # No port...
+   else
+    # The Unices. Includes and esp. libs are tricky, so override the PATH_SDK_QT4_LIB* stuff if it doesn't work.
+    # Try find the general root of thing by looking for the qt3to4 program, if not found, then look for rcc.
+    PATH_SDK_QT4 := $(patsubst %/bin/qt3to4-qt4,%,$(firstword $(wildcard \
+    	/usr/bin/qt3to4-qt4 \
+    	/usr/local/bin/qt3to4-qt4 \
+    	/usr/qt/4/bin/qt3to4-qt4 \
+    	/usr/share/qt4/bin/qt3to4-qt4 \
+    	)))
+    ifeq ($(PATH_SDK_QT4),)
+     PATH_SDK_QT4 := $(patsubst %/bin/qt3to4,%,$(firstword $(wildcard \
+     	/usr/bin/qt3to4 \
+     	/usr/local/bin/qt3to4 \
+     	/usr/qt/4/bin/qt3to4 \
+     	/usr/share/qt4/bin/qt3to4 \
+       	)))
+    endif
+    ifeq ($(PATH_SDK_QT4),)
+     PATH_SDK_QT4 := $(patsubst %/bin/rcc-qt4,%,$(firstword $(wildcard \
+     	/usr/bin/rcc-qt4 \
+     	/usr/local/bin/rcc-qt4 \
+     	/usr/qt/4/bin/rcc-qt4 \
+     	/usr/share/qt4/bin/rcc-qt4 \
+     	)))
+    endif
+    ifeq ($(PATH_SDK_QT4),)
+     PATH_SDK_QT4 := $(patsubst %/bin/rcc,%,$(firstword $(wildcard \
+       /usr/lib/*/qt4/bin/rcc \
+     	/usr/bin/rcc \
+     	/usr/local/bin/rcc \
+     	/usr/qt/4/bin/rcc \
+     	/usr/share/qt4/bin/rcc \
+     	)))
+    endif
+    ifneq ($(PATH_SDK_QT4),)
+     export PATH_SDK_QT4
+
+     # Locate the include files.
+     ifeq ($(PATH_SDK_QT4_INC),)
+      PATH_SDK_QT4_INC := $(patsubst %/QtCore/qglobal.h,%,$(firstword $(wildcard \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_TARGET_DOT_ARCH)),/usr/include/$(type)/qt4/QtCore/qglobal.h) \
+	$(PATH_SDK_QT4)/include/QtCore/qglobal.h \
+	$(PATH_SDK_QT4)/include/qt4/QtCore/qglobal.h \
+	/usr/include/qt4/QtCore/qtglobal.h \
+	/usr/local/include/qt4/QtCore/qtglobal.h \
+	)))
+      ifneq ($(PATH_SDK_QT4_INC),)
+       export PATH_SDK_QT4_INC
+      endif
+     endif
+
+     # Now for the libraries (mostly for helping out finding the KBUILD_TARGET libs).
+     ifeq ($(PATH_SDK_QT4_LIB.x86),)
+      PATH_SDK_QT4_LIB.x86   := $(patsubst %/libQtCore$(SUFF_DLL),%,$(firstword $(wildcard \
+	$(PATH_SDK_QT4)/lib32/libQtCore$(SUFF_DLL) \
+	$(PATH_SDK_QT4)/lib32/qt4/libQtCore$(SUFF_DLL) \
+	/usr/lib32/libQtCore$(SUFF_DLL) \
+	/usr/lib32/qt4/libQtCore$(SUFF_DLL) \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_TARGET).x86),/usr/lib/$(type)/libQtCore$(SUFF_DLL)) \
+	/usr/local/lib32/libQtCore$(SUFF_DLL) \
+	/usr/local/lib32/qt4/libQtCore$(SUFF_DLL) \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_TARGET).x86),/usr/local/lib/$(type)/libQtCore$(SUFF_DLL)) \
+	$(PATH_SDK_QT4)/lib/libQtCore$(SUFF_DLL) \
+	$(PATH_SDK_QT4)/lib/qt4/libQtCore$(SUFF_DLL) \
+	$(PATH_SDK_QT4)/lib/i386-linux-gnu/libQtCore$(SUFF_DLL) \
+	)))
+      ifneq ($(PATH_SDK_QT4_LIB.x86),)
+       export PATH_SDK_QT4_LIB.x86
+      endif
+     endif
+     ifeq ($(PATH_SDK_QT4_LIB.amd64),)
+      PATH_SDK_QT4_LIB.amd64 := $(patsubst %/libQtCore$(SUFF_DLL),%,$(firstword $(wildcard \
+	$(PATH_SDK_QT4)/lib64/libQtCore$(SUFF_DLL) \
+	$(PATH_SDK_QT4)/lib64/qt4/libQtCore$(SUFF_DLL) \
+	$(PATH_SDK_QT4)/lib/amd64/libQtCore$(SUFF_DLL) \
+	/usr/lib64/libQtCore$(SUFF_DLL) \
+	/usr/lib64/qt4/libQtCore$(SUFF_DLL) \
+	/usr/lib/amd64/libQtCore$(SUFF_DLL) \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_TARGET).amd64),/usr/lib/$(type)/libQtCore$(SUFF_DLL)) \
+	/usr/local/lib64/libQtCore$(SUFF_DLL) \
+	/usr/local/lib64/qt4/libQtCore$(SUFF_DLL) \
+	/usr/local/lib/amd64/libQtCore$(SUFF_DLL) \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_TARGET).amd64),/usr/local/lib/$(type)/libQtCore$(SUFF_DLL)) \
+	$(PATH_SDK_QT4)/lib/libQtCore$(SUFF_DLL) \
+	$(PATH_SDK_QT4)/lib/qt4/libQtCore$(SUFF_DLL) \
+	$(PATH_SDK_QT4)/lib/x86_64-linux-gnu/libQtCore$(SUFF_DLL) \
+	)))
+      ifneq ($(PATH_SDK_QT4_LIB.amd64),)
+       export PATH_SDK_QT4_LIB.amd64
+      endif
+     endif
+
+     # And finally, the library path for KBUILD_TARGET.
+     ifeq ($(PATH_SDK_QT4_LIB),)
+      PATH_SDK_QT4_LIB := $(PATH_SDK_QT4_LIB.$(KBUILD_TARGET_ARCH))
+      ifeq ($(PATH_SDK_QT4_LIB),)
+       PATH_SDK_QT4_LIB := $(patsubst %/libQtCore$(SUFF_DLL),%,$(firstword $(wildcard \
+       	$(PATH_SDK_QT4)/lib/libQtCore$(SUFF_DLL) \
+       	$(PATH_SDK_QT4)/lib/qt4/libQtCore$(SUFF_DLL) \
+       	/usr/lib/libQtCore$(SUFF_DLL) \
+       	/usr/lib/qt4/libQtCore$(SUFF_DLL) \
+       	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_TARGET_DOT_ARCH)),/usr/lib/$(type)/libQtCore$(SUFF_DLL)) \
+       	/usr/local/lib/libQtCore$(SUFF_DLL) \
+       	/usr/local/lib/qt4/libQtCore$(SUFF_DLL) \
+       	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_TARGET_DOT_ARCH)),/usr/local/lib/$(type)/libQtCore$(SUFF_DLL)) \
+       	)))
+      endif
+      ifneq ($(PATH_SDK_QT4_LIB),)
+       export PATH_SDK_QT4_LIB
+      endif
+     endif
+
+    endif
+   endif # Unices
+  endif
+  # Found it?
+  ifeq ($(PATH_SDK_QT4),)
+   $(warning kBuild: Couldn't find the Qt4 headers and libaries...)
+   PATH_SDK_QT4 := $(KBUILD_DEVTOOLS_TRG)/qt/not-found
+  endif
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_SDK_QT4 := $(PATH_SDK_QT4)
+endif
+
+# Libraries can be in either Frameworks or lib depending on how you
+# build it on the mac. The .dmg installs into Frameworks but builds into lib.
+ifeq ($(KBUILD_TARGET),darwin)
+ ifndef PATH_SDK_QT4_LIB
+  ifneq ($(wildcard $(PATH_SDK_QT4)/Frameworks),)
+   PATH_SDK_QT4_LIB ?= $(PATH_SDK_QT4)/Frameworks
+  else
+   PATH_SDK_QT4_LIB ?= $(PATH_SDK_QT4)/lib
+  endif
+ endif
+else
+ PATH_SDK_QT4_LIB ?= $(PATH_SDK_QT4)/lib
+ PATH_SDK_QT4_INC ?= $(PATH_SDK_QT4)/include
+endif
+
+# The bits that kBuild picks up.
+#  (nothing here)
+
+
+#
+# The QT4 tool.
+#
+# This is implemented here rather than in tools/QT4.kmk to enforce the global USES.
+# It also makes things easier to develop, with fewer files I mean.
+#
+TOOL_QT4 = Qt4
+
+# Tool Specific Properties
+#       PATH_TOOL_QT4     - Obsolete.
+#       PATH_TOOL_QT4_BIN - The
+#       TOOL_QT4_BIN_SUFF -
+if !defined(PATH_TOOL_QT4_BIN) && defined(PATH_TOOL_QT4)
+ PATH_TOOL_QT4_BIN := $(PATH_TOOL_QT4)/bin
+endif
+ifndef PATH_TOOL_QT4_BIN
+ PATH_TOOL_QT4_BIN := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST)/qt/v4*/bin)))
+ if "$(PATH_TOOL_QT4_BIN)" == "" && "$(KBUILD_DEVTOOLS_HST_ALT)" != ""
+  PATH_TOOL_QT4_BIN := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST_ALT)/qt/v4*/bin)))
+ endif
+ ifeq ($(PATH_TOOL_QT4_BIN),)
+  ifdef TOOL_QT4_BIN_SUFF
+   TOOL_QT4_BIN_SUFF := $(TOOL_QT4_BIN_SUFF)
+  endif
+  # Try looking for moc-$(suffix) first, if specified.
+  ifneq ($(TOOL_QT4_BIN_SUFF),)
+   PATH_TOOL_QT4_BIN := $(patsubst %/moc$(TOOL_QT4_BIN_SUFF),%,$(firstword $(wildcard \
+	 $(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_HOST_DOT_ARCH)),/usr/lib/$(type)/qt4/bin/moc$(TOOL_QT4_BIN_SUFF)) \
+	 /usr/lib/qt4/bin/moc$(TOOL_QT4_BIN_SUFF) \
+	 /usr/qt/4/bin/moc$(TOOL_QT4_BIN_SUFF) \
+	 /usr/share/qt4/bin/moc$(TOOL_QT4_BIN_SUFF) \
+	 /usr/local/bin/moc$(TOOL_QT4_BIN_SUFF) \
+	 /usr/bin/moc$(TOOL_QT4_BIN_SUFF) \
+	 )))
+  else
+   # No suffix given, so before we check out -qt4 look at qt4 specific locations to avoid choosers and symlinks.
+   PATH_TOOL_QT4_BIN := $(patsubst %/moc,%,$(firstword $(wildcard \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_HOST_DOT_ARCH)),/usr/lib/$(type)/qt4/bin/moc) \
+	$(if $(intersects $(KBUILD_HOST_ARCH), $(KBUILD_ARCHES_64)),/usr/lib64/qt4/bin/moc,) \
+	/usr/lib/qt4/bin/moc \
+	/usr/local/lib/qt4/bin/moc \
+	/usr/qt/4/bin/moc \
+	/usr/local/qt/4/bin/moc \
+	/usr/share/qt4/bin/moc \
+	/usr/local/share/qt4/bin/moc \
+	)))
+   ifeq ($(PATH_TOOL_QT4_BIN),)
+    PATH_TOOL_QT4_BIN := $(patsubst %/moc-qt4,%,$(firstword $(wildcard \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_HOST_DOT_ARCH)),/usr/lib/$(type)/qt4/bin/moc-qt4) \
+	/usr/lib/qt4/bin/moc-qt4 \
+	/usr/qt/4/bin/moc-qt4 \
+	/usr/share/qt4/bin/moc-qt4 \
+	/usr/local/bin/moc-qt4 \
+	/usr/bin/moc-qt4 \
+	)))
+    ifneq ($(PATH_TOOL_QT4_BIN),)
+     TOOL_QT4_BIN_SUFF := -qt4
+    endif
+   endif
+  endif
+  # If still no go, try looking for qt3to4 and rcc.
+  ifeq ($(PATH_TOOL_QT4_BIN),)
+   PATH_TOOL_QT4_BIN := $(patsubst %/qt3to4,%,$(firstword $(wildcard \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_HOST_DOT_ARCH)),/usr/lib/$(type)/qt4/bin/qt3to4) \
+	/usr/lib/qt4/bin/qt3to4 \
+	/usr/qt/4/bin/qt3to4 \
+	/usr/share/qt4/bin/qt3to4 \
+	/usr/local/bin/qt3to4 \
+	/usr/bin/qt3to4 \
+	)))
+  endif
+  ifeq ($(PATH_TOOL_QT4_BIN),)
+   PATH_TOOL_QT4_BIN := $(patsubst %/rcc$(TOOL_QT4_BIN_SUFF),%,$(firstword $(wildcard \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_HOST_DOT_ARCH)),/usr/lib/$(type)/qt4/bin/rcc$(TOOL_QT4_BIN_SUFF)) \
+	/usr/lib/qt4/bin/rcc$(TOOL_QT4_BIN_SUFF) \
+	/usr/qt/4/bin/rcc$(TOOL_QT4_BIN_SUFF) \
+	/usr/share/qt4/bin/rcc$(TOOL_QT4_BIN_SUFF) \
+	/usr/local/bin/rcc$(TOOL_QT4_BIN_SUFF) \
+	/usr/bin/rcc$(TOOL_QT4_BIN_SUFF) \
+	)))
+  endif
+  if "$(PATH_TOOL_QT4_BIN)" == "" && "$(TOOL_QT4_BIN_SUFF)" != ""
+   PATH_TOOL_QT4_BIN := $(patsubst %/rcc,%,$(firstword $(wildcard \
+	$(foreach type,$(KBUILD_OSARCH_2_GNU_SYSTEM_TYPES.$(KBUILD_HOST_DOT_ARCH)),/usr/lib/$(type)/qt4/bin/rcc) \
+	/usr/lib/qt4/bin/rcc \
+	/usr/qt/4/bin/rcc \
+	/usr/share/qt4/bin/rcc \
+	/usr/local/bin/rcc \
+	/usr/bin/rcc \
+	)))
+  endif
+  ifneq ($(PATH_TOOL_QT4_BIN),)
+   export PATH_TOOL_QT4_BIN
+  endif
+ endif
+ # If not found, we'll enter the 'pathless' mode.
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_TOOL_QT4_BIN := $(PATH_TOOL_QT4_BIN)
+endif
+ifneq ($(PATH_TOOL_QT4_BIN),)
+ TOOL_QT4_MOC       ?= $(PATH_TOOL_QT4_BIN)/moc$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+ TOOL_QT4_UIC       ?= $(PATH_TOOL_QT4_BIN)/uic$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+ ifndef TOOL_QT4_RCC
+  TOOL_QT4_RCC      := $(PATH_TOOL_QT4_BIN)/rcc$(HOST_SUFF_EXE)
+  ifeq ($(wildcard $(TOOL_QT4_RCC)),)
+   TOOL_QT4_RCC     := $(PATH_TOOL_QT4_BIN)/rcc$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+  endif
+ endif
+ TOOL_QT4_LRC       ?= $(PATH_TOOL_QT4_BIN)/lrelease$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+ TOOL_QT4_LUPDATE   ?= $(PATH_TOOL_QT4_BIN)/lupdate$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+else
+ # Pathless, relies on the environment.
+ TOOL_QT4_MOC       ?= moc$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+ TOOL_QT4_UIC       ?= uic$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+ TOOL_QT4_RCC       ?= rcc$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+ TOOL_QT4_LRC       ?= lrelease$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+ TOOL_QT4_LUPDATE   ?= lupdate$(TOOL_QT4_BIN_SUFF)$(HOST_SUFF_EXE)
+endif
+
+# General Properties used by kBuild and/or units/qt.kmk
+TOOL_QT4_MOCFLAGS           ?=
+TOOL_QT4_MOCINCS            ?=
+TOOL_QT4_MOCDEFS            ?=
+TOOL_QT4_MOCDEFS.darwin     ?= __APPLE__ __GNUC__
+TOOL_QT4_MOCDEFS.solaris    ?= __sun
+TOOL_QT4_MOCDEFS.win.amd64  ?= WIN64
+TOOL_QT4_MOCDEFS.win.x86    ?= WIN32
+
+
+## MOC a C++ source file.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(out)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This may be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions.
+# @param    $(incs)     Includes.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+TOOL_QT4_MOC_CPP_DEPEND =
+TOOL_QT4_MOC_CPP_DEPORD =
+TOOL_QT4_MOC_CPP_OUTPUT =
+TOOL_QT4_MOC_CPP_OUTPUT_MAYBE =
+define TOOL_QT4_MOC_CPP_CMDS
+	$(QUIET)$(TOOL_QT4_MOC)\
+		$(flags)\
+		$(addprefix -I, $(incs))\
+		$(addprefix -D, $(defs))\
+		-o $(out)\
+		$(source)
+endef
+
+## MOC a C++ header file.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(out)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This may be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions.
+# @param    $(incs)     Includes.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+TOOL_QT4_MOC_HPP_DEPEND =
+TOOL_QT4_MOC_HPP_DEPORD =
+TOOL_QT4_MOC_HPP_OUTPUT =
+TOOL_QT4_MOC_HPP_OUTPUT_MAYBE =
+define TOOL_QT4_MOC_HPP_CMDS
+	$(QUIET)$(TOOL_QT4_MOC)\
+		$(flags)\
+		$(addprefix -I, $(incs))\
+		$(addprefix -D, $(defs))\
+		-o $(out)\
+		$(source)
+endef
+
+## Compile a Qt user interface file (.ui).
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(out)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This may be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions.
+# @param    $(incs)     Includes.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+TOOL_QT4_UIC_UI_DEPEND =
+TOOL_QT4_UIC_UI_DEPORD =
+TOOL_QT4_UIC_UI_OUTPUT =
+TOOL_QT4_UIC_UI_OUTPUT_MAYBE =
+define TOOL_QT4_UIC_UI_CMDS
+	$(QUIET)$(TOOL_QT4_UIC)\
+		$(flags)\
+		-o $(out)\
+		$(source)
+endef
+
+## Compile a Qt resource file (.qrc).
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(out)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This may be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions.
+# @param    $(incs)     Includes.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+# @remarks  The sed script generating the dependency file is a bit naive.
+TOOL_QT4_RCC_QRC_DEPEND =
+TOOL_QT4_RCC_QRC_DEPORD =
+TOOL_QT4_RCC_QRC_OUTPUT =
+TOOL_QT4_RCC_QRC_OUTPUT_MAYBE =
+define TOOL_QT4_RCC_QRC_CMDS
+	$(QUIET)$(TOOL_QT4_RCC)\
+		$(flags)\
+		-o $(out)\
+		$(source)
+	$(QUIET2)$(APPEND) $(dep) '\'
+	$(QUIET2)$(APPEND) $(dep) '$(out): \'
+	$(QUIET2)$(APPEND) $(dep) '$(source) \'
+	$(QUIET2)$(SED) \
+		-e '/^[[:blank:]]*<file[[:blank:]][^>]*>/!d' \
+		-e 's/^.*<file[[:blank:]][^>]*>\([^<]*\)<\/file>.*$$$$/\1/' \
+		-e 's|^[^/][^:]|$(abspathex $(dir $(source)),$(defpath))/&|' \
+		-e 's|$$$$| \\|' \
+		--append $(dep) \
+		$(source)
+	$(QUIET2)$(APPEND) $(dep)
+	$(QUIET2)$(SED) \
+		-e '/^[[:blank:]]*<file[[:blank:]][^>]*>/!d' \
+		-e 's/^.*<file[[:blank:]][^>]*>\([^<]*\)<\/file>.*$$$$/\1/' \
+		-e 's|^[^/][^:]|$(abspathex $(dir $(source)),$(defpath))/&|' \
+		-e 's|$$$$|:\n|' \
+		--append $(dep) \
+		$(source)
+	$(QUIET2)$(APPEND) $(dep)
+endef
+
+## Compile a Qt translation file (.ts).
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(out)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This may be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions.
+# @param    $(incs)     Includes.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+TOOL_QT4_LRC_TS_DEPEND =
+TOOL_QT4_LRC_TS_DEPORD =
+TOOL_QT4_LRC_TS_OUTPUT =
+TOOL_QT4_LRC_TS_OUTPUT_MAYBE =
+define TOOL_QT4_LRC_TS_CMDS
+	$(QUIET)$(TOOL_QT4_LRC)\
+		$(flags)\
+		$(source)\
+		-qm $(out)
+endef
+
+
+
+#
+#
+# Back to the Qt4 unit.
+#
+#
+
+
+## wrapper for the lrelease (LRC) command dependencies.
+ifndef NO_COMPILE_CMDS_DEPS
+ _UNIT_QT4_LRC_CMDS_DEP = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_QT4_LRC_CMDS_PREV_),$$(commands $(out)),FORCE)
+else
+ _UNIT_QT4_LRC_CMDS_DEP =
+endif
+
+##
+# def_unit_qt4_target_pre_handle_translation helper that is expanded before evaluation.
+#
+# This is necessary to resolve reference to local variables before doing
+# assignments and setting up commands. They would otherwise be resolved
+# later in a different context and the result would be completely wrong.
+#
+define def_unit_qt4_target_pre_handle_translation_dx
+
+$(out) + $(more_output) +| $(maybe_output): \
+		$(deps) \
+		$(value _UNIT_QT4_LRC_CMDS_DEP) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_TOOL,lrelease,$(target),$(source),$$@)
+	$(QUIET2)$(RM) -f $(out) $(more_output) $(maybe_output) $(dep)
+
+$(cmds)
+
+ifndef NO_COMPILE_CMDS_DEPS
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_QT4_LRC_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+
+$(target)_CLEAN += $(out) $(more_output) $(maybe_output) $(dep)
+$(target)-inst-nls_SOURCES += $(out)
+
+endef # def_unit_qt4_target_pre_handle_translation_dx
+
+##
+# Handle a source file listed in QT_TRANSLATIONS.
+#
+# The files listed in QT_TRANSLATIONS are translation files (.ts) which needs
+# to be translated into .qm files that are loadble by Qt.
+#
+# @remarks Invoked via $(evalvalctx ).
+define def_unit_qt4_target_pre_handle_translation
+local type      := LRC
+
+# fetch the properties.
+local tool      := $(kb-src-tool dummy_var)
+local qtnlsdir  := $($(target)_0_OUTDIR)/qtnls
+local outbase   := $(qtnlsdir)/$(notdir $(basename $(source)))
+local out       := $(outbase).qm
+local dep       := $(out).dep
+local flags     := $(kb-src-prop FLAGS,dummy_var,right-to-left)
+local deps      := $(kb-src-prop DEPS,dummy_var,left-to-right)
+local orderdeps := $(call DIRDEP,$(dir $(outbase))) $(kb-src-prop ORDERDEPS,dummy_var,left-to-right)
+
+# default path + source dep.
+ifneq ($(defpath),)
+local source    := $(abspathex $(source),$(defpath))
+local deps      := $(abspathex $(deps),$(defpath)) $(source)
+local incs      := $(abspathex $(incs),$(defpath))
+else
+local deps      += $(source)
+endif
+
+# call the tool
+ifndef TOOL_$(tool)_LRC_TS_CMDS
+ $(error kBuild: qt lrelease tool not found: TOOL_$(tool)_LRC_TS_CMDS)
+endif
+local cmds         := $(TOOL_$(tool)_LRC_TS_CMDS)
+local more_output  := $(TOOL_$(tool)_LRC_TS_OUTPUT)
+local maybe_output := $(TOOL_$(tool)_LRC_TS_OUTPUT_MAYBE)
+local deps         += $(TOOL_$(tool)_LRC_TS_DEPEND)
+local orderdeps    += $(TOOL_$(tool)_LRC_TS_DEPORD)
+
+# generate the link rule and update some source and target variables.
+ifndef NO_COMPILE_CMDS_DEPS
+ $(eval includedep $(dep))
+endif
+$(eval $(def_unit_qt4_target_pre_handle_translation_dx))
+
+endef # def_unit_qt4_target_pre_handle_translation
+
+
+
+## wrapper for the UIC command dependencies.
+ifndef NO_COMPILE_CMDS_DEPS
+ _UNIT_QT4_RCC_CMDS_DEP = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_QT4_RCC_CMDS_PREV_),$$(commands $(out)),FORCE)
+else
+ _UNIT_QT4_RCC_CMDS_DEP =
+endif
+
+##
+# def_unit_qt4_target_pre_handle_qrc helper that is expanded before evaluation.
+#
+# This is necessary to resolve reference to local variables before doing
+# assignments and setting up commands. They would otherwise be resolved
+# later in a different context and the result would be completely wrong.
+#
+define def_unit_qt4_target_pre_handle_rcc_dx
+
+$(out) +| $(realout) $(more_output) $(maybe_output): \
+		$(deps) \
+		$(value _UNIT_QT4_RCC_CMDS_DEP) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_TOOL,rcc,$(target),$(source),$$@)
+	$(QUIET2)$(RM) -f $(out) $(more_output) $(maybe_output) $(dep)
+
+$(cmds)
+
+	$(QUIET)$(CP) --changed -f $(out) $(realout)
+ifndef NO_COMPILE_CMDS_DEPS
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_QT4_RCC_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+
+$(target)_2_INTERMEDIATES += $(realout)
+$(target)_GEN_SOURCES_ += $(realout)
+$(target)_CLEAN += $(out) $(realout) $(more_output) $(maybe_output) $(dep)
+
+endef # def_unit_qt4_target_pre_handle_rcc_dx
+
+##
+# Source handler for .qrc sources (Qt resource files).
+#
+# @remarks $(evalvalctx me).
+define def_unit_qt4_src_handler_qrc
+local type      := RCC
+
+# fetch the properties.
+local tool      := $(kb-src-tool dummy_var)
+local qtrccdir  := $($(target)_0_OUTDIR)/qtrcc
+local outbase   := $(qtrccdir)/$(notdir $(basename $(source)))
+local out       := $(outbase).tmp.gen.cpp
+local realout   := $(outbase).gen.cpp
+local dep       := $(realout).dep
+local flags     := $(kb-src-prop FLAGS,dummy_var,right-to-left)
+local deps      := $(kb-src-prop DEPS,dummy_var,left-to-right)
+local orderdeps := $(call DIRDEP,$(dir $(outbase))) $(kb-src-prop ORDERDEPS,dummy_var,left-to-right)
+
+# default path + source dep.
+ifneq ($(defpath),)
+local source    := $(abspathex $(source),$(defpath))
+local deps      := $(abspathex $(deps),$(defpath)) $(source)
+local incs      := $(abspathex $(incs),$(defpath))
+else
+local deps      += $(source)
+endif
+
+# call the tool
+ifndef TOOL_$(tool)_RCC_QRC_CMDS
+ $(error kBuild: qt rcc tool not found: TOOL_$(tool)_RCC_QRC_CMDS)
+endif
+local cmds         := $(TOOL_$(tool)_RCC_QRC_CMDS)
+local more_output  := $(TOOL_$(tool)_RCC_QRC_OUTPUT)
+local maybe_output := $(TOOL_$(tool)_RCC_QRC_OUTPUT_MAYBE)
+local deps         += $(TOOL_$(tool)_RCC_QRC_DEPEND)
+local orderdeps    += $(TOOL_$(tool)_RCC_QRC_DEPORD)
+
+# generate the link rule and update some source and target variables.
+ifndef NO_COMPILE_CMDS_DEPS
+ $(eval includedep $(dep))
+endif
+$(eval $(def_unit_qt4_target_pre_handle_rcc_dx))
+
+endef # def_unit_qt4_src_handler_qrc
+
+
+
+## wrapper for the UIC command dependencies.
+ifndef NO_COMPILE_CMDS_DEPS
+ _UNIT_QT4_UIC_CMDS_DEP = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_QT4_UIC_CMDS_PREV_),$$(commands $(out)),FORCE)
+else
+ _UNIT_QT4_UIC_CMDS_DEP =
+endif
+
+##
+# def_unit_qt4_src_handler_ui helper that is expanded before evaluation.
+#
+# This is necessary to resolve reference to local variables before doing
+# assignments and setting up commands. They would otherwise be resolved
+# later in a different context and the result would be completely wrong.
+#
+define def_unit_qt4_target_pre_handle_ui_dx
+
+$(out) +| $(realout) $(more_output) $(maybe_output): \
+		$(deps) \
+		$(value _UNIT_QT4_UIC_CMDS_DEP) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_TOOL,uic,$(target),$(source),$$@)
+	$(QUIET2)$(RM) -f $(out) $(more_output) $(maybe_output) $(dep)
+
+$(cmds)
+
+	$(QUIET)$(CP) --changed -f $(out) $(realout)
+ifndef NO_COMPILE_CMDS_DEPS
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_QT4_UIC_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+
+$(target)_2_INTERMEDIATES += $(realout)
+$(target)_CLEAN += $(out) $(realout) $(more_output) $(maybe_output) $(dep)
+
+endef # def_unit_qt4_target_pre_handle_ui_dx
+
+##
+# Source handler for .ui sources.
+#
+# @remarks $(evalvalctx me).
+define def_unit_qt4_src_handler_ui
+local type      := UIC
+
+# fetch the properties.
+local tool      := $(kb-src-tool dummy_var)
+local qtuicdir  := $($(target)_0_OUTDIR)/qtuic
+local outbase   := $(qtuicdir)/$(notdir $(basename $(source)))
+local out       := $(outbase).tmp.gen.h
+local realout   := $(outbase).gen.h
+local dep       := $(realout).dep
+local flags     := $(kb-src-prop FLAGS,dummy_var,right-to-left)
+local deps      := $(kb-src-prop DEPS,dummy_var,left-to-right)
+local orderdeps := $(call DIRDEP,$(dir $(outbase))) $(kb-src-prop ORDERDEPS,dummy_var,left-to-right)
+
+# default path + source dep.
+ifneq ($(defpath),)
+local source    := $(abspathex $(source),$(defpath))
+local deps      := $(abspathex $(deps),$(defpath)) $(source)
+local incs      := $(abspathex $(incs),$(defpath))
+else
+local deps      += $(source)
+endif
+
+# call the tool
+ifndef TOOL_$(tool)_UIC_UI_CMDS
+ $(error kBuild: qt uic tool not found: TOOL_$(tool)_UIC_UI_CMDS)
+endif
+local cmds         := $(TOOL_$(tool)_UIC_UI_CMDS)
+local more_output  := $(TOOL_$(tool)_UIC_UI_OUTPUT)
+local maybe_output := $(TOOL_$(tool)_UIC_UI_OUTPUT_MAYBE)
+local deps         += $(TOOL_$(tool)_UIC_UI_DEPEND)
+local orderdeps    += $(TOOL_$(tool)_UIC_UI_DEPORD)
+
+# generate the link rule and update some source and target variables.
+ifndef NO_COMPILE_CMDS_DEPS
+ $(eval includedep $(dep))
+endif
+$(eval $(def_unit_qt4_target_pre_handle_ui_dx))
+
+endef # def_unit_qt4_src_handler_ui
+
+
+
+## wrapper for the MOC command dependencies.
+ifndef NO_COMPILE_CMDS_DEPS
+ _UNIT_QT4_MOC_HPP_CMDS_DEP = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_QT4_MOC_HPP_CMDS_PREV_),$$(commands $(out)),FORCE)
+else
+ _UNIT_QT4_MOC_HPP_CMDS_DEP =
+endif
+
+##
+# def_unit_qt4_target_pre_handle_moc_hdr helper that is expanded before evaluation.
+#
+# This is necessary to resolve reference to local variables before doing
+# assignments and setting up commands. They would otherwise be resolved
+# later in a different context and the result would be completely wrong.
+#
+define def_unit_qt4_target_pre_handle_moc_hdr_dx
+
+$(out) +| $(realout) $(more_output) $(maybe_output): \
+		$(deps) \
+		$(value _UNIT_QT4_MOC_HPP_CMDS_DEP) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_TOOL,moc,$(target),$(source),$$@)
+	$(QUIET2)$(RM) -f $(out) $(more_output) $(maybe_output) $(dep)
+
+$(cmds)
+
+	$(QUIET)$(CP) --changed -f $(out) $(realout)
+ifndef NO_COMPILE_CMDS_DEPS
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_QT4_MOC_HPP_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+
+$(target)_2_INTERMEDIATES += $(realout)
+$(target)_GEN_SOURCES_ += $(realout)
+$(target)_CLEAN += $(out) $(realout) $(more_output) $(maybe_output) $(dep)
+
+endef
+
+##
+# Handle a source file listed in QT_MOCHDRS.
+#
+# The files listed in QT_MOCHDRS uses the Q_OBJECT macro and we will
+# generate a .cpp file for each of them and add it to the generated
+# sources so that it's compiled and linked. (There is an alternative
+# way to do this where the .cpp file is included, this isn't currently
+# supported by this unit.)
+#
+# @remarks Invoked via $(evalvalctx ).
+define def_unit_qt4_target_pre_handle_moc_hdr
+local type      := MOC
+
+# fetch the properties.
+local tool      := $(kb-src-tool dummy_var)
+local outbase   := $(qtmocdir)/$(notdir $(basename $(source)))
+local out       := $(outbase).tmp.cpp
+local realout   := $(outbase).cpp
+local dep       := $(realout).dep
+local defs      := $(kb-src-prop DEFS,dummy_var,left-to-right)
+local incs      := $(kb-src-prop INCS,dummy_var,right-to-left)
+local flags     := $(kb-src-prop FLAGS,dummy_var,right-to-left)
+local deps      := $(kb-src-prop DEPS,dummy_var,left-to-right)
+local orderdeps := $(call DIRDEP,$(dir $(outbase))) $(kb-src-prop ORDERDEPS,dummy_var,left-to-right)
+
+# default path + source dep.
+ifneq ($(defpath),)
+local source    := $(abspathex $(source),$(defpath))
+local deps      := $(abspathex $(deps),$(defpath)) $(source)
+local incs      := $(abspathex $(incs),$(defpath))
+else
+local deps      += $(source)
+endif
+
+# call the tool
+ifndef TOOL_$(tool)_MOC_HPP_CMDS
+ $(error kBuild: qt moc tool not found: TOOL_$(tool)_MOC_HPP_CMDS)
+endif
+local cmds         := $(TOOL_$(tool)_MOC_HPP_CMDS)
+local more_output  := $(TOOL_$(tool)_MOC_HPP_OUTPUT)
+local maybe_output := $(TOOL_$(tool)_MOC_HPP_OUTPUT_MAYBE)
+local deps         += $(TOOL_$(tool)_MOC_HPP_DEPEND)
+local orderdeps    += $(TOOL_$(tool)_MOC_HPP_DEPORD)
+
+# generate the link rule and update some source and target variables.
+ifndef NO_COMPILE_CMDS_DEPS
+ $(eval includedep $(dep))
+endif
+$(eval $(def_unit_qt4_target_pre_handle_moc_hdr_dx))
+
+endef # def_unit_qt4_target_pre_handle_moc_hdr
+
+
+## wrapper for the MOC command dependencies.
+ifndef NO_COMPILE_CMDS_DEPS
+ _UNIT_QT4_MOC_CPP_CMDS_DEP = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_QT4_MOC_CPP_CMDS_PREV_),$$(commands $(out)),FORCE)
+else
+ _UNIT_QT4_MOC_CPP_CMDS_DEP =
+endif
+
+##
+# def_unit_qt4_target_pre_handle_moc_src helper that is expanded before evaluation.
+#
+# This is necessary to resolve reference to local variables before doing
+# assignments and setting up commands. They would otherwise be resolved
+# later in a different context and the result would be completely wrong.
+#
+define def_unit_qt4_target_pre_handle_moc_src_dx
+
+$(out) +| $(realout) $(more_output) $(maybe_output): \
+		$(deps) \
+		$(value _UNIT_QT4_MOC_CPP_CMDS_DEP) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_TOOL,moc,$(target),$(source),$$@)
+	$(QUIET2)$(RM) -f $(out) $(more_output) $(maybe_output) $(dep)
+
+$(cmds)
+
+	$(QUIET)$(CP) --changed -f $(out) $(realout)
+ifndef NO_COMPILE_CMDS_DEPS
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_QT4_MOC_CPP_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+
+$(target)_2_INTERMEDIATES += $(realout)
+$(target)_CLEAN += $(out) $(realout) $(more_output) $(maybe_output) $(dep)
+
+endef
+
+##
+# Handle a source file listed in QT_MOCSRCS.
+#
+# The files listed in QT_MOCSRCS uses the Q_OBJECT macro and will include
+# a .moc file that we're expected to generate here.
+#
+# @remarks Invoked via $(evalvalctx ).
+define def_unit_qt4_target_pre_handle_moc_src
+local type      := MOC
+
+# fetch the properties.
+local tool      := $(kb-src-tool dummy_var)
+local outbase   := $(qtmocdir)/$(notdir $(basename $(source)))
+local out       := $(outbase).tmp.moc
+local realout   := $(outbase).moc
+local dep       := $(realout).dep
+local defs      := $(kb-src-prop DEFS,dummy_var,left-to-right)
+local incs      := $(kb-src-prop INCS,dummy_var,right-to-left)
+local flags     := $(kb-src-prop FLAGS,dummy_var,right-to-left)
+local deps      := $(kb-src-prop DEPS,dummy_var,left-to-right)
+local orderdeps := $(call DIRDEP,$(dir $(outbase))) $(kb-src-prop ORDERDEPS,dummy_var,left-to-right)
+
+# default path + source dep.
+ifneq ($(defpath),)
+local source    := $(abspathex $(source),$(defpath))
+local deps      := $(abspathex $(deps),$(defpath)) $(source)
+local incs      := $(abspathex $(incs),$(defpath))
+else
+local deps      += $(source)
+endif
+
+# call the tool
+ifndef TOOL_$(tool)_MOC_CPP_CMDS
+ $(error kBuild: qt moc tool not found: TOOL_$(tool)_MOC_CPP_CMDS)
+endif
+local cmds         := $(TOOL_$(tool)_MOC_CPP_CMDS)
+local more_output  := $(TOOL_$(tool)_MOC_CPP_OUTPUT)
+local maybe_output := $(TOOL_$(tool)_MOC_CPP_OUTPUT_MAYBE)
+local deps         += $(TOOL_$(tool)_MOC_CPP_DEPEND)
+local orderdeps    += $(TOOL_$(tool)_MOC_CPP_DEPORD)
+
+# generate the link rule and update some source and target variables.
+ifndef NO_COMPILE_CMDS_DEPS
+ $(eval includedep $(dep))
+endif
+$(eval $(def_unit_qt4_target_pre_handle_moc_src_dx))
+
+endef # def_unit_qt4_target_pre_handle_moc_src
+
+
+##
+# Adds sources containing Q_OBJECT to QT_MOCSRCS.
+define def_unit_qt4_target_pre_cpp_source
+ifneq ($(file-size $(source)),-1)
+ ifneq ($(strip $(shell $(SED) -f $(KBUILD_PATH)/units/qt-Q_OBJECT.sed $(source))),)
+  $(eval $(target)_QT_MOCSRCS += $(source))
+ endif
+endif
+endef # def_unit_qt4_target_pre_cpp_source
+
+##
+# Invoked early in the processing of a target that uses	the Qt unit.
+#
+# It will append the qt source handlers to the target (.h, .ui, .ts,
+# .png, .bmp, .gif).
+#
+# It will then check all the C++ sources and check which needs
+# a .moc files and generate rules and dependencies fofor these
+#
+define def_unit_qt4_target_pre
+
+# Make QTTOOL the default for the specific Qt tools instead of TOOL.
+ifneq ($($(target)_QTTOOL),)
+ ifeq ($($(target)_MOCTOOL),)
+  $(target)_MOCTOOL := $($(target)_QTTOOL)
+ endif
+ ifeq ($($(target)_UICTOOL),)
+  $(target)_UICTOOL := $($(target)_QTTOOL)
+ endif
+ ifeq ($($(target)_RCCTOOL),)
+  $(target)_RCCTOOL := $($(target)_QTTOOL)
+ endif
+ ifeq ($($(target)_LRCTOOL),)
+  $(target)_LRCTOOL := $($(target)_QTTOOL)
+ endif
+endif
+
+# Deal with QT_MODULES, QT_PREFIX and QT_INFIX.
+local qt_modules := \
+	$($(target)_QT_MODULES.$(bld_trg)) \
+ 	$($(target)_QT_MODULES.$(bld_trg_arch)) \
+ 	$($(target)_QT_MODULES.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_QT_MODULES.$(bld_trg_cpu)) \
+ 	$($(target)_QT_MODULES.$(bld_type)) \
+ 	$($(target)_QT_MODULES)
+local qt_prefix := $(firstword \
+	$($(target)_QT_PREFIX.$(bld_trg)) \
+ 	$($(target)_QT_PREFIX.$(bld_trg_arch)) \
+ 	$($(target)_QT_PREFIX.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_QT_PREFIX.$(bld_trg_cpu)) \
+ 	$($(target)_QT_PREFIX.$(bld_type)) \
+ 	$($(target)_QT_PREFIX))
+local qt_infix := $(firstword \
+	$($(target)_QT_INFIX.$(bld_trg)) \
+ 	$($(target)_QT_INFIX.$(bld_trg_arch)) \
+ 	$($(target)_QT_INFIX.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_QT_INFIX.$(bld_trg_cpu)) \
+ 	$($(target)_QT_INFIX.$(bld_type)) \
+ 	$($(target)_QT_INFIX))
+ifeq ($(bld_trg),darwin)
+ # Adding -F to CXXFLAGS is necessary to make #include <QtCore/qstring.h> stuff work...
+ $(eval $(target)_CXXFLAGS += -F$(PATH_SDK_QT4_LIB) )
+ $(eval $(target)_OBJCXXFLAGS += -F$(PATH_SDK_QT4_LIB) )
+ $(eval $(target)_LDFLAGS  += -F$(PATH_SDK_QT4_LIB) $(foreach module,$(qt_modules), -framework $(qt_prefix)Qt$(module)$(qt_infix)) )
+ $(eval $(target)_INCS     += $(foreach module,$(qt_modules), $(PATH_SDK_QT4_LIB)/$(qt_prefix)Qt$(module)$(qt_infix).framework/Versions/4/Headers) )
+else
+ ifeq ($(bld_trg),win)
+  $(eval $(target)_LIBS    += $(foreach module,$(qt_modules), $(PATH_SDK_QT4_LIB)/$(qt_prefix)Qt$(module)$(qt_infix)4$(SUFF_LIB)) )
+  ifeq ($(tool_do),LINK_PROGRAM)
+   $(eval $(target)_LIBS   += $(PATH_SDK_QT4_LIB)/$(qt_prefix)qtmain$(qt_infix)$(SUFF_LIB) )
+  endif
+ else
+  $(eval $(target)_LIBS    += $(foreach module,$(qt_modules), $(PATH_SDK_QT4_LIB)/lib$(qt_prefix)Qt$(module)$(qt_infix)$(SUFF_DLL)) )
+ endif
+ $(eval $(target)_INCS     += $(addprefix $(PATH_SDK_QT4_INC)/Qt,$(qt_modules)) $(PATH_SDK_QT4_INC) )
+endif
+$(eval $(target)_DEFS      += $(foreach module,$(toupper $(qt_modules)), QT_$(module)_LIB) )
+
+
+# Autodetect source files with Q_OBJECT references if QT_MOCSRCS is undefined. (slow)
+# Tip: Use target_QT_MOCSRCS = $(NO_SUCH_VARIABLE) to avoid this.
+ifndef $(target)_QT_MOCSRCS
+ $(foreach source, $(filter %.cxx %.CXX %.cpp %.CPP %.cc %.CC,\
+ 	$($(target)_SOURCES.$(bld_trg)) \
+ 	$($(target)_SOURCES.$(bld_trg_arch)) \
+ 	$($(target)_SOURCES.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_SOURCES.$(bld_trg_cpu)) \
+ 	$($(target)_SOURCES.$(bld_type)) \
+ 	$($(target)_SOURCES) \
+ 	), $(evalval def_unit_qt4_target_pre_cpp_source))
+endif
+
+# Install source handlers for .ui files.
+$(target)_SRC_HANDLERS += \
+	 .ui:def_unit_qt4_src_handler_ui \
+	 .UI:def_unit_qt4_src_handler_ui \
+	.qrc:def_unit_qt4_src_handler_qrc \
+	.qrc:def_unit_qt4_src_handler_qrc
+
+# Calc the MOC and UI output directories and add them to BLDDIRS and INCS.
+local qtmocdir := $($(target)_0_OUTDIR)/qtmoc
+local qtuicdir := $($(target)_0_OUTDIR)/qtuic
+local qtrccdir := $($(target)_0_OUTDIR)/qtrcc
+local qtnlsdir := $($(target)_0_OUTDIR)/qtnls
+$(eval $(target)_BLDDIRS += $(qtmocdir) $(qtuicdir) $(qtrccdir) $(qtnlsdir))
+$(eval $(target)_INCS    += $(qtmocdir) $(qtuicdir))
+
+# Deal with QT_MOCSRCS.
+$(foreach source, \
+	$($(target)_QT_MOCSRCS.$(bld_trg)) \
+ 	$($(target)_QT_MOCSRCS.$(bld_trg_arch)) \
+ 	$($(target)_QT_MOCSRCS.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_QT_MOCSRCS.$(bld_trg_cpu)) \
+ 	$($(target)_QT_MOCSRCS.$(bld_type)) \
+ 	$($(target)_QT_MOCSRCS) \
+	, $(evalvalctx def_unit_qt4_target_pre_handle_moc_src))
+
+# Deal with QT_MOCHDRS.
+$(foreach source, \
+	$($(target)_QT_MOCHDRS.$(bld_trg)) \
+ 	$($(target)_QT_MOCHDRS.$(bld_trg_arch)) \
+ 	$($(target)_QT_MOCHDRS.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_QT_MOCHDRS.$(bld_trg_cpu)) \
+ 	$($(target)_QT_MOCHDRS.$(bld_type)) \
+ 	$($(target)_QT_MOCHDRS) \
+	, $(evalvalctx def_unit_qt4_target_pre_handle_moc_hdr))
+
+# Deal with QT_TRANSLATIONS.
+# ASSUMES (_ALL_)INSTALLS is processed after the targets using this unit.
+local translations := \
+	$($(target)_QT_TRANSLATIONS.$(bld_trg)) \
+ 	$($(target)_QT_TRANSLATIONS.$(bld_trg_arch)) \
+ 	$($(target)_QT_TRANSLATIONS.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_QT_TRANSLATIONS.$(bld_trg_cpu)) \
+ 	$($(target)_QT_TRANSLATIONS.$(bld_type)) \
+ 	$($(target)_QT_TRANSLATIONS)
+ifneq ($(strip $(translations)),)
+ local expr := _ALL_INSTALLS_IMPLICIT += $(target)-inst-nls
+ $(eval $(expr))
+ ifdef $(target)_QT_TRANSLATIONS_TEMPLATE
+  $(target)-inst-nls_TEMPLATE := $($(target)_QT_TRANSLATIONS_TEMPLATE)
+ else
+  $(target)-inst-nls_MODE := 0644
+ endif
+ ifdef $(target)_QT_TRANSLATIONS_INST
+  $(target)-inst-nls_INST := $($(target)_QT_TRANSLATIONS_INST)
+ endif
+ $(target)-inst-nls_SOURCES :=
+ $(foreach source, $(translations)\
+	, $(evalvalctx def_unit_qt4_target_pre_handle_translation))
+endif
+
+endef # def_unit_qt4_target_pre
+
+
+#
+# Rule for debugging.
+#
+unit-qt4-show-vars:
+	@$(ECHO) 'The Qt4 SDK variables:'
+	@$(ECHO) '  PATH_SDK_QT4           = "$(PATH_SDK_QT4)"'
+	@$(ECHO) '  PATH_SDK_QT4_INC       = "$(PATH_SDK_QT4_INC)"'
+	@$(ECHO) '  PATH_SDK_QT4_LIB       = "$(PATH_SDK_QT4_LIB)"'
+	@$(ECHO) '  PATH_SDK_QT4_LIB.amd64 = "$(PATH_SDK_QT4_LIB.amd64)"'
+	@$(ECHO) '  PATH_SDK_QT4_LIB.x86   = "$(PATH_SDK_QT4_LIB.x86)"'
+	@$(ECHO) 'The Qt4 TOOL variables:'
+	@$(ECHO) '  PATH_TOOL_QT4_BIN      = "$(PATH_TOOL_QT4_BIN)"'
+	@$(ECHO) '  TOOL_QT4_BIN_SUFF      = "$(TOOL_QT4_BIN_SUFF)"'
+	@$(ECHO) '  TOOL_QT4_MOC           = "$(TOOL_QT4_MOC)"'
+	@$(ECHO) '  TOOL_QT4_UIC           = "$(TOOL_QT4_UIC)"'
+	@$(ECHO) '  TOOL_QT4_RCC           = "$(TOOL_QT4_RCC)"'
+	@$(ECHO) '  TOOL_QT4_LRC           = "$(TOOL_QT4_LRC)"'
+	@$(ECHO) '  TOOL_QT4_LUPDATE       = "$(TOOL_QT4_LUPDATE)"'
+

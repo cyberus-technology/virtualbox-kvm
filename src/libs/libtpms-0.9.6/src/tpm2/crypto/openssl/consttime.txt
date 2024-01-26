@@ -1,0 +1,76 @@
+The following (top level) OpenSSL public BIGNUM functions check for
+the BN_FLG_CONSTTIME:
+
+bn_blind.c:
+  BN_BLINDING_new()
+
+bn_exp.c:
+  BN_exp     : must not be set for input bignums
+! BN_mod_exp : SHOULD be set for any one of input bignums (only) if m is odd
+  BN_mod_exp_recp: must NOT be set for input bignums
+  BN_mod_exp_mont: SHOULD be set for any one of input bignums
+  BN_mod_exp_mont_word: must NOT be set for input bignums
+  BN_mod_exp_simple: must NOT bet set for input bignums
+
+bn_gcd.c:
+! BN_mod_inverse: SHOULD be set for any one of input bignums
+
+bn_lib:
+  BN_num_bits
+! BN_copy
+
+bn_mont.c:
+  BN_MONT_CTX_set
+
+bn.h:
+! BN_num_bytes: Calls BN_num_bits
+
+
+Relevant files and functions in the files:
+Helpers.c
+  ComputePrivateExponentD:
+   - BN_dup: -> BN_copy: YES, BN_FLG_CONSTTIME set by caller on P and Q
+   - BN_sub: no
+   - BN_add_word: no
+   - BN_mod_inverse: YES, DONE
+  InitOpenSSLRSAPublicKey:
+   - BN_set_word: no
+   - BN_bin2bn: no
+  InitOpenSSLRSAPrivateKey:
+   - BN_bin2bn: no
+   - BN_div: -> BN_copy: YES, DONE
+   - BN_is_zero: no
+
+TpmToOsslMath:
+  OsslToTpmBn:
+   - BN_num_bytes: need not
+   - BN_bn2bin: -> BN_num_bytes: need not
+  BigInitialized:
+   - BN_bin2bn: no
+   - BN_copy: YES, DONE
+  BnModMult:
+   - BN_mul: no
+   - BN_div: -> BN_copy: ?
+  BnMult:
+   - BN_mul: no
+  BnDiv:
+   - BN_div: -> BN_copy: ?
+  BnGcd: /* FUNCTION IS NOT USED */
+   - BN_gcd: -> BN_copy, BN_num_bits: YES, DONE
+  BnModExp:
+   - BN_mod_exp: YES, DONE
+  BnModInverse:
+   - BN_mod_inverse: YES, DONE
+
+
+Elliptic curve signing :
+
+CryptEccMain.c:
+  BnEccGenerateKeyPair:
+  - BnEccModMult: YES, DONE (we have control over random number bnD)
+                  called by BnSignEcSchnorr
+                  called by BnSignEcdsa (if OpenSSL function not used)
+
+CryptEccSignature.c:
+  BnEccSignSM2:
+  - BnEccModMult: YES, DONE (we have control over random number bnK)

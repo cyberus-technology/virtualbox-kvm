@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage snapshot
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-snapshot" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage snapshot</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-snapshot</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-snapshot</refname>
+    <refpurpose>manage virtual machine snapshots</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-take">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+
+      <arg choice="plain">take</arg>
+
+      <arg choice="req"><replaceable>snapshot-name</replaceable></arg>
+
+      <arg>--description=<replaceable>description</replaceable></arg>
+
+      <arg>--live</arg>
+
+      <arg>--uniquename Number,Timestamp,Space,Force</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-delete">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+
+      <arg choice="plain">delete</arg>
+
+      <arg choice="req"><replaceable>snapshot-name</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-restore">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+
+      <arg choice="plain">restore</arg>
+
+      <arg choice="req"><replaceable>snapshot-name</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-restorecurrent">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+
+      <arg choice="plain">restorecurrent</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-edit">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+
+      <arg choice="plain">edit</arg>
+
+      <group choice="req">
+        <arg choice="plain"><replaceable>snapshot-name</replaceable></arg>
+        <arg choice="plain">--current</arg>
+      </group>
+
+      <arg>--description=<replaceable>description</replaceable></arg>
+
+      <arg>--name=<replaceable>new-name</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-list">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+
+      <arg choice="plain">list</arg>
+
+      <group><arg>--details</arg><arg>--machinereadable</arg></group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-snapshot-showvminfo">
+      <command>VBoxManage snapshot</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+
+      <arg choice="plain">showvminfo</arg>
+
+      <arg choice="req"><replaceable>snapshot-name</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage snapshot</command> command manages
+      snapshots.
+    </para>
+    <para>
+      &product-name; uses the snapshot to capture the state of a virtual
+      machine (VM). You can later use the snapshot to revert to the
+      state described by the snapshot.
+    </para>
+    <para>
+      A snapshot is a complete copy of a VM's settings. If you take the
+      snapshot while the VM is running, the snapshot also includes the
+      VM's state file.
+    </para>
+    <para>
+      After you take a snapshot, &product-name; creates a
+      <emphasis>differencing hard disk</emphasis> for each normal hard
+      disk that is associated with the host machine. When you restore a
+      snapshot, &product-name; uses these differencing files to quickly
+      reset the contents of the VM's virtual hard disks.
+    </para>
+    <para>
+      For each <command>VBoxManage snapshot</command> command, you must
+      specify the name or the universal unique identifier (UUID) of the
+      VM for which you want to take a snapshot.
+    </para>
+    <refsect2>
+      <title>General Command Operand</title>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid|vmname</replaceable></term>
+          <listitem><para>
+              Specifies the UUID or name of the VM.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-take">
+      <title>Take a Snapshot of a Virtual Machine</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage snapshot take</command> command takes a
+        snapshot of the current state of the VM. You must supply a name
+        for the snapshot and can optionally supply a description. The
+        new snapshot is inserted into the snapshots tree as a child of
+        the current snapshot and then becomes the new current snapshot.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--description=<replaceable>description</replaceable></option></term>
+          <listitem><para>
+              Specifies a description of the snapshot.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--live</option></term>
+          <listitem><para>
+              Specifies that the VM is not stopped while you create the
+              snapshot. This operation is know as live snapshotting.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uniquename Number,Timestamp,Space,Force</option></term>
+          <listitem><para>
+              TBD.
+            </para><remark>
+              What does this option do and how is it used?
+            </remark></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>snapshot-name</replaceable></term>
+          <listitem><para>
+              Specifies the name of the snapshot to create.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-delete">
+      <title>Delete a Snapshot</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage snapshot delete</command> command
+        removes the specified snapshot.
+      </para>
+      <para>
+        The delete operation may take some time to finish. This is
+        because the differencing images that are associated with the
+        snapshot may need to be merged with their child differencing
+        images.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>snapshot-name</replaceable></term>
+          <listitem><para>
+              Specifies the UUID or name of the snapshot.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-restore">
+      <title>Restore a Snapshot</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage snapshot restore</command> command
+        restores the specified snapshot. This operation resets the VM's
+        settings and current state to that of the snapshot. The state of
+        the VM on which you restore a snapshot is lost. When restored,
+        the specified snapshot becomes the new current snapshot and
+        subsequent snapshots are children of that snapshot.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>snapshot-name</replaceable></term>
+          <listitem><para>
+              Specifies the UUID or name of the snapshot.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-restorecurrent">
+      <title>Restore the Current Snapshot</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage snapshot restorecurrent</command>
+        command restores the current snapshot. The current snapshot is
+        the one from which the current state is derived. This command is
+        equivalent to using the <command>VBoxManage snapshot
+        restore</command> command and specifying the name or UUID of the
+        current snapshot.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-edit">
+      <title>Change the Name or Description of an Existing Snapshot</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage snapshot edit</command> command enables
+        you to change the name or the description of a specified
+        snapshot.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>snapshot-name</replaceable></term>
+          <listitem><para>
+              Specifies the UUID or name of the snapshot to edit.
+            </para><para>
+              This option is mutually exclusive with the
+              <option>--current</option> option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--current</option></term>
+          <listitem><para>
+              Specifies that you update the current version of the
+              snapshot.
+            </para><para>
+              This option is mutually exclusive with a specific snapshot
+              name or its UUID.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--description=<replaceable>description</replaceable></option></term>
+          <listitem><para>
+              Specifies a new description for the snapshot.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--name=<replaceable>new-name</replaceable></option></term>
+          <listitem><para>
+              Specifies a new name for the snapshot.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-list">
+      <title>List the Snapshots</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage snapshot list</command> command lists
+        all the snapshots for a VM.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--details</option></term>
+          <listitem><para>
+              Specifies that the output shows detailed information about
+              the snapshot.
+            </para><para>
+              This option is mutually exclusive with the
+              <option>--machinereadable</option> option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--machinereadable</option></term>
+          <listitem><para>
+              Specifies that the output is shown in a machine-readable
+              format.
+            </para><para>
+              This option is mutually exclusive with the
+              <option>--details</option> option.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-snapshot-showvminfo">
+      <title>Show Information About a Snapshot's Settings</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage snapshot showvminfo</command> command
+        enables you to view the VM settings that are part of an existing
+        snapshot.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>snapshot-name</replaceable></term>
+          <listitem><para>
+              Specifies the UUID or name of the snapshot.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      The following command creates a snapshot of the
+      <computeroutput>ol7u4</computeroutput> VM. The snapshot is called
+      <computeroutput>ol7u4-snap-001</computeroutput>. The command uses
+      the <option>--description</option> option to provide a description
+      of the snapshot contents.
+    </para>
+<screen>
+$ VBoxManage snapshot ol7u4 take ol7u4-snap-001 \
+--description="Oracle Linux 7.4"
+</screen>
+    <para>
+      The following command lists the snapshots for the
+      <computeroutput>ol7u4</computeroutput> VM.
+    </para>
+<screen>
+$ VBoxManage snapshot ol7u4 list
+</screen>
+    <para>
+      The following command changes the description for the
+      <computeroutput>ol7u4-snap-001</computeroutput> snapshot of the
+      <computeroutput>ol7u4</computeroutput> VM.
+    </para>
+<screen>
+$ VBoxManage snapshot ol7u4 edit ol7u4-snap-001 \
+--description="Oracle Linux 7.4 with UEK4 kernel"
+</screen>
+    <para>
+      The following command shows VM settings for the
+      <computeroutput>ol7u1-snap-001</computeroutput> snapshot of the
+      <computeroutput>ol7u4</computeroutput> VM.
+    </para>
+<screen>
+$ VBoxManage snapshot ol7u4 showvminfo ol7u4-snap-001
+Name:            ol7u4
+Groups:          /
+Guest OS:        Oracle (64-bit)
+UUID:            43349d78-2ab3-4cb8-978f-0e755cd98090
+Config file:     C:\Users\user1\VirtualBox VMs\ol7u4\ol7u4.vbox
+...
+Snapshots:
+
+   Name: ol7u4-snap-001 (UUID: 1cffc37d-5c37-4b86-b9c5-a0f157a55f43)
+   Description: Oracle Linux 7.4 with UEK4 kernel
+</screen>
+  </refsect1>
+</refentry>

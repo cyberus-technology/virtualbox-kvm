@@ -1,0 +1,595 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for the Linux installer.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefiles.
+
+# We do not install VBoxHeadlessXOrg.sh any more, so this is not needed.
+#
+# ifdef VBOX_WITH_TESTCASES
+#  include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+# endif
+
+ifneq ($(KBUILD_HOST),linux)
+ $(error "The Linux installer can only be built on Linux!")
+endif
+
+#
+# Globals and targets.
+#
+VBOX_LNX_APP_PRIVATE    := $(if $(VBOX_PATH_APP_PRIVATE),$(VBOX_PATH_APP_PRIVATE),/opt/VirtualBox)
+VBOX_LNX_APP_DOCS       := $(if $(VBOX_PATH_PACKAGE_DOCS),$(VBOX_PATH_PACKAGE_DOCS), \
+	$(if $(VBOX_PATH_APP_DOCS),$(VBOX_PATH_APP_DOCS),/opt/VirtualBox))
+VBOX_PATH_LNX_INST_SRC  := $(PATH_SUB_CURRENT)
+VBOX_LNX_INST_OUT_DIR   := $(PATH_TARGET)/Installer/linux
+VBOX_LNX_INST_STAGE_DIR := $(PATH_TARGET)/Installer/linux/install
+VBOX_LNX_INST_STAGE_DIR_REL := obj/Installer/linux/install
+VBOX_LNX_DBG_PATH       := usr/lib/debug/$(VBOX_LNX_APP_PRIVATE)
+VBOX_LNX_PACKAGE_NAME    = VirtualBox-$(VBOX_VERSION_STRING)-r$(VBOX_SVN_REV).run
+
+# Unset this to speed up things during makefile hacking.
+VBOX_LNX_INST_DEP_ON_MAKEFILE := $(MAKEFILE_CURRENT)
+
+BLDDIRS  += $(VBOX_LNX_INST_OUT_DIR) $(VBOX_LNX_INST_STAGE_DIR)
+if !defined(VBOX_NO_LINUX_RUN_INSTALLER)
+ PACKING += $(PATH_STAGE_BIN)/$(VBOX_LNX_PACKAGE_NAME) \
+ 	$(PATH_STAGE_BIN)/VirtualBox-dbg.tar.bz2
+else
+ PACKING += $(PATH_STAGE_BIN)/VirtualBox.tar
+endif
+
+OTHER_CLEAN   += \
+	$(addprefix $(VBOX_LNX_INST_STAGE_DIR)/, \
+	install.sh \
+	VirtualBox.tar.bz2 \
+	LICENSE) \
+	$(wildcard $(VBOX_LNX_INST_OUT_DIR)/VirtualBox-*) \
+	$(VBOX_LNX_INST_OUT_DIR)/install.sh
+
+#
+# Linux installs.
+#
+INSTALLS += linux-bin
+linux-bin_INST = bin/
+linux-bin_MODE = a+rx,u+w
+linux-bin_SOURCES = \
+	check_module_dependencies.sh \
+	postinst-common.sh \
+	prerm-common.sh \
+	routines.sh \
+	VBoxSysInfo.sh \
+	vboxautostart-service.sh \
+	vboxballoonctrl-service.sh \
+	VBoxCreateUSBNode.sh \
+	vboxdrv.sh \
+	vboxweb-service.sh \
+	VBox.sh=>VBox.sh \
+	$(if $(VBOX_WITH_PYTHON),$(PATH_ROOT)/src/VBox/Frontends/VBoxShell/vboxshell.py=>vboxshell.py,)
+
+INSTALLS += linux-scripts
+linux-scripts_INST = $(VBOX_LNX_INST_STAGE_DIR_REL)/
+linux-scripts_MODE = a+rx,u+w
+linux-scripts_SOURCES = \
+	deffiles \
+	postinst-common.sh \
+	prerm-common.sh \
+	routines.sh \
+	uninstall.sh \
+	vboxautostart-service.sh \
+	vboxballoonctrl-service.sh \
+	vboxdrv.sh \
+	vboxweb-service.sh
+
+INSTALLS += linux-misc
+linux-misc_INST = bin/
+linux-misc_MODE = a+r,u+w
+linux-misc_SOURCES = \
+	$(PATH_ROOT)/src/VBox/Frontends/VirtualBox/images/$(if $(VBOX_OSE),OSE,NonOSE)/VirtualBox_32px.png=>VBox.png \
+	$(VBOX_PATH_INST_COMMON_SRC)/virtualbox.xml \
+	$(if $(VBOX_OSE),,$(VBOX_BRAND_LICENSE_TXT)=>LICENSE) \
+	$(linux-misc_0_OUTDIR)/generated.sh=>scripts/generated.sh \
+	$(if $(VBOX_WITH_QTGUI),$(linux-misc_0_OUTDIR)/virtualbox.desktop,) \
+	$(if $(VBOX_WITH_QTGUI),$(linux-misc_0_OUTDIR)/virtualboxvm.desktop,)
+ifeq ($(KBUILD_TYPE),asan)
+ linux-misc_SOURCES += $(foreach lib,$(VBOX_GCC_SANITIZER_SO_FILES) \
+ 	,$(lib)=>$(notdir $(lib)) $(lib)=>testcase/$(notdir $(lib)) $(lib)=>tools/$(notdir $(lib)) )
+endif
+linux-misc_CLEAN = \
+	$(linux-misc_0_OUTDIR)/generated.sh \
+	$(linux-misc_0_OUTDIR)/virtualbox.desktop \
+	$(linux-misc_0_OUTDIR)/virtualboxvm.desktop
+
+$$(linux-misc_0_OUTDIR)/generated.sh: $(VBOX_VERSION_STAMP) $(VBOX_LNX_INST_DEP_ON_MAKEFILE) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$<)
+	$(QUIET)$(RM) -f '$@'
+	$(QUIET)$(APPEND) '$@' 'VBOX_PRODUCT="$(VBOX_PRODUCT)"'
+	$(QUIET)$(APPEND) '$@' 'VBOX_VERSION_STRING="$(VBOX_VERSION_STRING)"'
+	$(QUIET)$(APPEND) '$@' 'VBOX_C_YEAR="$(VBOX_C_YEAR)"'
+	$(QUIET)$(APPEND) '$@' 'VBOX_VENDOR="$(VBOX_VENDOR)"'
+
+$$(linux-misc_0_OUTDIR)/virtualbox.desktop: $(VBOX_PATH_INST_COMMON_SRC)/virtualbox.desktop.in $(VBOX_VERSION_STAMP) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$<)
+	$(QUIET)$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+" \
+		--output $@ $<
+
+$$(linux-misc_0_OUTDIR)/virtualboxvm.desktop: $(VBOX_PATH_INST_COMMON_SRC)/virtualboxvm.desktop.in $(VBOX_VERSION_STAMP) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$<)
+	$(QUIET)$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+" \
+		--output $@ $<
+
+INSTALLS += linux-icons
+linux-icons_INST = bin/icons/
+linux-icons_MODE = a+r,u+w
+linux-icons_SOURCES = $(VBOX_MIME_ICONS) $(VBOX_DESKTOP_ICONS)
+
+
+#
+# The files residing in bin/ that we'll ship.
+#
+
+# Strip these binaries
+VBOX_LNX_STRIP_BIN = \
+	VBoxDD.so \
+	VBoxDD2.so \
+	VBoxDDU.so \
+	VBoxVMM.so \
+	VBoxRT.so \
+	$(if $(VBOX_WITH_LIBSSH),VBoxLibSsh.so,) \
+	$(if $(VBOX_WITH_VBOXSDL),VBoxSDL $(if $(VBOX_WITH_HARDENING),VBoxSDL.so),) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD), VBoxSharedClipboard.so,) \
+	$(if $(VBOX_WITH_SHARED_FOLDERS), VBoxSharedFolders.so,) \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBoxGuestPropSvc.so,) \
+	$(if $(VBOX_WITH_GUEST_CONTROL),VBoxGuestControlSvc.so,) \
+	VBoxHostChannel.so \
+	$(if $(VBOX_WITH_DRAG_AND_DROP),VBoxDragAndDropSvc.so,) \
+	$(if $(VBOX_WITH_MAIN), \
+	VBoxAutostart \
+	VBoxBalloonCtrl \
+	VBoxBugReport \
+	VBoxManage \
+	VBoxNetDHCP $(if $(VBOX_WITH_HARDENING),VBoxNetDHCP.so,) \
+	$(if $(VBOX_WITH_LWIP_NAT),VBoxNetNAT $(if $(VBOX_WITH_HARDENING),VBoxNetNAT.so,),) \
+	VBoxNetAdpCtl \
+	$(if $(VBOX_WITH_DEVMAPPER),VBoxVolInfo,) \
+	VBoxSVC \
+	VBoxXPCOM.so \
+	VBoxXPCOMC.so \
+	VBoxXPCOMIPCD \
+	components/VBoxXPCOMIPCC.so \
+	components/VBoxSVCM.so \
+	components/VBoxC.so,) \
+	$(if $(VBOX_WITH_QTGUI),VBoxTestOGL,) \
+	$(if $(VBOX_WITH_VMSVGA3D),VBoxSVGA3D.so,) \
+	$(if $(VBOX_WITH_DXVK), VBoxDxVk.so,) \
+	$(if $(VBOX_WITH_PYTHON),$(notdir $(wildcard $(PATH_STAGE_BIN)/VBoxPython*.so)),) \
+	$(if $(VBOX_WITH_JXPCOM),libvboxjxpcom.so,) \
+	$(if $(and $(VBOX_WITH_EXTPACK_VNC),$(VBOX_WITHOUT_EXTPACK_VNC_PACKING)), \
+	ExtensionPacks/VNC/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/VBoxVNC.so \
+	ExtensionPacks/VNC/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)/VBoxVNCMain.so,) \
+	$(if $(VBOX_WITH_DTRACE),VBoxDTrace,) \
+	$(if $(VBOX_WITH_HOST_SHIPPING_AUDIO_TEST),VBoxAudioTest,)
+
+# Do not remove relocation information of these binaries
+VBOX_LNX_STRIP_OBJ = \
+	VBoxDDR0.r0 \
+	VMMR0.r0
+ifdef VBOX_NO_LINUX_RUN_INSTALLER
+ VBOX_LNX_STRIP_OBJ += \
+ 	VBoxDDR0.debug \
+ 	VMMR0.debug
+else
+ VBOX_LNX_DBG_BIN = \
+ 	VBoxDDR0.debug \
+ 	VMMR0.debug
+endif
+
+ifdef VBOX_WITH_RAW_MODE
+ VBOX_LNX_STRIP_OBJ += \
+ 	VBoxDDRC.rc \
+ 	VMMRC.rc
+ ifdef VBOX_NO_LINUX_RUN_INSTALLER
+  VBOX_LNX_STRIP_OBJ += \
+  	VBoxDDRC.debug \
+  	VMMRC.debug
+ else
+  VBOX_LNX_DBG_BIN += \
+  	VBoxDDRC.debug \
+  	VMMRC.debug
+ endif
+endif
+
+# Do not strip anything of these files
+VBOX_LNX_NO_STRIP = \
+	$(if $(VBOX_OSE),,LICENSE) \
+	$(if $(VBOX_WITH_MAIN), \
+	components/VBoxXPCOMBase.xpt \
+	components/VirtualBox_XPCOM.xpt) \
+	$(if $(VBOX_WITH_PYTHON),vboxshell.py,) \
+	$(if $(and $(VBOX_WITH_EXTPACK_VNC),$(VBOX_WITHOUT_EXTPACK_VNC_PACKING)), \
+	ExtensionPacks/VNC/ExtPack.xml \
+	ExtensionPacks/VNC/ExtPack-license.html \
+	ExtensionPacks/VNC/ExtPack-license.rtf \
+	ExtensionPacks/VNC/ExtPack-license.txt,) \
+	check_module_dependencies.sh \
+	postinst-common.sh \
+	prerm-common.sh \
+	routines.sh \
+	VBoxSysInfo.sh \
+	vboxautostart-service.sh \
+	vboxballoonctrl-service.sh \
+	VBoxCreateUSBNode.sh \
+	vboxdrv.sh \
+	VBox.sh \
+	vboxweb-service.sh \
+	VBox.png \
+	$(addprefix UnattendedTemplates/,$(VBOX_UNATTENDED_TEMPLATES))
+
+ifdef VBOX_WITH_EXTPACK
+ VBOX_LNX_STRIP_BIN += \
+ 	VBoxExtPackHelperApp
+endif
+
+# Qt GUI
+ifdef VBOX_WITH_QTGUI
+ include $(PATH_ROOT)/src/VBox/Frontends/VirtualBox/nls/ApprovedLanguages.kmk
+ VBOX_LNX_STRIP_BIN += \
+ 	VBoxKeyboard.so \
+ 	VirtualBox \
+ 	VirtualBoxVM \
+ 	UICommon.so \
+ 	$(if $(VBOX_WITH_DEBUGGER_GUI),VBoxDbg.so DbgPlugInDiggers.so)
+ ifdef VBOX_WITH_HARDENING
+  VBOX_LNX_STRIP_BIN += \
+  	VirtualBoxVM.so
+ endif
+ VBOX_LNX_NO_STRIP += \
+ 	virtualbox.desktop \
+ 	virtualboxvm.desktop \
+ 	virtualbox.xml \
+ 	$(VBOX_LICENSE_FILES) \
+ 	$(if $(VBOX_WITH_ORACLE_QT),$(notdir $(wildcard $(PATH_STAGE_BIN)/lib*VBox*)),) \
+ 	$(if $(VBOX_WITH_ORACLE_QT),$(VBOX_QT_PLUGINS)) \
+ 	$(foreach f,$(VBOX_APPROVED_GUI_LANGUAGES),nls/VirtualBox_$(f).qm nls/qt_$(f).qm) \
+ 	icons
+endif
+
+# Guest Additions
+ifdef VBOX_WITH_ADDITIONS_PACKING
+ VBOX_LNX_NO_STRIP += \
+ 	additions/VBoxGuestAdditions.iso
+endif
+
+# Documentation
+ifdef VBOX_WITH_DOCS_PACKING
+ VBOX_LNX_NO_STRIP += \
+ 	UserManual.pdf \
+ 	$(foreach f,$(VBOX_MANUAL_ADD_LANGUAGES),UserManual_$(f).pdf)
+ ifdef VBOX_WITH_DOCS_CHM_PACKING
+  VBOX_LNX_NO_STRIP += \
+  	VirtualBox.chm \
+  	$(foreach f,$(VBOX_MANUAL_ADD_LANGUAGES),VirtualBox_$(f).chm)
+ endif
+ ifdef VBOX_WITH_DOCS_QHELP_PACKING
+  VBOX_LNX_NO_STRIP += \
+  	UserManual.qch UserManual.qhc \
+  	$(foreach f,$(VBOX_MANUAL_ADD_LANGUAGES),UserManual_$(f).qch ,UserManual_$(f).qhc)
+ endif
+endif
+
+# auth stuff
+VBOX_LNX_STRIP_BIN += \
+	$(if $(VBOX_WITH_PAM),VBoxAuth.so,) \
+	VBoxAuthSimple.so
+
+# VRDP
+ifdef VBOX_WITH_VRDP
+ ifndef VBOX_WITH_EXTPACK_PUEL
+  VBOX_LNX_STRIP_BIN += \
+  	VBoxVRDP.so
+ endif
+endif
+
+# Python XPCOM glue
+ifdef VBOX_WITH_PYTHON
+ VBOX_LNX_NO_STRIP += \
+ 	$(VBOXINST_SDK_BINDINGS_XPCOM_PYTHON_FILES) \
+ 	$(VBOXINST_SDK_INSTALLER_PYTHON_FILES)
+endif
+
+# Java XPCOM bridge
+ifdef VBOX_WITH_JXPCOM
+ VBOX_LNX_NO_STRIP += \
+ 	sdk/bindings/xpcom/java/vboxjxpcom.jar
+endif
+
+# Headless
+ifdef VBOX_WITH_HEADLESS
+ VBOX_LNX_STRIP_BIN += \
+ 	VBoxHeadless \
+ 	$(if $(VBOX_WITH_HARDENING),VBoxHeadless.so)
+endif
+
+# Webservices
+ifdef VBOX_WITH_WEBSERVICES
+ VBOX_LNX_STRIP_BIN += \
+ 	vboxwebsrv
+endif
+
+# vbox-img
+if defined(VBOX_WITH_TESTCASES) || defined(VBOX_WITH_VBOX_IMG)
+ VBOX_LNX_STRIP_BIN  += \
+ 	vbox-img
+endif
+
+# vboximg-mount
+if defined(VBOX_WITH_VBOXIMGMOUNT)
+ VBOX_LNX_STRIP_BIN  += \
+ 	vboximg-mount
+endif
+
+# EFI firmware
+ifdef VBOX_WITH_EFIFW_PACKING
+ VBOX_LNX_NO_STRIP += \
+ 	VBoxEFI32.fd \
+ 	VBoxEFI64.fd
+endif
+
+# DTrace library and scripts.
+ifdef VBOX_WITH_DTRACE
+ VBOX_LNX_NO_STRIP += \
+ 	$(addprefix dtrace/lib/$(KBUILD_TARGET_ARCH)/,$(VBOXINST_DTRACE_LIB_ARCH_FILES)) \
+ 	$(addprefix dtrace/testcase/$(KBUILD_TARGET_ARCH)/,$(VBOXINST_DTRACE_TESTCASE_ARCH_FILES)) \
+ 	$(addprefix dtrace/scripts/,$(VBOXINST_DTRACE_SCRIPTS_FILES))
+endif
+
+# The sanitizer shared objects match the compiler we're using (HACK).
+ifeq ($(KBUILD_TYPE),asan)
+ VBOX_LNX_NO_STRIP += $(notdir $(VBOX_GCC_SANITIZER_SO_FILES))
+endif
+
+# Icons
+VBOX_MIME_ICONS = \
+	$(addprefix $(PATH_ROOT)/src/VBox/Artwork/other/, \
+	$(foreach f,ova ovf vbox vbox-extpack vdi vmdk vhd hdd, \
+	$(foreach s,16 20 24 32 48 64 72 96 128 256, \
+	virtualbox-$(f)-$(s)px.png=>$(s)x$(s)/virtualbox-$(f).png)))
+
+VBOX_DESKTOP_ICONS = \
+	$(addprefix $(PATH_ROOT)/src/VBox/Artwork/$(if $(VBOX_OSE),OSE,NonOSE)/, \
+	$(foreach s,16 20 32 40 48 64 128, \
+	virtualbox-$(s)px.png=>$(s)x$(s)/virtualbox.png) \
+	virtualbox.svg=>scalable/virtualbox.svg)
+
+#
+# All the bin files that goes into the archives.
+#
+VBOX_LNX_ARCH_FILES := $(VBOX_LNX_STRIP_BIN) $(VBOX_LNX_STRIP_OBJ) $(VBOX_LNX_NO_STRIP) src
+
+# Cleanup of the files we copy/symlink from bin.
+OTHER_CLEAN += $(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive/,$(filter-out src,$(VBOX_LNX_ARCH_FILES)) src/vboxhost) \
+	$(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(VBOX_LNX_DBG_PATH)/, \
+	$(VBOX_LNX_STRIP_BIN) $(VBOX_LNX_DBG_BIN))
+
+#
+# The generic installer.
+#
+$(PATH_STAGE_BIN)/$(VBOX_LNX_PACKAGE_NAME): \
+		$(VBOX_LNX_INST_STAGE_DIR)/VirtualBox.tar.bz2 \
+		$(VBOX_VERSION_STAMP) \
+		$(if $(VBOX_OSE),,$(VBOX_BRAND_LICENSE_TXT)) \
+		$(VBOX_LNX_INST_OUT_DIR)/install.sh \
+		$$(linux-scripts_2_STAGE_TARGETS)
+	$(call MSG_TOOL,makeself,,$@)
+	$(QUIET)$(RM) -f $(wildcard $(PATH_STAGE_BIN)/VirtualBox-*.run)
+	$(QUIET)$(if $(VBOX_OSE),,$(INSTALL) -m 0644 $(VBOX_BRAND_LICENSE_TXT)    $(VBOX_LNX_INST_STAGE_DIR)/LICENSE)
+	$(QUIET)$(INSTALL) -m 0755 $(VBOX_LNX_INST_OUT_DIR)/install.sh            $(VBOX_LNX_INST_STAGE_DIR)/
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(VBOX_MAKESELF) --follow --nocomp $(VBOX_LNX_INST_STAGE_DIR) $@ \
+		"VirtualBox for Linux installation" ./install.sh "\$$0 1> /dev/null"
+
+$(VBOX_LNX_INST_OUT_DIR)/install.sh: $(VBOX_PATH_LNX_INST_SRC)/install.sh $(VBOX_VERSION_STAMP) $(wildcard $(VBOX_SVN_REV_KMK).ts) | $$(dir $$@)
+	$(QUIET)$(SED) \
+		-e "s;_VERSION_;$(VBOX_VERSION_STRING);g" \
+		-e "s;_SVNREV_;$(VBOX_SVN_REV);g" \
+		-e "s;_BUILD_;$(date-utc );g" \
+		-e "s;_ARCH_;$(KBUILD_TARGET_ARCH);g" \
+		-e "s;_HARDENED_;$(VBOX_WITH_HARDENING);g" \
+		-e "s;_BUILDTYPE_;$(KBUILD_TYPE);g" \
+		-e "s;_USERNAME_;$(USERNAME);g" \
+		-e "s;_INSTALLATION_DIR_;$(VBOX_LNX_APP_PRIVATE);g" \
+		-e "s;_PYTHON_;$(VBOX_WITH_PYTHON);g" \
+		--output $@ \
+		$<
+
+#
+# The files that the tar archives depend on.
+#
+
+include $(PATH_ROOT)/src/VBox/HostDrivers/Support/linux/files_vboxdrv
+VBOX_LNX_INST_FILES_VBOXDRV = $(patsubst =>%,$(PATH_STAGE_BIN)/src/vboxdrv/%,$(filter =>%,$(subst =>, =>,$(subst $(DQUOTE),,$(FILES_VBOXDRV_NOBIN)))))
+include $(PATH_ROOT)/src/VBox/HostDrivers/VBoxNetFlt/linux/files_vboxnetflt
+VBOX_LNX_INST_FILES_VBOXNETFLT = $(patsubst =>%,$(PATH_STAGE_BIN)/src/vboxnetflt/%,$(filter =>%,$(subst =>, =>,$(subst $(DQUOTE),,$(VBOX_VBOXNETFLT_SOURCES)))))
+include $(PATH_ROOT)/src/VBox/HostDrivers/VBoxNetAdp/linux/files_vboxnetadp
+VBOX_LNX_INST_FILES_VBOXNETADP = $(patsubst =>%,$(PATH_STAGE_BIN)/src/vboxnetadp/%,$(filter =>%,$(subst =>, =>,$(subst $(DQUOTE),,$(VBOX_VBOXNETADP_SOURCES)))))
+
+ifdef VBOX_WITH_PCI_PASSTHROUGH
+ include $(PATH_ROOT)/src/VBox/HostDrivers/VBoxPci/linux/files_vboxpci
+ VBOX_LNX_INST_FILES_VBOXPCI = $(patsubst =>%,$(PATH_STAGE_BIN)/src/vboxpci/%,$(filter =>%,$(subst =>, =>,$(subst $(DQUOTE),,$(VBOX_VBOXPCI_SOURCES)))))
+endif
+
+VBOX_LNX_INST_ARCH_DEPS := \
+	$(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive/, $(VBOX_LNX_ARCH_FILES)) \
+	$(VBOX_LNX_INST_DEP_ON_MAKEFILE) \
+	$(VBOX_VERSION_STAMP) \
+	$(VBOX_LNX_INST_FILES_VBOXDRV) \
+	$(VBOX_LNX_INST_FILES_VBOXNETFLT) \
+	$(VBOX_LNX_INST_FILES_VBOXNETADP) \
+	$(if $(VBOX_WITH_PCI_PASSTHROUGH),$(VBOX_LNX_INST_FILES_VBOXPCI),)
+
+#
+# .tar.bz2 for converting into .run
+#
+$(VBOX_LNX_INST_STAGE_DIR)/VirtualBox.tar.bz2: $(VBOX_LNX_INST_ARCH_DEPS)
+	$(call MSG_L1,Packing $@)
+	$(QUIET)$(RM) -f -- $@ $(patsubst %.bz2,%,$@)
+	$(QUIET)$(MKDIR) -p $(@D)
+ifdef VBOX_USE_PBZIP2
+	$(QUIET)tar --dereference --owner 0 --group 0 \
+		-cRhf $(patsubst %.bz2,%,$@) -C $(VBOX_LNX_INST_OUT_DIR)/archive $(VBOX_LNX_ARCH_FILES)
+	$(QUIET)pbzip2 $(patsubst %.bz2,%,$@)
+else
+	$(QUIET)tar --dereference --owner 0 --group 0 \
+		-cjRhf $@ -C $(VBOX_LNX_INST_OUT_DIR)/archive $(VBOX_LNX_ARCH_FILES)
+endif
+	$(QUIET)$(CHMOD) 0644 $@
+
+#
+# .tar for distribution with the files under VirtualBox-<ver>/.
+#
+$(PATH_STAGE_BIN)/VirtualBox.tar: $(VBOX_LNX_INST_ARCH_DEPS)
+	$(call MSG_L1,Packing $@)
+	$(QUIET)$(RM) -f -- $(VBOX_LNX_INST_OUT_DIR)/VirtualBox-$(VBOX_VERSION_STRING) $@ $(patsubst %.bz2,%,$@)
+	$(QUIET)$(LN_SYMLINK) $(VBOX_LNX_INST_OUT_DIR)/archive/ $(VBOX_LNX_INST_OUT_DIR)/VirtualBox-$(VBOX_VERSION_STRING)
+	$(QUIET)tar --dereference --owner 0 --group 0 \
+		-cRhf $@ -C $(VBOX_LNX_INST_OUT_DIR) \
+		$(addprefix VirtualBox-$(VBOX_VERSION_STRING)/,$(VBOX_LNX_ARCH_FILES))
+	$(QUIET)$(RM) -f -- $(VBOX_LNX_INST_OUT_DIR)/VirtualBox-$(VBOX_VERSION_STRING)
+
+
+# pattern rule for stripping and copying the VBOX_LNX_STRIP_BIN files to archive/
+$(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive/,$(VBOX_LNX_STRIP_BIN)): \
+		$(VBOX_LNX_INST_OUT_DIR)/archive/% : $(PATH_STAGE_BIN)/% \
+		$(if $(VBOX_NO_LINUX_RUN_INSTALLER),, \
+			$(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(VBOX_LNX_DBG_PATH)/%) \
+		| $$(dir $$@)
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(INSTALL) -m 0755 $(if $(VBOX_DO_STRIP),-s,) $< $@
+	$(QUIET)$(if $(VBOX_NO_LINUX_RUN_INSTALLER),,objcopy --add-gnu-debuglink=$(subst $(VBOX_LNX_INST_OUT_DIR)/archive,$(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(VBOX_LNX_DBG_PATH),$@) $@)
+
+# pattern rule for copying VBOX_LNX_DBG_BIN files to archive-dbg/
+$(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(VBOX_LNX_DBG_PATH)/,$(VBOX_LNX_DBG_BIN)): \
+		$(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(VBOX_LNX_DBG_PATH)/% : $(PATH_STAGE_BIN)/% | $$(dir $$@)
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(CP) $< $@
+
+# pattern rule for striping and copying the VBOX_LNX_STRIP_OBJ files to archive/
+$(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive/,$(VBOX_LNX_STRIP_OBJ)): \
+		$(VBOX_LNX_INST_OUT_DIR)/archive/% : $(PATH_STAGE_BIN)/% | $$(dir $$@)
+	$(call MSG_INST_FILE,$<,$@)
+ifeq ($(VBOX_DO_STRIP),)
+	$(QUIET)$(INSTALL) -m 0644 $< $@
+else # strip to temp file because of umask.
+	$(QUIET)objcopy --strip-unneeded -R .comment $< $@.tmp
+	$(QUIET)$(INSTALL) -m 0644 $@.tmp $@
+	$(QUIET)$(RM) -f -- $@.tmp
+endif
+
+# pattern rule for linking the VBOX_LNX_NO_STRIP into archive/
+$(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive/,$(VBOX_LNX_NO_STRIP)): \
+		$(VBOX_LNX_INST_OUT_DIR)/archive/% : $(PATH_STAGE_BIN)/% | $$(dir $$@)
+	$(call MSG_INST_SYM,$<,$@)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(LN_SYMLINK) $< $@
+
+# special rule for the kernel modules
+$(VBOX_LNX_INST_OUT_DIR)/archive/src: $(PATH_STAGE_BIN)/src | $(dir $@)
+	$(call MSG_INST_SYM,$<,$@)
+	$(QUIET)$(RM) -Rf $@
+	$(QUIET)$(MKDIR) $@
+	$(QUIET)$(LN_SYMLINK) $< $@/vboxhost
+
+# rules for creating directories in archive (the pattern rules depends on these).
+BLDDIRS += $(foreach d, \
+	archive \
+	archive/components \
+	archive/nls \
+	$(if $(VBOX_WITH_UNATTENDED),archive/unattended_templates,) \
+	$(if $(VBOX_WITH_ORACLE_QT), \
+	archive/plugins/platforms \
+	archive/plugins/platformthemes \
+	archive/plugins/sqldrivers \
+	archive/plugins/styles \
+	archive/plugins/xcbglintegrations,) \
+	$(if $(VBOX_WITH_PYTHON), \
+	archive/sdk/installer \
+	archive/sdk/installer/vboxapi \
+	archive/sdk/bindings/xpcom/python/xpcom \
+	archive/sdk/bindings/xpcom/python/xpcom/client \
+	archive/sdk/bindings/xpcom/python/xpcom/server,) \
+	$(if $(VBOX_WITH_JXPCOM), \
+	archive/sdk/bindings/xpcom/java,) \
+	$(if $(and $(VBOX_WITH_EXTPACK_VNC),$(VBOX_WITHOUT_EXTPACK_VNC_PACKING)), \
+	archive/ExtensionPacks/VNC \
+	archive/ExtensionPacks/VNC/$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH),) \
+	archive/additions \
+	$(if-expr defined(VBOX_UNATTENDED_TEMPLATES),archive/UnattendedTemplates,) \
+	install \
+	$(if $(VBOX_WITH_DTRACE), \
+	archive/dtrace \
+	archive/dtrace/lib \
+	archive/dtrace/lib/$(KBUILD_TARGET_ARCH) \
+	archive/dtrace/testcase/ \
+	archive/dtrace/testcase/$(KBUILD_TARGET_ARCH) \
+	archive/dtrace/scripts,) \
+	,$(VBOX_LNX_INST_OUT_DIR)/$(d)/)
+
+
+#
+# .tar.bz2 for with the debug info.
+#
+$(PATH_STAGE_BIN)/VirtualBox-dbg.tar.bz2: \
+		$(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(VBOX_LNX_DBG_PATH)/, \
+			$(VBOX_LNX_STRIP_BIN) $(VBOX_LNX_DBG_BIN))
+	$(call MSG_L1,Packing $@)
+	$(QUIET)$(RM) -f -- $@ $(patsubst %.bz2,%,$@)
+ifdef VBOX_USE_PBZIP2
+	$(QUIET)tar --dereference --owner 0 --group 0 \
+		-cRhf $(patsubst %.bz2,%,$@) -C $(VBOX_LNX_INST_OUT_DIR)/archive-dbg \
+		$(addprefix $(VBOX_LNX_DBG_PATH)/,$(VBOX_LNX_STRIP_BIN) $(VBOX_LNX_DBG_BIN))
+	$(QUIET)pbzip2 $(patsubst %.bz2,%,$@)
+else
+	$(QUIET)tar --dereference --owner 0 --group 0 \
+		-cjRhf $@ -C $(VBOX_LNX_INST_OUT_DIR)/archive-dbg \
+		$(addprefix $(VBOX_LNX_DBG_PATH)/,$(VBOX_LNX_STRIP_BIN) $(VBOX_LNX_DBG_BIN))
+endif
+
+# pattern rule for copying the debug info from the VBOX_LNX_STRIP_BIN files into archive-dbg/$(VBOX_LNX_DBG_PATH)/
+$(addprefix $(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(VBOX_LNX_DBG_PATH)/,$(VBOX_LNX_STRIP_BIN)): \
+		$(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(VBOX_LNX_DBG_PATH)/% : $(PATH_STAGE_BIN)/% | $$(dir $$@)
+	$(call MSG_TOOL,copydbg,$<,$@)
+	$(QUIET)objcopy --only-keep-debug $< $@
+
+# rules for creating directories in archive-dbg (the pattern rules depends on these).
+BLDDIRS += $(foreach d, \
+	$(VBOX_LNX_DBG_PATH) \
+	$(VBOX_LNX_DBG_PATH)/components \
+	,$(VBOX_LNX_INST_OUT_DIR)/archive-dbg/$(d)/)
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

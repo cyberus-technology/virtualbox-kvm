@@ -1,0 +1,166 @@
+/** @file
+ * IPRT / No-CRT - Minimal C++ iomanip header.
+ */
+
+/*
+ * Copyright (C) 2022-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+#ifndef VBOX_INCLUDED_SRC_nocrt_iomanip
+#define VBOX_INCLUDED_SRC_nocrt_iomanip
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#include <iprt/nocrt/ios>
+
+
+namespace std
+{
+    /**
+     * Used by all flag manipulators.
+     */
+    struct rtNoCrtIosSetFlagsEx
+    {
+        ios_base::fmtflags m_fSet;
+        ios_base::fmtflags m_fMask;
+    };
+
+    template<typename a_CharType, typename a_CharTraits>
+    inline basic_istream<a_CharType, a_CharTraits> &operator>>(basic_istream<a_CharType, a_CharTraits> &a_rSrc,
+                                                               struct rtNoCrtIosSetFlagsEx a_Change)
+    {
+        a_rSrc.setf(a_Change.m_fSet, a_Change.m_fMask);
+        return a_rSrc;
+    }
+
+    template<typename a_CharType, typename a_CharTraits>
+    inline basic_ostream<a_CharType, a_CharTraits> &operator<<(basic_ostream<a_CharType, a_CharTraits> &a_rDst,
+                                                               struct rtNoCrtIosSetFlagsEx a_Change)
+    {
+        a_rDst.setf(a_Change.m_fSet, a_Change.m_fMask);
+        return a_rDst;
+    }
+
+
+    /*
+     * Flag modification functions.
+     */
+
+    inline struct rtNoCrtIosSetFlagsEx setiosflags(ios_base::fmtflags a_fFlags)
+    {
+        struct rtNoCrtIosSetFlagsEx Ret = { a_fFlags, a_fFlags };
+        return Ret;
+    }
+
+    inline struct rtNoCrtIosSetFlagsEx resetiosflags(ios_base::fmtflags a_fFlags)
+    {
+        struct rtNoCrtIosSetFlagsEx Ret = { ios_base::fmtflags(0), a_fFlags };
+        return Ret;
+    }
+
+    inline struct rtNoCrtIosSetFlagsEx setbase(int a_iBase)
+    {
+        struct rtNoCrtIosSetFlagsEx Ret =
+        {
+              a_iBase == 10 ? ios_base::dec
+            : a_iBase == 16 ? ios_base::hex
+            : a_iBase == 8  ? ios_base::oct
+            : ios_base::fmtflags(0),
+            ios_base::basefield
+        };
+        return Ret;
+    }
+
+    /*
+     * Modify precision.
+     */
+    struct rtNoCrtIosSetPrecision
+    {
+        int m_cchPrecision;
+    };
+
+    template<typename a_CharType, typename a_CharTraits>
+    inline basic_istream<a_CharType, a_CharTraits> &operator>>(basic_istream<a_CharType, a_CharTraits> &a_rSrc,
+                                                               struct rtNoCrtIosSetPrecision a_Change)
+    {
+        a_rSrc.precision(a_Change.m_cchPrecision);
+        return a_rSrc;
+    }
+
+    template<typename a_CharType, typename a_CharTraits>
+    inline basic_ostream<a_CharType, a_CharTraits> &operator<<(basic_ostream<a_CharType, a_CharTraits> &a_rDst,
+                                                               struct rtNoCrtIosSetPrecision a_Change)
+    {
+        a_rDst.precision(a_Change.m_cchPrecision);
+        return a_rDst;
+    }
+
+    inline struct rtNoCrtIosSetPrecision setprecision(int a_cchPrecision)
+    {
+        struct rtNoCrtIosSetPrecision Ret = { a_cchPrecision };
+        return Ret;
+    }
+
+    /*
+     * Modify width.
+     */
+    struct rtNoCrtIosSetWidth
+    {
+        int m_cchWidth;
+    };
+
+    template<typename a_CharType, typename a_CharTraits>
+    inline basic_istream<a_CharType, a_CharTraits> &operator>>(basic_istream<a_CharType, a_CharTraits> &a_rSrc,
+                                                               struct rtNoCrtIosSetWidth a_Change)
+    {
+        a_rSrc.width(a_Change.m_cchWidth);
+        return a_rSrc;
+    }
+
+    template<typename a_CharType, typename a_CharTraits>
+    inline basic_ostream<a_CharType, a_CharTraits> &operator<<(basic_ostream<a_CharType, a_CharTraits> &a_rDst,
+                                                               struct rtNoCrtIosSetWidth a_Change)
+    {
+        a_rDst.width(a_Change.m_cchWidth);
+        return a_rDst;
+    }
+
+    inline struct rtNoCrtIosSetWidth setw(int a_cchWidth)
+    {
+        struct rtNoCrtIosSetWidth Ret = { a_cchWidth };
+        return Ret;
+    }
+
+    /** @todo setfil, get_money, set_money, get_time, set_time */
+}
+
+#endif /* !VBOX_INCLUDED_SRC_nocrt_iomanip */
+

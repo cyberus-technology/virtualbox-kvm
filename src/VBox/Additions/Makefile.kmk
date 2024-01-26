@@ -1,0 +1,405 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for the VirtualBox Guest Additions.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Globals
+#
+VBOX_PATH_ADDITIONS_SRC := $(PATH_SUB_CURRENT)
+
+#
+# Cross building of the additions is generally done by remote building
+# by means of smbfs, cifs, VBOX_ONLY_ADDITIONS=1 and setting KBUILD_TARGET
+# and KBUILD_TARGET_ARCH to the desired target and architecture.
+#
+# Limited support for cross building the windows additions using wine
+# is provided. There are a couple of issues with the approach (lack of
+# signing, no VC++ 8 support, ++) that makes it unsuitable for releases.
+#
+#
+# Note! VBOX_WITH_ADDITIONS is checked for by our parent makefile.
+#
+# Note! VBOX_WITH_X11_ADDITIONS is set in Config.kmk
+#
+# Note! The additions build box will set the VBOX_WITH_ADDITIONS_ISO.win.x86
+#       variables before invoking us from the root makefile.
+#
+#  ==>  All we have to worry about is what to do on the target we're on.
+#
+VBOX_WITH_ADDITIONS_ISO.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH) = 1
+
+# Include sub-makefiles.
+include $(PATH_SUB_CURRENT)/common/Makefile.kmk
+
+ifdef VBOX_WITH_X11_ADDITIONS
+ include $(PATH_SUB_CURRENT)/x11/Makefile.kmk
+endif
+
+ifeq ($(KBUILD_TARGET),freebsd)
+ include $(PATH_SUB_CURRENT)/freebsd/Makefile.kmk
+endif
+ifeq ($(KBUILD_TARGET),linux)
+ include $(PATH_SUB_CURRENT)/linux/Makefile.kmk
+endif
+ifeq ($(KBUILD_TARGET),os2)
+ include $(PATH_SUB_CURRENT)/os2/Makefile.kmk
+endif
+ifeq ($(KBUILD_TARGET),solaris)
+ include $(PATH_SUB_CURRENT)/solaris/Makefile.kmk
+endif
+ifeq ($(KBUILD_TARGET),win)
+ include $(PATH_SUB_CURRENT)/3D/win/VBoxWddmUmHlp/Makefile.kmk
+ ifdef VBOX_WITH_MESA3D
+  include $(PATH_SUB_CURRENT)/3D/Makefile.kmk
+ endif
+ include $(PATH_SUB_CURRENT)/WINNT/Makefile.kmk
+endif
+ifeq ($(KBUILD_TARGET),darwin)
+ include $(PATH_SUB_CURRENT)/darwin/Makefile.kmk
+endif
+ifeq ($(KBUILD_TARGET),haiku)
+ include $(PATH_SUB_CURRENT)/haiku/Makefile.kmk
+endif
+
+ifeq ($(KBUILD_TARGET),linux)
+
+ INSTALLS += LnxAddIso-scripts
+ LnxAddIso-scripts_INST    = $(INST_ADDITIONS)
+ LnxAddIso-scripts_MODE    = a+rx,u+w
+ LnxAddIso-scripts_SOURCES = \
+ 	../Installer/linux/runasroot.sh \
+ 	linux/installer/autorun.sh
+
+endif # KBUILD_TARGET == linux
+ifeq ($(KBUILD_TARGET),win)
+ #
+ # Inf2Cat requires all the files referenced in the .inf file
+ # to be present in the directory, so we have to do this from here,
+ # since VBoxGuest.sys is being built from the common sources.
+ #
+ INSTALLS += VBoxGuest-inf
+ VBoxGuest-inf_INST = $(INST_ADDITIONS)
+ VBoxGuest-inf_MODE = a+r,u+w
+ VBoxGuest-inf_SOURCES = \
+ 	$(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.inf
+ VBoxGuest-inf_SOURCES.x86 = \
+ 	$(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxGuestEarlyNT.inf
+ VBoxGuest-inf_CLEAN = $(VBoxGuest-inf_SOURCES)
+ VBoxGuest-inf_CLEAN.x86 = $(VBoxGuest-inf_SOURCES.x86)
+ VBoxGuest-inf_BLDDIRS = $(PATH_TARGET)/VBoxGuestCat.dir
+ VBoxGuest-inf_BLDDIRS.x86 = $(PATH_TARGET)/VBoxGuestEarlyNTCat.dir
+
+ $(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.inf: $(PATH_SUB_CURRENT)/common/VBoxGuest/win/VBoxGuest.inf $(MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,VBoxGuest-inf,$@,$<)
+	$(call VBOX_EDIT_INF_FN,$<,$@)
+
+ $(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxGuestEarlyNT.inf: $(PATH_SUB_CURRENT)/common/VBoxGuest/win/VBoxGuestEarlyNT.inf $(MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,VBoxGuestEarlyNT-inf,$@,$<)
+	$(call VBOX_EDIT_INF_FN,$<,$@)
+
+ if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+  VBoxGuest-inf_SOURCES += \
+  	$(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.cat \
+  	$(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.cat=>VBoxGuest-PreW10.cat \
+  	$(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.sys \
+  	$(PATH_TARGET)/VBoxGuestCat.dir/VBoxControl.exe \
+  	$(PATH_TARGET)/VBoxGuestCat.dir/VBoxTray.exe
+  VBoxGuest-inf_SOURCES.x86 += \
+  	$(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxGuestEarlyNT.cat
+
+  $(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.sys \
+  $(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxGuest.sys: $$(VBoxGuest_1_TARGET) | $$(dir $$@)
+	$(INSTALL) -m 644 $< $(@D)
+
+  $(PATH_TARGET)/VBoxGuestCat.dir/VBoxControl.exe \
+  $(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxControl.exe: $$(VBoxControl_1_TARGET) | $$(dir $$@)
+	$(INSTALL) -m 755 $< $(@D)
+
+  $(PATH_TARGET)/VBoxGuestCat.dir/VBoxTray.exe \
+  $(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxTray.exe: $$(VBoxTray_1_TARGET) | $$(dir $$@)
+	$(INSTALL) -m 755 $< $(@D)
+
+  $(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.cat: \
+  		$(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.inf \
+  		$(PATH_TARGET)/VBoxGuestCat.dir/VBoxGuest.sys \
+  		$(PATH_TARGET)/VBoxGuestCat.dir/VBoxControl.exe \
+  		$(PATH_TARGET)/VBoxGuestCat.dir/VBoxTray.exe
+	$(call MSG_TOOL,Inf2Cat,VBoxGuest-inf,$@,$<)
+	$(call VBOX_MAKE_CAT_FN, $(@D),$@)
+
+  $(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxGuestEarlyNT.cat: \
+  		$(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxGuestEarlyNT.inf \
+  		$(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxGuest.sys \
+  		$(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxControl.exe \
+  		$(PATH_TARGET)/VBoxGuestEarlyNTCat.dir/VBoxTray.exe
+	$(call MSG_TOOL,Inf2Cat,VBoxGuestEarlyNT-inf,$@,$<)
+	$(call VBOX_MAKE_CAT_FN, $(@D),$@)
+ endif # signing
+endif # KBUILD_TARGET == win
+
+# The packing target rule, but only if we're on the local build box.
+# (VBOX_WITHOUT_ADDITIONS_ISO is used by the additions build box, see the root makefile.)
+ifndef VBOX_WITHOUT_ADDITIONS_ISO
+ PACKING += $(VBOX_PATH_ADDITIONS_ISO)/VBoxGuestAdditions.iso
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+
+#
+# File per-OS/arch file specs for the additions iso (alphabetical order).
+#
+# We test for the VBOX_WITH_ADDITIONS_ISO.os.arch so that we don't have to
+# do the $(if )'ing down where the GUESTADDITIONS_FILESPEC.os.arch down
+# in the dependency list and RTIsoMaker command.
+#
+
+# Darwin / Mac OS X
+## @todo Create .pkg files not run files. The build server shall create a combined packaged, goverend by
+# the VBOX_WITH_COMBINED_DARWIN_GUEST_PACKAGE macro.
+ifdef VBOX_WITH_ADDITIONS_ISO.darwin.x86
+ VBOX_PATH_ADDITIONS.darwin.x86 = $(PATH_OUT_BASE)/darwin.x86/$(KBUILD_TYPE)/dist/additions
+ GUESTADDITIONS_FILESPEC.darwin.x86 = \
+ 	VBoxDarwinAdditionsLegacy.pkg=$(VBOX_PATH_ADDITIONS.darwin.x86)/VBoxGuestAdditions.pkg
+ ifndef VBOX_WITH_ADDITIONS_ISO.darwin.amd64
+  GUESTADDITIONS_FILESPEC.darwin.x86 += \
+  	VBoxDarwinAdditionsUninstall.tool=$(VBOX_PATH_ADDITIONS.darwin.x86)/VBoxDarwinAdditionsUninstall.tool
+ endif
+endif
+
+ifdef VBOX_WITH_ADDITIONS_ISO.darwin.amd64
+ VBOX_PATH_ADDITIONS.darwin.amd64 = $(PATH_OUT_BASE)/darwin.amd64/$(KBUILD_TYPE)/dist/additions
+ GUESTADDITIONS_FILESPEC.darwin.amd64 = \
+ 	VBoxDarwinAdditions.pkg=$(VBOX_PATH_ADDITIONS.darwin.amd64)/VBoxGuestAdditions.pkg
+ ifndef VBOX_WITH_ADDITIONS_ISO.darwin.x86
+  GUESTADDITIONS_FILESPEC.darwin.amd64 += \
+  	VBoxDarwinAdditionsUninstall.tool=$(VBOX_PATH_ADDITIONS.darwin.amd64)/VBoxDarwinAdditionsUninstall.tool
+ endif
+endif
+
+# FreeBSD
+ifdef VBOX_WITH_ADDITIONS_ISO.freebsd.amd64
+ VBOX_PATH_ADDITIONS.freebsd.amd64 = $(PATH_OUT_BASE)/freebsd.amd64/$(KBUILD_TYPE)/bin/additions
+ GUESTADDITIONS_FILESPEC.freebsd.amd64 = \
+ 	VBoxFreeBSDAdditions-amd64.tbz=$(VBOX_PATH_ADDITIONS.freebsd.amd64)/VBoxFreeBSDAdditions.tbz
+endif
+ifdef VBOX_WITH_ADDITIONS_ISO.freebsd.x86
+ VBOX_PATH_ADDITIONS.freebsd.x86 = $(PATH_OUT_BASE)/freebsd.x86/$(KBUILD_TYPE)/bin/additions
+ GUESTADDITIONS_FILESPEC.freebsd.x86 = \
+ 	VBoxFreeBSDAdditions-x86.tbz=$(VBOX_PATH_ADDITIONS.freebsd.x86)/VBoxFreeBSDAdditions.tbz
+endif
+
+# GNU/Linux
+ifdef VBOX_WITH_ADDITIONS_ISO.linux.amd64
+ VBOX_PATH_ADDITIONS.linux.amd64 = $(PATH_OUT_BASE)/linux.amd64/$(KBUILD_TYPE)/bin/additions
+ ifdef VBOX_WITH_COMBINED_LINUX_GUEST_PACKAGE
+  VBOX_LNX_ADD_AMD64_RUN_PKG = VBoxLinuxAdditions.run
+ else
+  VBOX_LNX_ADD_AMD64_RUN_PKG = VBoxLinuxAdditions-amd64.run
+ endif
+ GUESTADDITIONS_FILESPEC.linux.amd64 = \
+ 	$(VBOX_LNX_ADD_AMD64_RUN_PKG)=$(VBOX_PATH_ADDITIONS.linux.amd64)/VBoxLinuxAdditions.run
+endif
+ifdef VBOX_WITH_ADDITIONS_ISO.linux.x86
+ VBOX_PATH_ADDITIONS.linux.x86 = $(PATH_OUT_BASE)/linux.x86/$(KBUILD_TYPE)/bin/additions
+ ## @todo 64-bit additions: rename this package, update docs (?) and tests (?). create wrapper? create gnome/kde autorun app (xplatform) ?
+ ifdef VBOX_WITH_COMBINED_LINUX_GUEST_PACKAGE
+  VBOX_LNX_ADD_X86_RUN_PKG = VBoxLinuxAdditions.run
+ else
+  VBOX_LNX_ADD_X86_RUN_PKG = VBoxLinuxAdditions-x86.run
+ endif
+ GUESTADDITIONS_FILESPEC.linux.x86 = \
+ 	$(VBOX_LNX_ADD_X86_RUN_PKG)=$(VBOX_PATH_ADDITIONS.linux.x86)/VBoxLinuxAdditions.run \
+ 	runasroot.sh=$(VBOX_PATH_ADDITIONS.linux.x86)/runasroot.sh \
+ 	autorun.sh=$(VBOX_PATH_ADDITIONS.linux.x86)/autorun.sh
+endif
+
+# IBM OS/2
+ifdef VBOX_WITH_ADDITIONS_ISO.os2.x86
+ VBOX_PATH_ADDITIONS.os2.x86 = $(PATH_OUT_BASE)/os2.x86/$(KBUILD_TYPE)/bin/additions
+ GUESTADDITIONS_FILESPEC.os2.x86 = \
+ 	OS2/VBoxGuest.sys=$(VBOX_PATH_ADDITIONS.os2.x86)/VBoxGuest.sys \
+ 	OS2/VBoxSF.ifs=$(VBOX_PATH_ADDITIONS.os2.x86)/VBoxSF.ifs \
+ 	OS2/VBoxService.exe=$(VBOX_PATH_ADDITIONS.os2.x86)/VBoxService.exe \
+ 	OS2/VBoxControl.exe=$(VBOX_PATH_ADDITIONS.os2.x86)/VBoxControl.exe \
+ 	OS2/VBoxReplaceDll.exe=$(VBOX_PATH_ADDITIONS.os2.x86)/VBoxReplaceDll.exe \
+ 	OS2/VBoxOs2AdditionsInstall.exe=$(VBOX_PATH_ADDITIONS.os2.x86)/VBoxOs2AdditionsInstall.exe \
+ 	OS2/libc06.dll=$(VBOX_PATH_ADDITIONS.os2.x86)/libc06.dll \
+ 	OS2/libc061.dll=$(VBOX_PATH_ADDITIONS.os2.x86)/libc061.dll \
+ 	OS2/libc062.dll=$(VBOX_PATH_ADDITIONS.os2.x86)/libc062.dll \
+ 	OS2/libc063.dll=$(VBOX_PATH_ADDITIONS.os2.x86)/libc063.dll \
+ 	OS2/libc064.dll=$(VBOX_PATH_ADDITIONS.os2.x86)/libc064.dll \
+ 	OS2/libc065.dll=$(VBOX_PATH_ADDITIONS.os2.x86)/libc065.dll \
+ 	OS2/libc066.dll=$(VBOX_PATH_ADDITIONS.os2.x86)/libc066.dll \
+ 	OS2/readme.txt=$(VBOX_PATH_ADDITIONS.os2.x86)/readme.txt \
+ 	\
+ 	OS2/gengradd.dll=$(VBOX_PATH_ADDITIONS.os2.x86)/gengradd.dll \
+ 	OS2/VBoxMouse.sys=$(VBOX_PATH_ADDITIONS.os2.x86)/vboxmouse.sys
+endif
+
+# Oracle Solaris.
+ifdef VBOX_WITH_ADDITIONS_ISO.solaris.amd64
+ VBOX_PATH_ADDITIONS.solaris.amd64 = $(PATH_OUT_BASE)/solaris.amd64/$(KBUILD_TYPE)/bin/additions
+ GUESTADDITIONS_FILESPEC.solaris.amd64 = \
+ 	VBoxSolarisAdditions-amd64.pkg=$(VBOX_PATH_ADDITIONS.solaris.amd64)/VBoxSolarisAdditions.pkg
+endif
+ifdef VBOX_WITH_ADDITIONS_ISO.solaris.x86
+ VBOX_PATH_ADDITIONS.solaris.x86 = $(PATH_OUT_BASE)/solaris.x86/$(KBUILD_TYPE)/bin/additions
+ GUESTADDITIONS_FILESPEC.solaris.x86 = \
+ 	VBoxSolarisAdditions-x86.pkg=$(VBOX_PATH_ADDITIONS.solaris.x86)/VBoxSolarisAdditions.pkg
+endif
+ifdef VBOX_WITH_COMBINED_SOLARIS_GUEST_PACKAGE
+ # Build combined 32bit and 64bit solaris additions, not just a single arch.
+ # This assumes that the 32bit build directory contains the combined additions
+ # for 32bit and 64bit solaris. This just modifies variables set above.
+ GUESTADDITIONS_FILESPEC.solaris.x86 = \
+ 	VBoxSolarisAdditions.pkg=$(VBOX_PATH_ADDITIONS.solaris.x86)/VBoxSolarisAdditions.pkg
+ GUESTADDITIONS_FILESPEC.solaris.amd64 =
+endif
+
+# Microsoft Windows.
+ifdef VBOX_WITH_ADDITIONS_ISO.win.amd64
+ VBOX_PATH_ADDITIONS.win.amd64 = $(PATH_OUT_BASE)/win.amd64/$(KBUILD_TYPE)/bin/additions
+ VBOX_PATH_ADDITIONS.win = $(VBOX_PATH_ADDITIONS.win.amd64)
+ GUESTADDITIONS_FILESPEC.win.amd64 = \
+ 	VBoxWindowsAdditions-amd64.exe=$(VBOX_PATH_ADDITIONS.win.amd64)/VBoxWindowsAdditions-amd64.exe
+ ifndef VBOX_WITH_ADDITIONS_ISO.win.x86
+  GUESTADDITIONS_FILESPEC.win.amd64 += \
+  	cert/VBoxCertUtil.exe=$(VBOX_PATH_ADDITIONS.win.amd64)/VBoxCertUtil.exe
+ endif
+endif
+
+ifdef VBOX_WITH_ADDITIONS_ISO.win.x86
+ VBOX_PATH_ADDITIONS.win.x86 = $(PATH_OUT_BASE)/win.x86/$(KBUILD_TYPE)/bin/additions
+ VBOX_PATH_ADDITIONS.win = $(VBOX_PATH_ADDITIONS.win.x86)
+ GUESTADDITIONS_FILESPEC.win.x86 = \
+ 	VBoxWindowsAdditions-x86.exe=$(VBOX_PATH_ADDITIONS.win.x86)/VBoxWindowsAdditions-x86.exe \
+ 	VBoxWindowsAdditions.exe=$(VBOX_PATH_ADDITIONS.win.x86)/VBoxWindowsAdditions.exe \
+ 	AUTORUN.INF=$(VBOX_PATH_ADDITIONS_SRC)/WINNT/Installer/ISO/AUTORUN.INF \
+ 	cert/VBoxCertUtil.exe=$(VBOX_PATH_ADDITIONS.win.x86)/VBoxCertUtil.exe \
+ 	NT3x/Readme.txt=$(VBOX_PATH_ADDITIONS_SRC)/WINNT/Installer/ISO/NT3xReadme.txt \
+ 	NT3x/VBoxGuest.sys=$(VBOX_PATH_ADDITIONS.win.x86)/VBoxGuest.sys \
+ 	NT3x/VBoxMouseNT.sys=$(VBOX_PATH_ADDITIONS.win.x86)/VBoxMouseNT.sys \
+ 	NT3x/VBoxService.exe=$(VBOX_PATH_ADDITIONS.win.x86)/VBoxService.exe \
+ 	NT3x/VBoxControl.exe=$(VBOX_PATH_ADDITIONS.win.x86)/VBoxControl.exe \
+ 	NT3x/VBoxAddInstallNt3x.exe=$(VBOX_PATH_ADDITIONS.win.x86)/VBoxAddInstallNt3x.exe
+endif # win.x86
+
+if defined(VBOX_WITH_ADDITIONS_ISO.win.amd64) || defined(VBOX_WITH_ADDITIONS_ISO.win.x86)
+ # Note! This probably only work reliably when packing is also done on a windows host!
+ ifndef VBOX_SIGNING_MODE
+  GUESTADDITIONS_FILESPEC.win =
+ else if !defined(VBOX_CERTIFICATE_SHA2_SUBJECT_NAME) && !$(intersects win all 1,$(VBOX_WITH_CORP_CODE_SIGNING))
+  GUESTADDITIONS_FILESPEC.win = \
+  	cert/vbox.cer=$(VBOX_PATH_ADDITIONS.win)/vbox.cer \
+  	cert/vbox-root.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-root.cer
+  ifdef VBOX_TSA_URL_ARGS
+   GUESTADDITIONS_FILESPEC.win += cert/vbox-timestamp-root.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-timestamp-root.cer
+  endif
+ else
+  GUESTADDITIONS_FILESPEC.win = \
+  	cert/vbox-sha1.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha1.cer \
+  	cert/vbox-sha1-root.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha1-root.cer \
+  	cert/vbox-sha256-root.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha256-root.cer \
+  	cert/vbox-sha256.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha256.cer
+  ifdef VBOX_TSA_URL_ARGS
+   GUESTADDITIONS_FILESPEC.win += cert/vbox-sha1-timestamp-root.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha1-timestamp-root.cer
+  endif
+  ifdef VBOX_TSA_SHA2_URL_ARGS
+   GUESTADDITIONS_FILESPEC.win += cert/vbox-sha256-timestamp-root.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha256-timestamp-root.cer
+  endif
+  if $(intersects win_planb,$(VBOX_WITH_CORP_CODE_SIGNING))
+   GUESTADDITIONS_FILESPEC.win += \
+   	cert/vbox-sha256-r3.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha256-r3.cer \
+   	cert/vbox-sha256-r3-root.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha256-r3-root.cer \
+   	cert/vbox-sha256-r3-timestamp-root.cer=$(VBOX_PATH_ADDITIONS.win)/vbox-sha256-r3-timestamp-root.cer
+  endif
+ endif
+ GUESTADDITIONS_FILESPEC.win += windows11-bypass.reg=$(VBOX_PATH_ADDITIONS_SRC)/WINNT/tools/windows11-bypass.reg
+endif
+
+# haiku
+ifdef VBOX_WITH_ADDITIONS_ISO.haiku.x86
+ VBOX_PATH_ADDITIONS.haiku.x86 = $(PATH_OUT_BASE)/haiku.x86/$(KBUILD_TYPE)/bin/additions
+ # or bfs?
+ GUESTADDITIONS_FILESPEC.haiku.x86 = \
+ 	VBoxHaikuAdditions-x86.run=$(VBOX_PATH_ADDITIONS.haiku.x86)/VBoxHaikuAdditions-x86.run
+endif
+
+# For the iso rule.
+GUESTADDITIONS_FILESPEC_ALL = \
+	$(GUESTADDITIONS_FILESPEC.win) \
+	$(GUESTADDITIONS_FILESPEC.win.x86) \
+	$(GUESTADDITIONS_FILESPEC.win.amd64) \
+	$(GUESTADDITIONS_FILESPEC.solaris.x86) \
+	$(GUESTADDITIONS_FILESPEC.solaris.amd64) \
+	$(GUESTADDITIONS_FILESPEC.os2.x86) \
+	$(GUESTADDITIONS_FILESPEC.linux.x86) \
+	$(GUESTADDITIONS_FILESPEC.linux.amd64) \
+	$(GUESTADDITIONS_FILESPEC.freebsd.x86) \
+	$(GUESTADDITIONS_FILESPEC.freebsd.amd64) \
+	$(GUESTADDITIONS_FILESPEC.haiku.x86) \
+	$(GUESTADDITIONS_FILESPEC.darwin.x86) \
+	$(GUESTADDITIONS_FILESPEC.darwin.amd64)
+
+#
+# Build the Guest Additions ISO image.
+#
+ifndef VBOX_WITHOUT_ADDITIONS_ISO
+ $(VBOX_PATH_ADDITIONS_ISO)/VBoxGuestAdditions.iso: \
+ 		$(filter-out %=deleteme=,$(subst =,=deleteme= , $(GUESTADDITIONS_FILESPEC_ALL))) \
+ 		$(VBOX_SVN_REV_KMK) \
+ 		$(VBOX_PATH_ADDITIONS_SRC)/Makefile.kmk \
+ 		| $(if-expr defined(VBOX_USE_RTISOMAKER),$(VBOX_RTISOMAKER),)
+	$(call MSG_TOOL,RTIsoMaker,,$@)
+	$(QUIET)$(MKDIR) -p $(@D)
+	$(VBOX_RTISOMAKER) \
+		--output $@ \
+		--iso-level 3 \
+		--rock-ridge \
+		--joliet \
+		--rational-attribs \
+		--random-order-verification 2048 \
+		$(addprefix /,$(GUESTADDITIONS_FILESPEC_ALL)) \
+		$(foreach spec, $(filter %.run %.sh %.tool,$(GUESTADDITIONS_FILESPEC_ALL)) \
+			, --chmod a+x:/$(substr $(spec), 1, $(expr $(pos =,$(spec)) - 1))) \
+		--volume-id="VBOXADDITIONS_$(VBOX_VERSION_STRING_RAW)_$(VBOX_SVN_REV)" \
+		--name-setup=joliet \
+		--volume-id="VBox_GAs_$(VBOX_VERSION_STRING_RAW)"
+
+ $(VBOX_PATH_ADDITIONS_ISO)/VBoxGuestAdditions.zip: $(VBOX_PATH_ADDITIONS_ISO)/VBoxGuestAdditions.iso
+	$(call MSG_L1,Zipping image $@)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(REDIRECT) -C $(VBOX_PATH_ADDITIONS_ISO) -- $(VBOX_ZIP) -9 $@ $(notdir $^)
+
+ # Alias for creating the iso.
+ .PHONY: additions-iso
+ additions-iso: $(VBOX_PATH_ADDITIONS_ISO)/VBoxGuestAdditions.iso
+
+endif
+

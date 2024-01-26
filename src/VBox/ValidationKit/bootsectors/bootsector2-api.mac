@@ -1,0 +1,162 @@
+; $Id: bootsector2-api.mac $
+;; @file
+; Bootsector2 API definition for use by split images (kernel < 1MB < image).
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___bootsector2_api_mac
+%define ___bootsector2_api_mac
+
+;*******************************************************************************
+;*      Header Files                                                           *
+;*******************************************************************************
+%include "iprt/asmdefs.mac"
+%include "iprt/x86.mac"
+%include "bootsector2-structures.mac"
+
+;;
+; The load address for big images.
+%define BS2_BIG_LOAD_ADDR       0x120000
+
+
+;;
+; API Template for lazy birds.
+;
+%macro BS2_API_TEMPLATE 0,
+
+ BS2_API_TEMPLATE_ACTION(Bs2DisableA20)
+ BS2_API_TEMPLATE_ACTION(Bs2DisableA20ViaKbd)
+ BS2_API_TEMPLATE_ACTION(Bs2DisableA20ViaPortA)
+ BS2_API_TEMPLATE_ACTION(Bs2DisableNX)
+ BS2_API_TEMPLATE_ACTION(Bs2EnableA20)
+ BS2_API_TEMPLATE_ACTION(Bs2EnableA20ViaKbd)
+ BS2_API_TEMPLATE_ACTION(Bs2EnableA20ViaPortA)
+ BS2_API_TEMPLATE_ACTION(Bs2EnableNX)
+ BS2_API_TEMPLATE_ACTION(Bs2IsNXSupported)
+ BS2_API_TEMPLATE_ACTION(Bs2KbdRead)
+ BS2_API_TEMPLATE_ACTION(Bs2KbdWait)
+ BS2_API_TEMPLATE_ACTION(Bs2KbdWrite)
+ BS2_API_TEMPLATE_ACTION(Bs2PanicIfVMMDevTestingIsMissing)
+ BS2_API_TEMPLATE_ACTION(Bs2SetupNX)
+ BS2_API_TEMPLATE_ACTION(CalcBenchmarkIterations)
+ BS2_API_TEMPLATE_ACTION(CalcTestPerSecond)
+ BS2_API_TEMPLATE_ACTION(GetElapsedNanoTS)
+ BS2_API_TEMPLATE_ACTION(GetNanoTS)
+ BS2_API_TEMPLATE_ACTION(PrintChr)
+ BS2_API_TEMPLATE_ACTION(PrintF)
+ BS2_API_TEMPLATE_ACTION(PrintStr)
+ BS2_API_TEMPLATE_ACTION(PrintStrColonSpaces)
+ BS2_API_TEMPLATE_ACTION(PrintStrSpacesColonSpace)
+ BS2_API_TEMPLATE_ACTION(PrintU32)
+ BS2_API_TEMPLATE_ACTION(ReportResult)
+ BS2_API_TEMPLATE_ACTION(Shutdown)
+ BS2_API_TEMPLATE_ACTION(StrFormatF)
+ BS2_API_TEMPLATE_ACTION(StrFormatV)
+ BS2_API_TEMPLATE_ACTION(StrLen)
+ BS2_API_TEMPLATE_ACTION(TestCheckTrap)
+ BS2_API_TEMPLATE_ACTION(TestDumpCurrentRegisters)
+ BS2_API_TEMPLATE_ACTION(TestDumpRegisters)
+ BS2_API_TEMPLATE_ACTION(TestFailed)
+ BS2_API_TEMPLATE_ACTION(TestFailedF)
+ BS2_API_TEMPLATE_ACTION(TestInit)
+ BS2_API_TEMPLATE_ACTION(TestRestoreRegisters)
+ BS2_API_TEMPLATE_ACTION(TestSaveRegisters)
+ BS2_API_TEMPLATE_ACTION(testSendStrCmd)
+ BS2_API_TEMPLATE_ACTION(TestSkipped)
+ BS2_API_TEMPLATE_ACTION(TestSub)
+ BS2_API_TEMPLATE_ACTION(testSubCleanup)
+ BS2_API_TEMPLATE_ACTION(TestSubDone)
+ BS2_API_TEMPLATE_ACTION(TestSubErrorCount)
+ BS2_API_TEMPLATE_ACTION(TestTerm)
+ BS2_API_TEMPLATE_ACTION(TestValueReg)
+ BS2_API_TEMPLATE_ACTION(TestValueU32)
+ BS2_API_TEMPLATE_ACTION(TestInstallTrapRecs)
+
+%endmacro
+
+
+;;
+; This defines the API pointers.
+;
+ABSOLUTE 0x500
+;; Start the structure with a magic number.
+NAME(g_u32Bs2ApiMagic):    resd 1
+;; And a version number.
+NAME(g_u32Bs2ApiVersion):  resd 1
+
+; The real mode and v8086 mode entry points (far pointers).
+%undef BS2_API_TEMPLATE_ACTION
+%define BS2_API_TEMPLATE_ACTION(a_Name) NAME(g_pfn %+ a_Name %+ _r86): resd 1
+BS2_API_TEMPLATE
+
+; The 16-bit protected mode entry points (far pointers).
+%undef BS2_API_TEMPLATE_ACTION
+%define BS2_API_TEMPLATE_ACTION(a_Name) NAME(g_pfn %+ a_Name %+ _p16): resd 1
+BS2_API_TEMPLATE
+
+; The 32-bit protected mode entry points (flat pointers).
+%undef BS2_API_TEMPLATE_ACTION
+%define BS2_API_TEMPLATE_ACTION(a_Name) NAME(g_pfn %+ a_Name %+ _p32): resd 1
+BS2_API_TEMPLATE
+
+; The 64-bit protected (long) mode entry points.
+%undef BS2_API_TEMPLATE_ACTION
+%define BS2_API_TEMPLATE_ACTION(a_Name) NAME(g_pfn %+ a_Name %+ _p64): resq 1
+BS2_API_TEMPLATE
+
+;; End the structure with a magic so it's integrity can be verified.
+NAME(g_u32Bs2ApiEndMagic) resd 1
+
+;;
+; The current API magic value (Douglas Carl Engelbart).
+%define BS2_API_MAGIC       0x19250130
+
+;;
+; The current API version.
+%define BS2_API_VERSION     0x00010000
+
+BEGINCODE
+
+
+;; @name Service trap vector interface.
+; @{
+%define BS2_SYSCALL_TO_RING0        0
+%define BS2_SYSCALL_TO_RING1        1
+%define BS2_SYSCALL_TO_RING2        2
+%define BS2_SYSCALL_TO_RING3        3
+
+;; The service vector.
+%define BS2_TRAP_SYSCALL            20h
+;; @}
+
+%endif

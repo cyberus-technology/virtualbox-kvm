@@ -1,0 +1,54 @@
+# $Id: StandardDTrace.kmk 3497 2021-03-31 19:36:02Z bird $
+## @file
+# Standard DTrace tool.
+#
+
+#
+# Copyright (c) 2012-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_StandardDTrace := Standard DTrace or similar.
+TOOL_StandardDTrace_DTRACE := dtrace
+
+TOOL_StandardDTrace_DTRACE_HDR_FLAGS := -h
+define TOOL_StandardDTrace_DTRACE_HDR_CMDS 
+	$(QUIET)$(TOOL_StandardDTrace_DTRACE) $(flags) \
+		-o "$(out)" -s "$(source)"
+endef
+
+TOOL_StandardDTrace_DTRACE_OBJ_NOT_NEEDED := darwin
+TOOL_StandardDTrace_DTRACE_OBJ_FLAGS := -G
+# Note! We have to exclude gcc style precompiled headers here as they are automatically
+#       added to the list of object files (see func_kbuild_source_one in kbuild.c).
+define TOOL_StandardDTrace_DTRACE_OBJ_CMDS  
+	$(QUIET)$(TOOL_StandardDTrace_DTRACE) \
+		$(if-expr $(intersects $(bld_trg_arch),$(KBUILD_ARCHES_64)),-64,-32) \
+		$(flags) \
+		-o "$(out)" -s "$(source)" \
+		$$(filter-out %-dtrace-object-format.o %.h.gch, $$($(target)_2_OBJS))
+endef
+

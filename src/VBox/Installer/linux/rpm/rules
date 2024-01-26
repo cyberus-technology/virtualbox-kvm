@@ -1,0 +1,282 @@
+#!/usr/bin/make -f
+# $Id: rules $
+## @file
+# VirtualBox rules.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# possible overrides:
+#  OSE=1            force VBOX_OSE
+#  NOPARALLEL=1     compile with -j1
+#  LINUX=<dir>      compile vboxdrv against Linux found in <dir>
+#  VERBOSE=1        verbose build
+#  DEBUG=1          debug build
+#  NOSUBVER=1       disable generation of the sub-version field (which is
+#                   either the subversion rev [if available] or the build date)
+#  NODOCS=1         don't build docs, use precompiled UserManual*.pdf and
+#                   maybe UserManual*.qch and UserManual*.qhc from $(vboxroot)/prebuild
+#  NOMODS=1         don't build any module
+#  NOQT=1           don't build the Qt GUI
+#  NOSDL=1          don't build VBoxSDL
+#  EFI=1            include the EFI binary from prebuild
+#  VERSUFFIX=<suffix> set a particular package version suffix (e.g. _customer)
+#  HEADLESS=1       build the headless version
+#  VNC=1            build VNC code
+#  NOWEBSVC=1       don't build the webservice API
+#  STAGEDISO=<path> don't build the VBoxAdditions, use the precompiled .iso
+#  PKGDIR=<path>    where to store the final package(s)
+#  svn_revision=xxx do not depend on subversion being available, but use this
+#                   hard-coded revision number instead
+#
+# NODOCS will be set if UserManual*.pdf, UserManual*.qch and UserManual*.qhc are
+# placed in $(vboxroot)/prebuild.
+# STAGEDISO will be set if VBoxGuestAdditions.iso is placed there.
+#
+# Wine will not be required if STAGEDISO is set.
+
+verpkg   := VirtualBox-7.0
+vboxroot := $(shell while ! test -r configure && ! test "$$PWD" = "/"; do cd ..; done; pwd)
+instlin  := $(vboxroot)/src/VBox/Installer/linux
+pkgdir   := $(if $(PKGDIR),$(PKGDIR),$(shell cd $(vboxroot)/..; pwd))
+outdir   := $(if $(PATH_OUT_BASE),$(PATH_OUT_BASE),$(vboxroot)/out)
+bldbase  := $(outdir)/rpm
+builddir := $(bldbase)/builddir
+stagedir := $(bldbase)/rpmbuild
+rpmlib   := $(shell if [ `uname -m` = "x86_64" ]; then echo "lib64"; else echo "lib"; fi)
+verfile  := $(builddir)/version-generated.mk
+ose      := $(if $(OSE),1,$(if $(wildcard $(vboxroot)/src/VBox/RDP/server),,1))
+chrarch  := $(shell if [ `uname -m` = "x86_64" ]; then echo "amd64"; else echo "x86"; fi)
+-include $(vboxroot)/SVN_REVISION
+
+NOMODS   ?= $(ose)
+NOQT     ?= $(HEADLESS)
+NOSDL    ?= $(HEADLESS)
+NOWEBSVC ?=
+EFI      ?= $(if $(wildcard $(vboxroot)/prebuild/VBoxEFI32.fd $(vboxroot)/prebuild/VBoxEFI64.fd),1,)
+NODOCS   ?= $(if $(wildcard $(addprefix $(vboxroot)/prebuild/,UserManual*.pdf UserManual*.qch UserManual*.qhc)),1,)
+STAGEDISO ?= $(if $(wildcard $(vboxroot)/prebuild/VBoxGuestAdditions.iso),$(vboxroot)/prebuild,)
+NOWINE   := $(if $(STAGEDISO),1,$(ose))
+
+ifneq ($(STAGEDISO),)
+ ifeq ($(wildcard $(STAGEDISO)/VBoxGuestAdditions.iso),)
+  $(error STAGEDISO='$(STAGEDISO)/VBoxGuestAdditions.iso' not found)
+ endif
+endif
+
+ifeq ($(wildcard rpm/rules),)
+$(error call rpm/rules from src/VBox/Installer/linux)
+endif
+
+ifneq ($(MAKECMDGOALS),clean)
+ # look for fedora
+ rpmrel  := $(shell cat /etc/fedora-release 2> /dev/null | sed -e 's/^Fedora  *release  *\([1-9][0-9]*\) .*/fedora\1/')
+ ifeq ($(rpmrel),)
+ # look for OEL
+  rpmrel  := $(shell cat /etc/enterprise-release 2> /dev/null | sed -ne 's/^Enterprise Linux[a-zA-Z ]*\([1-9][0-9]*\).*/el\1/p')
+ endif
+ ifeq ($(rpmrel),)
+ # look for OL
+  rpmrel  := $(shell cat /etc/oracle-release 2> /dev/null | sed -ne 's/^Oracle Linux[a-zA-Z ]*\([1-9][0-9]*\).*/el\1/p')
+ endif
+ ifeq ($(rpmrel),)
+ # look for CentOS
+  rpmrel  := $(shell cat /etc/redhat-release 2> /dev/null | sed -ne 's/^CentOS[a-zA-Z ]*\([1-9][0-9]*\).*/el\1/p')
+ endif
+ ifeq ($(rpmrel),)
+ # look for Red Hat
+  rpmrel  := $(shell cat /etc/redhat-release 2> /dev/null | sed -ne 's/^Red Hat[a-zA-Z ]*\([1-9][0-9]*\).*/el\1/p')
+ endif
+ ifeq ($(rpmrel),)
+ # look for openSUSE
+  rpmrel  := $(shell cat /etc/SUSE-brand 2> /dev/null | sed -ne 's/^VERSION *= *\([0-9]*\)\.\([0-9]*\)/openSUSE\1\2/p')
+ endif
+ # look for openSUSE Tumbleweed
+ ifeq ($(rpmrel),)
+  rpmrel := $(shell cat /etc/SUSE-brand 2> /dev/null | sed -ne 's/^VERSION *= *tumbleweed/openSUSETW/p')
+ endif
+ ifeq ($(rpmrel),)
+  $(error failed to detect the release type.  Hack the detection.)
+ endif
+
+ rpmdist := $(strip $(shell grep $(rpmrel) $(instlin)/distributions_rpm | cut -d'=' -f2))
+ ifeq ($(rpmdist),)
+  $(error Cannot detect package distribution (rpmrel=$(rpmrel)))
+ endif
+
+ ifeq ($(filter-out el5 el6 el7 el8 el9 fedora18 fedora19 fedora20 fedora21 fedora22 fedora24 fedora25 fedora26 fedora29 fedora31 fedora32 fedora33 fedora35 fedora36,$(rpmrel)),)
+  rpmspec := rpm_redhat
+ endif
+ ifeq ($(filter-out openSUSE110 openSUSE111 openSUSE112 openSUSE113 openSUSE114 openSUSE123 openSUSE131 openSUSE132 openSUSE150 openSUSE153 openSUSETW,$(rpmrel)),)
+  rpmspec := rpm_suse
+ endif
+ ifeq ($(rpmspec),)
+  $(error failed to detect the .spec file (rpmrel=$(rpmrel)))
+ endif
+endif
+
+ifneq ($(wildcard $(verfile)),)
+include $(verfile)
+ver      := $(VBOX_VERSION_STRING)
+svnver   := $(if $(NOSUBVER),,$(if $(svn_revision),-$(svn_revision),$(shell if \
+		svn info $(vboxroot) > /dev/null 2>&1; then \
+		svn info $(vboxroot)|sed -e "s/^Revision: \(.*\)/-\1/;t;d"; else \
+		date +"-%Y%m%d"; fi)))
+rpmver   := $(ver)$(subst -,_,$(svnver))$(VERSUFFIX)$(if $(HEADLESS),_headless,)$(if $(DEBUG),_dbg,)
+archdir  := $(bldbase)/VirtualBox-$(ver)
+rpmname  := $(verpkg)-$(rpmver)_$(rpmrel)
+endif
+
+# never ship any modules
+instmod  :=
+
+ifeq ($(wildcard /usr/share/doc/packages/bash),)
+ doc_dir := VBOX_PATH_PACKAGE_DOCS="/usr/share/doc/$(verpkg)"
+else
+ # Novell (OpenSUSE, SLES)
+ doc_dir := VBOX_PATH_PACKAGE_DOCS="/usr/share/doc/packages/$(verpkg)"
+endif
+
+ifeq ($(NOQT),)
+ ifeq ($(rpmrel),el7)
+  # Protect against the fact that this Makefile is run several times, updating
+  # PATH every time. Still assumes that nothing else is added as a prefix.
+  PATH := $(PATH:/opt/rh/devtoolset-9/root/usr/bin:%=%)
+  export PATH := /opt/rh/devtoolset-9/root/usr/bin:$(PATH)
+ endif
+endif
+
+# EL5 ships Python 2.4 while our Python support requires Python 2.6 or later
+cfg_flags := $(if $(NOQT),--disable-qt,) \
+    $(if $(NOSDL),--disable-vboxsdl,) \
+    $(if $(filter el5 el6,$(rpmrel)),--build-libvpx,) \
+    $(if $(filter el5 el6,$(rpmrel)),--build-libopus,) \
+    $(if $(filter el5 el6,$(rpmrel)),--build-libssl,) \
+    $(if $(filter el5,$(rpmrel)),--build-libcurl,) \
+    $(if $(filter el5,$(rpmrel)),--disable-sdl-ttf,) \
+    $(if $(filter el5,$(rpmrel)),--disable-pulse,) \
+    $(if $(filter el5,$(rpmrel)),--disable-python,) \
+    $(if $(ose),--ose,) $(if $(LINUX),--with-linux=$(LINUX),) \
+    $(if $(HEADLESS),--build-headless,) \
+    $(if $(DEBUG),--build-debug,) \
+    $(if $(NOWINE),,--setup-wine) \
+    $(if $(VNC),--enable-vnc,) \
+    $(if $(PATH_OUT_BASE),--out-base-dir=$(PATH_OUT_BASE),) \
+    --disable-extpack
+
+bld_flags := LOCALCFG=$(instlin)/rpm/LocalConfig.kmk \
+    PATH_OUT=$(builddir) \
+    VBOX_WITHOUT_EXTPACK_PUEL_PACKING=1 \
+    VBOX_WITHOUT_EXTPACK_VNC_PACKING=1 \
+    $(if $(filter el5 el6,$(rpmrel)),,VBOX_WITH_VMSVGA3D=1) \
+    VBOX_DO_STRIP= \
+    $(if $(filter el5,$(rpmrel)),VBOX_BLD_PYTHON=$(firstword $(wildcard \
+      /usr/local/bin/python2.7 /usr/bin/python2.7 /usr/bin/python2.6 /usr/bin/python2 /usr/bin/python)),) \
+    $(if $(filter el5,$(rpmrel)),,VBOX_WITH_SYSFS_BY_DEFAULT=1) \
+    $(doc_dir) \
+    VBOX_PACKAGE_DIST=$(rpmdist) \
+    $(if $(svn_revision),VBOX_SVN_REV=$(svn_revision),) \
+    $(if $(NODOCS),VBOX_WITH_DOCS=,) \
+    $(if $(VERBOSE),--print-directory KBUILD_VERBOSE=2,--no-print-directory) \
+    $(if $(STAGEDISO),VBOX_WITHOUT_ADDITIONS=1,)
+
+configure: $(bldbase)/configure-stamp
+$(bldbase)/configure-stamp:
+	mkdir -p $(bldbase)
+	cd $(vboxroot) && ./configure --odir=$(bldbase) $(cfg_flags)
+	touch $@
+
+build: $(bldbase)/configure-stamp $(bldbase)/build-stamp
+$(bldbase)/build-stamp $(verfile): $(bldbase)/configure-stamp
+	. $(bldbase)/env.sh && kmk -C $(vboxroot) $(bld_flags) $(if $(NOPARALLEL),-j1,) all
+	# Files from prebuild go to (builddir)/bin to be used during the
+	# packing stage, overriding what the build did/would produce.
+	$(if $(NODOCS),cp $(addprefix $(vboxroot)/prebuild/,UserManual*.pdf UserManual*.qch UserManual*.qhc) $(builddir)/bin,)
+	$(if $(EFI),cp $(vboxroot)/prebuild/VBoxEFI32.fd $(builddir)/bin,)
+	$(if $(EFI),cp $(vboxroot)/prebuild/VBoxEFI64.fd $(builddir)/bin,)
+	mkdir -p $(builddir)/bin/additions
+	$(if $(STAGEDISO),cp $(STAGEDISO)/VBoxGuestAdditions.iso $(builddir)/bin/additions,)
+	. $(bldbase)/env.sh && kmk -C $(vboxroot) $(bld_flags) \
+	    VBOX_NO_LINUX_RUN_INSTALLER=1 \
+	    VBOX_LNX_ADD_ARCHIVE.x86=$(builddir)/bin/additions/VBoxGuestAdditions-x86.tar.bz2 \
+	    VBOX_LNX_ADD_ARCHIVE.amd64=$(builddir)/bin/additions/VBoxGuestAdditions-amd64.tar.bz2 \
+	    VBOX_PATH_ADDITIONS.linux.x86=$(builddir)/bin/additions \
+	    VBOX_PATH_ADDITIONS.linux.amd64=$(builddir)/bin/additions \
+	    packing
+	touch $(bldbase)/build-stamp
+
+clean:
+	rm -rf $(archdir)
+	rm -rf $(stagedir)
+	rm -rf $(builddir)
+	rm -rf $(bldbase)/wine.*
+	rm -rf $(bldbase)/VirtualBox-*
+	rm -f $(bldbase)/VirtualBox.tar $(bldbase)/VirtualBox.tar.bz2
+	rm -f $(bldbase)/build-stamp $(bldbase)/configure-stamp
+	rm -f $(bldbase)/AutoConfig.kmk $(bldbase)/configure.log $(bldbase)/env.sh
+	rm -f $(bldbase)/VirtualBox.spec
+	if [ -d $(bldbase) ]; then rmdir $(bldbase); fi
+
+ifeq ($(VBOX_VERSION_MAJOR),)
+binary: build $(verfile)
+	+$(MAKE) -f rpm/rules binary
+
+else
+binary: build
+	rm -rf $(bldbase)/VirtualBox-*
+	tar -xf $(builddir)/bin/VirtualBox.tar -C $(bldbase)
+	sed \
+	    -e 's|%VER%|$(ver)|g' \
+	    -e 's|%NAME%|$(verpkg)|g' \
+	    -e 's|%BUILDVER%|$(rpmver)|g' \
+	    -e 's|%BUILDREL%|$(rpmrel)|g' \
+	    -e 's|%BUILDROOT%|$(bldbase)/buildroot|g' \
+	    -e 's|%OSE%|$(if $(ose),is_ose,not_ose)|g' \
+	    -e 's|%SPEC%|$(rpmspec)|g' \
+	    -e 's|%QHELP%|$(if $(STAGEDQHELP),with_qhelp,without_qhelp)|g' \
+	    -e 's|%PYTHON%|$(if $(filter el5,$(rpmrel)),without_python,with_python)|g' \
+	    -e 's|%MACROSPYTHON%|$(if $(wildcard /usr/lib/rpm/macros.d/macros.python3),,$(if $(wildcard /usr/lib/rpm/macros.python),%include /usr/lib/rpm/macros.python,))|g' \
+	    -e 's|%INSTMOD%|$(instmod)|g' \
+	    -e 's|%LIBASOUND%|$(if $(filter lib64,$(rpmlib)),libasound.so.2()(64bit),libasound.so.2)|g' \
+	    -e 's|%INITSCRIPTS%|$(if $(filter fedora,$(rpmspec)),initscripts,)|g' \
+	    -e 's|%NETTOOLS%|$(if $(filter fedora18 fedora19 fedora20 fedora21 el5 openSUSE110 openSUSE111 openSUSE112 openSUSE113 openSUSE114,$(rpmrel)),net-tools,iproute)|g' \
+	    -e 's|%LIBVULKAN%|$(if $(filter el7,$(rpmrel)),vulkan,%LIBVULKAN%)|g' \
+	    -e 's|%LIBVULKAN%|$(if $(findstring el,$(rpmrel)),vulkan-loader,%LIBVULKAN%)|g' \
+	    -e 's|%LIBVULKAN%|$(if $(findstring fedora,$(rpmrel)),vulkan-loader,%LIBVULKAN%)|g' \
+	    -e 's|%LIBVULKAN%|$(if $(filter openSUSE153,$(rpmrel)),libvulkan1,)|g' \
+	    $(instlin)/rpm/VirtualBox.tmpl.spec > $(archdir)/VirtualBox.spec
+	mv $(bldbase)/VirtualBox-$(ver) $(bldbase)/$(rpmname)
+	cp $(vboxroot)/tools/linux.$(chrarch)/bin/chrpath $(bldbase)/$(rpmname) || true
+	tar -cf $(bldbase)/VirtualBox.tar -C $(bldbase) $(rpmname)
+	rm -f $(stagedir)/RPMS/*/VirtualBox*rpm
+	rm -f $(stagedir)/SPECS/*
+	mkdir -p $(stagedir)/BUILD $(stagedir)/RPMS/i386 $(stagedir)/RPMS/x86_64 $(stagedir)/SOURCES $(stagedir)/SPECS $(stagedir)/SRPMS
+	(cd $(bldbase); rpmbuild --define '_topdir $(stagedir)' -tb --clean VirtualBox.tar)
+	mv $(stagedir)/RPMS/*/$(verpkg)-debug* $(pkgdir) || true
+	file=`find $(stagedir)/RPMS -name $(verpkg)*rpm -print`; \
+	    mv $$file $(pkgdir)
+# Note! if rpmbuild fails: sudo chmod a+rw /usr/src/redhat/* /usr/src/redhat/RPMS/*
+# Note! if find/mv fails:  sudo ln -s redhat/ /usr/src/packages
+endif
+
+.PHONY: binary configure build clean

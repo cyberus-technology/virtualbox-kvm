@@ -1,0 +1,567 @@
+; $Id: bootsector2-cpu-instr-1-template.mac $
+;; @file
+; Bootsector test for misc instruction - multi mode template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+%include "bootsector2-template-header.mac"
+
+
+
+;;
+; Memory fence instructions (SSE2).
+;
+; @uses No registers, but BS2_SEL_SPARE0 is trashed.
+;
+BEGINPROC TMPL_NM(TestMemFences)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+        sub     xSP, 80h                ; iret stack frame space.
+        mov     xSI, xSP                ; Save the stack register.
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+        ;
+        ; SSE2 supported?
+        ;
+        mov     eax, 1
+        xor     ecx, ecx
+        cpuid
+        test    edx, X86_CPUID_FEATURE_EDX_SSE2
+        jz      .skip
+
+        ;
+        ; Check that the standard instruction encodings work.
+        ;
+        mov     xBX, [xSP + 10h]
+        mov     [xSP], xAX
+        mfence
+        mov     [xSP], xCX
+        mov     xBX, [xSP + 08h]
+        sfence
+        mov     [xSP], xDX
+        mov     xBX, [xSP]
+        lfence
+        mov     bx, [xSP + 04h]
+
+
+        ;
+        ; The instruction encodings in the intel manual may open the RM as well
+        ; as prefixes open to interpretation.  AMD sets RM=0 in their docs.
+        ;
+        ;       lfence = 0f,ea,e8
+        ;       mfence = 0f,ea,f0
+        ;       sfence = 0f,ea,f8
+        ;       (RM is the lower 3 bits of the last byte.)
+
+%assign MY_RM 0xe8
+%rep 18h
+        db                                                       0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_CS,        0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_DS,        0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_ES,        0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_FS,        0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_GS,        0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_SS,        0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_SIZE_ADDR, 0fh, 0aeh, MY_RM
+        BS2_TRAP_INSTR X86_XCPT_UD, 0,  db X86_OP_PRF_SIZE_OP,   0fh, 0aeh, MY_RM ; (used in group)
+        BS2_TRAP_INSTR X86_XCPT_UD, 0,  db X86_OP_PRF_LOCK,      0fh, 0aeh, MY_RM ; (used in group)
+        BS2_TRAP_INSTR X86_XCPT_UD, 0,  db X86_OP_PRF_REPNZ,     0fh, 0aeh, MY_RM ; (used in group)
+        BS2_TRAP_INSTR X86_XCPT_UD, 0,  db X86_OP_PRF_REPZ,      0fh, 0aeh, MY_RM ; (used in group)
+%ifdef TMPL_64BIT
+ %assign MY_REX 0x40
+ %rep 10h
+        ; Rex prefixes doesn't change anything.
+        db                                                       MY_REX, 0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_CS,        MY_REX, 0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_DS,        MY_REX, 0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_ES,        MY_REX, 0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_FS,        MY_REX, 0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_GS,        MY_REX, 0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_SS,        MY_REX, 0fh, 0aeh, MY_RM
+        db                                 X86_OP_PRF_SIZE_ADDR, MY_REX, 0fh, 0aeh, MY_RM
+        BS2_TRAP_INSTR X86_XCPT_UD, 0,  db X86_OP_PRF_SIZE_OP,   MY_REX, 0fh, 0aeh, MY_RM ; (used in group)
+        BS2_TRAP_INSTR X86_XCPT_UD, 0,  db X86_OP_PRF_LOCK,      MY_REX, 0fh, 0aeh, MY_RM ; (used in group)
+        BS2_TRAP_INSTR X86_XCPT_UD, 0,  db X86_OP_PRF_REPNZ,     MY_REX, 0fh, 0aeh, MY_RM ; (used in group)
+        BS2_TRAP_INSTR X86_XCPT_UD, 0,  db X86_OP_PRF_REPZ,      MY_REX, 0fh, 0aeh, MY_RM ; (used in group)
+  %assign MY_REX (MY_REX + 1)
+ %endrep
+%endif
+ %assign MY_RM (MY_RM + 1)
+%endrep
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+.done:
+        mov     xSP, xSI
+        add     xSP, 80h
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.skip:
+        mov     xAX, .s_szSse2Missing
+        call    TMPL_NM_CMN(TestSubDone)
+        jmp     .done
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', mfence et al.', 0
+.s_szSse2Missing:
+        db      'SSE2 is missing', 0
+ENDPROC   TMPL_NM(TestMemFences)
+
+
+;;
+; Floating-point to integer conversion (SSE/SSE2).
+; Neither Intel nor AMD explicitly document what happens for the 32-bit forms
+; of CVTxx2SI in 64-bit mode with regard to the high dword of a 64-bit
+; destination register.
+;
+; @uses XMM0, and BS2_SEL_SPARE0 is trashed.
+;
+BEGINPROC TMPL_NM(TestCvtSize)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+        sub     xSP, 80h                ; iret stack frame space.
+        mov     xSI, xSP                ; Save the stack register.
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+        ;
+        ; SSE2 supported?
+        ;
+        mov     eax, 1
+        xor     ecx, ecx
+        cpuid
+        test    edx, X86_CPUID_FEATURE_EDX_SSE2
+        jz      .skip
+
+%ifdef TMPL_64BIT
+
+        ;
+        ; Have to enable OSFXSR for SSE instructions to work.
+        ;
+        mov     rcx,cr4
+        mov     rsi,rcx
+        or      rcx,200h
+        mov     cr4,rcx
+
+        ;
+        ; Load 32-bit float -2.75 into XMM0
+        ;
+        mov     eax, 0C0300000h
+        movd    xmm0, eax
+        mov     rbx, -1            ; make sure high dword is not zero
+        cvtss2si ebx, xmm0         ; result is -3
+        mov     eax, -3            ; high dword of rax zeroed
+        TEST_ASSERT_SIMPLE rbx, rax, jz, "CVTSS2SI EBX"
+
+        mov     eax, 0C0300000h
+        movd    xmm0, eax
+        mov     rbx, -1
+        cvttss2si ebx, xmm0        ; result is -2
+        mov     eax, -2
+        TEST_ASSERT_SIMPLE rbx, rax, jz, "CVTTSS2SI EBX"
+
+        ;
+        ; Load 64-bit double -2.75 into XMM0
+        ;
+        mov     rax, 0C006000000000000h
+        movd    xmm0, rax
+        mov     rbx, -1
+        cvtsd2si ebx, xmm0
+        mov     eax, -3
+        TEST_ASSERT_SIMPLE rbx, rax, jz, "CVTSD2SI EBX"
+
+        mov     rax, 0C006000000000000h
+        mov     rbx, -1
+        movd    xmm0, rax
+        cvttsd2si ebx, xmm0
+        mov     eax,-2
+        TEST_ASSERT_SIMPLE rbx, rax, jz, "CVTTSD2SI EBX"
+
+        ;
+        ; Restore prior CR4 value
+        ;
+        mov     cr4,rsi
+%endif
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+.done:
+        mov     xSP, xSI
+        add     xSP, 80h
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.skip:
+        mov     xAX, .s_szSse2Missing
+        call    TMPL_NM_CMN(TestSubDone)
+        jmp     .done
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', cvtss2si et al.', 0
+.s_szSse2Missing:
+        db      'SSE2 is missing', 0
+ENDPROC   TMPL_NM(TestCvtSize)
+
+
+;;
+; Test what  CMPXCHG with 32-bit operand size does to 64-bit registers,
+; as this is not particularly well documented by either Intel or AMD.
+;
+; @uses No registers, but BS2_SEL_SPARE0 is trashed.
+;
+BEGINPROC TMPL_NM(TestCmpxchg32)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+        sub     xSP, 80h                ; iret stack frame space.
+        mov     xSI, xSP                ; Save the stack register.
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+%ifdef TMPL_64BIT
+
+        ;
+        ; CMPXCHG reg, reg - values not equal, eax written
+        ;
+        mov     rax, -1            ; Load registers with 64-bit values
+        mov     rbx, -2
+        mov     rcx, -3
+        cmpxchg ebx, ecx           ; Not equal, writes ebx to eax
+        mov     edx, -2            ; Clears high dword
+        TEST_ASSERT_SIMPLE rax, rdx, jz, "CMPXCHG reg, unequal, rax set"
+        mov     rdx, -2            ; All ones still in high dword
+        TEST_ASSERT_SIMPLE rbx, rdx, jz, "CMPXCHG reg, unequal, rbx not set"
+
+        ;
+        ; CMPXCHG reg, reg - values equal, first operand written
+        ;
+        mov     rax, -4            ; Load registers with 64-bit values
+        mov     rbx, -4
+        mov     rcx, -5
+        cmpxchg ebx, ecx           ; Equal, writes ecx to ebx
+        mov     edx, -5            ; Clears high dword
+        TEST_ASSERT_SIMPLE rbx, rdx, jz, "CMPXCHG reg, equal, rbx set"
+        mov     rdx, -4            ; All ones still in high dword
+        TEST_ASSERT_SIMPLE rax, rdx, jz, "CMPXCHG reg, equal, rax not set"
+
+        ;
+        ; CMPXCHG mem, reg - values not equal, eax written
+        ;
+        mov     rax, -1            ; Load registers with 64-bit values
+        mov     rbx, -2
+        push    rbx
+        mov     rcx, -3
+        cmpxchg [rsp], ecx         ; Not equal, writes eax
+        mov     edx, -2            ; Clears high dword
+        TEST_ASSERT_SIMPLE rax, rdx, jz, "CMPXCHG mem, unequal, rax set"
+        pop     rbx
+
+        ;
+        ; CMPXCHG mem, reg - values equal, first operand written
+        ;
+        mov     rax, -4            ; Load registers with 64-bit values
+        mov     rbx, -4
+        push    rbx
+        mov     rcx, -5
+        cmpxchg [rsp], ecx         ; Equal, writes ecx to memory
+        mov     rdx, -4            ; All ones in high dword
+        TEST_ASSERT_SIMPLE rax, rdx, jz, "CMPXCHG mem, equal, rax not set"
+        pop     rbx
+
+        ;
+        ; CMPXCHG8B mem, reg - values equal, memory written
+        ; compares edx:eax with mem64
+        ;
+        mov     rdx, -1            ; Load registers with 64-bit values
+        mov     rax, -4
+        mov     rcx, -1
+        mov     rbx, -5
+        mov     rsi, -4
+        push    rsi
+        cmpxchg8b [rsp]            ; Equal, writes ecx:ebx to memory
+        mov     rsi, -4            ; All ones in high dword
+        TEST_ASSERT_SIMPLE rax, rsi, jz, "CMPXCHG8B mem, equal, rax not set"
+        mov     rsi, -1            ; All ones in high dword
+        TEST_ASSERT_SIMPLE rdx, rsi, jz, "CMPXCHG8B mem, equal, rdx not set"
+        pop     rsi
+
+        ;
+        ; CMPXCHG8B mem, reg - values unequal, edx:eax written
+        ; compares edx:eax with mem64
+        ;
+        mov     rdx, -1            ; Load registers with 64-bit values
+        mov     rax, -2
+        mov     rcx, -1
+        mov     rbx, -4
+        mov     rsi, -3
+        push    rsi
+        cmpxchg8b [rsp]            ; Not equal, writes memory to edx:eax
+        mov     esi, -3            ; Clears high dword
+        TEST_ASSERT_SIMPLE rax, rsi, jz, "CMPXCHG8B mem, unequal, rax set"
+        mov     esi, -1            ; Clears high dword
+        TEST_ASSERT_SIMPLE rdx, rsi, jz, "CMPXCHG8B mem, unequal, rdx set"
+        pop     rsi
+
+%endif
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+.done:
+        mov     xSP, xSI
+        add     xSP, 80h
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', 32-bit CMPXCHG in 64-bit mode', 0
+ENDPROC   TMPL_NM(TestCmpxchg32)
+
+
+;;
+; Proving intel manual wrong about using REX.X for BSWAP R8-R15 on 64-bit.
+; Checking the 'undefined' 16-bit bswap behavior.
+;
+; @uses No registers, but BS2_SEL_SPARE0 is trashed.
+;
+BEGINPROC TMPL_NM(TestBSwap)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+        sub     xSP, 80h                ; iret stack frame space.
+        mov     xSI, xSP                ; Save the stack register.
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+        ;
+        ; Assert sanity.
+        ;
+        mov     eax, 11223344h
+        bswap   eax
+        TEST_ASSERT_SIMPLE eax, 44332211h, jz, "32-bit BSWAP EAX"
+
+        ;
+        ; Buggy manual (325383-041US, December 2011).
+        ;
+%ifdef TMPL_64BIT
+        push    r8
+
+        mov     r8d, 55667788h
+        mov     eax, 55667788h
+        db X86_OP_REX_X
+        bswap   eax                     ; does it access r8 or eax?
+        TEST_ASSERT_SIMPLE eax, 88776655h, jz, "REX.X BSWAP EAX - Wrong EAX."
+        TEST_ASSERT_SIMPLE r8,  55667788h, jz, "REX.X BSWAP EAX - Wrong R8."
+
+        mov     r8d, 55667788h
+        mov     eax, 55667788h
+        db X86_OP_REX_R
+        bswap   eax                     ; does it access r8 or eax?
+        TEST_ASSERT_SIMPLE eax, 88776655h, jz, "REX.R BSWAP EAX - Wrong EAX."
+        TEST_ASSERT_SIMPLE r8,  55667788h, jz, "REX.R BSWAP EAX - Wrong R8."
+
+        mov     r8d, 55667788h
+        mov     eax, 55667788h
+        db X86_OP_REX_B
+        bswap   eax                     ; does it access r8 or eax?
+        TEST_ASSERT_SIMPLE rax, 55667788h, jz, "REX.B BSWAP R8D - Wrong RAX."
+        TEST_ASSERT_SIMPLE r8d, 88776655h, jz, "REX.B BSWAP R8D - Wrong R8D."
+
+        pop     r8
+%endif
+
+        ;
+        ; 'Undefined' 16-bit behavior.
+        ;
+        ; Zeroing of the lower 16-bits has been observed on:
+        ;       - Intel(R) Core(TM) i7-3960X CPU @ 3.30GHz
+        ;
+%ifndef TestBSwap16_defined
+ %define TestBSwap16_defined
+ %macro TestBSwap16 3,
+        mov     %3, %2                  ; save the primary register.
+  %ifdef TMPL_64BIT
+        mov     %2, 0ffffffff98765432h  ; Set the upper bit as well.
+  %else
+        mov     %2, 98765432h
+  %endif
+  %ifndef TMPL_16BIT
+        db X86_OP_PRF_SIZE_OP
+  %endif
+        bswap   %1
+        xchg    %2, %3                  ; Restore and save the result (xSP).
+        TEST_ASSERT_SIMPLE %3, 98760000h, jz, "Unexpected 16-bit BSWAP error."
+ %endmacro
+%endif
+
+        TestBSwap16 eax, sAX, sSI
+        TestBSwap16 ebx, sBX, sSI
+        TestBSwap16 ecx, sCX, sSI
+        TestBSwap16 edx, sDX, sSI
+        TestBSwap16 esp, sSP, sSI
+        TestBSwap16 ebp, sBP, sSI
+        TestBSwap16 edi, sDI, sSI
+        TestBSwap16 esi, sSI, sDI
+%ifdef TMPL_64BIT
+        TestBSwap16 r8d,   r8, rax
+        TestBSwap16 r9d,   r9, rax
+        TestBSwap16 r10d, r10, rax
+        TestBSwap16 r11d, r11, rax
+        TestBSwap16 r12d, r12, rax
+        TestBSwap16 r13d, r13, rax
+        TestBSwap16 r14d, r14, rax
+        TestBSwap16 r15d, r15, rax
+%endif
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+.done:
+        mov     xSP, xSI
+        add     xSP, 80h
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', bswap', 0
+ENDPROC   TMPL_NM(TestBSwap)
+
+
+;;
+; Do the tests for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(DoTestsForMode_rm)
+        push    bp
+        mov     bp, sp
+        push    ax
+
+        ;
+        ; Check if the mode and NX is supported, do the switch.
+        ;
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+
+        ;
+        ; Test exception handler basics using INT3 and #BP.
+        ;
+
+        call    TMPL_NM(TestMemFences)
+        call    TMPL_NM(TestBSwap)
+%ifdef TMPL_64BIT
+        ; Specifically tests 64-bit behavior.
+        call    TMPL_NM(TestCvtSize)
+        call    TMPL_NM(TestCmpxchg32)
+%endif
+
+        ;
+        ; Back to real mode.
+        ;
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+        call    Bs2DisableNX_r86
+
+.done:
+        pop     ax
+        leave
+        ret
+ENDPROC TMPL_NM(DoTestsForMode_rm)
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+%include "bootsector2-template-footer.mac"
+

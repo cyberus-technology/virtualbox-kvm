@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+    <?include Defines.wxi ?>
+
+    <Module Id="msm_VBoxPython"
+            Language="!(loc.LANG)"
+            Version="$(var.Property_Version)">
+
+        <Package Id="0f4de366-a8f3-4842-a165-fb19251cde88"
+                 Keywords="Installer"
+                 Description="$(env.VBOX_PRODUCT) $(var.Property_VersionExt) Python bindings installation package"
+                 Comments="$(env.VBOX_PRODUCT) Python bindings installation package"
+                 Manufacturer="$(env.VBOX_VENDOR)"
+                 InstallerVersion="200"
+                 AdminImage="yes"
+                 InstallPrivileges="elevated"
+                 Platform="$(var.Property_Platform)"
+                 SummaryCodepage="1252"/>
+
+        <?include CommonProperties.wxi ?>
+        <?include PublicProperties.wxi ?>
+
+        <!-- Here comes the file/directory list -->
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="msm_VBoxPythonFolder" FileSource=".">
+
+                <?include VBoxMergePython.wxi ?>
+
+            </Directory> <!-- msm_VBoxPythonFolder -->
+        </Directory> <!-- TARGETDIR -->
+
+        <!-- Custom actions -->
+        <Binary Id="VBoxInstallHelper" SourceFile="$(env.PATH_OUT)\bin\VBoxInstallHelper.dll" />
+        <?include VBoxMergePythonCA.wxi ?>
+
+        <InstallExecuteSequence>
+            <?include VBoxMergePythonSeq.wxi ?>
+        </InstallExecuteSequence>
+
+    </Module>
+</Wix>

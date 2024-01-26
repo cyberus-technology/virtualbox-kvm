@@ -1,0 +1,225 @@
+;; @file
+; IPRT - X86 and AMD64 Structures and Definitions that are not automatically
+;        converted from the C header file.
+;
+
+;
+; Copyright (C) 2012-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___iprt_x86extra_mac
+%define ___iprt_x86extra_mac
+
+
+%define X86_XCPT_DE             0x00
+%define X86_XCPT_DB             0x01
+%define X86_XCPT_NMI            0x02
+%define X86_XCPT_BP             0x03
+%define X86_XCPT_OF             0x04
+%define X86_XCPT_BR             0x05
+%define X86_XCPT_UD             0x06
+%define X86_XCPT_NM             0x07
+%define X86_XCPT_DF             0x08
+%define X86_XCPT_CO_SEG_OVERRUN 0x09
+%define X86_XCPT_TS             0x0a
+%define X86_XCPT_NP             0x0b
+%define X86_XCPT_SS             0x0c
+%define X86_XCPT_GP             0x0d
+%define X86_XCPT_PF             0x0e
+%define X86_XCPT_MF             0x10
+%define X86_XCPT_AC             0x11
+%define X86_XCPT_MC             0x12
+%define X86_XCPT_XF             0x13
+%define X86_XCPT_VE             0x14
+%define X86_XCPT_SX             0x1f
+
+%define PAGE_SIZE               0x1000
+
+;; Same a ~(X86_CR0_PE | X86_CR0_PG) except it won't cause assembler warnings.
+%define X86_CR0_NO_PE_NO_PG 0x7ffffffe
+
+
+
+;;
+; 32-bit protected mode fstenv image.
+;
+struc X86FSTENV32P
+        .FCW            resw 1
+        .padding1       resw 1
+        .FSW            resw 1
+        .padding2       resw 1
+        .FTW            resw 1
+        .padding3       resw 1
+        .FPUIP          resd 1
+        .FPUCS          resw 1
+        .FOP            resw 1
+        .FPUDP          resd 1
+        .FPUDS          resw 1
+        .padding4       resw 1
+endstruc
+
+
+;;
+; The image saved by FXSAVE.
+;
+struc X86FXSTATE
+        .FCW            resw 1
+        .FSW            resw 1
+        .FTW            resw 1
+        .FOP            resw 1
+        .FPUIP          resd 1
+        .FPUCS          resw 1
+        .Rsrvd1         resw 1
+        .FPUDP          resd 1
+        .FPUDS          resw 1
+        .Rsrvd2         resw 1
+        .MXCSR          resd 1
+        .MXCSR_MASK     resd 1
+        .st0            resd 4
+        .st1            resd 4
+        .st2            resd 4
+        .st3            resd 4
+        .st4            resd 4
+        .st5            resd 4
+        .st6            resd 4
+        .st7            resd 4
+        .xmm0           resd 4
+        .xmm1           resd 4
+        .xmm2           resd 4
+        .xmm3           resd 4
+        .xmm4           resd 4
+        .xmm5           resd 4
+        .xmm6           resd 4
+        .xmm7           resd 4
+        .xmm8           resd 4
+        .xmm9           resd 4
+        .xmm10          resd 4
+        .xmm11          resd 4
+        .xmm12          resd 4
+        .xmm13          resd 4
+        .xmm14          resd 4
+        .xmm15          resd 4
+        .au32RsrvdRest  resd 24
+endstruc
+
+
+struc X86TSS16
+        .selPrev        resw 1
+        .sp0            resw 1
+        .ss0            resw 1
+        .sp1            resw 1
+        .ss1            resw 1
+        .sp2            resw 1
+        .ss2            resw 1
+        .ip             resw 1
+        .flags          resw 1
+        .ax             resw 1
+        .cx             resw 1
+        .dx             resw 1
+        .bx             resw 1
+        .sp             resw 1
+        .bp             resw 1
+        .si             resw 1
+        .di             resw 1
+        .es             resw 1
+        .cs             resw 1
+        .ss             resw 1
+        .ds             resw 1
+        .selLdt         resw 1
+endstruc
+AssertCompileSize(X86TSS16, 44)
+
+
+struc X86TSS32
+        .selPrev        resw 1
+        .padding1       resw 1
+        .esp0           resd 1
+        .ss0            resw 1
+        .padding_ss0    resw 1
+        .esp1           resd 1
+        .ss1            resw 1
+        .padding_ss1    resw 1
+        .esp2           resd 1
+        .ss2            resw 1
+        .padding_ss2    resw 1
+        .cr3            resd 1
+        .eip            resd 1
+        .eflags         resd 1
+        .eax            resd 1
+        .ecx            resd 1
+        .edx            resd 1
+        .ebx            resd 1
+        .esp            resd 1
+        .ebp            resd 1
+        .esi            resd 1
+        .edi            resd 1
+        .es             resw 1
+        .padding_es     resw 1
+        .cs             resw 1
+        .padding_cs     resw 1
+        .ss             resw 1
+        .padding_ss     resw 1
+        .ds             resw 1
+        .padding_ds     resw 1
+        .fs             resw 1
+        .padding_fs     resw 1
+        .gs             resw 1
+        .padding_gs     resw 1
+        .selLdt         resw 1
+        .padding_ldt    resw 1
+        .fDebugTrap     resw 1
+        .offIoBitmap    resw 1
+        ;.IntRedirBitmap resb 32 - this is optional.
+endstruc
+AssertCompileSize(X86TSS32,104)
+
+
+struc X86TSS64
+        .u32Reserved    resd 1
+        .rsp0           resq 1
+        .rsp1           resq 1
+        .rsp2           resq 1
+        .u32Reserved2   resd 2
+        .ist1           resq 1
+        .ist2           resq 1
+        .ist3           resq 1
+        .ist4           resq 1
+        .ist5           resq 1
+        .ist6           resq 1
+        .ist7           resq 1
+        .u16Reserved    resw 5
+        .offIoBitmap    resw 1
+        ;.IntRedirBitmap resb 32 - this isn't really there!! VBox addition for x86TSS32 structure compatibility in x86.h.
+endstruc
+AssertCompileSize(X86TSS64, 104)
+
+
+%endif
+

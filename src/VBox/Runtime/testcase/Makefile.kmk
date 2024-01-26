@@ -1,0 +1,1127 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the IPRT testcases.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+ifdef VBOX_WITH_TESTCASES # The whole file
+
+ #
+ # Include the Validation Kit configuration to make use of build templates needed
+ # for testcases to be included  on the Validation Kit .ISO.
+ #
+ ifdef VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+  ifndef VBOX_VALIDATIONKIT_CONFIG_KMK_INCLUDED
+   include $(PATH_ROOT)/src/VBox/ValidationKit/Config.kmk
+  endif
+ endif
+
+
+ #
+ # Globals
+ #
+ # WARNING: Careful with this wrt to the other sub-makefiles this joins.
+ #
+ TEMPLATE = VBoxR3TstExe
+
+ # Defined by the parent makefile as well (for errmsgdata.h).
+ IPRT_OUT_DIR ?= $(PATH_TARGET)/Runtime
+
+
+ #
+ # Target lists
+ #
+ ifndef VBOX_ONLY_VALIDATIONKIT
+  PROGRAMS += \
+  	tstRTAssertCompile \
+  	tstRTAvl \
+  	tstRTBase64 \
+  	tstRTBitOperations \
+  	tstRTBigNum \
+  	tstRTCidr \
+  	tstRTCritSect \
+  	tstRTCritSectRw \
+  	tstRTCrPkix-1 \
+  	tstRTCrX509-1 \
+  	tstRTCType \
+  	tstRTDigest \
+  	tstRTDigest-2 \
+  	tstDir \
+  	tstDir-2 \
+  	tstDir-3 \
+  	tstRTDvm \
+  	tstRTEnv \
+  	tstRTErr-1 \
+  	tstFile \
+  	tstRTFileAio \
+  	tstRTFileAppend-1 \
+  	tstRTFileQuerySize-1 \
+  	tstRTFileModeStringToFlags \
+  	tstFileLock \
+  	tstRTFileOpenEx-1 \
+  	tstFork \
+  	tstRTFsQueries \
+  	tstRTFilesystem \
+  	tstRTExprEval \
+  	tstRTGetOpt \
+  	tstRTGetOptArgv \
+  	tstHandleTable \
+  	tstRTHeapOffset \
+  	tstRTHeapSimple \
+  	tstRTInlineAsm \
+  	tstIprtList \
+  	tstIprtMiniList \
+  	tstIprtMiniString \
+  	tstLdr \
+  	tstLdrLoad \
+  	tstRTLocalIpc \
+  	tstRTLdrVerifyPeImage \
+  	tstRTList \
+  	tstRTLockValidator \
+  	tstLog \
+  	tstRTMath \
+  	tstRTMemEf \
+  	tstRTMemCache \
+  	tstRTMemPool \
+  	tstRTMemWipe \
+  	tstRTMemSafer \
+  	tstMove \
+  	tstRTMp-1 \
+  	tstRTNetIPv4 \
+  	tstRTNetIPv6 \
+  	tstOnce \
+  	tstRTPath \
+  	tstRTPathGlob \
+  	tstRTPathQueryInfo \
+  	tstRTPipe \
+  	tstRTPoll \
+  	tstRTPrfIO \
+  	tstRTProcCreateEx \
+  	tstRTProcCreatePrf \
+  	tstRTProcQueryUsername \
+  	tstPrfRT \
+  	tstRand \
+  	tstRTReqPool \
+  	tstRTSemEvent \
+  	tstRTSemEventMulti \
+  	tstSemMutex \
+  	tstSemPingPong \
+  	tstRTSemRW \
+  	tstRTSemXRoads \
+  	tstRTSort \
+  	tstRTStrAlloc \
+  	tstRTStrCache \
+  	tstRTStrCatCopy \
+  	tstRTStrFormat \
+  	tstRTStrSplit \
+  	tstRTStrSimplePattern \
+  	tstStrToNum \
+  	tstRTStrVersion \
+  	tstRTSymlink \
+  	tstRTSystemQueryDmi \
+  	tstRTSystemQueryFirmware \
+  	tstRTSystemQueryOsInfo \
+  	tstRTTcp-1 \
+  	tstRTTemp \
+  	tstRTDirCreateUniqueNumbered \
+  	tstTermCallbacks \
+  	tstThread-1 \
+  	tstRTThreadPoke \
+  	tstRTThreadExecutionTime \
+  	tstRTTime \
+  	tstTime-2 \
+  	tstTime-3 \
+  	tstTime-4 \
+  	tstTimer \
+  	tstRTTimerLR \
+  	tstRTTimeSpec \
+  	tstRTTls-1 \
+  	tstRTTraceLog \
+  	tstRTUdp-1 \
+  	tstUtf8 \
+  	tstRTUuid \
+  	tstRTCircBuf \
+  	tstRTManifest \
+  	tstRTUri \
+  	tstVector \
+  	tstRTVfs \
+  	tstRTZip \
+  	tstRTJson \
+  	tstRTShMem
+
+  PROGRAMS.win += \
+  	tstRTCritSectW32 \
+  	tstRTProcWait \
+  	tstFileAppendWin-1 \
+  	tstRTNtPath-1 \
+  	ntGetTimerResolution \
+  	tstRTDarwinMachKernel
+
+  PROGRAMS.linux += \
+  	tstRTProcWait \
+  	tstRTProcIsRunningByName \
+  	tstRTBitOperationsPIC3 \
+  	tstRTInlineAsmPIC \
+  	tstRTInlineAsmPIC3
+  PROGRAMS.solaris += \
+  	tstRTCoreDump
+  PROGRAMS.darwin += \
+  	tstDarwinSched \
+  	tstRTDarwinMachKernel
+  ifdef VBOX_WITH_LIBCURL
+   PROGRAMS += \
+   	tstRTHttp-1 \
+   	tstRTCRest-1
+  endif
+
+  if1of ($(KBUILD_TARGET_ARCH), x86 amd64)
+   PROGRAMS += \
+   	tstNoCrt-1
+   if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), win.amd64) ## Build and test x86 too!
+    PROGRAMS += tstRTNoCrt-2
+   endif
+   if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), win.x86 win.amd64)
+    PROGRAMS += tstRTNoCrt-3 tstRTNoCrt-3r tstRTNoCrt-4
+   endif
+  endif
+
+  if defined(VBOX_WITH_R0_MODULES)
+   PROGRAMS += \
+   	tstLdr-2 \
+   	tstLdr-3 \
+   	tstLdr-4 \
+   	tstTSC
+   if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+    PROGRAMS += \
+    	tstRTR0MemUserKernelDriverHardened \
+    	tstRTR0SemMutexDriverHardened \
+    	tstRTR0TimerDriverHardened \
+    	tstRTR0ThreadPreemptionDriverHardened \
+    	tstRTR0ThreadDriverHardened
+    DLLS    += \
+    	tstRTR0MemUserKernelDriver \
+    	tstRTR0SemMutexDriver \
+    	tstRTR0TimerDriver \
+    	tstRTR0ThreadPreemptionDriver \
+    	tstRTR0ThreadDriver
+   else
+    PROGRAMS += \
+    	tstRTR0MemUserKernelDriver \
+    	tstRTR0SemMutexDriver \
+    	tstRTR0TimerDriver \
+    	tstRTR0ThreadPreemptionDriver \
+    	tstRTR0ThreadDriver
+   endif
+   if1of ($(KBUILD_TARGET_ARCH), $(VBOX_SUPPORTED_HOST_ARCHS))
+    $(if-expr defined(VBOX_WITH_VBOXR0_AS_DLL),DLLS,SYSMODS) += \
+    	tstLdrObjR0
+    ifdef VBOX_WITH_RAW_MODE
+     SYSMODS += tstLdrObj
+    endif
+   endif
+   $(if-expr defined(VBOX_WITH_VBOXR0_AS_DLL),DLLS,SYSMODS) += \
+   	tstRTR0MemUserKernel \
+   	tstRTR0SemMutex \
+   	tstRTR0Timer \
+   	tstRTR0ThreadPreemption \
+   	tstRTR0Thread
+   if1of ($(KBUILD_TARGET), solaris darwin)
+    PROGRAMS += tstRTR0DbgKrnlInfoDriver
+    $(if-expr defined(VBOX_WITH_VBOXR0_AS_DLL),DLLS,SYSMODS) += tstRTR0DbgKrnlInfo
+   endif # VBOX_SUPPORTED_HOST_ARCHS only
+
+  endif
+  if1of ($(VBOX_LDR_FMT)), lx pe)
+   LIBRARIES += \
+   	tstLdr-4Imp
+  endif
+
+ endif # !VBOX_ONLY_VALIDATIONKIT
+
+
+ #
+ # Target configs in almost alphabetical order.
+ #
+
+ tstRTAssertCompile_TEMPLATE = VBoxR3TstExe
+ tstRTAssertCompile_INSTTYPE = none
+ tstRTAssertCompile_SOURCES = tstRTAssertCompile.cpp
+
+ tstRTAvl_TEMPLATE = VBoxR3TstExe
+ tstRTAvl_SOURCES = tstRTAvl.cpp
+
+ tstRTBase64_TEMPLATE = VBoxR3TstExe
+ tstRTBase64_SOURCES = tstRTBase64.cpp
+
+ tstRTBigNum_TEMPLATE = VBoxR3TstExe
+ tstRTBigNum_SOURCES = tstRTBigNum.cpp
+ tstRTBigNum_SDKS = VBoxOpenSsl
+ tstRTBigNum_CXXFLAGS.win = -bigobj
+
+ tstRTBitOperations_TEMPLATE = VBoxR3TstExe
+ tstRTBitOperations_SOURCES = tstRTBitOperations.cpp
+
+ tstRTBitOperationsPIC3_TEMPLATE = VBoxR3TstExe
+ tstRTBitOperationsPIC3_SOURCES = tstRTBitOperations.cpp
+ tstRTBitOperationsPIC3_CXXFLAGS = -fPIC -fomit-frame-pointer -O3
+ tstRTBitOperationsPIC3_DEFS = PIC
+
+ tstRTCidr_TEMPLATE = VBoxR3TstExe
+ tstRTCidr_SOURCES = tstRTCidr.cpp
+
+ tstRTCritSect_TEMPLATE = VBoxR3TstExe
+ tstRTCritSect_SOURCES = tstRTCritSect.cpp
+
+ tstRTCritSectRw_TEMPLATE = VBoxR3TstExe
+ tstRTCritSectRw_SOURCES = tstRTCritSectRw.cpp
+
+ tstRTCritSectW32_TEMPLATE = VBoxR3TstExe
+ tstRTCritSectW32_SOURCES = tstRTCritSect.cpp
+ tstRTCritSectW32_DEFS = TRY_WIN32_CRIT
+
+ tstRTCrPkix-1_TEMPLATE     = VBoxR3TstExe
+ tstRTCrPkix-1_SOURCES      = tstRTCrPkix-1.cpp
+
+ ifndef VBOX_ONLY_VALIDATIONKIT
+  tstRTCrX509-1_TEMPLATE     = VBoxR3TstExe
+  tstRTCrX509-1_SOURCES      = tstRTCrX509-1.cpp
+  tstRTCrX509-1_INCS         = $(tstRTCrX509-1_0_OUTDIR)
+  tstRTCrX509-1_CLEAN        = $(tstRTCrX509-1_0_OUTDIR)/tstRTCrX509-1.h
+  tstRTCrX509-1_INTERMEDIATES = $(tstRTCrX509-1_0_OUTDIR)/tstRTCrX509-1.h
+  tstRTCrX509-1_VBOX_FILES := \
+  	Pem_md4=$(PATH_SUB_CURRENT)/tstRTCrX509-md4.pem \
+  	Pem_md5=$(PATH_SUB_CURRENT)/tstRTCrX509-md5.pem \
+  	Pem_sha1=$(PATH_SUB_CURRENT)/tstRTCrX509-sha1.pem \
+  	Pem_sha224=$(PATH_SUB_CURRENT)/tstRTCrX509-sha224.pem \
+  	Pem_sha256=$(PATH_SUB_CURRENT)/tstRTCrX509-sha256.pem \
+  	Pem_sha384=$(PATH_SUB_CURRENT)/tstRTCrX509-sha384.pem \
+  	Pem_sha512=$(PATH_SUB_CURRENT)/tstRTCrX509-sha512.pem \
+  	Pem_cert1=$(PATH_SUB_CURRENT)/tstRTCrX509-cert1.pem \
+  	\
+  	Der_md4=$(PATH_SUB_CURRENT)/tstRTCrX509-md4-cert.der \
+  	Der_md5=$(PATH_SUB_CURRENT)/tstRTCrX509-md5-cert.der \
+  	Der_sha1=$(PATH_SUB_CURRENT)/tstRTCrX509-sha1-cert.der \
+  	Der_sha224=$(PATH_SUB_CURRENT)/tstRTCrX509-sha224-cert.der \
+  	Der_sha256=$(PATH_SUB_CURRENT)/tstRTCrX509-sha256-cert.der \
+  	Der_sha384=$(PATH_SUB_CURRENT)/tstRTCrX509-sha384-cert.der \
+  	Der_sha512=$(PATH_SUB_CURRENT)/tstRTCrX509-sha512-cert.der \
+  	Der_cert1=$(PATH_SUB_CURRENT)/tstRTCrX509-cert1.der \
+  	$(NO_SUCH_VARIABLE)
+  $$(tstRTCrX509-1_0_OUTDIR)/tstRTCrX509-1.h: \
+  		$(foreach file,$(tstRTCrX509-1_VBOX_FILES),$(lastword  $(subst =,$(SP) ,$(file)))) \
+  		$(VBOX_BIN2C) \
+  		| $$(dir $$@)
+	$(RM) -f -- "$@"
+	$(foreach file,$(tstRTCrX509-1_VBOX_FILES) \
+	, $(NLTAB)$(VBOX_BIN2C) -ascii --append \
+		"$(firstword $(subst =,$(SP) ,$(file)))" \
+		"$(lastword  $(subst =,$(SP) ,$(file)))" \
+		"$@")
+ endif # !VBOX_ONLY_VALIDATIONKIT
+
+
+ tstRTCType_TEMPLATE = VBoxR3TstExe
+ tstRTCType_SOURCES = tstRTCType.cpp
+
+ ifdef VBOX_WITH_LIBCURL
+  tstRTCRest-1_TEMPLATE = VBoxR3TstExe
+  tstRTCRest-1_SOURCES = tstRTCRest-1.cpp
+  if ("$(KBUILD_TARGET)" == "solaris" && $(VBOX_GCC_VERSION_CXX) <= 70500)
+   tstRTCRest-1_DEFS = VBOX_SOLARIS_WITHOUT_XPG6_ENABLED
+  endif
+ endif
+
+ tstRTDigest_TEMPLATE = VBoxR3TstExe
+ tstRTDigest_SOURCES = tstRTDigest.cpp
+
+ tstRTDigest-2_TEMPLATE = VBoxR3TstExe
+ ifndef VBOX_WITH_ALT_HASH_CODE
+  tstRTDigest-2_DEFS = IPRT_WITHOUT_SHA512T224 IPRT_WITHOUT_SHA512T256
+ endif
+ tstRTDigest-2_SOURCES = tstRTDigest-2.cpp
+
+ ifdef VBOX_WITH_LIBCURL
+  tstRTHttp-1_TEMPLATE = VBoxR3TstExe
+  tstRTHttp-1_SOURCES = tstRTHttp-1.cpp
+  tstRTHttp-1_SDKS = VBoxLibCurl
+ endif
+
+ tstDir_TEMPLATE = VBoxR3TstExe
+ tstDir_SOURCES = tstDir.cpp
+
+ tstDir-2_TEMPLATE = VBoxR3TstExe
+ tstDir-2_SOURCES = tstDir-2.cpp
+
+ tstDir-3_TEMPLATE = VBoxR3TstExe
+ tstDir-3_SOURCES = tstDir-3.cpp
+
+ tstRTDvm_TEMPLATE = VBoxR3TstExe
+ tstRTDvm_SOURCES = tstRTDvm.cpp
+
+ tstRTEnv_TEMPLATE = VBoxR3TstExe
+ tstRTEnv_SOURCES = tstRTEnv.cpp
+
+ tstRTErr-1_TEMPLATE = VBoxR3TstExe
+ tstRTErr-1_SOURCES = tstRTErr-1.cpp
+
+ tstFile_TEMPLATE = VBoxR3TstExe
+ tstFile_SOURCES = tstFile.cpp
+
+ tstRTFileAio_SOURCES = VBoxR3TstExe
+ tstRTFileAio_SOURCES = tstRTFileAio.cpp
+
+ tstRTFileAppend-1_TEMPLATE = VBoxR3TstExe
+ tstRTFileAppend-1_SOURCES = tstRTFileAppend-1.cpp
+
+ tstRTFileQuerySize-1_TEMPLATE = VBoxR3TstExe
+ tstRTFileQuerySize-1_SOURCES = tstRTFileQuerySize-1.cpp
+
+ tstRTFileModeStringToFlags_TEMPLATE = VBoxR3TstExe
+ tstRTFileModeStringToFlags_SOURCES = tstRTFileModeStringToFlags.cpp
+
+ tstRTFileOpenEx-1_TEMPLATE = VBoxR3TstExe
+ tstRTFileOpenEx-1_SOURCES = tstRTFileOpenEx-1.cpp
+
+ tstFileAppendWin-1_TEMPLATE = VBoxR3TstExe
+ tstFileAppendWin-1_SOURCES = tstFileAppendWin-1.cpp
+
+ tstFileLock_TEMPLATE = VBoxR3TstExe
+ tstFileLock_SOURCES = tstFileLock.cpp
+
+ tstFork_TEMPLATE = VBoxR3TstExe
+ tstFork_SOURCES = tstFork.cpp
+
+ tstRTFsQueries_TEMPLATE = VBoxR3TstExe
+ tstRTFsQueries_SOURCES = tstRTFsQueries.cpp
+
+ tstRTFilesystem_TEMPLATE = VBoxR3TstExe
+ tstRTFilesystem_SOURCES = tstRTFilesystem.cpp
+
+ tstRTExprEval_TEMPLATE = VBoxR3TstExe
+ tstRTExprEval_SOURCES = tstRTExprEval.cpp
+
+ tstRTGetOpt_TEMPLATE = VBoxR3TstExe
+ tstRTGetOpt_SOURCES = tstRTGetOpt.cpp
+
+ tstRTGetOptArgv_TEMPLATE = VBoxR3TstExe
+ tstRTGetOptArgv_SOURCES = tstRTGetOptArgv.cpp
+
+ tstHandleTable_SOURCES = tstHandleTable.cpp
+
+ tstRTHeapOffset_TEMPLATE = VBoxR3TstExe
+ tstRTHeapOffset_SOURCES = tstRTHeapOffset.cpp
+
+ tstRTHeapSimple_TEMPLATE = VBoxR3TstExe
+ tstRTHeapSimple_SOURCES = tstRTHeapSimple.cpp
+
+ tstRTInlineAsm_TEMPLATE = VBoxR3TstExe
+ tstRTInlineAsm_SOURCES = tstRTInlineAsm.cpp
+
+ tstRTInlineAsmPIC_TEMPLATE = VBoxR3TstExe
+ tstRTInlineAsmPIC_SOURCES = tstRTInlineAsm.cpp
+ tstRTInlineAsmPIC_CXXFLAGS = -fPIC
+ tstRTInlineAsmPIC_DEFS = PIC
+
+ tstRTInlineAsmPIC3_TEMPLATE = VBoxR3TstExe
+ tstRTInlineAsmPIC3_SOURCES = tstRTInlineAsm.cpp
+ tstRTInlineAsmPIC3_CXXFLAGS = -fPIC -fomit-frame-pointer -O3
+ tstRTInlineAsmPIC3_DEFS = PIC
+
+ tstIprtList_TEMPLATE = VBoxR3TstExe
+ tstIprtList_SOURCES = tstIprtList.cpp
+
+ tstIprtMiniList_TEMPLATE = VBoxR3TstExe
+ tstIprtMiniList_SOURCES = tstIprtMiniList.cpp
+
+ tstIprtMiniString_TEMPLATE = VBoxR3TstExe
+ tstIprtMiniString_SOURCES = tstIprtMiniString.cpp
+
+ tstLdr_TEMPLATE = VBoxR3TstExe
+ tstLdr_SOURCES = tstLdr.cpp
+
+ tstLdr-2_TEMPLATE = VBoxR3TstExe
+ tstLdr-2_SOURCES = tstLdr-2.cpp
+ tstLdr-2_DEFS = IN_DIS
+ tstLdr-2_LIBS = \
+ 	$(PATH_STAGE_LIB)/DisasmR3$(VBOX_SUFF_LIB)
+
+ ifdef VBOX_WITH_RAW_MODE
+  tstLdrObj_TEMPLATE = VBoxRc
+  tstLdrObj_INST = $(INST_TESTCASE)
+  tstLdrObj_SYSSUFF = .gc
+  tstLdrObj_SOURCES = tstLdrObj.cpp
+  tstLdrObj_DEFS = IN_DIS IN_RT_RC DIS_CORE_ONLY
+  ifeq ($(VBOX_LDR_FMT32),elf)
+   tstLdrObj_DEFS += VBOX_SOME_IMPORT_FUNCTION
+  endif
+  tstLdrObj_LIBS = \
+  	$(PATH_STAGE_LIB)/DisasmRC$(VBOX_SUFF_LIB) \
+  	$(PATH_STAGE_LIB)/RuntimeRC$(VBOX_SUFF_LIB)
+  if1of ($(VBOX_LDR_FMT32), lx pe)
+   tstLdrObj_LIBS += \
+   	$(PATH_STAGE_LIB)/VMMRCBuiltin$(VBOX_SUFF_LIB) \
+   	$(PATH_STAGE_LIB)/VMMRCImp$(VBOX_SUFF_LIB)
+  endif
+ endif # VBOX_WITH_RAW_MODE
+
+ tstLdr-3_TEMPLATE = VBoxR3TstExe
+ tstLdr-3_SOURCES = tstLdr-3.cpp
+ tstLdr-3_DEFS = IN_DIS
+ tstLdr-3_LIBS = \
+ 	$(PATH_STAGE_LIB)/DisasmR3$(VBOX_SUFF_LIB)
+
+ tstLdr-4Imp_TEMPLATE = VBoxR0
+ ifeq ($(VBOX_LDR_FMT),lx)
+  tstLdr-4Imp_SOURCES = tstLdr-4Imp-os2.def
+ else ifeq ($(VBOX_LDR_FMT),pe)
+  tstLdr-4Imp_SOURCES.win = tstLdr-4Imp-win.def
+ endif
+
+ tstLdrObjR0_TEMPLATE = VBoxR0
+ tstLdrObjR0_INST = $(INST_TESTCASE)
+ tstLdrObjR0_SYSSUFF = .r0
+ tstLdrObjR0_SOURCES = tstLdrObjR0.cpp tstLdrDisasmTest.cpp
+ tstLdrObjR0_DEFS = IN_DIS IN_RT_R0 DIS_CORE_ONLY
+ ifeq ($(VBOX_LDR_FMT32),elf)
+  tstLdrObjR0_DEFS += VBOX_SOME_IMPORT_FUNCTION
+ endif
+ ifn1of ($(KBUILD_TARGET), win)
+  tstLdrObjR0_CXXFLAGS = $(VBOX_GCC_Wno-array_bounds)
+ endif
+ tstLdrObjR0_LIBS = \
+ 	$(PATH_STAGE_LIB)/DisasmR0$(VBOX_SUFF_LIB) \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ if1of ($(VBOX_LDR_FMT), pe lx)
+  tstLdrObjR0_LIBS += \
+  	$(TARGET_tstLdr-4Imp)
+ endif
+
+ tstLdr-4_TEMPLATE = VBoxR3TstExe
+ tstLdr-4_SOURCES = tstLdr-4.cpp tstLdrDisasmTest.cpp
+ tstLdr-4_DEFS = IN_DIS
+ tstLdr-4_LIBS = \
+ 	$(PATH_STAGE_LIB)/DisasmR3$(VBOX_SUFF_LIB)
+
+ tstLdrLoad_TEMPLATE = VBoxR3TstExe
+ tstLdrLoad_SOURCES = tstLdrLoad.cpp
+
+ tstRTLdrVerifyPeImage_TEMPLATE = VBoxR3TstExe
+ tstRTLdrVerifyPeImage_SOURCES = tstRTLdrVerifyPeImage.cpp
+
+ tstRTList_TEMPLATE = VBoxR3TstExe
+ tstRTList_SOURCES = tstRTList.cpp
+
+ tstRTLocalIpc_TEMPLATE = VBoxR3TstExe
+ tstRTLocalIpc_SOURCES = tstRTLocalIpc.cpp
+
+ tstRTLockValidator_TEMPLATE = VBoxR3TstExe
+ tstRTLockValidator_SOURCES = tstRTLockValidator.cpp
+
+ ifndef VBOX_ONLY_VALIDATIONKIT
+  tstLog_TEMPLATE     = VBoxR3TstExe
+  tstLog_SOURCES      = tstLog.cpp
+  tstLog_INCS         = $(tstLog_0_OUTDIR)
+  tstLog_INTERMEDIATES = $(tstLog_0_OUTDIR)/tstLogGroups.h
+  tstLog_CLEAN        = $(tstLog_0_OUTDIR)/tstLogGroups.h
+  $$(tstLog_0_OUTDIR)/tstLogGroups.h: $(PATH_ROOT)/include/VBox/log.h
+	$(call MSG_GENERATE,,$@,$<)
+	$(QUIET)$(RM) -f -- "$@"
+	$(QUIET)$(SED) -n -e 's/^ *LOG_GROUP_\([A-Z0-9_]*\),.*$(DOLLAR)/{ LOG_GROUP_\1, "\1" },/p' --output "$@" "$<"
+ endif # !VBOX_ONLY_VALIDATIONKIT
+
+ tstRTMemEf_TEMPLATE = VBoxR3TstExe
+ tstRTMemEf_SOURCES = tstRTMemEf.cpp
+
+ tstRTMemCache_TEMPLATE = VBoxR3TstExe
+ tstRTMemCache_SOURCES = tstRTMemCache.cpp
+
+ tstRTMemPool_TEMPLATE = VBoxR3TstExe
+ tstRTMemPool_SOURCES = tstRTMemPool.cpp
+
+ tstRTMemWipe_TEMPLATE = VBoxR3TstExe
+ tstRTMemWipe_SOURCES = tstRTMemWipe.cpp
+
+ tstRTMemSafer_TEMPLATE = VBoxR3TstExe
+ tstRTMemSafer_SOURCES = tstRTMemSafer.cpp
+
+ tstMove_TEMPLATE = VBoxR3TstExe
+ tstMove_SOURCES = tstMove.cpp
+
+ tstRTMp-1_TEMPLATE = VBoxR3TstExe
+ tstRTMp-1_SOURCES = tstRTMp-1.cpp
+
+ tstRTNetIPv4_TEMPLATE = VBoxR3TstExe
+ tstRTNetIPv4_SOURCES = tstRTNetIPv4.cpp
+
+ tstRTNetIPv6_TEMPLATE = VBoxR3TstExe
+ tstRTNetIPv6_SOURCES = tstRTNetIPv6.cpp
+
+ tstNoCrt-1_TEMPLATE = VBoxR3TstExe
+ tstNoCrt-1_DEFS = RT_WITHOUT_NOCRT_WRAPPER_ALIASES
+ tstNoCrt-1_SOURCES = \
+ 	tstNoCrt-1.cpp \
+ 	../common/string/memcpy.asm \
+ 	../common/string/mempcpy.asm \
+ 	../common/string/memmove.asm \
+ 	../common/string/memset.asm \
+ 	../common/string/memchr.asm \
+ 	../common/string/memcmp.asm \
+ 	../common/string/strchr.asm \
+ 	../common/string/strcmp.asm \
+ 	../common/string/strcpy.asm \
+ 	../common/string/strlen.asm \
+ 	../common/string/wcslen.asm
+
+ tstRTNoCrt-2_TEMPLATE = VBoxR3TstExe
+ tstRTNoCrt-2_DEFS = RT_WITHOUT_NOCRT_WRAPPER_ALIASES
+ tstRTNoCrt-2_INCS = ../include
+ tstRTNoCrt-2_SDKS = VBoxSoftFloatR3Shared
+ tstRTNoCrt-2_SOURCES = \
+ 	tstRTNoCrt-2.cpp \
+ 	\
+ 	../common/math/copysign.cpp \
+ 	../common/math/copysignf.cpp \
+ 	../common/math/copysignl.cpp \
+ 	../common/math/fma.cpp \
+ 	../common/math/fmaf.cpp \
+ 	../common/math/fmax.cpp \
+ 	../common/math/fmaxf.cpp \
+ 	../common/math/fmaxl.cpp \
+ 	../common/math/fmin.cpp \
+ 	../common/math/fminf.cpp \
+ 	../common/math/fminl.cpp \
+ 	../common/math/isinf.cpp \
+ 	../common/math/isnan.cpp \
+ 	../common/math/isnanf.cpp \
+ 	../common/math/llround.cpp \
+ 	../common/math/llroundf.cpp \
+ 	../common/math/lround.cpp \
+ 	../common/math/lroundf.cpp \
+ 	../common/math/nocrt-abs.cpp \
+ 	../common/math/nocrt-labs.cpp \
+ 	../common/math/nocrt-llabs.cpp \
+ 	../common/math/round.cpp \
+ 	../common/math/roundf.cpp \
+ 	../common/math/frexp.cpp \
+ 	../common/math/frexpf.cpp \
+ 	../common/math/frexpl.cpp \
+ 	../common/math/__fpclassifyd.cpp \
+ 	../common/math/__fpclassifyf.cpp \
+ 	../common/math/__fpclassifyl.cpp \
+ 	../common/math/__isfinite.cpp \
+ 	../common/math/__isfinitef.cpp \
+ 	../common/math/__isfinitel.cpp \
+ 	../common/math/__isinff.cpp \
+ 	../common/math/__isinfl.cpp \
+ 	../common/math/__isnanl.cpp \
+ 	../common/math/__isnormal.cpp \
+ 	../common/math/__isnormalf.cpp \
+ 	../common/math/__isnormall.cpp \
+ 	../common/math/__signbit.cpp \
+ 	../common/math/__signbitf.cpp \
+ 	../common/math/__signbitl.cpp
+
+ if1of ($(KBUILD_TARGET_ARCH), x86 amd64)
+  tstRTNoCrt-2_SOURCES.x86 += \
+  	../common/math/rtNoCrtHasSse.asm
+  tstRTNoCrt-2_SOURCES += \
+  	../common/math/atan.asm \
+  	../common/math/atan2.asm \
+  	../common/math/atan2f.asm \
+  	../common/math/atanf.asm \
+  	../common/math/ceil.asm \
+  	../common/math/ceilf.asm \
+  	../common/math/cos.asm \
+  	../common/math/cosf.asm \
+  	../common/math/cosl.asm \
+  	../common/math/exp.asm \
+  	../common/math/expf.asm \
+  	../common/math/exp2.asm \
+  	../common/math/exp2f.asm \
+  	../common/math/fabs.asm \
+  	../common/math/fabsf.asm \
+  	../common/math/fegetenv.asm \
+  	../common/math/fesetenv.asm \
+  	../common/math/feholdexcept.asm \
+  	../common/math/fegetround.asm \
+  	../common/math/fesetround.asm \
+  	../common/math/fegetx87precision.asm \
+  	../common/math/fesetx87precision.asm \
+  	../common/math/fegetexcept.asm \
+  	../common/math/feenableexcept.asm \
+  	../common/math/fedisableexcept.asm \
+  	../common/math/feclearexcept.asm \
+  	../common/math/fegetexceptflag.asm \
+  	../common/math/fesetexceptflag.asm \
+  	../common/math/fetestexcept.asm \
+  	../common/math/feraiseexcept.asm \
+  	../common/math/floor.asm \
+  	../common/math/floorf.asm \
+  	../common/math/fma-asm.asm \
+  	../common/math/fmaf-asm.asm \
+  	../common/math/ldexp.asm \
+  	../common/math/ldexpf.asm \
+  	../common/math/llrint.asm \
+  	../common/math/llrintf.asm \
+  	../common/math/log.asm \
+  	../common/math/logf.asm \
+  	../common/math/log2.asm \
+  	../common/math/log2f.asm \
+  	../common/math/lrint.asm \
+  	../common/math/lrintf.asm \
+  	../common/math/pow.asm \
+  	../common/math/powf.asm \
+  	../common/math/powcore.asm \
+  	../common/math/remainder.asm \
+  	../common/math/remainderf.asm \
+  	../common/math/rint.asm \
+  	../common/math/rintf.asm \
+  	../common/math/sin.asm \
+  	../common/math/sinf.asm \
+  	../common/math/sincore.asm \
+  	../common/math/sqrt.asm \
+  	../common/math/sqrtf.asm \
+  	../common/math/tan.asm \
+  	../common/math/tanf.asm \
+  	../common/math/trunc.asm \
+  	../common/math/truncf.asm
+ endif
+
+ #
+ # For testing no-CRT exception handling we need to use the static build,
+ # assuming ofc that VBOX_WITH_NOCRT_STATIC is in effect.
+ #
+ TEMPLATE_VBoxR3TstExeStatic        := Testcase for the static (no-CRT) libraries.
+ TEMPLATE_VBoxR3TstExeStatic_EXTENDS := VBoxR3Static
+ TEMPLATE_VBoxR3TstExeStatic_INST    = $(INST_TESTCASE)
+
+ tstRTNoCrt-3_TEMPLATE := VBoxR3TstExeStatic
+ tstRTNoCrt-3_SOURCES := tstRTNoCrt-3.cpp
+
+ tstRTNoCrt-3r_TEMPLATE := VBoxR3TstExe
+ tstRTNoCrt-3r_SOURCES := tstRTNoCrt-3.cpp
+
+ tstRTNoCrt-4_TEMPLATE := VBoxR3TstExe
+ tstRTNoCrt-4_SOURCES := tstRTNoCrt-4.cpp
+
+ tstRTNtPath-1_TEMPLATE = VBoxR3TstExe
+ tstRTNtPath-1_SOURCES = tstRTNtPath-1.cpp
+
+ tstOnce_TEMPLATE = VBoxR3TstExe
+ tstOnce_SOURCES = tstOnce.cpp
+
+ tstRTPath_TEMPLATE = VBoxR3TstExe
+ tstRTPath_SOURCES = tstRTPath.cpp
+
+ tstRTPathFindCommon_TEMPLATE = VBoxR3TstExe
+ tstRTPathFindCommon_SOURCES = tstRTPathFindCommon.cpp
+
+ tstRTPathGlob_TEMPLATE = VBoxR3TstExe
+ tstRTPathGlob_SOURCES = tstRTPathGlob.cpp
+
+ tstRTPathQueryInfo_TEMPLATE = VBoxR3TstExe
+ tstRTPathQueryInfo_SOURCES = tstRTPathQueryInfo.cpp
+
+ tstRTPipe_TEMPLATE = VBoxR3TstExe
+ tstRTPipe_SOURCES = tstRTPipe.cpp
+
+ tstRTPoll_TEMPLATE = VBoxR3TstExe
+ tstRTPoll_SOURCES = tstRTPoll.cpp
+
+ tstPrfRT_TEMPLATE = VBoxR3TstExe
+ tstPrfRT_SOURCES = tstPrfRT.cpp
+ tstPrfRT_SOURCES.x86 = tstRTPrfA.asm
+ tstPrfRT_SOURCES.amd64 = tstRTPrfA.asm
+
+ tstRTPrfIO_TEMPLATE = VBoxR3TstExe
+ tstRTPrfIO_SOURCES = tstRTPrfIO.cpp
+
+ tstRTProcCreateEx_TEMPLATE = VBoxR3TstExe
+ tstRTProcCreateEx_SOURCES = tstRTProcCreateEx.cpp
+
+ tstRTProcCreatePrf_TEMPLATE = VBoxR3TstExe
+ tstRTProcCreatePrf_SOURCES = tstRTProcCreatePrf.cpp
+
+ tstRTProcQueryUsername_TEMPLATE = VBoxR3TstExe
+ tstRTProcQueryUsername_SOURCES = tstRTProcQueryUsername.cpp
+
+ tstRTProcWait_TEMPLATE = VBoxR3TstExe
+ tstRTProcWait_SOURCES = tstRTProcWait.cpp
+
+ tstRTProcIsRunningByName_TEMPLATE = VBoxR3TstExe
+ tstRTProcIsRunningByName_SOURCES = tstRTProcIsRunningByName.cpp
+
+ tstRand_TEMPLATE = VBoxR3TstExe
+ tstRand_SOURCES = tstRand.cpp
+
+ tstRTReqPool_TEMPLATE = VBoxR3TstExe
+ tstRTReqPool_SOURCES = tstRTReqPool.cpp
+
+ tstSemMutex_TEMPLATE = VBoxR3TstExe
+ tstSemMutex_SOURCES = tstSemMutex.cpp
+
+ tstRTSemEvent_TEMPLATE = VBoxR3TstExe
+ tstRTSemEvent_SOURCES = tstRTSemEvent.cpp
+
+ tstRTSemEventMulti_TEMPLATE = VBoxR3TstExe
+ tstRTSemEventMulti_SOURCES = tstRTSemEventMulti.cpp
+
+ tstRTSemRW_TEMPLATE = VBoxR3TstExe
+ tstRTSemRW_SOURCES = tstRTSemRW.cpp
+
+ tstSemPingPong_TEMPLATE = VBoxR3TstExe
+ tstSemPingPong_SOURCES = tstSemPingPong.cpp
+
+ tstRTSemXRoads_TEMPLATE = VBoxR3TstExe
+ tstRTSemXRoads_SOURCES = tstRTSemXRoads.cpp
+
+ tstRTSort_TEMPLATE = VBoxR3TstExe
+ tstRTSort_SOURCES = tstRTSort.cpp
+
+ tstRTStrAlloc_TEMPLATE = VBoxR3TstExe
+ tstRTStrAlloc_SOURCES = tstRTStrAlloc.cpp
+
+ tstRTStrCache_TEMPLATE = VBoxR3TstExe
+ tstRTStrCache_SOURCES = tstRTStrCache.cpp
+
+ tstRTStrCatCopy_TEMPLATE = VBoxR3TstExe
+ tstRTStrCatCopy_SOURCES = tstRTStrCatCopy.cpp
+
+ tstRTStrFormat_TEMPLATE = VBoxR3TstExe
+ tstRTStrFormat_SOURCES = tstRTStrFormat.cpp
+
+ tstRTStrSplit_TEMPLATE = VBoxR3TstExe
+ tstRTStrSplit_SOURCES = tstRTStrSplit.cpp
+
+ tstRTStrSimplePattern_TEMPLATE = VBoxR3TstExe
+ tstRTStrSimplePattern_SOURCES = tstRTStrSimplePattern.cpp
+
+ tstStrToNum_TEMPLATE = VBoxR3TstExe
+ tstStrToNum_SOURCES = tstStrToNum.cpp
+
+ tstRTStrVersion_TEMPLATE = VBoxR3TstExe
+ tstRTStrVersion_SOURCES = tstRTStrVersion.cpp
+
+ tstRTSymlink_TEMPLATE = VBoxR3TstExe
+ tstRTSymlink_SOURCES = tstRTSymlink.cpp
+
+ tstRTSystemQueryDmi_TEMPLATE = VBoxR3TstExe
+ tstRTSystemQueryDmi_SOURCES = tstRTSystemQueryDmi.cpp
+
+ tstRTSystemQueryFirmware_TEMPLATE = VBoxR3TstExe
+ tstRTSystemQueryFirmware_SOURCES = tstRTSystemQueryFirmware.cpp
+
+ tstRTSystemQueryOsInfo_TEMPLATE = VBoxR3TstExe
+ tstRTSystemQueryOsInfo_SOURCES = tstRTSystemQueryOsInfo.cpp
+
+ tstRTTcp-1_TEMPLATE = VBoxR3TstExe
+ tstRTTcp-1_SOURCES = tstRTTcp-1.cpp
+
+ tstRTTemp_TEMPLATE = VBoxR3TstExe
+ tstRTTemp_SOURCES = tstRTTemp.cpp
+
+ tstRTDirCreateUniqueNumbered_TEMPLATE = VBoxR3TstExe
+ tstRTDirCreateUniqueNumbered_SOURCES = tstRTDirCreateUniqueNumbered.cpp
+
+ tstTermCallbacks_TEMPLATE = VBoxR3TstExe
+ tstTermCallbacks_SOURCES = tstTermCallbacks.cpp
+
+ tstThread-1_TEMPLATE = VBoxR3TstExe
+ tstThread-1_SOURCES = tstThread-1.cpp
+
+ tstRTThreadPoke_TEMPLATE = VBoxR3TstExe
+ tstRTThreadPoke_SOURCES = tstRTThreadPoke.cpp
+
+ tstRTThreadExecutionTime_TEMPLATE = VBoxR3TstExe
+ tstRTThreadExecutionTime_SOURCES = tstRTThreadExecutionTime.cpp
+
+ tstRTTime_TEMPLATE = VBoxR3TstExe
+ tstRTTime_SOURCES = tstRTTime.cpp
+
+ tstRTTls-1_TEMPLATE = VBoxR3TstExe
+ tstRTTls-1_SOURCES = tstRTTls-1.cpp
+
+ tstRTTraceLog_TEMPLATE = VBoxR3TstExe
+ tstRTTraceLog_SOURCES = tstRTTraceLog.cpp
+
+ tstTime-2_TEMPLATE = VBoxR3TstExe
+ tstTime-2_SOURCES = tstTime-2.cpp
+
+ tstTime-3_TEMPLATE = VBoxR3TstExe
+ tstTime-3_SOURCES = tstTime-3.cpp
+
+ tstTime-4_TEMPLATE = VBoxR3TstExe
+ tstTime-4_SOURCES = tstTime-4.cpp
+
+ tstTimer_TEMPLATE = VBoxR3TstExe
+ tstTimer_SOURCES = tstTimer.cpp
+
+ tstRTTimerLR_TEMPLATE = VBoxR3TstExe
+ tstRTTimerLR_SOURCES = tstRTTimerLR.cpp
+
+ tstRTTimeSpec_TEMPLATE = VBoxR3TstExe
+ tstRTTimeSpec_SOURCES = tstRTTimeSpec.cpp
+
+ tstTSC_SOURCES = tstTSC.cpp
+ tstTSC_CXXFLAGS.linux += -O3
+
+ tstRTUuid_TEMPLATE = VBoxR3TstExe
+ tstRTUuid_SOURCES = tstRTUuid.cpp
+
+ tstRTUdp-1_TEMPLATE = VBoxR3TstExe
+ tstRTUdp-1_SOURCES = tstRTUdp-1.cpp
+
+ tstUtf8_TEMPLATE = VBoxR3TstExe
+ tstUtf8_SOURCES = tstUtf8.cpp
+
+ tstRTCircBuf_TEMPLATE = VBoxR3TstExe
+ tstRTCircBuf_SOURCES = tstRTCircBuf.cpp
+
+ tstRTManifest_TEMPLATE = VBoxR3TstExe
+ tstRTManifest_SOURCES = tstRTManifest.cpp
+
+ tstRTMath_TEMPLATE = VBoxR3TstExe
+ tstRTMath_SOURCES = \
+ 	tstRTMath.cpp \
+ 	../common/math/gcc/udivmoddi4.c
+
+ tstRTUri_TEMPLATE = VBoxR3TstExe
+ tstRTUri_SOURCES = tstRTUri.cpp
+
+ tstRTVfs_TEMPLATE = VBoxR3TstExe
+ tstRTVfs_SOURCES = tstRTVfs.cpp
+
+ tstRTCoreDump_TEMPLACE = VBoxR3TstExe
+ tstRTCoreDump_SOURCES = tstRTCoreDump.cpp
+
+ tstVector_TEMPLATE = VBoxR3TstExe
+ tstVector_SOURCES = tstVector.cpp
+
+
+ tstRTZip_TEMPLATE = VBoxR3TstExe
+ tstRTZip_SOURCES = tstRTZip.cpp
+
+ tstRTJson_TEMPLATE = VBoxR3TstExe
+ tstRTJson_SOURCES = tstRTJson.cpp
+
+ tstRTShMem_TEMPLATE = VBoxR3TstExe
+ tstRTShMem_SOURCES = tstRTShMem.cpp
+
+ #
+ # Ring-0 testcases.
+ #
+
+ ## @todo create a template for compiling the ring-0 part.
+ tstRTR0DbgKrnlInfo_TEMPLATE = VBoxR0
+ tstRTR0DbgKrnlInfo_INST = $(INST_TESTCASE)
+ tstRTR0DbgKrnlInfo_DEFS = IN_RT_R0
+ tstRTR0DbgKrnlInfo_SYSSUFF = .r0
+ tstRTR0DbgKrnlInfo_SOURCES = tstRTR0DbgKrnlInfo.cpp
+ tstRTR0DbgKrnlInfo_LIBS = \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+  tstRTR0DbgKrnlInfoDriverHardened_TEMPLATE = VBoxR3HardenedTstExe
+  tstRTR0DbgKrnlInfoDriverHardened_NAME = tstRTR0DbgKrnlInfoDriver
+  ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+   tstRTR0DbgKrnlInfoDriverHardened_DEFS = PROGRAM_NAME_STR="tstRTR0DbgKrnlInfoDriver"
+  else
+   tstRTR0DbgKrnlInfoDriverHardened_DEFS = PROGRAM_NAME_STR=\"tstRTR0DbgKrnlInfoDriver\"
+  endif
+  tstRTR0DbgKrnlInfoDriverHardened_SOURCES = ../../HostDrivers/Support/SUPR3HardenedMainTemplateTestcase.cpp
+  tstRTR0DbgKrnlInfoDriver_TEMPLATE = VBoxR3HardenedTstDll
+ else
+  tstRTR0DbgKrnlInfoDriver_TEMPLATE = VBoxR3TstExe
+ endif
+ tstRTR0DbgKrnlInfoDriver_TEMPLATE = VBoxR3TstExe
+ tstRTR0DbgKrnlInfoDriver_SOURCES = tstRTR0DbgKrnlInfoDriver.cpp
+
+
+ tstRTR0MemUserKernel_TEMPLATE = VBoxR0
+ tstRTR0MemUserKernel_INST = $(INST_TESTCASE)
+ tstRTR0MemUserKernel_DEFS = IN_RT_R0
+ tstRTR0MemUserKernel_SYSSUFF = .r0
+ tstRTR0MemUserKernel_SOURCES = tstRTR0MemUserKernel.cpp
+ tstRTR0MemUserKernel_LIBS = \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+  tstRTR0MemUserKernelDriverHardened_TEMPLATE = VBoxR3HardenedTstExe
+  tstRTR0MemUserKernelDriverHardened_NAME = tstRTR0MemUserKernelDriver
+  ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+   tstRTR0MemUserKernelDriverHardened_DEFS = PROGRAM_NAME_STR="tstRTR0MemUserKernelDriver"
+  else
+   tstRTR0MemUserKernelDriverHardened_DEFS = PROGRAM_NAME_STR=\"tstRTR0MemUserKernelDriver\"
+  endif
+  tstRTR0MemUserKernelDriverHardened_SOURCES = ../../HostDrivers/Support/SUPR3HardenedMainTemplateTestcase.cpp
+  tstRTR0MemUserKernelDriver_TEMPLATE = VBoxR3HardenedTstDll
+ else
+  tstRTR0MemUserKernelDriver_TEMPLATE = VBoxR3TstExe
+ endif
+ tstRTR0MemUserKernelDriver_SOURCES = tstRTR0MemUserKernelDriver.cpp
+
+
+ tstRTR0SemMutex_TEMPLATE = VBoxR0
+ tstRTR0SemMutex_INST = $(INST_TESTCASE)
+ tstRTR0SemMutex_DEFS = IN_RT_R0
+ tstRTR0SemMutex_SYSSUFF = .r0
+ tstRTR0SemMutex_SOURCES = tstRTR0SemMutex.cpp
+ tstRTR0SemMutex_LIBS = \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+  tstRTR0SemMutexDriverHardened_TEMPLATE = VBoxR3HardenedTstExe
+  tstRTR0SemMutexDriverHardened_NAME = tstRTR0SemMutexDriver
+  ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+   tstRTR0SemMutexDriverHardened_DEFS = PROGRAM_NAME_STR="tstRTR0SemMutexDriver"
+  else
+   tstRTR0SemMutexDriverHardened_DEFS = PROGRAM_NAME_STR=\"tstRTR0SemMutexDriver\"
+  endif
+  tstRTR0SemMutexDriverHardened_SOURCES = ../../HostDrivers/Support/SUPR3HardenedMainTemplateTestcase.cpp
+  tstRTR0SemMutexDriver_TEMPLATE = VBoxR3HardenedTstDll
+ else
+  tstRTR0SemMutexDriver_TEMPLATE = VBoxR3TstExe
+ endif
+ tstRTR0SemMutexDriver_SOURCES = tstRTR0SemMutexDriver.cpp
+
+
+ tstRTR0Thread_TEMPLATE = VBoxR0
+ tstRTR0Thread_INST = $(INST_TESTCASE)
+ tstRTR0Thread_DEFS = IN_RT_R0
+ tstRTR0Thread_SYSSUFF = .r0
+ tstRTR0Thread_SOURCES = tstRTR0Thread.cpp
+ tstRTR0Thread_LIBS = \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+  tstRTR0ThreadDriverHardened_TEMPLATE = VBoxR3HardenedTstExe
+  tstRTR0ThreadDriverHardened_NAME = tstRTR0ThreadDriver
+  ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+   tstRTR0ThreadDriverHardened_DEFS = PROGRAM_NAME_STR="tstRTR0ThreadDriver"
+  else
+   tstRTR0ThreadDriverHardened_DEFS = PROGRAM_NAME_STR=\"tstRTR0ThreadDriver\"
+  endif
+  tstRTR0ThreadDriverHardened_SOURCES = ../../HostDrivers/Support/SUPR3HardenedMainTemplateTestcase.cpp
+  tstRTR0ThreadDriver_TEMPLATE = VBoxR3HardenedTstDll
+ else
+  tstRTR0ThreadDriver_TEMPLATE = VBoxR3TstExe
+ endif
+ tstRTR0ThreadDriver_SOURCES = tstRTR0ThreadDriver.cpp
+
+
+ tstRTR0Timer_TEMPLATE = VBoxR0
+ tstRTR0Timer_INST = $(INST_TESTCASE)
+ tstRTR0Timer_DEFS = IN_RT_R0
+ tstRTR0Timer_SYSSUFF = .r0
+ tstRTR0Timer_SOURCES = tstRTR0Timer.cpp
+ tstRTR0Timer_LIBS = \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+  tstRTR0TimerDriverHardened_TEMPLATE = VBoxR3HardenedTstExe
+  tstRTR0TimerDriverHardened_NAME = tstRTR0TimerDriver
+  ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+   tstRTR0TimerDriverHardened_DEFS = PROGRAM_NAME_STR="tstRTR0TimerDriver"
+  else
+   tstRTR0TimerDriverHardened_DEFS = PROGRAM_NAME_STR=\"tstRTR0TimerDriver\"
+  endif
+  tstRTR0TimerDriverHardened_SOURCES = ../../HostDrivers/Support/SUPR3HardenedMainTemplateTestcase.cpp
+  tstRTR0TimerDriver_TEMPLATE = VBoxR3HardenedTstDll
+ else
+  tstRTR0TimerDriver_TEMPLATE = VBoxR3TstExe
+ endif
+ tstRTR0TimerDriver_SOURCES = tstRTR0TimerDriver.cpp
+
+
+ tstRTR0ThreadPreemption_TEMPLATE = VBoxR0
+ tstRTR0ThreadPreemption_INST = $(INST_TESTCASE)
+ tstRTR0ThreadPreemption_DEFS = IN_RT_R0
+ tstRTR0ThreadPreemption_SYSSUFF = .r0
+ tstRTR0ThreadPreemption_SOURCES = tstRTR0ThreadPreemption.cpp
+ tstRTR0ThreadPreemption_LIBS = \
+ 	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+ 	$(VBOX_LIB_SUPR0)
+ if defined(VBOX_WITH_HARDENING) && "$(KBUILD_TARGET)" == "win"
+  tstRTR0ThreadPreemptionDriverHardened_TEMPLATE = VBoxR3HardenedTstExe
+  tstRTR0ThreadPreemptionDriverHardened_NAME = tstRTR0ThreadPreemptionDriver
+  ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+   tstRTR0ThreadPreemptionDriverHardened_DEFS = PROGRAM_NAME_STR="tstRTR0ThreadPreemptionDriver"
+  else
+   tstRTR0ThreadPreemptionDriverHardened_DEFS = PROGRAM_NAME_STR=\"tstRTR0ThreadPreemptionDriver\"
+  endif
+  tstRTR0ThreadPreemptionDriverHardened_SOURCES = ../../HostDrivers/Support/SUPR3HardenedMainTemplateTestcase.cpp
+  tstRTR0ThreadPreemptionDriver_TEMPLATE = VBoxR3HardenedTstDll
+ else
+  tstRTR0ThreadPreemptionDriver_TEMPLATE = VBoxR3TstExe
+ endif
+ tstRTR0ThreadPreemptionDriver_SOURCES = tstRTR0ThreadPreemptionDriver.cpp
+
+
+ #
+ # Odds and ends.
+ #
+
+ tstDarwinSched_TEMPLATE = VBoxR3TstExe
+ tstDarwinSched_SOURCES = tstDarwinSched.cpp
+
+ tstRTDarwinMachKernel_TEMPLATE = VBoxR3TstExe
+ tstRTDarwinMachKernel_INCS    = ../include
+ tstRTDarwinMachKernel_SOURCES = \
+ 	tstRTDarwinMachKernel.cpp \
+ 	../r0drv/darwin/dbgkrnlinfo-r0drv-darwin.cpp
+
+ ntGetTimerResolution_SOURCES = ntGetTimerResolution.cpp
+ ntGetTimerResolution_SDKS.win = ReorderCompilerIncs $(VBOX_WINPSDK) $(VBOX_WINDDK) VBoxNtDll
+
+
+ #
+ # ValKit versions of selected tests.
+ #
+ ifdef VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+  define def_valkit_unittest_iprt
+   PROGRAMS += $(unittest)-ValKit
+   $(unittest)-ValKit_TEMPLATE := VBoxValidationKitR3TstExe
+   $(unittest)-ValKit_EXTENDS := $(unittest)
+   $(unittest)-ValKit_NAME    := $(unittest)
+  endef
+  $(foreach unittest, $(VALKIT_UNITTESTS_WHITELIST_IPRT) $($(VALKIT_UNITTESTS_WHITELIST_IPRT).$(KBUILD_TARGET)) \
+	,$(evalcall2 def_valkit_unittest_iprt))
+ endif
+
+endif # VBOX_WITH_TESTCASES
+
+include $(FILE_KBUILD_SUB_FOOTER)

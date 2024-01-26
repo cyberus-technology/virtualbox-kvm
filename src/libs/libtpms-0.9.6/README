@@ -1,0 +1,107 @@
+What is libtpms?
+----------------
+
+Libtpms is a library that targets the integration of TPM functionality
+into hypervisors, primarily into Qemu. Libtpms provides a very narrow
+public API for this purpose so that integration is possible. Only the
+minimum of necessary APIs are made publicly available.
+
+It is assumed that the user of libtpms is familiar with the concepts
+of the Trusted Platform Module (TPM). For the interaction with libtpms
+it is necessary to know how to construct valid TPM commands and to
+be able to parse their results. It is not within the scope of libtpms's
+documentation to provide background on this. See the section on references
+below.
+
+
+What files does the libtpms package provide?
+--------------------------------------------
+
+The main libtpms package provides the following files:
+
+/usr/lib64/libtpms.so.0
+/usr/lib64/libtpms.so.0.5.1
+/usr/share/doc/libtpms-0.5.1
+/usr/share/doc/libtpms-0.5.1/CHANGES
+/usr/share/doc/libtpms-0.5.1/LICENSE
+/usr/share/doc/libtpms-0.5.1/README
+
+Applications can link with -ltpms.
+
+
+What files does the libtpms development package provide?
+--------------------------------------------------------
+
+The libtpms development package (libtpms-devel) provides the following
+include files for applications to use:
+
+tpm_error.h
+tpm_library.h
+tpm_memory.h
+tpm_nvfilename.h
+tpm_tis.h
+tpm_types.h
+
+These files contain the data structures, data types and API calls supported
+by libtpms. It is recommended to not use any other API calls than those
+provided in these include files.
+
+All APIs are described in man pages. The man pages are part of the libtpms
+development package as well:
+
+TPMLIB_DecodeBlob
+TPMLIB_GetTPMProperty
+TPMLIB_GetVersion
+TPMLIB_MainInit
+TPMLIB_Process
+TPMLIB_RegisterCallbacks
+TPMLIB_Terminate
+TPMLIB_VolatileAll_Store
+TPM_Free
+TPM_IO_Hash_Data
+TPM_IO_Hash_End
+TPM_IO_Hash_Start
+TPM_IO_TpmEstablished_Get
+TPM_Malloc
+TPM_Realloc
+
+
+How to contribute?
+------------------
+The mailing list for libtpms is libtpms@googlegroups.com.
+
+For patch submissions, please use a Signed-off-by: <your email> to indicate
+agreement to the DCO1.1.txt.
+
+
+Fuzzing
+-------
+Initial fuzzing is possible with clang & libfuzzer.
+
+You have to configure the project with --enable-fuzzer
+(--enable-sanitizer can also help spot more issues). Then you can
+build fuzz and run it with the testing corpus.
+
+Fuzz testing is known to work with Fedora 28 or later. It requires that the
+'clang' package is installed.
+
+Ex:
+$ ./configure --with-openssl --with-tpm2 --enable-sanitizers --enable-fuzzer \
+    CC=clang CXX=clang++
+$ make && make -C tests fuzz
+$ tests/run-fuzzer.sh
+
+oss-fuzz builds with its own fuzzer flags, and set $LIB_FUZZING_ENGINE
+to be linked with. The script run by oss-fuzz is tests/oss-fuzz.sh.
+
+Maintainers
+-----------
+libtpms is currently being maintained by Stefan Berger <stefanb@us.ibm.com>.
+
+References:
+-----------
+
+Documentation about the Trusted Platform Module (TPM) can be downloaded
+from the Trusted Computing Group's website at
+
+http://www.trustedcomputinggroup.org

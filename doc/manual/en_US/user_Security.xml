@@ -1,0 +1,755 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<chapter id="Security">
+
+  <title>Security Guide</title>
+
+  <sect1 id="security-general">
+
+    <title>General Security Principles</title>
+
+    <para>
+      The following principles are fundamental to using any application
+      securely.
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Keep software up to date</emphasis>. One
+          of the principles of good security practise is to keep all
+          software versions and patches up to date. Activate the
+          &product-name; update notification to get notified when a new
+          &product-name; release is available. When updating
+          &product-name;, do not forget to update the Guest Additions.
+          Keep the host operating system as well as the guest operating
+          system up to date.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Restrict network access to critical
+          services.</emphasis> Use proper means, for instance a
+          firewall, to protect your computer and your guests from
+          accesses from the outside. Choosing the proper networking mode
+          for VMs helps to separate host networking from the guest and
+          vice versa.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Follow the principle of least
+          privilege.</emphasis> The principle of least privilege states
+          that users should be given the least amount of privilege
+          necessary to perform their jobs. Always execute &product-name;
+          as a regular user. We strongly discourage anyone from
+          executing &product-name; with system privileges.
+        </para>
+
+        <para>
+          Choose restrictive permissions when creating configuration
+          files, for instance when creating /etc/default/virtualbox, see
+          <xref linkend="linux_install_opts"/>. Mode 0600 is preferred.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Monitor system activity.</emphasis>
+          System security builds on three pillars: good security
+          protocols, proper system configuration and system monitoring.
+          Auditing and reviewing audit records address the third
+          requirement. Each component within a system has some degree of
+          monitoring capability. Follow audit advice in this document
+          and regularly monitor audit records.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Keep up to date on latest security
+          information.</emphasis> Oracle continually improves its
+          software and documentation. Check this note yearly for
+          revisions.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+  </sect1>
+
+  <sect1 id="security-secure-install">
+
+    <title>Secure Installation and Configuration</title>
+
+    <sect2 id="security-secure-install-overview">
+
+      <title>Installation Overview</title>
+
+      <para>
+        The &product-name; base package should be downloaded only from a
+        trusted source, for instance the official website
+        <ulink url="http://www.virtualbox.org" />. The integrity of the
+        package should be verified with the provided SHA256 checksum
+        which can be found on the official website.
+      </para>
+
+      <para>
+        General &product-name; installation instructions for the
+        supported hosts can be found in <xref linkend="installation"/>.
+      </para>
+
+      <para>
+        On Windows hosts, the installer can be used to disable USB
+        support, support for bridged networking, support for host-only
+        networking and the Python language binding. See
+        <xref linkend="installation_windows"/>. All these features are
+        enabled by default but disabling some of them could be
+        appropriate if the corresponding functionality is not required
+        by any virtual machine. The Python language bindings are only
+        required if the &product-name; API is to be used by external
+        Python applications. In particular USB support and support for
+        the two networking modes require the installation of Windows
+        kernel drivers on the host. Therefore disabling those selected
+        features can not only be used to restrict the user to certain
+        functionality but also to minimize the surface provided to a
+        potential attacker.
+      </para>
+
+      <para>
+        The general case is to install the complete &product-name;
+        package. The installation must be done with system privileges.
+        All &product-name; binaries should be executed as a regular user
+        and never as a privileged user.
+      </para>
+
+      <para>
+        The &product-name; Extension Pack provides additional features
+        and must be downloaded and installed separately, see
+        <xref linkend="intro-installing"/>. As for the base package, the
+        SHA256 checksum of the extension pack should be verified. As the
+        installation requires system privileges, &product-name; will ask
+        for the system password during the installation of the extension
+        pack.
+      </para>
+
+    </sect2>
+
+    <sect2 id="security-secure-install-postinstall">
+
+      <title>Post Installation Configuration</title>
+
+      <para>
+        Normally there is no post installation configuration of
+        &product-name; components required. However, on Oracle Solaris
+        and Linux hosts it is necessary to configure the proper
+        permissions for users executing VMs and who should be able to
+        access certain host resources. For instance, Linux users must be
+        member of the <emphasis>vboxusers</emphasis> group to be able to
+        pass USB devices to a guest. If a serial host interface should
+        be accessed from a VM, the proper permissions must be granted to
+        the user to be able to access that device. The same applies to
+        other resources like raw partitions, DVD/CD drives, and sound
+        devices.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="security-features">
+
+    <title>Security Features</title>
+
+    <para>
+      This section outlines the specific security mechanisms offered by
+      &product-name;.
+    </para>
+
+    <sect2 id="security-model">
+
+      <title>The Security Model</title>
+
+      <para>
+        One property of virtual machine monitors (VMMs) like
+        &product-name; is to encapsulate a guest by executing it in a
+        protected environment, a virtual machine, running as a user
+        process on the host operating system. The guest cannot
+        communicate directly with the hardware or other computers but
+        only through the VMM. The VMM provides emulated physical
+        resources and devices to the guest which are accessed by the
+        guest operating system to perform the required tasks. The VM
+        settings control the resources provided to the guest, for
+        example the amount of guest memory or the number of guest
+        processors and the enabled features for that guest. For example
+        remote control, certain screen settings and others. See
+        <xref linkend="generalsettings"/>.
+      </para>
+
+    </sect2>
+
+    <sect2 id="secure-config-vms">
+
+      <title>Secure Configuration of Virtual Machines</title>
+
+      <para>
+        Several aspects of a virtual machine configuration are subject
+        to security considerations.
+      </para>
+
+      <sect3 id="security-networking">
+
+        <title>Networking</title>
+
+        <para>
+          The default networking mode for VMs is NAT which means that
+          the VM acts like a computer behind a router, see
+          <xref linkend="network_nat"/>. The guest is part of a private
+          subnet belonging to this VM and the guest IP is not visible
+          from the outside. This networking mode works without any
+          additional setup and is sufficient for many purposes. Keep in
+          mind that NAT allows access to the host operating system's
+          loopback interface.
+        </para>
+
+        <para>
+          If bridged networking is used, the VM acts like a computer
+          inside the same network as the host, see
+          <xref linkend="network_bridged"/>. In this case, the guest has
+          the same network access as the host and a firewall might be
+          necessary to protect other computers on the subnet from a
+          potential malicious guest as well as to protect the guest from
+          a direct access from other computers. In some cases it is
+          worth considering using a forwarding rule for a specific port
+          in NAT mode instead of using bridged networking.
+        </para>
+
+        <para>
+          Some setups do not require a VM to be connected to the public
+          network at all. Internal networking, see
+          <xref linkend="network_internal"/>, or host-only networking,
+          see <xref linkend="network_hostonly"/>, are often sufficient
+          to connect VMs among each other or to connect VMs only with
+          the host but not with the public network.
+        </para>
+
+      </sect3>
+
+      <sect3 id="security-vrdp-auth">
+
+        <title>VRDP Remote Desktop Authentication</title>
+
+        <para>
+          When using the &product-name; Extension Pack provided by
+          Oracle for VRDP remote desktop support, you can optionally use
+          various methods to configure RDP authentication. The "null"
+          method is very insecure and should be avoided in a public
+          network. See <xref linkend="vbox-auth" />.
+        </para>
+
+      </sect3>
+
+      <sect3 id="security_clipboard">
+
+        <title>Clipboard</title>
+
+        <para>
+          The shared clipboard enables users to share data between the
+          host and the guest. Enabling the clipboard in Bidirectional
+          mode enables the guest to read and write the host clipboard.
+          The Host to Guest mode and the Guest to Host mode limit the
+          access to one direction. If the guest is able to access the
+          host clipboard it can also potentially access sensitive data
+          from the host which is shared over the clipboard.
+        </para>
+
+        <para>
+          If the guest is able to read from and/or write to the host
+          clipboard then a remote user connecting to the guest over the
+          network will also gain this ability, which may not be
+          desirable. As a consequence, the shared clipboard is disabled
+          for new machines.
+        </para>
+
+      </sect3>
+
+      <sect3 id="security-shared-folders">
+
+        <title>Shared Folders</title>
+
+        <para>
+          If any host folder is shared with the guest then a remote user
+          connected to the guest over the network can access these files
+          too as the folder sharing mechanism cannot be selectively
+          disabled for remote users.
+        </para>
+
+      </sect3>
+
+      <sect3 id="security-3d-graphics">
+
+        <title>3D Graphics Acceleration</title>
+
+        <para>
+          Enabling 3D graphics using the Guest Additions exposes the
+          host to additional security risks. See
+          <xref
+          linkend="guestadd-3d" />.
+        </para>
+
+      </sect3>
+
+      <sect3 id="security-cd-dvd-passthrough">
+
+        <title>CD/DVD Passthrough</title>
+
+        <para>
+          Enabling CD/DVD passthrough enables the guest to perform
+          advanced operations on the CD/DVD drive, see
+          <xref linkend="storage-cds"/>. This could induce a security
+          risk as a guest could overwrite data on a CD/DVD medium.
+        </para>
+
+      </sect3>
+
+      <sect3 id="security-usb-passthrough">
+
+        <title>USB Passthrough</title>
+
+        <para>
+          Passing USB devices to the guest provides the guest full
+          access to these devices, see <xref linkend="settings-usb"/>.
+          For instance, in addition to reading and writing the content
+          of the partitions of an external USB disk the guest will be
+          also able to read and write the partition table and hardware
+          data of that disk.
+        </para>
+
+      </sect3>
+
+    </sect2>
+
+    <sect2 id="auth-config-using">
+
+      <title>Configuring and Using Authentication</title>
+
+      <para>
+        The following components of &product-name; can use passwords for
+        authentication:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            When using remote iSCSI storage and the storage server
+            requires authentication, an initiator secret can optionally
+            be supplied with the <command>VBoxManage
+            storageattach</command> command. As long as no settings
+            password is provided, by using the command line option
+            <option>--settingspwfile</option>, then this secret is
+            stored <emphasis>unencrypted</emphasis> in the machine
+            configuration and is therefore potentially readable on the
+            host. See <xref linkend="storage-iscsi" /> and
+            <xref linkend="vboxmanage-storageattach" />.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            When using the &product-name; web service to control an
+            &product-name; host remotely, connections to the web service
+            are authenticated in various ways. This is described in
+            detail in the &product-name; Software Development Kit (SDK)
+            reference. See <xref linkend="VirtualBoxAPI" />.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+    </sect2>
+
+<!--
+    <sect2 id="access-control-config-using">
+      <title>Configuring and Using Access Control</title>
+    </sect2>
+
+    <sect2 id="security-audit-config-using">
+      <title>Configuring and Using Security Audit</title>
+    </sect2>
+
+    <sect2 id="security-other-features-config-using">
+      <title>Configuring and Using Other Security Features</title>
+    </sect2>
+    -->
+
+    <sect2 id="pot-insecure">
+
+      <title>Potentially Insecure Operations</title>
+
+      <para>
+        The following features of &product-name; can present security
+        problems:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            Enabling 3D graphics using the Guest Additions exposes the
+            host to additional security risks. See
+            <xref
+          linkend="guestadd-3d" />.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            When teleporting a machine, the data stream through which
+            the machine's memory contents are transferred from one host
+            to another is not encrypted. A third party with access to
+            the network through which the data is transferred could
+            therefore intercept that data. An SSH tunnel could be used
+            to secure the connection between the two hosts. But when
+            considering teleporting a VM over an untrusted network the
+            first question to answer is how both VMs can securely access
+            the same virtual disk image with a reasonable performance.
+          </para><para>
+            If the network is not sufficiently trusted, the password
+            should be changed for each teleportation as the a 3rd party
+            could snoop up the unecrypted password hash when it is
+            transferred between the target and source host machines.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            When Page Fusion, see <xref linkend="guestadd-pagefusion"/>,
+            is enabled, it is possible that a side-channel opens up that
+            enables a malicious guest to determine the address space of
+            another VM running on the same host layout. For example,
+            where DLLs are typically loaded. This information leak in
+            itself is harmless, however the malicious guest may use it
+            to optimize attack against that VM through unrelated attack
+            vectors. It is recommended to only enable Page Fusion if you
+            do not think this is a concern in your setup.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            When using the &product-name; web service to control an
+            &product-name; host remotely, connections to the web
+            service, over which the API calls are transferred using SOAP
+            XML, are not encrypted. They use plain HTTP by default. This
+            is a potential security risk. For details about the web
+            service, see <xref linkend="VirtualBoxAPI" />.
+          </para>
+
+          <para>
+            The web services are not started by default. See
+            <xref linkend="vboxwebsrv-daemon"/> to find out how to start
+            this service and how to enable SSL/TLS support. It has to be
+            started as a regular user and only the VMs of that user can
+            be controlled. By default, the service binds to localhost
+            preventing any remote connection.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Traffic sent over a UDP Tunnel network attachment is not
+            encrypted. You can either encrypt it on the host network
+            level, with IPsec, or use encrypted protocols in the guest
+            network, such as SSH. The security properties are similar to
+            bridged Ethernet.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Because of shortcomings in older Windows versions, using
+            &product-name; on Windows versions older than Vista with
+            Service Pack 1 is not recommended.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+    </sect2>
+
+    <sect2 id="security-encryption">
+
+      <title>Encryption</title>
+
+      <para>
+        The following components of &product-name; use encryption to
+        protect sensitive data:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            When using the &product-name; Extension Pack provided by
+            Oracle for VRDP remote desktop support, RDP data can
+            optionally be encrypted. See <xref linkend="vrde-crypt" />.
+            Only the Enhanced RDP Security method (RDP5.2) with TLS
+            protocol provides a secure connection. Standard RDP Security
+            (RDP4 and RDP5.1) is vulnerable to a man-in-the-middle
+            attack.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            When using the &product-name; Extension Pack provided by
+            Oracle for disk encryption, the data stored in disk images
+            can optionally be encrypted. See
+            <xref linkend="diskencryption" />. This feature covers disk
+            image content only. All other data for a virtual machine is
+            stored unencrypted, including the VM's memory and device
+            state which is stored as part of a saved state, both when
+            created explicitly or part of a snapshot of a running VM.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+    </sect2>
+
+  </sect1>
+
+<!--
+  <sect1 id="security-devel">
+    <title>Security Considerations for Developers</title>
+  </sect1>
+  -->
+
+  <sect1 id="security-recommendations">
+
+    <title>Security Recommendations</title>
+
+    <para>
+      This section contains security recommendations for specific
+      issues. By default VirtualBox will configure the VMs to run in a
+      secure manner, however this may not always be possible without
+      additional user actions such as host OS or firmware configuration
+      changes.
+    </para>
+
+    <sect2 id="sec-rec-cve-2018-3646">
+
+      <title>CVE-2018-3646</title>
+
+      <para>
+        This security issue affect a range of Intel CPUs with nested
+        paging. AMD CPUs are expected not to be impacted (pending direct
+        confirmation by AMD). Also the issue does not affect VMs running
+        with hardware virtualization disabled or with nested paging
+        disabled.
+      </para>
+
+      <para>
+        For more information about nested paging, see
+        <xref linkend="nestedpaging" />.
+      </para>
+
+      <para>
+        The following mitigation options are available.
+      </para>
+
+      <sect3>
+
+        <title>Disable Nested Paging</title>
+
+        <para>
+          By disabling nested paging (EPT), the VMM will construct page
+          tables shadowing the ones in the guest. It is no possible for
+          the guest to insert anything fishy into the page tables, since
+          the VMM carefully validates each entry before shadowing it.
+        </para>
+
+        <para>
+          As a side effect of disabling nested paging, several CPU
+          features will not be made available to the guest. Among these
+          features are AVX, AVX2, XSAVE, AESNI, and POPCNT. Not all
+          guests may be able to cope with dropping these features after
+          installation. Also, for some guests, especially in SMP
+          configurations, there could be stability issues arising from
+          disabling nested paging. Finally, some workloads may
+          experience a performance degradation.
+        </para>
+
+      </sect3>
+
+      <sect3>
+
+        <title>Flushing the Level 1 Data Cache</title>
+
+        <para>
+          This aims at removing potentially sensitive data from the
+          level 1 data cache when running guest code. However, it is
+          made difficult by hyper-threading setups sharing the level 1
+          cache and thereby potentially letting the other thread in a
+          pair refill the cache with data the user does not want the
+          guest to see. In addition, flushing the level 1 data cache is
+          usually not without performance side effects.
+        </para>
+
+        <para>
+          Up to date CPU microcode is a prerequisite for the cache
+          flushing mitigations. Some host OSes may install these
+          automatically, though it has traditionally been a task best
+          performed by the system firmware. So, please check with your
+          system / mainboard manufacturer for the latest firmware
+          update.
+        </para>
+
+        <para>
+          We recommend disabling hyper threading on the host. This is
+          traditionally done from the firmware setup, but some OSes also
+          offers ways disable HT. In some cases it may be disabled by
+          default, but please verify as the effectiveness of the
+          mitigation depends on it.
+        </para>
+
+        <para>
+          The default action taken by VirtualBox is to flush the level 1
+          data cache when a thread is scheduled to execute guest code,
+          rather than on each VM entry. This reduces the performance
+          impact, while making the assumption that the host OS will not
+          handle security sensitive data from interrupt handlers and
+          similar without taking precautions.
+        </para>
+
+        <para>
+          A more aggressive flushing option is provided via the
+          <command>VBoxManage modifyvm</command>
+          <option>--l1d-flush-on-vm-entry</option> option. When enabled
+          the level 1 data cache will be flushed on every VM entry. The
+          performance impact is greater than with the default option,
+          though this of course depends on the workload. Workloads
+          producing a lot of VM exits (like networking, VGA access, and
+          similiar) will probably be most impacted.
+        </para>
+
+        <para>
+          For users not concerned by this security issue, the default
+          mitigation can be disabled using the <command>VBoxManage
+          modifyvm name --l1d-flush-on-sched off</command> command.
+        </para>
+
+      </sect3>
+
+    </sect2>
+
+    <sect2 id="sec-rec-cve-2018-12126-et-al">
+
+      <title>CVE-2018-12126, CVE-2018-12127, CVE-2018-12130, CVE-2019-11091</title>
+
+      <para>
+        These security issues affect a range of Intel CPUs starting with
+        Nehalem. The CVE-2018-12130 also affects some Atom Silvermont,
+        Atom Airmont, and Knights family CPUs, however the scope is so
+        limited that the host OS should deal with it and &product-name;
+        is therefore not affected. Leaks only happens when entering and
+        leaving C states.
+      </para>
+
+      <para>
+        The following mitigation option is available.
+      </para>
+
+      <sect3>
+
+        <title>Buffer Overwriting and Disabling Hyper-Threading</title>
+
+        <para>
+          First, up to date CPU microcode is a prerequisite for the
+          buffer overwriting (clearing) mitigations. Some host OSes may
+          install these automatically, though it has traditionally been
+          a task best performed by the system firmware. Please check
+          with your system or mainboard manufacturer for the latest
+          firmware update.
+        </para>
+
+        <para>
+          This mitigation aims at removing potentially sensitive data
+          from the affected buffers before running guest code. Since
+          this means additional work each time the guest is scheduled,
+          there might be some performance side effects.
+        </para>
+
+        <para>
+          We recommend disabling hyper-threading (HT) on hosts affected
+          by CVE-2018-12126 and CVE-2018-12127, because the affected
+          sets of buffers are normally shared between thread pairs and
+          therefore cause leaks between the threads. This is
+          traditionally done from the firmware setup, but some OSes also
+          offers ways disable HT. In some cases it may be disabled by
+          default, but please verify as the effectiveness of the
+          mitigation depends on it.
+        </para>
+
+        <para>
+          The default action taken by &product-name; is to clear the
+          affected buffers when a thread is scheduled to execute guest
+          code, rather than on each VM entry. This reduces the
+          performance impact, while making the assumption that the host
+          OS will not handle security sensitive data from interrupt
+          handlers and similar without taking precautions.
+        </para>
+
+        <para>
+          The <command>VBoxManage modifyvm</command> command provides a
+          more aggressive flushing option is provided by means of the
+          <option>--mds-clear-on-vm-entry</option> option. When enabled
+          the affected buffers will be cleared on every VM entry. The
+          performance impact is greater than with the default option,
+          though this of course depends on the workload. Workloads
+          producing a lot of VM exits (like networking, VGA access, and
+          similiar) will probably be most impacted.
+        </para>
+
+        <para>
+          For users not concerned by this security issue, the default
+          mitigation can be disabled using the <command>VBoxManage
+          modifyvm name --mds-clear-on-sched off</command> command.
+        </para>
+
+      </sect3>
+
+    </sect2>
+
+  </sect1>
+
+</chapter>

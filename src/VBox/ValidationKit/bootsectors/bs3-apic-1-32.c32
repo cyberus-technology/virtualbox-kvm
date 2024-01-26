@@ -1,0 +1,119 @@
+/* $Id: bs3-apic-1-32.c32 $ */
+/** @file
+ * BS3Kit - bs3-apic-1, 32-bit C code.
+ */
+
+/*
+ * Copyright (C) 2022-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+
+/*********************************************************************************************************************************
+*   Header Files                                                                                                                 *
+*********************************************************************************************************************************/
+#include <bs3kit.h>
+#include <iprt/asm-amd64-x86.h>
+#include <iprt/x86.h>
+#include <VBox/apic.h>
+
+
+static void printBitmap(const char BS3_FAR *pszName, uint32_t BS3_FAR volatile *pau32Bitmap)
+{
+    unsigned off;
+    Bs3TestPrintf("%s:", pszName);
+    for (off = 0; off < 0x80; off += 0x10)
+    {
+        uint32_t uVal = pau32Bitmap[off / sizeof(uint32_t)];
+        Bs3TestPrintf(off != 0 ? "'%08x" : "%08x", uVal);
+    }
+    Bs3TestPrintf("\n");
+}
+
+
+BS3_DECL(void) ProtModeApicTests(void)
+{
+    uint64_t uApicBase2, uApicBase;
+
+    Bs3TestSub("protected mode");
+    uApicBase = ASMRdMsr(MSR_IA32_APICBASE);
+
+    /* Disable the APIC (according to wiki.osdev.org/APIC, disabling the
+       APIC could require a CPU reset to re-enable it, but it works for us): */
+    ASMWrMsr(MSR_IA32_APICBASE, uApicBase & ~(uint64_t)MSR_IA32_APICBASE_EN);
+    uApicBase2 = ASMRdMsr(MSR_IA32_APICBASE);
+    if (uApicBase2 == (uApicBase & ~(uint64_t)MSR_IA32_APICBASE_EN))
+        Bs3TestPrintf("Disabling worked.\n");
+    else
+        Bs3TestFailedF("Disabling the APIC did not work (%#RX64)", uApicBase2);
+
+    /* Enabling the APIC: */
+    ASMWrMsr(MSR_IA32_APICBASE, uApicBase | MSR_IA32_APICBASE_EN);
+    uApicBase2 = ASMRdMsr(MSR_IA32_APICBASE);
+    if (uApicBase2 == (uApicBase | MSR_IA32_APICBASE_EN))
+    {
+        uint8_t  BS3_FAR volatile * const  pabApic   = (uint8_t  BS3_FAR volatile *)((uintptr_t)uApicBase & X86_PAGE_4K_BASE_MASK);
+        uint32_t BS3_FAR volatile * const  pau32Apic = (uint32_t BS3_FAR volatile *)pabApic;
+        uint32_t                           i, uVal, uVal2;
+        Bs3TestPrintf("Enabling worked.\n");
+
+        /*
+         * Do some register reads and such.
+         */
+        uVal = pau32Apic[XAPIC_OFF_VERSION / sizeof(uint32_t)];
+        Bs3TestPrintf("APIC version: %#x\n", uVal);
+        if (   APIC_REG_VERSION_GET_VER(uVal) != XAPIC_HARDWARE_VERSION_P4
+            && APIC_REG_VERSION_GET_VER(uVal) != XAPIC_HARDWARE_VERSION_P6)
+            Bs3TestFailedF("Unexpected APIC version: %#x (%#x)", APIC_REG_VERSION_GET_VER(uVal), uVal);
+
+        Bs3TestPrintf("APIC ID:      %#x\n", pau32Apic[XAPIC_OFF_ID / sizeof(uint32_t)]);
+
+        Bs3TestPrintf("TPR:          %#x\n", pau32Apic[XAPIC_OFF_TPR / sizeof(uint32_t)]);
+        for (i = 0; i < 5; i++)
+        {
+            Bs3TestPrintf("TPR write test iteration #%u\n", i + 1);
+            uVal = 256;
+            while (uVal-- > 0)
+            {
+                pau32Apic[XAPIC_OFF_TPR / sizeof(uint32_t)] = uVal;
+                uVal2 = pau32Apic[XAPIC_OFF_TPR / sizeof(uint32_t)];
+                if (uVal2 != uVal)
+                    Bs3TestFailedF("Setting TPR to %#x failed, read back %#x", uVal, uVal2);
+            }
+        }
+        Bs3TestPrintf("APR:          %#x\n", pau32Apic[XAPIC_OFF_APR / sizeof(uint32_t)]);
+        Bs3TestPrintf("PPR:          %#x\n", pau32Apic[XAPIC_OFF_PPR / sizeof(uint32_t)]);
+        printBitmap("ISR", &pau32Apic[XAPIC_OFF_ISR0 / sizeof(uint32_t)]);
+        printBitmap("TMR", &pau32Apic[XAPIC_OFF_TMR0 / sizeof(uint32_t)]);
+        printBitmap("IRR", &pau32Apic[XAPIC_OFF_IRR0 / sizeof(uint32_t)]);
+    }
+    else
+        Bs3TestFailedF("Enabling the APIC did not work (%#RX64)", uApicBase2);
+}
+

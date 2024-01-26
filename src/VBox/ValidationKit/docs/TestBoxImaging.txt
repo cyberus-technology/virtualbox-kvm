@@ -1,0 +1,368 @@
+
+Testbox Imaging (Backup / Restore)
+==================================
+
+
+Introduction
+------------
+
+This document is explores deploying a very simple drive imaging solution to help
+avoid needing to manually reinstall testboxes when a disk goes bust or the OS
+install seems to be corrupted.
+
+
+Definitions / Glossary
+======================
+
+See AutomaticTestingRevamp.txt.
+
+
+Objectives
+==========
+
+ - Off site, no admin interaction (no need for ILOM or similar).
+ - OS independent.
+ - Space and bandwidth efficient.
+ - As automatic as possible.
+ - Logging.
+
+
+Overview of the Solution
+========================
+
+Here is a brief summary:
+
+ - Always boot testboxes via PXE using PXELINUX.
+ - Default configuration is local boot (hard disk / SSD)
+ - Restore/backup action triggered by machine specific PXE config.
+ - Boots special debian maintenance install off NFS.
+ - A maintenance service (systemd style) does the work.
+ - The service reads action from TFTP location and performs it.
+ - When done the service removes the TFTP machine specific config
+   and reboots the system.
+
+Maintenance actions are:
+ - backup
+ - backup-again
+ - restore
+ - refresh-info
+ - rescue
+
+Possible modifier that indicates a subset of disk on testboxes with other OSes
+installed.  Support for partition level backup/restore is not explored here.
+
+
+How to use
+----------
+
+To perform one of the above maintenance actions on a testbox, run the
+``testbox-pxe-conf.sh`` script::
+
+    /mnt/testbox-tftp/pxeclient.cfg/testbox-pxe-conf.sh 10.165.98.220 rescue
+
+Then trigger a reboot.  The box will then boot the NFS rooted debian image and
+execute the maintenance action.  On success, it will remove the testbox hex-IP
+config file and reboot again.
+
+
+Storage Server
+==============
+
+The storage server will have three areas used here.  Using NFS for all three
+avoids extra work getting CIFS sharing right too (NFS is already a pain).
+
+ 1. /export/testbox-tftp    - TFTP config area.  Read-write.
+ 2. /export/testbox-backup  - Images and logs.  Read-write.
+ 3. /export/testbox-nfsroot - Custom debian.  Read-only, no root squash.
+
+
+TFTP (/export/testbox-tftp)
+============================
+
+The testbox-tftp share needs to be writable, root squashing is okay.
+
+We need files from both PXELINUX and SYSLINUX to make this work now.  On a
+debian system, the ``pxelinux`` and ``syslinux`` packages needs to be
+installed.  We actually do this further down when setting up the nfsroot, so
+it's possible to get them from there by postponing this step a little.  On
+debian 8.6.0 the PXELINUX files are found in ``/usr/lib/PXELINUX`` and the
+SYSLINUX ones in ``/usr/lib/syslinux``.
+
+The initial PXE image as well as associated modules comes in three variants,
+BIOS, 32-bit EFI and 64-bit EFI.  We'll only need the BIOS one for now.
+Perform the following copy operations::
+
+  cp /usr/lib/PXELINUX/pxelinux.0 /mnt/testbox-tftp/
+  cp /usr/lib/syslinux/modules/*/ldlinux.* /mnt/testbox-tftp/
+  cp -R /usr/lib/syslinux/modules/bios  /mnt/testbox-tftp/
+  cp -R /usr/lib/syslinux/modules/efi32 /mnt/testbox-tftp/
+  cp -R /usr/lib/syslinux/modules/efi64 /mnt/testbox-tftp/
+
+
+For simplicity, all the testboxes boot using good old fashioned BIOS, no EFI.
+However, it doesn't really hurt to be prepared.
+
+The PXELINUX related files goes in the root of the testbox-tftp share.  (As
+mentioned further down, these can be installed on a debian system by running
+``apt-get install pxelinux syslinux``.)  We need the ``*pxelinux.0`` files
+typically found in ``/usr/lib/PXELINUX/`` on debian systems (recent ones
+anyway).  It is possible we may need one ore more fo the modules [1]_ that
+ships with PXELINUX/SYSLINUX, so do copy ``/usr/lib/syslinux/modules`` to
+``testbox-tftp/modules`` as well.
+
+
+The directory layout related to the configuration files is dictated by the
+PXELINUX configuration file searching algorithm [2]_.  Create a subdirectory
+``pxelinux.cfg/`` under ``testbox-tftp`` and create the world readable file
+``default`` with the following content::
+
+  PATH bios
+  DEFAULT local-boot
+  LABEL local-boot
+  LOCALBOOT
+
+This will make the default behavior to boot the local disk system.
+
+Copy the ``testbox-pxe-conf.sh`` script file found in the same directory as
+this document to ``/mnt/testbox-tftp/pxelinux.cfg/``.  Edit the copy to correct
+the IP addresses near the top, as well as any linux, TFTP and PXE details near
+the bottom of the file.   This script will generate the PXE configuration file
+when performing maintenance on a testbox.
+
+
+Images and logs (/export/testbox-backup)
+=========================================
+
+The testbox-backup share needs to be writable, root squashing is okay.
+
+In the root there must be a file ``testbox-backup`` so we can easily tell
+whether we've actually mounted the share or are just staring at an empty mount
+point directory.
+
+The ``testbox-maintenance.sh`` script maintains a global log in the root
+directory that's called ``maintenance.log``.  Errors will be logged there as
+well as a ping and the action.
+
+We use a directory layout based on dotted decimal IP addresses here, so for a
+server with the IP 10.40.41.42 all its file will be under ``10.40.41.42/``:
+
+``<hostname>``
+  The name of the testbox (empty file).  Help finding a testbox by name.
+
+``testbox-info.txt``
+  Information about the testbox.  Starting off with the name, decimal IP,
+  PXELINUX style hexadecimal IP, and more.
+
+``maintenance.log``
+  Maintenance log file recording what the maintenance service does.
+
+``disk-devices.lst``
+  Optional list of disk devices to consider backuping up or restoring.  This is
+  intended for testboxes with additional disks that are used for other purposes
+  and should touched.
+
+``sda.raw.gz``
+  The gzipped raw copy of the sda device of the testbox.
+
+``sd[bcdefgh].raw.gz``
+  The gzipped raw copy sdb, sdc, sde, sdf, sdg, sdh, etc if any of them exists
+  and are disks/SSDs.
+
+
+Note! If it turns out we can be certain to get a valid host name, we might just
+      switch to use the hostname as the directory name instead of the IP.
+
+
+Debian NFS root (/export/testbox-nfsroot)
+==========================================
+
+The testbox-nfsroot share should be read-only and must **not** have root
+squashing enabled.  Also, make sure setting the set-uid-bit is allowed by the
+server, or ``su` and ``sudo`` won't work
+
+There are several ways of creating a debian nfsroot, but since we've got a
+tool like VirtualBox around we've just installed it in a VM, prepared it,
+and copied it onto the NFS server share.
+
+As of writing debian 8.6.0 is current, so a minimal 64-bit install of it was
+done in a VM.  After installation the following modifications was done:
+
+ - ``apt-get install pxelinux syslinux initramfs-tools zip gddrescue sudo joe``
+   and optionally ``apt-get install smbclient cifs-utils``.
+
+ - ``/etc/default/grub`` was modified to set ``GRUB_CMDLINE_LINUX_DEFAULT`` to
+   ``""`` instead of ``"quiet"``.  This allows us to see messages during boot
+   and perhaps spot why something doesn't work on a testbox.  Regenerate the
+   grub configuration file by running ``update-grub`` afterwards.
+
+ - ``/etc/sudoers`` was modified to allow the ``vbox`` user use sudo without
+   requring any password.
+
+ - Create the directory ``/etc/systemd/system/getty@tty1.service.d`` and create
+   the file ``noclear.conf`` in it with the following content::
+
+     [Service]
+     TTYVTDisallocate=no
+
+   This stops getty from clearing VT1 and let us see the tail of the boot up
+   messages, which includes messages from the testbox-maintenance service.
+
+ - Mount the testbox-nfsroot under ``/mnt/`` with write privileges.  (The write
+   privileges are temporary - don't forget to remove them later on.)::
+
+     mount -t nfs myserver.com:/export/testbox-nfsroot
+
+   Note! Adding ``-o nfsvers=3`` may help with some NTFv4 servers.
+
+ - Copy the debian root and dev file system onto nfsroot.  If you have ssh
+   access to the NFS server, the quickest way to do it is to use ``tar``::
+
+     tar -cz --one-file-system -f /mnt/testbox-maintenance-nfsroot.tar.gz . dev/
+
+   An alternative is ``cp -ax . /mnt/. &&  cp -ax dev/. /mnt/dev/.`` but this
+   is quite a bit slower, obviously.
+
+ - Edit ``/etc/ssh/sshd_config`` setting ``PermitRootLogin`` to ``yes`` so we can ssh
+   in as root later on.
+
+ - chroot into the nfsroot: ``chroot /mnt/``
+
+     - ``mount -o proc proc /proc``
+
+     - ``mount -o sysfs sysfs /sys``
+
+     - ``mkdir /mnt/testbox-tftp /mnt/testbox-backup``
+
+     - Recreate ``/etc/fstab`` with::
+
+         proc                             /proc               proc  defaults   0 0
+         /dev/nfs                         /                   nfs   defaults   1 1
+         10.42.1.1:/export/testbox-tftp   /mnt/testbox-tftp   nfs   tcp,nfsvers=3,noauto  2 2
+         10.42.1.1:/export/testbox-backup /mnt/testbox-backup nfs   tcp,nfsvers=3,noauto  3 3
+
+       We use NFS version 3 as that works better for our NFS server and client,
+       remove if not necessary.  The ``noauto`` option is to work around mount
+       trouble during early bootup on some of our boxes.
+
+     - Do ``mount /mnt/testbox-tftp && mount /mnt/testbox-backup`` to mount the
+       two shares.  This may be a good time to execute the instructions in the
+       sections above relating to these two shares.
+
+     - Edit ``/etc/initramfs-tools/initramfs.conf`` and change the ``MODULES``
+       value from ``most`` to ``netboot``.
+
+     - Append ``aufs`` to ``/etc/initramfs-tools/modules``.  The advanced
+       multi-layered unification filesystem (aufs) enables us to use a
+       read-only NFS root. [3]_ [4]_ [5]_
+
+     - Create ``/etc/initramfs-tools/scripts/init-bottom/00_aufs_init`` as
+       an executable file with the following content::
+
+         #!/bin/sh
+         # Don't run during update-initramfs:
+         case "$1" in
+             prereqs)
+                 exit 0;
+                 ;;
+         esac
+
+         modprobe aufs
+         mkdir -p /ro /rw /aufs
+         mount -t tmpfs tmpfs /rw -o noatime,mode=0755
+         mount --move $rootmnt /ro
+         mount -t aufs aufs /aufs -o noatime,dirs=/rw:/ro=ro
+         mkdir -p /aufs/rw /aufs/ro
+         mount --move /ro /aufs/ro
+         mount --move /rw /aufs/rw
+         mount --move /aufs /root
+         exit 0
+
+     - Update the init ramdisk: ``update-initramfs -u -k all``
+
+       Note! It may be necessary to do ``mount -t tmpfs tmpfs /var/tmp`` to help
+             this operation succeed.
+
+     - Copy ``/boot`` to ``/mnt/testbox-tftp/maintenance-boot/``.
+
+     - Copy the ``testbox-maintenance.sh`` file found in the same directory as this
+       document to ``/root/scripts/`` (need to create the dir) and make it
+       executable.
+
+     - Create the systemd service file for the maintenance service as
+       ``/etc/systemd/system/testbox-maintenance.service`` with the content::
+
+         [Unit]
+         Description=Testbox Maintenance
+         After=network.target
+         Before=getty@tty1.service
+
+         [Service]
+         Type=oneshot
+         RemainAfterExit=True
+         ExecStart=/root/scripts/testbox-maintenance.sh
+         ExecStartPre=/bin/echo -e \033%G
+         ExecReload=/bin/kill -HUP $MAINPID
+         WorkingDirectory=/tmp
+         Environment=TERM=xterm
+         StandardOutput=journal+console
+
+         [Install]
+         WantedBy=multi-user.target
+
+     - Enable our service: ``systemctl enable /etc/systemd/system/testbox-maintenance.service``
+
+     - xxxx ... more ???
+
+     - Before leaving the chroot, do ``mount /proc /sys /mnt/testbox-*``.
+
+
+ - Testing the setup from a VM is kind of useful (if the nfs server can be
+   convinced to accept root nfs mounts from non-privileged clinet ports):
+
+     - Create a VM using the 64-bit debian profile.  Let's call it "pxe-vm".
+     - Mount the TFTP share somewhere, like M: or /mnt/testbox-tftp.
+     - Reconfigure the NAT DHCP and TFTP bits::
+
+         VBoxManage setextradata pxe-vm VBoxInternal/PDM/DriverTransformations/pxe/AboveDriver       NAT
+         VBoxManage setextradata pxe-vm VBoxInternal/PDM/DriverTransformations/pxe/Action            mergeconfig
+         VBoxManage setextradata pxe-vm VBoxInternal/PDM/DriverTransformations/pxe/Config/TFTPPrefix M:/
+         VBoxManage setextradata pxe-vm VBoxInternal/PDM/DriverTransformations/pxe/Config/BootFile   pxelinux.0
+
+     - Create the file ``testbox-tftp/pxelinux.cfg/0A00020F`` containing::
+
+         PATH bios
+         DEFAULT maintenance
+         LABEL maintenance
+           MENU LABEL Maintenance (NFS)
+           KERNEL maintenance-boot/vmlinuz-3.16.0-4-amd64
+           APPEND initrd=maintenance-boot/initrd.img-3.16.0-4-amd64 ro ip=dhcp aufs=tmpfs \
+                  boot=nfs root=/dev/nfs nfsroot=10.42.1.1:/export/testbox-nfsroot
+         LABEL local-boot
+         LOCALBOOT
+
+
+Troubleshooting
+===============
+
+``PXE-E11`` or something like ``No ARP reply``
+  You probably got the TFTP and DHCP on different machines.  Try move the TFTP
+  to the same machine as the DHCP, then the PXE stack won't have to do any
+  additional ARP resolving.  Google results suggest that a congested network
+  could use the ARP reply to get lost. Our suspicion is that it might also be
+  related to the PXE stack shipping with the NIC.
+
+
+
+-----
+
+.. [1] See http://www.syslinux.org/wiki/index.php?title=Category:Modules
+.. [2] See http://www.syslinux.org/wiki/index.php?title=PXELINUX#Configuration
+.. [3] See https://en.wikipedia.org/wiki/Aufs
+.. [4] See http://shitwefoundout.com/wiki/Diskless_ubuntu
+.. [5] See http://debianaddict.com/2012/06/19/diskless-debian-linux-booting-via-dhcppxenfstftp/
+
+
+-----
+
+:Status: $Id: TestBoxImaging.txt $
+:Copyright: Copyright (C) 2010-2023 Oracle Corporation.

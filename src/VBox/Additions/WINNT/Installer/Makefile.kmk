@@ -1,0 +1,514 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Windows Guest Additions Installer.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Include Sub-Makefiles.
+#
+include $(PATH_SUB_CURRENT)/Loader/Makefile.kmk
+include $(PATH_SUB_CURRENT)/InstallHelper/Makefile.kmk
+
+
+#
+# Globals
+#
+VBOX_PATH_WIN_ADD_INS_SRC := $(PATH_SUB_CURRENT)
+VBOX_PATH_ADDITIONS.win.x86 := $(PATH_OUT_BASE)/win.x86/$(KBUILD_TYPE)/bin/additions
+VBOX_WITH_GUEST_INSTALL_HELPER := 1 # Use our guest install helper DLL.
+## @todo VBOX_WIN_ADD_INS_OUT_DIR := $(PATH_TARGET)/Additions/Installer/win
+
+ifdef VBOX_WIN_ATTESTATION_SIGNING
+ VBOX_DRIVERS_PACK_NAME := VBoxDrivers-$(VBOX_VERSION_MAJOR).$(VBOX_VERSION_MINOR).$(VBOX_VERSION_BUILD)r$(VBOX_SVN_REV)-$(KBUILD_TARGET_ARCH).cab
+ VBOX_SIGNED_DRIVERS_ZIP_NAME := $(VBOX_DRIVERS_PACK_NAME).Signed.zip
+ include $(KBUILD_PATH)/tools/ZIP.kmk
+ TOOL_ZIP_PACK ?= zip
+endif
+
+
+#
+# VBoxDrvInst - Helps with driver installation.
+#
+PROGRAMS += VBoxDrvInst
+VBoxDrvInst_TEMPLATE = VBoxGuestR3Exe
+VBoxDrvInst_DEFS    = _WIN32_WINNT=0x0400 _UNICODE UNICODE
+VBoxDrvInst_DEFS   += VBOX_SVN_REV=$(VBOX_SVN_REV)
+ifdef VBOX_WITH_WDDM
+ VBoxDrvInst_DEFS  += VBOX_WITH_WDDM
+endif
+VBoxDrvInst_DEPS    = $(VBOX_SVN_REV_KMK)
+VBoxDrvInst_SDKS    = ReorderCompilerIncs $(VBOX_WINPSDK_GST) $(VBOX_WINDDK_GST) VBoxWinNewDevLib
+VBoxDrvInst_INCS    = ../include
+VBoxDrvInst_LIBS    = \
+	$(PATH_SDK_$(VBOX_WINPSDK)_LIB)/setupapi.lib
+VBoxDrvInst_SOURCES = \
+	VBoxDrvInst.cpp \
+	VBoxDrvInst.rc
+VBoxDrvInst_VBOX_IMPORT_CHECKER.win.x86 := nt4 # setupapi was introduced in NT4
+
+
+#
+# RegCleanup - A NT4 post-install registry cleanup helper preventing the
+#              display config dialog from popping up on subsequent reboots.
+#
+PROGRAMS += RegCleanup
+RegCleanup_TEMPLATE     := VBoxGuestR3Exe
+RegCleanup_BLD_TRG_ARCH := x86
+RegCleanup_DEFS         := _WIN32_WINNT=0x0400
+RegCleanup_SOURCES      := \
+	RegCleanup.cpp \
+	RegCleanup.rc
+RegCleanup_VBOX_IMPORT_CHECKER.win.x86 := nt4
+
+
+#
+# Install all the certificates we use.
+#
+INSTALLS += AdditionsInstCertFiles
+AdditionsInstCertFiles_TEMPLATE := VBoxGuestR3Exe
+AdditionsInstCertFiles_SOURCES   =
+AdditionsInstCertFiles_CLEAN     =
+if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+ define def_VBoxAdditionsInstCertFiles
+  AdditionsInstCertFiles_SOURCES += $$(AdditionsInstCertFiles_0_OUTDIR)/$(1)=>$1
+  AdditionsInstCertFiles_CLEAN   += $$(AdditionsInstCertFiles_0_OUTDIR)/$(1)
+  $$$$(AdditionsInstCertFiles_0_OUTDIR)/$(1): $$(2) | $$$$(dir $$$$@) $(VBOX_RTSIGNTOOL)
+	$(QUIET)$(RM) -f -- "$$@"
+	$(VBOX_RTSIGNTOOL) $3 --signature-index $4 --input "$$<" --output "$$@"
+ endef
+
+ if !defined(VBOX_CERTIFICATE_SHA2_SUBJECT_NAME) && !$(intersects win all 1,$(VBOX_WITH_CORP_CODE_SIGNING))
+  $(evalcall2 def_VBoxAdditionsInstCertFiles,vbox.cer,$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+  	extract-exe-signer-cert, 0)
+  VBOX_GA_CERT_ROOT_SHA1 := vbox-root.cer
+  $(evalcall2 def_VBoxAdditionsInstCertFiles,$(VBOX_GA_CERT_ROOT_SHA1),$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+  	extract-signer-root --self-signed-roots-from-system, 0)
+  ifdef VBOX_TSA_URL_ARGS
+   VBOX_GA_CERT_ROOT_SHA1_TS := vbox-timestamp-root.cer
+   $(evalcall2 def_VBoxAdditionsInstCertFiles,$(VBOX_GA_CERT_ROOT_SHA1_TS),$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+   	extract-timestamp-root --self-signed-roots-from-system, 0)
+  endif
+ else
+  $(evalcall2 def_VBoxAdditionsInstCertFiles,vbox-sha1.cer,$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+  	extract-exe-signer-cert, 0)
+  VBOX_GA_CERT_ROOT_SHA1 := vbox-sha1-root.cer
+  $(evalcall2 def_VBoxAdditionsInstCertFiles,$(VBOX_GA_CERT_ROOT_SHA1),$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+  	extract-signer-root --self-signed-roots-from-system, 0)
+  ifdef VBOX_TSA_URL_ARGS
+   VBOX_GA_CERT_ROOT_SHA1_TS := vbox-sha1-timestamp-root.cer
+   $(evalcall2 def_VBoxAdditionsInstCertFiles,$(VBOX_GA_CERT_ROOT_SHA1_TS),$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+   	extract-timestamp-root --self-signed-roots-from-system, 0)
+  endif
+
+  $(evalcall2 def_VBoxAdditionsInstCertFiles,vbox-sha256.cer,$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+  	extract-exe-signer-cert, 1)
+  VBOX_GA_CERT_ROOT_SHA2 := vbox-sha256-root.cer
+  $(evalcall2 def_VBoxAdditionsInstCertFiles,$(VBOX_GA_CERT_ROOT_SHA2),$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+  	extract-signer-root --self-signed-roots-from-system, 1)
+  ifdef VBOX_TSA_SHA2_URL_ARGS
+   VBOX_GA_CERT_ROOT_SHA2_TS := vbox-sha256-timestamp-root.cer
+   $(evalcall2 def_VBoxAdditionsInstCertFiles,$(VBOX_GA_CERT_ROOT_SHA2_TS),$(VBOX_PATH_ADDITIONS)/VBoxGuest.sys, \
+   	extract-timestamp-root --self-signed-roots-from-system, 1)
+  endif
+
+  if $(intersects win_planb,$(VBOX_WITH_CORP_CODE_SIGNING))
+   $(evalcall2 def_VBoxAdditionsInstCertFiles,vbox-sha256-r3.cer,$(VBOX_PATH_ADDITIONS)/VBoxDrvInst.exe, \
+   	extract-exe-signer-cert, 1)
+   VBOX_GA_CERT_ROOT_SHA2_R3 := vbox-sha256-r3-root.cer
+   $(evalcall2 def_VBoxAdditionsInstCertFiles,$(VBOX_GA_CERT_ROOT_SHA2_R3),$(VBOX_PATH_ADDITIONS)/VBoxDrvInst.exe, \
+  	extract-signer-root --self-signed-roots-from-system, 1)
+   VBOX_GA_CERT_ROOT_SHA2_R3_TS := vbox-sha256-r3-timestamp-root.cer
+   $(evalcall2 def_VBoxAdditionsInstCertFiles,$(VBOX_GA_CERT_ROOT_SHA2_R3_TS),$(VBOX_PATH_ADDITIONS)/VBoxDrvInst.exe, \
+   	extract-timestamp-root --self-signed-roots-from-system, 1)
+  endif
+ endif
+endif
+
+#
+# The installer.
+#
+PACKING     += $(PATH_STAGE_BIN)/additions/VBoxWindowsAdditions-$(KBUILD_TARGET_ARCH).exe
+OTHER_CLEAN += $(PATH_STAGE_BIN)/additions/VBoxWindowsAdditions-$(KBUILD_TARGET_ARCH).exe
+
+VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES := \
+	$(PATH_STAGE_BIN)/additions/VBoxGuest.inf \
+	$(PATH_STAGE_BIN)/additions/VBoxGuest.sys \
+	$(PATH_STAGE_BIN)/additions/VBoxTray.exe \
+	$(PATH_STAGE_BIN)/additions/VBoxControl.exe \
+	\
+	$(PATH_STAGE_BIN)/additions/VBoxMouse.inf \
+	$(PATH_STAGE_BIN)/additions/VBoxMouse.sys \
+	\
+	$(PATH_STAGE_BIN)/additions/VBoxVideo.inf \
+	$(PATH_STAGE_BIN)/additions/VBoxVideo.sys \
+	$(PATH_STAGE_BIN)/additions/VBoxDisp.dll \
+	\
+	$(PATH_STAGE_BIN)/additions/VBoxSF.sys \
+	$(PATH_STAGE_BIN)/additions/VBoxMRXNP.dll
+
+ifeq ($(KBUILD_TARGET_ARCH),amd64) # 32-bit network provider DLLs for 32-bit apps running on a 64-bit system
+ VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES += \
+ 	$(PATH_STAGE_BIN)/additions/VBoxMRXNP-x86.dll
+endif
+
+ifeq ($(KBUILD_TARGET_ARCH),x86)
+ VBOX_WINDOWS_ADDITIONS_OTHER_FILES += \
+ 	$(PATH_STAGE_BIN)/additions/VBoxGuestEarlyNT.inf \
+ 	$(PATH_STAGE_BIN)/additions/VBoxVideoEarlyNT.inf
+endif
+
+if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+ VBOX_WINDOWS_ADDITIONS_OTHER_FILES += \
+ 	$(PATH_STAGE_BIN)/additions/VBoxVideo.cat \
+ 	$(PATH_STAGE_BIN)/additions/VBoxVideo-PreW10.cat \
+ 	$(PATH_STAGE_BIN)/additions/VBoxGuest.cat \
+ 	$(PATH_STAGE_BIN)/additions/VBoxGuest-PreW10.cat \
+ 	$(PATH_STAGE_BIN)/additions/VBoxMouse.cat \
+ 	$(PATH_STAGE_BIN)/additions/VBoxMouse-PreW10.cat
+ ifeq ($(KBUILD_TARGET_ARCH),x86)
+  VBOX_WINDOWS_ADDITIONS_OTHER_FILES += \
+  	$(PATH_STAGE_BIN)/additions/VBoxGuestEarlyNT.cat \
+  	$(PATH_STAGE_BIN)/additions/VBoxVideoEarlyNT.cat
+ endif
+endif
+
+VBOX_WINDOWS_ADDITIONS_OTHER_FILES := \
+	$(PATH_STAGE_BIN)/additions/VBoxService.exe \
+	$(PATH_STAGE_BIN)/additions/VBoxHook.dll \
+	$(PATH_STAGE_BIN)/additions/RegCleanup.exe
+
+ifeq ($(KBUILD_TARGET_ARCH),x86)
+ VBOX_WINDOWS_ADDITIONS_OTHER_FILES += \
+ 	$(PATH_STAGE_BIN)/additions/VBoxMouseNT.sys \
+ 	$(PATH_STAGE_BIN)/additions/VBoxSFW2K.sys
+endif
+
+ifdef VBOX_WITH_WDDM
+ VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES += \
+ 	$(PATH_STAGE_BIN)/additions/VBoxWddm.inf \
+ 	$(PATH_STAGE_BIN)/additions/VBoxWddm.sys \
+ 	$(PATH_STAGE_BIN)/additions/VBoxDispD3D.dll
+ ifeq ($(KBUILD_TARGET_ARCH),amd64)
+  VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES += \
+  	$(PATH_STAGE_BIN)/additions/VBoxDispD3D-x86.dll
+ endif
+
+ ifdef VBOX_WITH_WDDM_DX
+  VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES += \
+  	$(PATH_STAGE_BIN)/additions/VBoxDX.dll
+  ifeq ($(KBUILD_TARGET_ARCH),amd64)
+   VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES += \
+   	$(PATH_STAGE_BIN)/additions/VBoxDX-x86.dll
+  endif
+ endif
+
+ ifdef VBOX_WITH_MESA3D
+  VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES += \
+  	$(PATH_STAGE_BIN)/additions/VBoxNine.dll \
+  	$(PATH_STAGE_BIN)/additions/VBoxSVGA.dll \
+  	$(PATH_STAGE_BIN)/additions/VBoxGL.dll
+  ifeq ($(KBUILD_TARGET_ARCH),amd64)
+   VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES += \
+   	$(PATH_STAGE_BIN)/additions/VBoxNine-x86.dll \
+   	$(PATH_STAGE_BIN)/additions/VBoxSVGA-x86.dll \
+   	$(PATH_STAGE_BIN)/additions/VBoxGL-x86.dll
+  endif
+ endif
+
+ if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+  VBOX_WINDOWS_ADDITIONS_OTHER_FILES += \
+  	$(PATH_STAGE_BIN)/additions/VBoxWddm.cat \
+  	$(PATH_STAGE_BIN)/additions/VBoxWddm-PreW10.cat
+ endif
+endif # VBOX_WITH_WDDM
+
+ifdef env.VBOX_WITH_ADDITIONS_SHIPPING_AUDIO_TEST
+ VBOX_WINDOWS_ADDITIONS_OTHER_FILES += \
+ 	$(PATH_STAGE_BIN)/additions/VBoxAudioTest.exe
+endif
+
+VBOX_WINDOWS_ADDITIONS_OTHER_FILES += $(addprefix $(PATH_STAGE_BIN)/additions/, \
+	$(VBOX_GA_CERT_ROOT_SHA1) \
+	$(VBOX_GA_CERT_ROOT_SHA1_TS) \
+	$(VBOX_GA_CERT_ROOT_SHA2) \
+	$(VBOX_GA_CERT_ROOT_SHA2_TS) \
+	$(VBOX_GA_CERT_ROOT_SHA2_R3) \
+	$(VBOX_GA_CERT_ROOT_SHA2_R3_TS))
+
+VB_WIN_ADD_NSIS_ENV := \
+	-E 'PATH_OUT=$(subst /,\,$(PATH_OUT))' \
+	-E 'PATH_TARGET=$(subst /,\,$(PATH_TARGET))' \
+	-E 'PATH_TARGET_X86=$(subst /,\,$(PATH_OUT_BASE)/win.x86/$(KBUILD_TYPE)/obj)' \
+	-E 'VBOX_PATH_ADDITIONS_WIN_X86=$(subst /,\,$(VBOX_PATH_ADDITIONS.win.x86))' \
+	-E 'VBOX_PATH_DIFX=$(subst /,\,$(VBOX_PATH_DIFX))' \
+	-E 'VBOX_VENDOR=$(VBOX_VENDOR)' \
+	-E 'VBOX_VENDOR_SHORT=$(VBOX_VENDOR_SHORT)' \
+	-E 'VBOX_PRODUCT=$(VBOX_PRODUCT)' \
+	-E 'VBOX_C_YEAR=$(VBOX_C_YEAR)' \
+	-E 'VBOX_VERSION_STRING=$(VBOX_VERSION_STRING)' \
+	-E 'VBOX_VERSION_STRING_RAW=$(VBOX_VERSION_STRING_RAW)' \
+	-E 'VBOX_VERSION_MAJOR=$(VBOX_VERSION_MAJOR)' \
+	-E 'VBOX_VERSION_MINOR=$(VBOX_VERSION_MINOR)' \
+	-E 'VBOX_VERSION_BUILD=$(VBOX_VERSION_BUILD)' \
+	-E 'VBOX_SVN_REV=$(VBOX_SVN_REV)' \
+	-E 'VBOX_WINDOWS_ADDITIONS_ICON_FILE=$(subst /,\,$(VBOX_WINDOWS_ADDITIONS_ICON_FILE))' \
+	-E 'VBOX_NSIS_ICON_FILE=$(subst /,\,$(VBOX_NSIS_ICON_FILE))' \
+	-E 'VBOX_WITH_GUEST_INSTALL_HELPER=$(if $(VBOX_WITH_GUEST_INSTALL_HELPER),1,0)' \
+	-E 'VBOX_WITH_GUEST_INSTALLER_UNICODE=$(if $(VBOX_WITH_GUEST_INSTALLER_UNICODE),1,0)' \
+	-E 'VBOX_WITH_ADDITIONS_SHIPPING_AUDIO_TEST=$(if $(VBOX_WITH_ADDITIONS_SHIPPING_AUDIO_TEST),1,0)' \
+	-E 'VBOX_WITH_LICENSE_INSTALL_RTF=$(if $(VBOX_BRAND_LICENSE_RTF),1,0)' \
+	-E 'VBOX_WITH_WDDM=$(if $(VBOX_WITH_WDDM),1,0)' \
+	-E 'VBOX_WITH_WDDM_DX=$(if $(VBOX_WITH_WDDM_DX),1,0)' \
+	-E 'VBOX_WITH_MESA3D=$(if $(VBOX_WITH_MESA3D),1,0)' \
+	-E 'VBOX_BRAND_WIN_ADD_INST_DLGBMP=$(subst /,\,$(VBOX_BRAND_WIN_ADD_INST_DLGBMP))' \
+	-E 'VBOX_BRAND_LICENSE_RTF=$(subst /,\,$(VBOX_BRAND_LICENSE_RTF))' \
+	$(foreach lang,$(VBOX_INSTALLER_ADD_LANGUAGES),-E 'VBOX_BRAND_$(lang)_LICENSE_RTF=$(VBOX_BRAND_$(lang)_LICENSE_RTF)') \
+	-E 'KBUILD_TYPE=$(KBUILD_TYPE)' \
+	-E 'KBUILD_TARGET_ARCH=$(KBUILD_TARGET_ARCH)' \
+	$(foreach base, VBOX_GA_CERT_ROOT_SHA1 VBOX_GA_CERT_ROOT_SHA2 VBOX_GA_CERT_ROOT_SHA2_R3 \
+	,-E '$(base)=$(firstword $($(base)) none)' -E '$(base)_TS=$(firstword $($(base)_TS) none)')
+
+$(PATH_STAGE_BIN)/additions/VBoxWindowsAdditions-$(KBUILD_TARGET_ARCH).exe: \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditions.nsi \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsCommon.nsh \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsExternal.nsh \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsLog.nsh \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsUninstall.nsh \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsUninstallOld.nsh \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsNT4.nsh \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsW2KXP.nsh \
+		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsVista.nsh \
+		$(PATH_SUB_CURRENT)/dumplog.nsh \
+		$(PATH_SUB_CURRENT)/ReplaceDLL.nsh \
+		$(PATH_SUB_CURRENT)/servicepack.nsh \
+		$(PATH_SUB_CURRENT)/strstr.nsh \
+		$(PATH_SUB_CURRENT)/winver.nsh \
+		$(PATH_SUB_CURRENT)/Languages/English.nsh \
+		$(PATH_SUB_CURRENT)/Languages/German.nsh \
+		$(PATH_SUB_CURRENT)/Languages/French.nsh \
+		$(VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES) \
+		$(VBOX_WINDOWS_ADDITIONS_OTHER_FILES) \
+		$(VBOX_WINDOWS_ADDITIONS_ICON_FILE) \
+		$(VBOX_NSIS_ICON_FILE) \
+		$(if $(VBOX_SIGNING_MODE),$(PATH_TARGET)/uninst.exe) \
+		$(if $(VBOX_WIN_ATTESTATION_SIGNING),$(PATH_OUT)/repackadd/$(VBOX_SIGNED_DRIVERS_ZIP_NAME)) \
+		$(VBOX_VERSION_STAMP) \
+		$$(VBoxDrvInst_1_STAGE_TARGET)
+	$(call MSG_L1,Creating $@, from $<)
+ifdef VBOX_WIN_ATTESTATION_SIGNING # Unpack the attestation signed drivers - this is an ugly has 'ing heck hack!
+	$(TOOL_ZIP_UNPACK) -oj $(PATH_OUT)/repackadd/$(VBOX_SIGNED_DRIVERS_ZIP_NAME) -d $(PATH_STAGE_BIN)/additions/
+endif
+	$(REDIRECT) -C $(VBOX_PATH_WIN_ADD_INS_SRC) \
+		$(VB_WIN_ADD_NSIS_ENV) \
+		-- $(EXEC_X86_WIN32) $(VBOX_PATH_NSIS)/makensis.exe /NOCD /V2 \
+			$(if $(VBOX_SIGNING_MODE),'/DEXTERNAL_UNINSTALLER=1') \
+                       $(if-expr defined(VBOX_SIGN_ADDITIONS) && defined(VBOX_SIGNING_MODE), \
+                       	'/DVBOX_SIGN_ADDITIONS=1' \
+				$(if-expr defined(VBOX_WITH_VBOX_LEGACY_TS_CA),'/DVBOX_WITH_VBOX_LEGACY_TS_CA=1') \
+                       ,) \
+			$(if $(VBOX_INSTALLER_ADD_LANGUAGES),'/DVBOX_INSTALLER_ADD_LANGUAGES=1') \
+			$(foreach lang,$(VBOX_INSTALLER_ADD_LANGUAGES),'/DVBOX_BRAND_$(lang)_LICENSE_RTF=1') \
+			'$(subst /,\,$<)'
+	$(call VBOX_SIGN_FILE_FN,$@)
+
+
+ifdef VBOX_SIGNING_MODE
+ #
+ # This is a hack to sign the uninstaller.
+ # See http://nsis.sourceforge.net/Signing_an_Uninstaller for more details.
+ #
+ OTHER_CLEAN += \
+ 	$(PATH_TARGET)/VBoxWindowsAdditions-$(KBUILD_TARGET_ARCH)-uninst.exe \
+ 	$(PATH_TARGET)/uninst.exe
+ $(PATH_TARGET)/VBoxWindowsAdditions-$(KBUILD_TARGET_ARCH)-uninst.exe: \
+ 		$(PATH_SUB_CURRENT)/VBoxGuestAdditions.nsi \
+ 		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsCommon.nsh \
+ 		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsExternal.nsh \
+ 		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsLog.nsh \
+ 		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsUninstall.nsh \
+ 		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsNT4.nsh \
+ 		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsW2KXP.nsh \
+ 		$(PATH_SUB_CURRENT)/VBoxGuestAdditionsVista.nsh \
+ 		$(PATH_SUB_CURRENT)/dumplog.nsh \
+ 		$(PATH_SUB_CURRENT)/ReplaceDLL.nsh \
+ 		$(PATH_SUB_CURRENT)/servicepack.nsh \
+ 		$(PATH_SUB_CURRENT)/strstr.nsh \
+ 		$(PATH_SUB_CURRENT)/winver.nsh \
+ 		$(PATH_SUB_CURRENT)/Languages/English.nsh \
+ 		$(PATH_SUB_CURRENT)/Languages/German.nsh \
+ 		$(PATH_SUB_CURRENT)/Languages/French.nsh \
+ 		$(VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES) \
+ 		$(VBOX_WINDOWS_ADDITIONS_OTHER_FILES) \
+ 		$(VBOX_WINDOWS_ADDITIONS_ICON_FILE) \
+ 		$(VBOX_NSIS_ICON_FILE) \
+ 		$(VBOX_VERSION_STAMP) \
+ 		$$(VBoxDrvInst_1_STAGE_TARGET) \
+ 		| $$(dir $$@)
+	$(call MSG_L1,Creating $@, from $<)
+	$(QUIET)$(REDIRECT) -C $(VBOX_PATH_WIN_ADD_INS_SRC) \
+		$(VB_WIN_ADD_NSIS_ENV) \
+		-- $(EXEC_X86_WIN32) $(VBOX_PATH_NSIS)/makensis.exe /NOCD /V2 \
+			$(if $(VBOX_SIGN_ADDITIONS),'/DVBOX_SIGN_ADDITIONS=1') \
+			$(if $(VBOX_WITH_VBOX_LEGACY_TS_CA),'/DVBOX_WITH_VBOX_LEGACY_TS_CA=1') \
+			$(if $(VBOX_INSTALLER_ADD_LANGUAGES),'/DVBOX_INSTALLER_ADD_LANGUAGES=1') \
+			$(foreach lang,$(VBOX_INSTALLER_ADD_LANGUAGES),'/DVBOX_BRAND_$(lang)_LICENSE_RTF=1') \
+			'/DUNINSTALLER_ONLY=1' \
+			'$(subst /,\,$<)'
+
+ $(PATH_TARGET)/uninst.exe: $(PATH_TARGET)/VBoxWindowsAdditions-$(KBUILD_TARGET_ARCH)-uninst.exe | $$(dir $$@)
+	$(call MSG_L1,Creating $@, from $<)
+	$(QUIET)$(RM) -f $@
+	-$(REDIRECT) -E __COMPAT_LAYER=RUNASINVOKER -- $<
+	$(TEST) -f $@
+	$(call VBOX_SIGN_FILE_FN,$@)
+
+endif # VBOX_SIGNING_MODE
+
+
+if defined(VBOX_WIN_ATTESTATION_SIGNING) && defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+ #
+ # This automagically attestation signs the GA drivers.
+ #
+ $(PATH_OUT)/repackadd/$(VBOX_SIGNED_DRIVERS_ZIP_NAME): \
+ 		$(PATH_OUT)/repackadd/$(VBOX_DRIVERS_PACK_NAME)
+	$(RM_EXT) -f $(PATH_OUT)/repackadd/*.zip
+	cd $(PATH_OUT)/repackadd && $(VBOX_RETRY) $(VBOX_WIN_ATTESTATION_SIGNING_EXE) "Oracle VM VirtualBox GA drivers $(KBUILD_TARGET_ARCH) $(VBOX_VERSION_MAJOR).$(VBOX_VERSION_MINOR).$(VBOX_VERSION_BUILD)r$(VBOX_SVN_REV)" "$(KBUILD_TARGET_ARCH)" "r$(VBOX_SVN_REV)" "$(VBOX_DRIVERS_PACK_NAME)"
+
+ #
+ # This creates a .CAB file of the driver files that should be attestation signed.
+ #
+ $(PATH_OUT)/repackadd/$(VBOX_DRIVERS_PACK_NAME): \
+ 		$(PATH_OUT)/repackadd/PackDriversForSubmission.cmd \
+ 		# $(VBOX_WINDOWS_ADDITIONS_ATTESTATION_SIGNED_FILES) - is is unsafe, because of the 'ing ugly hack replacing most of them above during packing.
+	$(RM_EXT) -f $(PATH_OUT)/repackadd/*.cab
+	$(RM_EXT) -f $(PATH_OUT)/repackadd/*.ddf
+	$(RM_EXT) -f $(PATH_OUT)/repackadd/*.inf
+	$(RM_EXT) -f $(PATH_OUT)/repackadd/*.rpt
+	$(EXEC_X86_WIN32) cmd /c $(PATH_OUT)/repackadd/PackDriversForSubmission.cmd -b $(PATH_STAGE_BIN) -a $(KBUILD_TARGET_ARCH) \
+		-x -n --no-main --ga -o $(PATH_OUT)/repackadd/$(VBOX_DRIVERS_PACK_NAME)
+	$(call VBOX_SIGN_EV_FILE_FN,$@)
+endif # VBOX_WIN_ATTESTATION_SIGNING && VBOX_SIGNING_MODE && VBOX_SIGN_ADDITIONS
+
+
+#
+# Repackaging scripts and files.
+#
+INSTALLS += RePackScriptsAdd
+RePackScriptsAdd_TEMPLATE = DUMMY
+RePackScriptsAdd_INST = repackadd/
+RePackScriptsAdd_INSTTYPE = stage
+RePackScriptsAdd_SOURCES = \
+	../../../Installer/win/Scripts/UnpackBlessedDrivers.cmd \
+	$(RePackScriptsAdd_0_OUTDIR)/PackDriversForSubmission.cmd \
+	$(RePackScriptsAdd_0_OUTDIR)/Combined-1-Prepare.cmd \
+	$(RePackScriptsAdd_0_OUTDIR)/Combined-3-RepackAdditions.cmd \
+	$(RePackScriptsAdd_0_OUTDIR)/sign-ev.cmd
+RePackScriptsAdd_CLEAN = \
+	$(RePackScriptsAdd_0_OUTDIR)/sign-ev.cmd
+
+ifndef VBOX_OSE
+ RePackScriptsAdd_SOURCES += \
+ 	$(RePackScriptsAdd_0_OUTDIR)/Combined-0-Additions.cmd \
+ 	$(RePackScriptsAdd_0_OUTDIR)/Combined-2-SignAdditions.cmd
+endif
+
+$(call VBOX_EDIT_VERSION_AND_BUILD_RULE_FN,RePackScriptsAdd,../../../Installer/win/Scripts/PackDriversForSubmission.cmd,PackDriversForSubmission.cmd)
+$(call VBOX_EDIT_VERSION_AND_BUILD_RULE_FN,RePackScriptsAdd,../../../Installer/win/Scripts/Combined-1-Prepare.cmd,Combined-1-Prepare.cmd)
+ifndef VBOX_OSE
+ $(call VBOX_EDIT_VERSION_AND_BUILD_RULE_FN,RePackScriptsAdd,../../../Installer/win/Scripts/Combined-0-Additions.cmd,Combined-0-Additions.cmd)
+ $(call VBOX_EDIT_VERSION_AND_BUILD_RULE_FN,RePackScriptsAdd,../../../Installer/win/Scripts/Combined-2-SignAdditions.cmd,Combined-2-SignAdditions.cmd)
+endif
+$(call VBOX_EDIT_VERSION_AND_BUILD_RULE_FN,RePackScriptsAdd,../../../Installer/win/Scripts/Combined-3-RepackAdditions.cmd,Combined-3-RepackAdditions.cmd)
+
+# The %~dp1\ oddity is working around otherwise ending with \" during
+# expansion of the CCS command line which for a reason I cannot immediately
+# understand appends a " to the path.
+$$(RePackScriptsAdd_0_OUTDIR)/sign-ev.cmd: | $$(dir $$@)
+	$(APPEND) -nt "$@" \
+		'if ".%KBUILD_DEVTOOLS%" == "." (echo KBUILD_DEVTOOLS is not set & exit /b 1)' \
+		'if ".%KBUILD_BIN_PATH%" == "." (echo KBUILD_BIN_PATH is not set & exit /b 1)' \
+		'if ".%1" == "." (echo No .cab file specified & exit /b 1)' \
+		$(subst $(KBUILD_BIN_PATH),%KBUILD_BIN_PATH%,$(subst $(KBUILD_DEVTOOLS),%KBUILD_DEVTOOLS%, \
+		'( $(call VBOX_SIGN_EV_FILE_FN,%1,%~dp1\) ) || exit /b1' \
+		) )
+
+#
+# Repacking resources.
+#
+INSTALLS += RePackScriptsAddResources
+RePackScriptsAddResources_TEMPLATE = DUMMY
+RePackScriptsAddResources_INST = repackadd/resources/
+RePackScriptsAddResources_INSTTYPE = stage
+RePackScriptsAddResources_DIRS = Languages
+RePackScriptsAddResources_SOURCES = \
+	welcome.bmp \
+	$(VBOX_WINDOWS_ADDITIONS_ICON_FILE)=>VirtualBoxGA-vista.ico \
+	$(VBOX_NSIS_ICON_FILE)=>VirtualBoxGA-nsis.ico \
+	$(PATH_ROOT)/doc/License-gpl-3.0.rtf \
+	VBoxGuestAdditions.nsi \
+	dumplog.nsh \
+	ReplaceDLL.nsh \
+	servicepack.nsh \
+	strstr.nsh \
+	VBoxGuestAdditionsCommon.nsh \
+	VBoxGuestAdditionsExternal.nsh \
+	VBoxGuestAdditionsLog.nsh \
+	VBoxGuestAdditionsNT4.nsh \
+	VBoxGuestAdditionsUninstall.nsh \
+	VBoxGuestAdditionsUninstallOld.nsh \
+	VBoxGuestAdditionsVista.nsh \
+	VBoxGuestAdditionsW2KXP.nsh \
+	winver.nsh \
+	ISO/AUTORUN.INF \
+	ISO/NT3xReadme.txt \
+	\
+	Languages/English.nsh=>Languages/English.nsh \
+	Languages/French.nsh=>Languages/French.nsh \
+	Languages/German.nsh=>Languages/German.nsh
+
+
+#
+# NT3.x installer.
+#
+# Just for fun, this one does not use the CRT more than it really really needs
+# to.  This saves space and avoid compatiblity issues, it also makes for a
+# fun challenge.
+#
+PROGRAMS.win.x86 += VBoxAddInstallNt3x
+ifdef VBOX_WITH_NOCRT_STATIC
+ ## @todo noCRT: the result is much too big. Got rid of log.cpp, but still pretty big. Work on reducing it.
+ VBoxAddInstallNt3x_TEMPLATE := VBoxGuestR3Exe
+else
+ VBoxAddInstallNt3x_TEMPLATE := VBoxGuestR3NoCrtExe
+endif
+VBoxAddInstallNt3x_SOURCES  := VBoxAddInstallNt3x.cpp
+VBoxAddInstallNt3x.cpp_DEPS = $(VBOX_SVN_REV_HEADER)
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

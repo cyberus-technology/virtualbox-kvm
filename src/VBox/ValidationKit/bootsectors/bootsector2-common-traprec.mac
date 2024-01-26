@@ -1,0 +1,209 @@
+; $Id: bootsector2-common-traprec.mac $
+;; @file
+; Boot sector 2 - Trap Records.
+;
+; @note Don't forget to cinldue bootsector2-common-traprec-end.mac!
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___bootsector2_common_traprec_mac___
+%define ___bootsector2_common_traprec_mac___
+
+
+;*******************************************************************************
+;*  Header Files                                                               *
+;*******************************************************************************
+%include "iprt/x86.mac"
+
+
+;*******************************************************************************
+;*  Defined Constants And Macros                                               *
+;*******************************************************************************
+;;
+; The base address for the records (only important for 64-bit code
+; loaded above 4GB).
+; We use 0 by default so we don't create too complex expressions for YASM.
+%ifndef BS2_TRAP_RECS_BASE
+ %define BS2_TRAP_RECS_BASE     0
+%endif
+
+;;
+; Macro to emit an trapping instruction.
+;
+; @param    1       The trap number (X86_XCPT_XXX).
+; @param    2       The error code, 0 if none.
+; @param    3+      The instruction.
+;
+; @sa BS2_TRAP_BRANCH_INSTR
+;
+%macro BS2_TRAP_INSTR 3+,
+        [section .traprecs]
+    istruc BS2TRAPREC
+        at BS2TRAPREC.offWhere,           dd (%%trapinstr - BS2_TRAP_RECS_BASE)
+        at BS2TRAPREC.offResumeAddend,    db (%%resume - %%trapinstr)
+        at BS2TRAPREC.u8TrapNo,           db %1
+        at BS2TRAPREC.u16ErrCd,           dw %2
+    iend
+        __SECT__
+ %if %1 != X86_XCPT_BP
+  %%trapinstr:
+        %3
+ %else
+        %3
+  %%trapinstr:
+ %endif
+        call    TMPL_NM_CMN(TestFailedMissingTrap_ %+ %1)
+ %%resume:
+%endmacro
+
+;;
+; Macro to emit an trapping instruction.
+;
+; @param    1       The trap number (X86_XCPT_XXX).
+; @param    2       The error code, 0 if none.
+; @param    3       The name of the branch label.
+; @param    4+      The instruction.
+;
+%macro BS2_TRAP_BRANCH_INSTR 4+,
+        [section .traprecs]
+    istruc BS2TRAPREC
+        at BS2TRAPREC.offWhere,           dd (%%trapinstr - BS2_TRAP_RECS_BASE)
+        at BS2TRAPREC.offResumeAddend,    db (%%resume - %%trapinstr)
+        at BS2TRAPREC.u8TrapNo,           db %1
+        at BS2TRAPREC.u16ErrCd,           dw %2
+    iend
+        __SECT__
+ %%trapinstr:
+        %4
+ %3:
+        call    TMPL_NM_CMN(TestFailedMissingTrap_ %+ %1)
+ %%resume:
+%endmacro
+
+;;
+; Sets up the trap records section.
+; @internal
+%macro BS2_TRAP_RECS_BEGIN 0,
+        [section .traprecs] ; Declared in bootsector2-common-init-code.mac
+        dq 0ffffffffeeeeeeeeh
+g_aTrapRecs:
+        __SECT__
+%endmacro
+
+;;
+; Terminates the trap records section.
+; @internal
+%macro BS2_TRAP_RECS_END 0,
+        [section .traprecs]
+g_aTrapRecsEnd:
+        dq 0ddddddddcccccccch
+        __SECT__
+%endmacro
+
+
+;;
+; Macro for installing the trap records.
+;
+; This must be invoked prior to the traps.
+;
+; @uses Stack
+;
+%macro BS2_TRAP_RECS_INSTALL 0,
+        push    sAX
+        push    sDX
+        push    sCX
+
+        mov     sAX, NAME(g_aTrapRecs)
+        mov     edx, NAME(g_aTrapRecsEnd) - NAME(g_aTrapRecs)
+        shr     edx, BS2TRAPREC_SIZE_SHIFT
+        mov     sCX, BS2_TRAP_RECS_BASE
+        call    TMPL_NM_CMN(TestInstallTrapRecs)
+
+        pop     sAX
+        pop     sDX
+        pop     sCX
+%endmacro
+
+
+;;
+; Macro for uninstalling the trap records.
+;
+; @uses Stack
+;
+%macro BS2_TRAP_RECS_UNINSTALL 0,
+        push    sAX
+        push    sDX
+        push    sCX
+
+        xor     sAX, sAX
+        xor     edx, edx
+        xor     sCX, sCX
+        call    TMPL_NM_CMN(TestInstallTrapRecs)
+
+        pop     sAX
+        pop     sDX
+        pop     sCX
+%endmacro
+
+
+;
+; Setup the trap record segment.
+;
+BS2_TRAP_RECS_BEGIN
+BEGINCODELOW
+
+
+;
+; Instantiate code templates.
+;
+%ifdef BS2_INC_CMN_R86
+ %define TMPL_RM
+ %include "bootsector2-common-traprec-template.mac"
+%endif
+%ifdef BS2_INC_CMN_P16
+ %define TMPL_PE16
+ %include "bootsector2-common-traprec-template.mac"
+%endif
+%ifdef BS2_INC_CMN_P32
+ %define TMPL_PE32
+ %include "bootsector2-common-traprec-template.mac"
+%endif
+%ifdef BS2_INC_LM64
+ %define TMPL_LM64
+ %include "bootsector2-common-traprec-template.mac"
+%endif
+
+BEGINCODELOW
+
+%endif
+

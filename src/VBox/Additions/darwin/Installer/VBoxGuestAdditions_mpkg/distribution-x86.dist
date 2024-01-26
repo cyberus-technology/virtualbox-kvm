@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2008-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<installer-gui-script minSpecVersion="1.0">
+    <title>VirtualBox_title</title>
+    <options customize="allow" allow-external-scripts="false" rootVolumeOnly="true" hostArchitectures="i386"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <!-- This allowes a better error message compared to allowed-os-versions: -->
+    <installation-check script="checkPrerequisites()"></installation-check>
+    <script>
+    /* js:pkmk:start */
+    function checkPrerequisites()
+    {
+        sArch = system.sysctl('hw.machine');
+        system.log("Detected hw arch:    " + sArch);
+        sVer  = system.version['ProductVersion'];
+        system.log("Detected OS version: " + sVer);
+        if (sArch == 'i386')
+        {
+            if (system.compareVersions(sVer, '10.8') &lt; 0)
+            {
+                system.log("checkPrerequisites returns true");
+                return true;
+            }
+        }
+        system.log("checkPrerequisites returns false!");
+        my.result.type    = 'Fatal';
+        my.result.title   = system.localizedString('UNSUPPORTED_X86_OS_TLE');
+        my.result.message = system.localizedString('UNSUPPORTED_X86_OS_MSG');
+        return false;
+    }
+    /* js:pkmk:end */
+    </script>
+    <background file="background.tif" alignment="topleft" scaling="none"/>
+    <welcome file="Welcome.rtf" mime-type="text/rtf" uti="public.rtf"/>
+    <choices-outline>
+        <line choice="choiceVBoxToolsAndServices"></line>
+        <line choice="choiceVBoxKEXTs"></line>
+    </choices-outline>
+
+    <choice id="choiceVBoxToolsAndServices" title="choiceVBoxToolsAndServices_title" description="choiceVBoxToolsAndServices_msg" start_selected="true" start_enabled="false" start_visible="true">
+        <pkg-ref id="org.virtualbox.pkg.additions.tools-and-services"></pkg-ref>
+    </choice>
+    <choice id="choiceVBoxKEXTs" title="choiceVBoxKEXTs_title" description="choiceVBoxKEXTs_msg" start_selected="true" start_enabled="false" start_visible="true">
+        <pkg-ref id="org.virtualbox.pkg.additions.kexts"></pkg-ref>
+    </choice>
+
+    <pkg-ref id="org.virtualbox.pkg.additions.tools-and-services" auth="Root">file:./Contents/Packages/VBoxGuestAdditionsToolsAndServices.pkg</pkg-ref>
+    <pkg-ref id="org.virtualbox.pkg.additions.kexts" auth="Root">file:./Contents/Packages/VBoxGuestAdditionsKEXTs.pkg</pkg-ref>
+
+</installer-gui-script>

@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage clonemedium
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-clonemedium" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage clonemedium</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-clonemedium</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-clonemedium</refname>
+    <refpurpose>create a clone of a medium</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-clonemedium">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage clonemedium</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>source-medium</replaceable></arg>
+      </group>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>target-medium</replaceable></arg>
+      </group>
+      <group>
+        <arg choice="plain">disk</arg>
+        <arg choice="plain">dvd</arg>
+        <arg choice="plain">floppy</arg>
+      </group>
+      <arg>--existing</arg>
+      <arg>--format=<group choice="plain">
+          <arg choice="plain">VDI</arg>
+          <arg choice="plain">VMDK</arg>
+          <arg choice="plain">VHD</arg>
+          <arg choice="plain">RAW</arg>
+          <arg choice="plain"><replaceable>other</replaceable></arg>
+        </group></arg>
+      <arg>--variant=Standard,Fixed,Split2G,Stream,ESX</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage clonemedium</command> command enables you
+      to clone an existing medium (virtual disk, DVD, or floppy), which
+      is typically an image file. Only the Universally Unique Identifier
+      (UUID) differs between the original image and the cloned image.
+    </para>
+    <para>
+      You can use the Virtual Media Manager to transfer the cloned image
+      to another host system or reimport it into &product-name;. See
+      <xref linkend="virtual-media-manager" /> and <xref linkend="cloningvdis" />.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>source-medium</replaceable></term>
+        <listitem><para>
+            Specifies the UUID or the absolute or relative file name of
+            the source medium to clone. You can specify the UUID of the
+            medium only if it is registered. Use the <command>VBoxManage
+            list hdds</command> command to list registered images.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>target-medium</replaceable></term>
+        <listitem><para>
+            Specifies the UUID or the absolute or relative file name of
+            the target (clone) medium. You can specify the UUID of the
+            target medium only if it is registered. Use the
+            <command>VBoxManage list hdds</command> command to list
+            registered images.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>disk</literal> | <literal>dvd</literal> | <literal>floppy</literal></term>
+        <listitem><para>
+            Specifies the type of the medium to clone. Valid values are
+            <literal>disk</literal>, <literal>dvd</literal>, and
+            <literal>floppy</literal>. The default value is
+            <literal>disk</literal>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--existing</option></term>
+        <listitem><para>
+            Performs the clone operation by overwriting an existing
+            target medium. The result is that only the portion of the
+            source medium that fits into the existing target medium is
+            copied.
+          </para><para>
+            If the target medium is smaller than the source, only the
+            portion of the source medium up to the size of the target
+            medium is copied.
+          </para><para>
+            If the target medium is larger than the source, the
+            remaining part of the target medium is unchanged.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--format</option></term>
+        <listitem><para>
+            Specifies the file format of the target medium if it differs
+            from the format of the source medium. Valid values are
+            <literal>VDI</literal>, <literal>VMDK</literal>,
+            <literal>VHD</literal>, <literal>RAW</literal>, and
+            <replaceable>other</replaceable>.
+          </para><remark>
+            What file formats can <replaceable>other</replaceable> be?
+          </remark></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--variant=Standard,Fixed,Split2G,Stream,ESX</option></term>
+        <listitem><para>
+            Specifies the file format variant for the target medium,
+            which is a comma-separated list of variants. Following are
+            the valid values:
+          </para><itemizedlist>
+            <listitem><para>
+                <literal>Standard</literal> is the default disk image
+                type, which has a dynamically allocated file size.
+              </para></listitem>
+            <listitem><para>
+                <literal>Fixed</literal> uses a disk image that has a
+                fixed file size.
+              </para></listitem>
+            <listitem><para>
+                <literal>Split2G</literal> indicates that the disk image
+                is split into 2GB segments. This value is for VMDK only.
+              </para></listitem>
+            <listitem><para>
+                <literal>Stream</literal> optimizes the disk image for
+                downloading. This value is for VMDK only.
+              </para></listitem>
+            <listitem><para>
+                <literal>ESX</literal> is used for some VMWare products.
+                This value is for VMDK only.
+              </para></listitem>
+          </itemizedlist><para>
+            Note that not all variant combinations are valid. Specifying
+            incompatible variant values in the list will produce an
+            error message.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+    <note>
+      <para>
+        For compatibility with earlier versions of &product-name;, you
+        can use the <command>clonevdi</command> and
+        <command>clonehd</command> commands instead of the
+        <command>clonemedium</command> command.
+      </para>
+    </note>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command creates a clone of the
+      <filename>disk01.vdi</filename> disk image file. The clone is
+      called <filename>disk02.vdi</filename>.
+    </para>
+<screen>$ VBoxManage clonemedium disk01.vdi disk02.vdi</screen>
+    <para>
+      The following command creates a clone of the
+      <filename>disk01.vdi</filename> disk image file. The clone is in
+      VMDK format and is called <filename>disk02.vmdk</filename>.
+    </para>
+<screen>$ VBoxManage clonemedium disk01.vdi disk02.vmdk --format VMDK</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <xref linkend="vboxmanage-list" />
+    </para>
+  </refsect1>
+</refentry>

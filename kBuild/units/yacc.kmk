@@ -1,0 +1,198 @@
+# $Id: yacc.kmk 3284 2019-01-05 01:40:31Z bird $
+## @file
+# yacc/bison unit.
+#
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+ifdef UNIT_yacc
+ $(error kBuild: The yacc unit was included twice!)
+endif
+UNIT_yacc = yacc
+
+# Add our target properties.
+PROPS_TOOLS += YACCTOOL
+PROPS_SINGLE += YACCTOOL
+PROPS_ACCUMULATE_R += YACCFLAGS
+
+# Add ourselves to the default source handlers.
+KBUILD_SRC_HANDLERS += \
+  .y:def_src_handler_yacc_y \
+  .ypp:def_src_handler_yacc_ypp \
+  .y++:def_src_handler_yacc_ypp
+
+
+## wrapper the compile command dependency check.
+ifndef NO_COMPILE_CMDS_DEPS
+ _DEP_YACC_CMDS = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_YACC_CMDS_PREV_),$$(commands $(out)),FORCE)
+else
+ _DEP_YACC_CMDS =
+endif
+
+
+##
+# Generates the rules for running flex on a specific source file.
+#
+# @param    $(obj)    The object file.
+# @param    lots more
+define def_yacc_rule
+$(out) + $(output_extra) +| $(output_maybe) : \
+		$(deps) \
+		$(value _DEP_YACC_CMDS) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_COMPILE,$(target),$(source),$$@,$(type))
+	$$(QUIET)$$(RM) -f -- $(dep) $(out) $(output_extra) $(output_maybe)
+
+$(cmds)
+
+ifndef NO_COMPILE_CMDS_DEPS
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_YACC_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+
+# update globals and target properties.
+_OUT_FILES += $(out) $(output_extra) $(output_maybe)
+$(target)_GEN_SOURCES_ += $(out)
+$(target)_2_INTERMEDIATES += $(intermediates)
+
+endef # def_yacc_rule
+
+
+##
+# Handler for .y files listed in the SOURCES properties.
+#
+# .y files are transformed into .c (and maybe .h) files that then gets
+# compiled by the C compiler.
+#
+# @param    target      The target file.
+# @param    source      The source file.
+# @param    lots more
+# @returns  quite a bit.
+#
+define def_src_handler_yacc_y
+# Figure out all the props.
+local type := YACC
+local tmp := $(kb-src-tool tool)
+ifeq ($(tool),)
+$(error kBuild: $(target) / $(sources) does not a (yacc) tool defined!)
+endif
+ifndef TOOL_$(tool)_YACC_CMDS
+$(error kBuild: TOOL_$(tool)_YACC_CMDS isn't defined! target=$(target) source=$(source) )
+endif
+local out := $(kb-obj-base outbase).c
+local tmp := $(kb-src-prop YACCFLAGS,flags,left-to-right,)
+local tmp := $(kb-src-prop DEPS,deps,left-to-right,$(defpath))
+local tmp := $(kb-src-prop ORDERDEPS,orderdeps,left-to-right,$(defpath))
+local dirdep := $(call DIRDEP,$(dir $(out)))
+
+# Adjust paths if we got a default path.
+ifneq ($(defpath),)
+ local source := $(abspathex $(source),$(defpath))
+endif
+
+# dependency file.
+local dep := $(out)$(SUFF_DEP)
+ifndef NO_COMPILE_CMDS_DEPS
+ _DEPFILES_INCLUDED += $(dep)
+ $(eval includedep $(dep))
+endif
+
+# Call the tool.
+local cmds := $(TOOL_$(tool)_YACC_CMDS)
+local output_extra := $(TOOL_$(tool)_YACC_OUTPUT)
+local output_maybe := $(TOOL_$(tool)_YACC_OUTPUT_MAYBE)
+local deps += $(TOOL_$(tool)_YACC_DEPEND) $(source)
+local orderdeps += $(TOOL_$(tool)_YACC_DEPORD) $(dirdep)
+
+# Whether it generates a header file depends on flags.
+local intermediates := $(filter %.h %.hpp %.h++ %.H,$(output_extra))
+
+# Generate the rule.
+$(eval $(def_yacc_rule))
+
+endef # def_src_handler_yacc_y
+
+
+##
+# Handler for .ypp/.y++ files listed in the SOURCES properties.
+#
+# .ypp/++ files are transformed into .cpp/++ (and maybe .hpp/++) files that then gets
+# compiled by the C++ compiler.
+#
+# @param    target      The target file.
+# @param    source      The source file.
+# @param    lots more
+# @returns  quite a bit.
+#
+define def_src_handler_yacc_ypp
+# Figure out all the props.
+local type := YACC
+local tmp := $(kb-src-tool tool)
+ifeq ($(tool),)
+$(error kBuild: $(target) / $(sources) does not a (yacc) tool defined!)
+endif
+ifndef TOOL_$(tool)_YACC_CMDS
+$(error kBuild: TOOL_$(tool)_YACC_CMDS isn't defined! target=$(target) source=$(source) )
+endif
+local out := $(kb-obj-base outbase).c$(substr $(suffix $(source),3))
+local tmp := $(kb-src-prop YACCFLAGS,flags,left-to-right,)
+local tmp := $(kb-src-prop DEPS,deps,left-to-right,$(defpath))
+local tmp := $(kb-src-prop ORDERDEPS,orderdeps,left-to-right,$(defpath))
+local dirdep := $(call DIRDEP,$(dir $(out)))
+
+# Adjust paths if we got a default path.
+ifneq ($(defpath),)
+ local source := $(abspathex $(source),$(defpath))
+endif
+
+# dependency file.
+local dep := $(out)$(SUFF_DEP)
+ifndef NO_COMPILE_CMDS_DEPS
+ _DEPFILES_INCLUDED += $(dep)
+ $(eval includedep $(dep))
+endif
+
+# Call the tool.
+local cmds := $(TOOL_$(tool)_YACC_CMDS)
+local output_extra := $(TOOL_$(tool)_YACC_OUTPUT)
+local output_maybe := $(TOOL_$(tool)_YACC_OUTPUT_MAYBE)
+local deps += $(TOOL_$(tool)_YACC_DEPEND) $(source)
+local orderdeps += $(TOOL_$(tool)_YACC_DEPORD) $(dirdep)
+
+# Whether it generates a header file depends on flags.
+local intermediates := $(filter %.h %.hpp %.h++ %.H,$(output_extra))
+
+# Generate the rule.
+$(eval $(def_yacc_rule))
+
+endef # def_src_handler_yacc_ypp
+

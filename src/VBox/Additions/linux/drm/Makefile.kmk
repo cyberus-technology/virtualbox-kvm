@@ -1,0 +1,52 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the vboxvideo DRM module (linux kernel OpenGL module).
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Populate FILES_VBOXVIDEO_DRM_NOBIN
+#
+INSTALLS += vboxvideo-src
+include $(PATH_SUB_CURRENT)/files_vboxvideo_drv
+vboxvideo-src_DEPS         = \
+	$(PATH_ROOT)/src/VBox/Additions/linux/drm/files_vboxvideo_drv \
+	$(PATH_ROOT)/src/VBox/Additions/linux/drm/indent.sed
+vboxvideo-src_INST         = $(INST_ADDITIONS)src/vboxvideo/
+vboxvideo-src_SOURCES      = \
+	$(subst $(DQUOTE),,$(FILES_VBOXVIDEO_DRM_NOBIN))
+vboxvideo-src_EXEC_SOURCES = \
+	$(subst $(DQUOTE),,$(FILES_VBOXVIDEO_DRM_BIN))
+vboxvideo-src_INSTALLER = $(RM_EXT) -f -- "$2" && \
+	$(if $(filter %.c %.h,$2),$(SED) -f $(PATH_ROOT)/src/VBox/Additions/linux/drm/indent.sed \
+	--output "$2" "$1",$(CP_EXT) "$1" "$2") && \
+	$(CHMOD_EXT) "$(if $(mode),$(mode),0644)" "$2"
+
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

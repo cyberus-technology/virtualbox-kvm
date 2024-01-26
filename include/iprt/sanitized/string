@@ -1,0 +1,61 @@
+/** @file
+ * Safe way to include the 'string' header from the C++ library.
+ */
+
+/*
+ * Copyright (C) 2020-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+#ifndef IPRT_INCLUDED_sanitized_string
+#define IPRT_INCLUDED_sanitized_string
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#ifdef _MSC_VER
+/*
+ * Unfortunately, the 'string' file of VCC141 has trouble with C4091 in -Wall mode:
+ *      string(530): warning C4774: '_scprintf' : format string expected in argument 1 is not a string literal
+ *      xlocnum(1616): warning C4774: 'sprintf_s' : format string expected in argument 3 is not a string literal
+ */
+# pragma warning(push)
+# if _MSC_VER >= 1910 /*RT_MSC_VER_VC141*/
+#  pragma warning(disable:4774)
+# endif
+#endif
+
+#include <string>
+
+#ifdef _MSC_VER
+# pragma warning(pop)
+#endif
+
+#endif /* !IPRT_INCLUDED_sanitized_string */
+

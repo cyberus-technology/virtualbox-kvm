@@ -1,0 +1,108 @@
+# $Id: darwin-common.kmk 3488 2020-09-22 09:47:02Z bird $
+## @file
+# kBuild Common Darwin (macOS) Definitions - Used by tools and SDKs.
+#
+
+#
+# Copyright (c) 2004-2020 knut st. osmundsen <bird-kBuild-spam-xx@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+INCLUDED_DARWIN_COMMON_KMK := 1
+
+### @def DARWINCMN_XCODE_APP_DEVELOPER_DIRS
+# List 'Developer' directories inside 'Xcode.app' directories.
+# The idea was to use this as a basis for DARWINCMN_TOOLCHAIN_DIRS and
+# DARWINCMN_MACOSX_SDKS_DIRS, but that didn't pan out.
+#
+# Users can alter this by setting DARWINCMN_XCODE_APP_DIRS_PREFERRED,
+# DARWINCMN_XCODE_APP_DIRS_FALLBACK and DARWINCMN_XCODE_APP_DIRS_IGNORE_DEVTOOLS.
+#
+DARWINCMN_XCODE_APP_DEVELOPER_DIRS = $(DARWINCMN_XCODE_APP_DEVELOPER_DIRS_PREFERRED) \
+	$(if-expr defined(DARWINCMN_XCODE_APP_DIRS_IGNORE_DEVTOOLS),, \
+	$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST)/xcode/v*/*.app/Contents/Developer)) \
+	$(if $(KBUILD_DEVTOOLS_HST_ALT),$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST_ALT)/xcode/v*/*.app/Contents/Developer))) ) \
+	/Applications/Xcode.app/Contents/Developer \
+	$(DARWINCMN_XCODE_APP_DIRS_FALLBACK)
+
+## @def DARWINCMN_TOOLCHAIN_DIRS
+# List of toolchain directories containing compilers and stuff in a usr/bin subdir.
+#
+# Users can alter this by setting DARWINCMN_TOOLCHAIN_DIRS_PREFERRED and DARWINCMN_TOOLCHAIN_DIRS_FALLBACK.
+#
+# @note Would love to use DARWINCMN_XCODE_APP_DEVELOPER_DIRS here, but that doesn't really fly wrt directory priority.
+#       Also, prefer avoiding using the longer Xcode.app paths when command line tools are installed.
+DARWINCMN_TOOLCHAIN_DIRS = $(DARWINCMN_TOOLCHAIN_DIRS_PREFERRED) \
+	$(if-expr defined(DARWINCMN_TOOLCHAIN_DIRS_IGNORE_DEVTOOLS),, \
+		$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST)/CommandLineTools/v*)) \
+		$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST)/xcode/v*/*.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain)) \
+		$(if-expr "$(KBUILD_DEVTOOLS_HST_ALT)" != "", \
+			$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST_ALT)/CommandLineTools/v*)) \
+			$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST_ALT)/xcode/v*/*.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain)) ,) \
+	) \
+	/Library/Developer/CommandLineTools \
+	$(qwildcard ,/Applications/Xcode*.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain) \
+	/. \
+	$(DARWINCMN_TOOLCHAIN_DIRS_FALLBACK)
+
+
+## @def DARWINCMN_MACOSX_SDKS_DIRS
+# List of 'SDKs' directories containing MacOSX (macOS) platform SDKs.
+# Users can alter this by setting DARWINCMN_MACOSX_SDKS_DIRS_PREFERRED and DARWINCMN_MACOSX_SDKS_DIRS_FALLBACK.
+DARWINCMN_MACOSX_SDKS_DIRS = $(DARWINCMN_MACOSX_SDKS_DIRS_PREFERRED) \
+	$(if-expr defined(DARWINCMN_MACOSX_SDKS_DIRS_IGNORE_DEVTOOLS),, \
+		$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_TRG_NOARCH)/SDKs)) \
+		$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_TRG)/SDKs)) \
+		$(if-expr "$(KBUILD_DEVTOOLS_TRG_ALT)" != "", \
+			$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_TRG_ALT)/SDKs)) ,) \
+		$(if-expr "$(KBUILD_DEVTOOLS_TRG_NOARCH)" != "$(KBUILD_DEVTOOLS_HST_NOARCH)", \
+			$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST_NOARCH)/SDKs)),) \
+		$(if-expr "$(KBUILD_DEVTOOLS_HST)" != "$(KBUILD_DEVTOOLS_TRG)", \
+			$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST)/SDKs)) \
+			$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST)/CommandLineTools/v*/SDKs)) \
+			$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST)/xcode/v*/*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs)) \
+			$(if-expr "$(KBUILD_DEVTOOLS_HST_ALT)" != "", \
+				$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST_ALT)/CommandLineTools/v*)) \
+				$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST_ALT)/xcode/v*/*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs)) ,) \
+		) \
+	) \
+	/Library/Developer/CommandLineTools/SDKs \
+	$(qwildcard ,/Applications/Xcode*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs) \
+	/Developer/SDKs \
+	$(DARWINCMN_MACOSX_SDKS_DIRS_FALLBACK)
+
+## @def DARWINCMN_FN_FIND_MACOSX_SDK
+# Locate a given SDK.
+# @param 1 SDK name directory (e.g. MacOSX10.15.sdk).
+DARWINCMN_FN_FIND_MACOSX_SDK = $(firstfile $(qwildcard ,$(qaddsuffix ,/$(1),$(DARWINCMN_MACOSX_SDKS_DIRS))))
+## @def DARWINCMN_FN_ERROR_MACOSX_SDK
+# Generate complaint text about SDK that DARWINCMN_FN_FIND_MACOSX_SDK failed to locate.
+# @param 1 SDK name directory (e.g. MacOSX10.15.sdk).
+define DARWINCMN_FN_ERROR_MACOSX_SDK
+Failed to locate the MacOSX SDK '$(1)' directory after checking: $(foreachfile file,$(qaddsuffix ,/$(1),$(DARWINCMN_MACOSX_SDKS_DIRS)),$(NLTAB)$(file))
+Available SDKs: $(rversortfiles $(qnotdir ,$(qwildcard ,$(qaddsuffix ,/Mac*sdk,$(DARWINCMN_MACOSX_SDKS_DIRS)))))
+endef
+

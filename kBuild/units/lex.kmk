@@ -1,0 +1,153 @@
+# $Id: lex.kmk 3284 2019-01-05 01:40:31Z bird $
+## @file
+# lex unit.
+#
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+ifdef UNIT_lex
+ $(error kBuild: The lex unit was included twice!)
+endif
+UNIT_lex = lex
+
+# Add our target properties.
+PROPS_TOOLS += LEXTOOL
+PROPS_SINGLE += LEXTOOL
+PROPS_ACCUMULATE_R += LEXFLAGS
+
+# Add ourselves to the default source handlers.
+KBUILD_SRC_HANDLERS += \
+  .l:def_src_handler_lex
+
+
+## wrapper the compile command dependency check.
+ifndef NO_COMPILE_CMDS_DEPS
+ _DEP_LEX_CMDS = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_LEX_CMDS_PREV_),$$(commands $(out)),FORCE)
+else
+ _DEP_LEX_CMDS =
+endif
+
+
+##
+# Generates the rules for running flex on a specific source file.
+#
+# @param    $(obj)    The object file.
+# @param    lots more
+define def_lex_rule
+$(out) + $(output_extra) +| $(output_maybe) : \
+		$(deps) \
+		$(value _DEP_LEX_CMDS) \
+		| \
+		$(orderdeps)
+	%$$(call MSG_COMPILE,$(target),$(source),$$@,$(type))
+	$$(QUIET)$$(RM) -f -- $(dep) $(out) $(output_extra) $(output_maybe)
+
+$(cmds)
+
+ifndef NO_COMPILE_CMDS_DEPS
+ifdef KBUILD_HAVE_OPTIMIZED_APPEND
+	%$$(QUIET2)$$(APPEND) -ni '$(dep)' \
+		'define $(target)_$(subst :,_,$(source))_LEX_CMDS_PREV_' \
+		'--insert-command=$(out)' \
+		'endef'
+else
+	%$$(QUIET2)$$(APPEND) '$(dep)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_$(subst :,_,$(source))_LEX_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+endif
+
+# update globals
+_OUT_FILES += $(out) $(output_extra) $(output_maybe)
+$(target)_GEN_SOURCES_ += $(out)
+$(target)_2_INTERMEDIATES += $(intermediates)
+
+endef # def_lex_rule
+
+##
+# Handler for .l files listed in the SOURCES properties.
+#
+# .l files are transformed into .c files that then gets compiled by
+# the C compiler.
+#
+# @param    target      The target file.
+# @param    source      The source file.
+# @param    lots more
+# @returns  quite a bit.
+define def_src_handler_lex
+# Figure out all the props.
+local type := LEX
+local tmp := $(kb-src-tool tool)
+ifeq ($(tool),)
+$(error kBuild: $(target) / $(sources) does not a (lex) tool defined!)
+endif
+ifndef TOOL_$(tool)_LEX_CMDS
+$(error kBuild: TOOL_$(tool)_LEX_CMDS isn't defined! target=$(target) source=$(source) )
+endif
+local out := $(kb-obj-base outbase).c
+local tmp := $(kb-src-prop LEXFLAGS,flags,left-to-right,)
+local tmp := $(kb-src-prop DEPS,deps,left-to-right,$(defpath))
+local tmp := $(kb-src-prop ORDERDEPS,orderdeps,left-to-right,$(defpath))
+ifdef TOOL_$(tool)_LEX_OUT_FILE # .c/.cpp output depends on flags.
+ local out := $(strip $(TOOL_$(tool)_LEX_OUT_FILE))
+ ifeq ($(out),)
+  local out := $(outbase).c
+ endif
+endif
+local dirdep := $(call DIRDEP,$(dir $(out)))
+
+# Adjust paths if we got a default path.
+ifneq ($(defpath),)
+ local source := $(abspathex $(source),$(defpath))
+endif
+
+# dependency file.
+local dep := $(out)$(SUFF_DEP)
+ifndef NO_COMPILE_CMDS_DEPS
+ _DEPFILES_INCLUDED += $(dep)
+ $(eval includedep $(dep))
+endif
+
+# call the tool
+local cmds := $(TOOL_$(tool)_LEX_CMDS)
+local output_extra := $(TOOL_$(tool)_LEX_OUTPUT)
+local output_maybe := $(TOOL_$(tool)_LEX_OUTPUT_MAYBE)
+local deps += $(TOOL_$(tool)_LEX_DEPEND) $(source)
+local orderdeps += $(TOOL_$(tool)_LEX_DEPORD) $(dirdep)
+
+# Whether it generates a header file depends on the tool / flags.
+local intermediates := $(filter %.h %.hpp %.h++ %.H,$(output_extra))
+
+# generate the rule.
+$(eval $(def_lex_rule))
+
+endef # def_src_handler_lex
+
+

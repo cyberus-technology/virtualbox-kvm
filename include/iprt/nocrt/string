@@ -1,0 +1,322 @@
+/** @file
+ * IPRT / No-CRT - Minimal C++ string header.
+ */
+
+/*
+ * Copyright (C) 2022-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+#ifndef VBOX_INCLUDED_SRC_nocrt_string
+#define VBOX_INCLUDED_SRC_nocrt_string
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#include <iprt/nocrt/string.h>
+#include <iprt/nocrt/cstddef> /* for std::size_t */
+#include <iprt/cpp/ministring.h>
+
+#ifndef RT_NOCRT_EOF /* also in stdio.h */
+# define RT_NOCRT_EOF   (-1)
+#endif
+
+namespace std
+{
+    using streamoff = ::RTFOFF;
+
+    /**
+     * @note This should be in iosfwd, not string.
+     */
+    template<typename a_MbStateType>
+    class fpos
+    {
+    protected:
+        std::streamoff  m_off;
+        a_MbStateType   m_MbState;
+
+    public:
+        fpos()
+            : m_off(0)
+            , m_MbState()
+        { }
+
+        fpos(std::streamoff a_off)
+            : m_off(a_off)
+            , m_MbState()
+        { }
+
+        a_MbStateType state() const RT_NOEXCEPT
+        {
+            return m_MbState;
+        }
+
+        void state(a_MbStateType a_NewMbState) const RT_NOEXCEPT
+        {
+            m_MbState = a_NewMbState;
+        }
+    };
+    using mbstate_t = ::RT_NOCRT(mbstate_t);
+    using streampos = fpos<std::mbstate_t>;
+
+    /* Use RTCString as std::string, it should be a reasonable match. */
+    typedef ::RTCString string;
+
+    /**
+     * Character traits.
+     */
+    template<typename a_CharType>
+    struct char_traits
+    {
+        /** @name Types
+         * @{ */
+        typedef a_CharType                  char_type;
+        typedef unsigned long               int_type;
+        typedef std::streamoff              off_type;
+        typedef std::streampos              pos_type;
+        typedef std::mbstate_t              state_type;
+        /** @} */
+
+        static void assign(char_type &a_rchDst, const char_type &a_rchSrc) RT_NOEXCEPT
+        {
+            a_rchDst = a_rchSrc;
+        }
+
+        static bool eq(const char_type &a_rchLeft, const char_type &a_rchRight) RT_NOEXCEPT
+        {
+            return a_rchLeft == a_rchRight;
+        }
+
+        static bool lt(const char_type &a_rchLeft, const char_type &a_rchRight) RT_NOEXCEPT
+        {
+            return a_rchLeft < a_rchRight;
+        }
+
+        static std::size_t      length(const char_type *a_psz) RT_NOEXCEPT;
+        static int              compare(const char_type *a_pchLeft, const char_type *a_pchRight, std::size_t a_cch) RT_NOEXCEPT;
+        static const char_type *find(const char_type *a_pchHaystack, std::size_t a_cchHaystack, const char_type &a_rchNeedle) RT_NOEXCEPT;
+        static char_type       *assign(char_type *a_pchDst, std::size_t a_cchDst, char_type a_chFill) RT_NOEXCEPT;
+        static char_type       *copy(char_type *a_pchDst, const char_type *a_pchSrc, std::size_t a_cch) RT_NOEXCEPT;
+        static char_type       *move(char_type *a_pchDst, const char_type *a_pchSrc, std::size_t a_cch) RT_NOEXCEPT;
+
+        static char_type to_char_type(const int_type &a_riChar)
+        {
+            return static_cast<char_type>(a_riChar);
+        }
+
+        static int_type to_int_type(const char_type &a_rch)
+        {
+            return static_cast<int_type>(a_rch);
+        }
+
+        static bool eq_int_type(const int_type &a_riLeft, const int_type &a_riRight) RT_NOEXCEPT
+        {
+            return a_riLeft == a_riRight;
+        }
+
+        static int_type eof() RT_NOEXCEPT
+        {
+            return static_cast<int_type>(RT_NOCRT_EOF);
+        }
+
+        static int_type not_eof(const int_type &a_riChar) RT_NOEXCEPT
+        {
+            if (!eq_int_type(a_riChar, eof()))
+                return a_riChar;
+            return to_int_type(char_type());
+        }
+    };
+
+    template<typename a_CharType>
+    /*static*/ std::size_t char_traits<a_CharType>::length(const char_type *a_psz) RT_NOEXCEPT
+    {
+        const char_type * const pszStart = a_psz;
+        while (!eq(*a_pszLeft, char_type()))
+               a_psz++;
+        return static_cast<std::size_t>(a_psz - pszStart);
+    }
+
+    template<typename a_CharType>
+    /*static*/ int char_traits<a_CharType>::compare(const char_type *a_pchLeft, const char_type *a_pchRight,
+                                                    std::size_t a_cch) RT_NOEXCEPT
+    {
+        for (std::size_t off = 0; off < a_cch; off++)
+            if (eq(a_pchLeft[off], a_pchRight[off]))
+            { /* likely? */ }
+            else
+                return lt(a_pchLeft[off], a_pchRight[off]) ? -1 : 1;
+        return 0;
+    }
+
+    template<typename a_CharType>
+    /*static*/ const typename char_traits<a_CharType>::char_type *
+    char_traits<a_CharType>::find(const char_type *a_pchHaystack, std::size_t a_cchHaystack,
+                                  const char_type &a_rchNeedle) RT_NOEXCEPT
+    {
+        while (a_cchHaystack-- > 0)
+        {
+            if (eq(*a_pchHaystack, a_rchNeedle))
+                return a_pchHaystack;
+            a_pchHaystack++;
+        }
+        return NULL;
+    }
+
+    template<typename a_CharType>
+    /*static*/ typename char_traits<a_CharType>::char_type *
+    char_traits<a_CharType>::assign(char_type *a_pchDst, std::size_t a_cchDst, char_type a_chFill) RT_NOEXCEPT
+    {
+        char_type * const pchRet = a_pchDst;
+        while (a_cchDst-- > 0)
+            *a_pchDst++ = a_chFill;
+        return pchRet;
+    }
+
+    template<typename a_CharType>
+    /*static*/ typename char_traits<a_CharType>::char_type *
+    char_traits<a_CharType>::copy(char_type *a_pchDst, const char_type *a_pchSrc, std::size_t a_cch) RT_NOEXCEPT
+    {
+        char_type * const pchRet = a_pchDst;
+        while (a_cch-- > 0)
+            *a_pchDst++ = *a_pchSrc++;
+        return pchRet;
+    }
+
+    template<typename a_CharType>
+    /*static*/ typename char_traits<a_CharType>::char_type *
+    char_traits<a_CharType>::move(char_type *a_pchDst, const char_type *a_pchSrc, std::size_t a_cch) RT_NOEXCEPT
+    {
+        char_type * const         pchRet  = a_pchDst;
+        char_type volatile       *pchDstV = static_cast<char_type const volatile *>(a_pchDst);
+        char_type const volatile *pchSrcV = static_cast<char_type const volatile *>(a_pchSrc);
+        if ((uintptr_t)a_pchDst < (uintptr_t)a_pchSrc)
+        {
+            /* forward copy */
+            while (a_cch-- > 0)
+                *a_pchDstV++ = *a_pchSrcV++;
+        }
+        else
+        {
+            /* reverse copy */
+            a_pchSrcV += a_cch;
+            a_pchDstV += a_cch;
+            while (a_cchDst-- > 0)
+                *a_pchDstV-- = *a_pchSrcV--;
+        }
+        return pchRet;
+    }
+
+    /*
+     * Character train specializations.
+     */
+    template <>
+    struct char_traits<char>
+    {
+        typedef char                        char_type;
+        typedef int                         int_type;
+        typedef std::streamoff              off_type;
+        typedef std::streampos              pos_type;
+        typedef std::mbstate_t              state_type;
+
+        static void assign(char_type &a_rchDst, const char_type &a_rchSrc) RT_NOEXCEPT
+        {
+            a_rchDst = a_rchSrc;
+        }
+
+        static bool eq(const char_type &a_rchLeft, const char_type &a_rchRight) RT_NOEXCEPT
+        {
+            return a_rchLeft == a_rchRight;
+        }
+
+        static bool lt(const char_type &a_rchLeft, const char_type &a_rchRight) RT_NOEXCEPT
+        {
+            return a_rchLeft < a_rchRight;
+        }
+
+        static std::size_t      length(const char_type *a_psz) RT_NOEXCEPT
+        {
+            return ::RT_NOCRT(strlen)(a_psz);
+        }
+
+        static int              compare(const char_type *a_pchLeft, const char_type *a_pchRight, std::size_t a_cch) RT_NOEXCEPT
+        {
+            return ::RT_NOCRT(memcmp)(a_pchLeft, a_pchRight, a_cch);
+        }
+
+        static const char_type *find(const char_type *a_pchHaystack, std::size_t a_cchHaystack, const char_type &a_rchNeedle) RT_NOEXCEPT
+        {
+            return static_cast<const char_type *>(::RT_NOCRT(memchr)(a_pchHaystack, a_rchNeedle, a_cchHaystack));
+        }
+
+        static char_type       *assign(char_type *a_pchDst, std::size_t a_cchDst, char_type a_chFill) RT_NOEXCEPT
+        {
+            return static_cast<char_type *>(::RT_NOCRT(memset)(a_pchDst, a_chFill, a_cchDst));
+        }
+
+        static char_type       *copy(char_type *a_pchDst, const char_type *a_pchSrc, std::size_t a_cch) RT_NOEXCEPT
+        {
+            return static_cast<char_type *>(::RT_NOCRT(memcpy)(a_pchDst, a_pchSrc, a_cch));
+        }
+
+        static char_type       *move(char_type *a_pchDst, const char_type *a_pchSrc, std::size_t a_cch) RT_NOEXCEPT
+        {
+            return static_cast<char_type *>(::RT_NOCRT(memmove)(a_pchDst, a_pchSrc, a_cch));
+        }
+
+        static char_type to_char_type(const int_type &a_riChar)
+        {
+            return static_cast<char_type>(a_riChar);
+        }
+
+        static int_type to_int_type(const char_type &a_rch)
+        {
+            return static_cast<int_type>(a_rch);
+        }
+
+        static bool eq_int_type(const int_type &a_riLeft, const int_type &a_riRight) RT_NOEXCEPT
+        {
+            return a_riLeft == a_riRight;
+        }
+
+        static int_type eof() RT_NOEXCEPT
+        {
+            return static_cast<int_type>(RT_NOCRT_EOF);
+        }
+
+        static int_type not_eof(const int_type &a_riChar) RT_NOEXCEPT
+        {
+            if (!eq_int_type(a_riChar, eof()))
+                return a_riChar;
+            return 0;
+        }
+    };
+}
+
+
+#endif /* !VBOX_INCLUDED_SRC_nocrt_string */

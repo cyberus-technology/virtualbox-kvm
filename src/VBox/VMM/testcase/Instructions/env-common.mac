@@ -1,0 +1,356 @@
+; $Id: env-common.mac $
+;; @file
+; Instruction Test Environment - Common Bits.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; SPDX-License-Identifier: GPL-3.0-only
+;
+
+%ifndef ___env_common_mac
+%define ___env_common_mac
+
+%include "iprt/x86.mac"
+
+;*******************************************************************************
+;*  Defined Constants And Macros                                               *
+;*******************************************************************************
+%ifdef RT_ARCH_AMD64
+ %define MY_PUSH_FLAGS      pushfq
+ %define MY_POP_FLAGS       popfq
+ %define MY_PUSH_FLAGS_SIZE 8
+
+ %macro MY_PUSH_ALL 0
+        push rbp
+        mov  rbp, rsp
+        push rax
+        push rbx
+        push rcx
+        push rdx
+        push rsi
+        push rdi
+        push r8
+        push r9
+        push r10
+        push r11
+        push r12
+        push r13
+        push r14
+        push r15
+        pushfq
+ %endm
+ %macro MY_POP_ALL 0
+        popfq
+        pop  r15
+        pop  r14
+        pop  r13
+        pop  r12
+        pop  r11
+        pop  r10
+        pop  r9
+        pop  r8
+        pop  rdi
+        pop  rsi
+        pop  rdx
+        pop  rcx
+        pop  rbx
+        pop  rax
+        pop  rbp
+ %endm
+
+%else
+ %define MY_PUSH_FLAGS      pushfd
+ %define MY_POP_FLAGS       popfd
+ %define MY_PUSH_FLAGS_SIZE 4
+
+ %macro MY_PUSH_ALL 0
+        push eBP
+        mov  xBP, xSP
+        push eax
+        push ebx
+        push ecx
+        push edx
+        push esi
+        push edi
+        pushfd
+ %endm
+ %macro MY_POP_ALL 0
+        popfd
+        pop  edi
+        pop  esi
+        pop  edx
+        pop  ecx
+        pop  ebx
+        pop  eax
+        pop  ebp
+ %endm
+%endif
+
+
+
+;*******************************************************************************
+;*  Internal Functions                                                         *
+;*******************************************************************************
+
+VBINSTST_BEGINCODE
+
+;;
+; Report bad register value.
+;
+; Primary purpose is save all registers and convert from our stack-based to
+; the correct calling convention for the environment.
+;
+; This function will clean up the stack upon return (to save space in the caller).
+;
+; @param    uExpected
+; @param    uActual
+; @param    uRegisterNo
+;
+VBINSTST_BEGINPROC Common_BadValue
+        MY_PUSH_ALL
+        mov     xAX, xSP                ; 16-byte align the stack and reserve space for arguments and stuff.
+        sub     xSP, 40h
+        and     xSP, ~15
+        mov     [xSP + 38h], xAX
+
+%ifdef ASM_CALL64_GCC
+        mov     r8d, [VBINSTST_NAME(g_uVBInsTstSubTestIndicator) wrt rip]
+        mov     rcx, [rbp + 10h] ; expected
+        mov     rdx, [rbp + 18h] ; actual
+        mov     rsi, [rbp + 20h] ; reg#
+        lea     rdi, [.szFmt wrt rip]
+        VBINSTST_CALL_FN_FAILURE_4
+
+%elifdef ASM_CALL64_MSC
+        mov     r10d, [VBINSTST_NAME(g_uVBInsTstSubTestIndicator) wrt rip]
+        mov     [rsp + 20h], r10
+        mov     r9,  [rbp + 10h] ; expected
+        mov     r8,  [rbp + 18h] ; actual
+        mov     rdx, [rbp + 20h] ; reg#
+        lea     rcx, [.szFmt wrt rip]
+        VBINSTST_CALL_FN_FAILURE_4
+
+%elifdef ASM_CALL64_BS2
+        mov     sBX, [VBINSTST_NAME(g_uVBInsTstSubTestIndicator) xWrtRIP]
+        mov     sCX, [xBP + xCB + xCB]     ; expected
+        mov     sAX, [xBP + xCB + xCB + sCB*1] ; actual
+        mov     sDX, [xBP + xCB + xCB + sCB*2] ; reg#
+        lea     sSI, [.szFmt xWrtRIP]
+        mov     qword [xSP + xCB + 3*sCB], sBX
+        mov     qword [xSP + xCB + 2*sCB], sCX
+        mov     qword [xSP + xCB + 1*sCB], sAX
+        mov     qword [xSP + xCB], sDX
+        mov     [xSP], sSI
+        VBINSTST_CALL_FN_FAILURE_4
+
+%else
+        mov     sBX, [VBINSTST_NAME(g_uVBInsTstSubTestIndicator)]
+        mov     sCX, [xBP + xCB + xCB]     ; expected
+        mov     sAX, [xBP + xCB + xCB + sCB*1] ; actual
+        mov     sDX, [xBP + xCB + xCB + sCB*2] ; reg#
+        mov     [xSP + xCB + 3*sCB], sBX
+        mov     [xSP + xCB + 2*sCB], sCX
+        mov     [xSP + xCB + 1*sCB], sAX
+        mov     [xSP + xCB], sDX
+        mov     [xSP], RTCCPTR_PRE .szFmt
+        VBINSTST_CALL_FN_FAILURE_4
+%endif
+
+        mov     xSP, [xSP + 38h]
+        MY_POP_ALL
+        ret     3*sCB
+%if ARCH_BITS == 64
+.szFmt: db 'Bad register 0x%RX32 value 0x%RX64, expected 0x%RX64 (line %RU64)', 13, 0
+%else
+.szFmt: db 'Bad register 0x%RX32 value 0x%RX32, expected 0x%RX32 (line %RU32)', 13, 0
+%endif
+VBINSTST_ENDPROC   Common_BadValue
+
+
+%ifdef VBINSTST_CAN_DO_TRAPS
+
+;;
+; Report a missing TRAP.
+;
+; Primary purpose is save all registers and convert from our stack-based to
+; the correct calling convention for the environment.
+;
+; This function will clean up the stack upon return (to save space in the caller).
+;
+; @param    uExpected
+;
+VBINSTST_BEGINPROC Common_MissingTrap
+        MY_PUSH_ALL
+        mov     xAX, xSP                ; 16-byte align the stack and reserve space for arguments and stuff.
+        sub     xSP, 40h
+        and     xSP, ~15
+        mov     [xSP + 38h], xAX
+
+ %ifdef ASM_CALL64_GCC
+        mov     rdx, [VBINSTST_NAME(g_uVBInsTstSubTestIndicator) wrt rip]
+        movzx   rsi, byte [rbp + 10h] ; expected
+        lea     rdi, [.szFmt wrt rip]
+        VBINSTST_CALL_FN_FAILURE_2
+
+ %elifdef ASM_CALL64_MSC
+        mov     r8d, [VBINSTST_NAME(g_uVBInsTstSubTestIndicator) wrt rip]
+        movzx   rdx, byte [rbp + 10h] ; expected
+        lea     rcx, [.szFmt wrt rip]
+        VBINSTST_CALL_FN_FAILURE_2
+
+ %elifdef ASM_CALL64_BS2
+        mov     sBX, [VBINSTST_NAME(g_uVBInsTstSubTestIndicator) xWrtRIP]
+        mov     sDX, [xBP + xCB + xCB]     ; expected
+        lea     sSI, [.szFmt xWrtRIP]
+        mov     qword [xSP + xCB + 1*sCB], sBX
+        mov     qword [xSP + xCB], sDX
+        mov     [xSP], sSI
+        VBINSTST_CALL_FN_FAILURE_2
+
+ %else
+        mov     sBX, [VBINSTST_NAME(g_uVBInsTstSubTestIndicator)]
+        mov     sDX, [xBP + xCB + xCB]     ; expected
+        mov     [xSP + xCB + 1*sCB], sBX
+        mov     [xSP + xCB], sDX
+        mov     [xSP], RTCCPTR_PRE .szFmt
+        VBINSTST_CALL_FN_FAILURE_2
+ %endif
+
+        mov     xSP, [xSP + 38h]
+        MY_POP_ALL
+        ret     1*sCB
+ %if ARCH_BITS == 64
+.szFmt: db 'Missing trap %RX8 (line %RU64)', 13, 0
+ %else
+.szFmt: db 'Missing trap %RX8 (line %RU32)', 13, 0
+ %endif
+VBINSTST_ENDPROC   Common_MissingTrap
+
+ %macro Common_MissingTrapTemplate 1
+    VBINSTST_BEGINPROC Common_MissingTrap_%1
+        push    %1
+        call    VBINSTST_NAME(Common_MissingTrap)
+        ret
+    VBINSTST_ENDPROC   Common_MissingTrap_%1
+ %endmacro
+ Common_MissingTrapTemplate X86_XCPT_DE
+ Common_MissingTrapTemplate X86_XCPT_DB
+ Common_MissingTrapTemplate X86_XCPT_NMI
+ Common_MissingTrapTemplate X86_XCPT_BP
+ Common_MissingTrapTemplate X86_XCPT_OF
+ Common_MissingTrapTemplate X86_XCPT_BR
+ Common_MissingTrapTemplate X86_XCPT_UD
+ Common_MissingTrapTemplate X86_XCPT_NM
+ ;Common_MissingTrapTemplate X86_XCPT_DF
+ ;Common_MissingTrapTemplate X86_XCPT_CO_SEG_OVERRUN
+ Common_MissingTrapTemplate X86_XCPT_TS
+ Common_MissingTrapTemplate X86_XCPT_NP
+ Common_MissingTrapTemplate X86_XCPT_SS
+ Common_MissingTrapTemplate X86_XCPT_GP
+ Common_MissingTrapTemplate X86_XCPT_PF
+ Common_MissingTrapTemplate X86_XCPT_MF
+ Common_MissingTrapTemplate X86_XCPT_AC
+ ;Common_MissingTrapTemplate X86_XCPT_MC
+ Common_MissingTrapTemplate X86_XCPT_XF
+
+%endif ; VBINSTST_CAN_DO_TRAPS
+
+
+;
+; Global data variables used by Common_SetupMemReadUxx.
+; For address calculation reasons, these must be qword aligned.
+;
+VBINSTST_BEGINDATA
+        align 64
+        dd      09d8af498h, 09ab3e5f8h
+VBINSTST_GLOBALNAME_EX g_u64Data, data hidden
+        dq      0
+        dd      07d7af797h, 096b36562h
+VBINSTST_GLOBALNAME_EX g_u32Data, data hidden
+        dd      0
+        dd      012305987h
+VBINSTST_GLOBALNAME_EX g_u16Data, data hidden
+        dw      0
+        dw      05865h
+        dw      03863h
+        dw      02679h
+VBINSTST_GLOBALNAME_EX g_u8Data, data hidden
+        db      0
+        db      90h
+        dw      0865ah
+        dd      058daffe2h
+
+VBINSTST_BEGINCODE
+
+;;
+; Sets up g_u8Data.
+; @param    uValue
+VBINSTST_BEGINPROC Common_SetupMemReadU8
+        push    sAX
+        mov     ax, [xSP + sCB + xCB]
+        mov     [VBINSTST_NAME(g_u8Data) xWrtRIP], ax
+        pop     sAX
+        ret sCB
+VBINSTST_ENDPROC   Common_SetupMemReadU8
+
+;;
+; Sets up g_u16Data.
+; @param    uValue
+VBINSTST_BEGINPROC Common_SetupMemReadU16
+        push    sAX
+        mov     ax, [xSP + sCB + xCB]
+        mov     [VBINSTST_NAME(g_u16Data) xWrtRIP], ax
+        pop     sAX
+        ret sCB
+VBINSTST_ENDPROC   Common_SetupMemReadU16
+
+;;
+; Sets up g_u32Data.
+; @param    uValue
+VBINSTST_BEGINPROC Common_SetupMemReadU32
+        push    sAX
+        mov     eax, [xSP + sCB + xCB]
+        mov     [VBINSTST_NAME(g_u32Data) xWrtRIP], eax
+        pop     sAX
+        ret sCB
+VBINSTST_ENDPROC   Common_SetupMemReadU32
+
+;;
+; Sets up g_u64Data.
+; @param    uValue
+VBINSTST_BEGINPROC Common_SetupMemReadU64
+        push    sAX
+%ifdef RT_ARCH_AMD64
+        mov     rax, [xSP + sCB + xCB]
+        mov     [VBINSTST_NAME(g_u64Data) xWrtRIP], rax
+%else
+        mov     eax, [xSP + sCB + xCB]
+        mov     [VBINSTST_NAME(g_u64Data) xWrtRIP], eax
+        mov     eax, [xSP + sCB + xCB + 4]
+        mov     [VBINSTST_NAME(g_u64Data) + 4 xWrtRIP], eax
+%endif
+        pop     sAX
+        ret sCB
+VBINSTST_ENDPROC   Common_SetupMemReadU64
+
+
+%endif
+

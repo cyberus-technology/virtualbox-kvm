@@ -1,0 +1,83 @@
+# $Id: OPENWATCOM-WL.kmk 3306 2020-01-15 01:16:43Z bird $
+## @file
+# kBuild Tool Config - Open Watcom v1.4 and later, using wlink.
+#
+# @remarks wrc is untested, so are DLLs, and programs.
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_OPENWATCOM-WL = Open Watcom v1.4 and later, using wlink.
+TOOL_OPENWATCOM-WL_EXTENDS = OPENWATCOM
+TOOL_OPENWATCOM-WL_LDFLAGS       ?= Option Quiet
+TOOL_OPENWATCOM-WL_LDFLAGS.dos   ?= $(NO_SUCH_VARIABLE)
+TOOL_OPENWATCOM-WL_LDFLAGS.linux ?= $(NO_SUCH_VARIABLE)
+TOOL_OPENWATCOM-WL_LDFLAGS.nt    ?= $(NO_SUCH_VARIABLE)
+TOOL_OPENWATCOM-WL_LDFLAGS.os2   ?= $(NO_SUCH_VARIABLE)
+TOOL_OPENWATCOM-WL_LDFLAGS.win   ?= $(NO_SUCH_VARIABLE)
+
+
+TOOL_OPENWATCOM-WL_LINK_PROGRAM_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_OPENWATCOM-WL_LINK_PROGRAM_OUTPUT_MAYBE = $(outbase).sym
+TOOL_OPENWATCOM-WL_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_OPENWATCOM-WL_LINK_PROGRAM_DEPORD =
+define TOOL_OPENWATCOM-WL_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(if $(flags),'$(flags)',) \
+		'Name $(call TOOL_OPENWATCOM_FIX_SLASHES_SQ,$(out)$(if $(suffix $(out)),,.))' \
+		'Option Map=$(call TOOL_OPENWATCOM_FIX_SLASHES_SQ,$(outbase)).map' \
+		$(foreach p,$(call TOOL_OPENWATCOM_FIX_SLASHES_SQ,$(libpath)),'LIBPath $p') \
+        	$(foreach o,$(call TOOL_OPENWATCOM_FIX_SLASHES_SQ,$(filter-out %.res,$(objs)) $(othersrc)),'$(if $(filter %.lib %.a,$l),LIB,)File $o') \
+		$(foreach l,$(call TOOL_OPENWATCOM_FIX_SLASHES_SQ,$(libs)),'Library $l')
+	$(QUIET)$(call TOOL_OPENWATCOM_ENV_SETUP_BD) \
+		$(TOOL_OPENWATCOM_WLINK) @$(outbase).rsp
+	$(if $(filter %.res,$(objs)), $(QUIET)$(call TOOL_OPENWATCOM_ENV_SETUP) \
+		$(TOOL_OPENWATCOM_RC) \
+			$(filter -bt=%,$(flags)) \
+			/fe=$(call TOOL_OPENWATCOM_FIX_SLASHES,$(out)) \
+			$(call TOOL_OPENWATCOM_FIX_SLASHES,$(filter %.res,$(objs))))
+endef
+
+TOOL_OPENWATCOM-WL_LINK_DLL_OUTPUT_MAYBE_PRECIOUS     = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_OUTPUT_MAYBE_PRECIOUS)
+TOOL_OPENWATCOM-WL_LINK_DLL_OUTPUT_MAYBE              = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_OUTPUT_MAYBE)
+TOOL_OPENWATCOM-WL_LINK_DLL_DEPEND                    = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_DEPEND)
+TOOL_OPENWATCOM-WL_LINK_DLL_DEPORD                    = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_DEPORD)
+TOOL_OPENWATCOM-WL_LINK_DLL_CMDS                      = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_CMDS)
+
+TOOL_OPENWATCOM-WL_LINK_SYSMOD_OUTPUT_MAYBE_PRECIOUS  = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_OUTPUT_MAYBE_PRECIOUS)
+TOOL_OPENWATCOM-WL_LINK_SYSMOD_OUTPUT_MAYBE           = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_OUTPUT_MAYBE)
+TOOL_OPENWATCOM-WL_LINK_SYSMOD_DEPEND                 = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_DEPEND)
+TOOL_OPENWATCOM-WL_LINK_SYSMOD_DEPORD                 = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_DEPORD)
+TOOL_OPENWATCOM-WL_LINK_SYSMOD_CMDS                   = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_CMDS)
+
+TOOL_OPENWATCOM-WL_LINK_MISCBIN_OUTPUT_MAYBE_PRECIOUS = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_OUTPUT_MAYBE_PRECIOUS)
+TOOL_OPENWATCOM-WL_LINK_MISCBIN_OUTPUT_MAYBE          = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_OUTPUT_MAYBE)
+TOOL_OPENWATCOM-WL_LINK_MISCBIN_DEPEND                = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_DEPEND)
+TOOL_OPENWATCOM-WL_LINK_MISCBIN_DEPORD                = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_DEPORD)
+TOOL_OPENWATCOM-WL_LINK_MISCBIN_CMDS                  = $(TOOL_OPENWATCOM-WL_LINK_PROGRAM_CMDS)
+

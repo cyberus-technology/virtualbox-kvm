@@ -1,0 +1,77 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - Common Python Code.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Install targets for the two zip files.
+#
+
+INSTALLS += testboxscript-common
+testboxscript-common_TEMPLATE = VBoxValidationKitR3
+testboxscript-common_INST = $(INST_TESTBOXSCRIPT)common/
+testboxscript-common_SOURCES = \
+	__init__.py \
+	utils.py \
+	netutils.py \
+	pathutils.py \
+	webutils.py \
+	constants/__init__.py=>constants/__init__.py \
+	constants/tbreq.py=>constants/tbreq.py \
+	constants/tbresp.py=>constants/tbresp.py \
+	constants/result.py=>constants/result.py \
+	constants/rtexitcode.py=>constants/rtexitcode.py \
+	constants/valueunit.py=>constants/valueunit.py
+
+INSTALLS += validationkit-common
+validationkit-common_TEMPLATE = VBoxValidationKitR3
+validationkit-common_INST     = $(INST_VALIDATIONKIT)common/
+validationkit-common_SOURCES  = $(testboxscript-common_SOURCES)
+
+
+#
+# Generate pylint and pychecker targets.
+#
+VBOX_VALIDATIONKIT_PYTHON_SOURCES += \
+	$(wildcard \
+	$(PATH_SUB_CURRENT)/*.py \
+	$(PATH_SUB_CURRENT)/*/*.py \
+	)
+
+$(evalcall def_vbox_validationkit_process_python_sources)
+include $(FILE_KBUILD_SUB_FOOTER)
+

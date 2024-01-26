@@ -1,0 +1,76 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the VBox RDP authentication plugins.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# The plugin.
+ifndef VBOX_ONLY_SDK
+ if ("$(KBUILD_TARGET)" != "linux" && "$(KBUILD_TARGET)" != "solaris") || defined(VBOX_WITH_PAM)
+  DLLS += VBoxAuth
+ endif
+endif
+VBoxAuth_TEMPLATE = VBoxR3Dll
+VBoxAuth_SOURCES.linux = pam/VBoxAuthPAM.c
+VBoxAuth_SOURCES.solaris = pam/VBoxAuthPAM.c
+VBoxAuth_SOURCES.freebsd = pam/VBoxAuthPAM.c
+VBoxAuth_SOURCES.win = winlogon/winlogon.cpp winlogon/VBoxAuth.rc
+VBoxAuth_SOURCES.darwin = directoryservice/directoryservice.cpp
+VBoxAuth_CXXFLAGS.darwin = -Wno-deprecated-declarations
+VBoxAuth_LIBS.linux = $(LIB_RUNTIME) dl
+VBoxAuth_LIBS.solaris = $(LIB_RUNTIME) dl
+VBoxAuth_LIBS.freebsd = $(LIB_RUNTIME)
+VBoxAuth_LIBS.darwin = $(LIB_RUNTIME)
+VBoxAuth_LDFLAGS.darwin = -framework DirectoryService
+
+# The simple plugin.
+ifndef VBOX_ONLY_SDK
+ if defined(VBOX_WITH_MAIN)
+  DLLS += VBoxAuthSimple
+ endif
+endif
+VBoxAuthSimple_TEMPLATE = VBoxMainClientDll
+VBoxAuthSimple_SOURCES = simple/VBoxAuthSimple.cpp
+VBoxAuthSimple_SOURCES.win = simple/VBoxAuthSimple.rc
+
+# Install the SDK samples.
+INSTALLS += VBoxAuth-samples
+VBoxAuth-samples_INST = $(INST_SDK)bindings/auth/
+VBoxAuth-samples_MODE = a+r,u+w
+VBoxAuth-samples_SOURCES = simple/VBoxAuthSimple.cpp
+VBoxAuth-samples_SOURCES.linux = pam/VBoxAuthPAM.c
+VBoxAuth-samples_SOURCES.win = winlogon/winlogon.cpp
+
+# Install the SDK header.
+INSTALLS += VBoxAuth-sdkhdr
+VBoxAuth-sdkhdr_INST = $(INST_SDK)bindings/auth/include/
+VBoxAuth-sdkhdr_MODE = a+r,u+w
+VBoxAuth-sdkhdr_SOURCES = $(PATH_ROOT)/include/VBox/VBoxAuth.h=>VBoxAuth.h
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

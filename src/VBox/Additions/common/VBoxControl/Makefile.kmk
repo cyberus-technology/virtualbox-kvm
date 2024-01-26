@@ -1,0 +1,61 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Guest Additions Command Line Management Interface.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefile(s).
+include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+
+#
+# VBoxControl
+#
+PROGRAMS += VBoxControl
+VBoxControl_TEMPLATE = VBoxGuestR3Exe
+if "$(KBUILD_TARGET)" == "win" && defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS) # (See the main Windows Additions makefile.)
+ VBoxControl_INSTTYPE = none
+ VBoxControl_DEBUG_INSTTYPE = both
+endif
+VBoxControl_DEFS     += \
+	$(if $(VBOX_WITH_HGCM),VBOX_WITH_HGCM,) \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBOX_WITH_GUEST_PROPS,) \
+	$(if $(VBOX_WITH_SHARED_FOLDERS),VBOX_WITH_SHARED_FOLDERS,)
+VBoxControl_DEFS.win += \
+	$(if $(VBOX_WITH_DPC_LATENCY_CHECKER),VBOX_WITH_DPC_LATENCY_CHECKER,)
+VBoxControl_SDKS = VBoxZlibStatic
+VBoxControl_SOURCES = \
+	VBoxControl.cpp
+VBoxControl_SOURCES.win = \
+	VBoxControl.rc
+VBoxControl_LDFLAGS.darwin = -framework IOKit
+VBoxControl_LIBS.netbsd = crypt
+VBoxControl_USES.win += vboximportchecker
+VBoxControl_VBOX_IMPORT_CHECKER.win.x86 = nt31
+VBoxControl_VBOX_IMPORT_CHECKER.win.amd64 = xp64
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,494 @@
+# $Id: VBoxXcode62.kmk $
+## @file
+# kBuild Tool Config - Xcode 6.2 from tools, dmg or similar.
+#
+
+#
+# Copyright (C) 2016-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+TOOL_VBoxXcode62 := Xcode 6.2 from tools, dmg or similar
+
+# Figure out the path of the Xcode.app/Contents/Developer/.
+ifndef PATH_TOOL_VBoxXcode62
+ PATH_TOOL_VBoxXcode62 := $(wildcard $(KBUILD_DEVTOOLS_TRG)/xcode/v6.2*/*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk)
+ ifeq ($(PATH_TOOL_VBoxXcode62),)
+  PATH_TOOL_VBoxXcode62 := $(wildcard $(KBUILD_DEVTOOLS)/darwin.amd64/xcode/v6.2*/*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk)
+  ifeq ($(PATH_TOOL_VBoxXcode62),)
+   PATH_TOOL_VBoxXcode62 := $(wildcard $(KBUILD_DEVTOOLS)/darwin.x86/xcode/v6.2*/*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk)
+   ifeq ($(PATH_TOOL_VBoxXcode62),)
+    PATH_TOOL_VBoxXcode62 := $(wildcard $(KBUILD_DEVTOOLS)/darwin.x86/xcode/v6.2*/*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk)
+    ifeq ($(PATH_TOOL_VBoxXcode62),)
+     PATH_TOOL_VBoxXcode62 := $(wildcard /Applications/*Xcode*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk)
+     ifeq ($(PATH_TOOL_VBoxXcode62),)
+      PATH_TOOL_VBoxXcode62 := $(wildcard /Volumes/Xcode/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk)
+     endif
+    endif
+   endif
+  endif
+ endif
+ ifneq ($(PATH_TOOL_VBoxXcode62),)
+  PATH_TOOL_VBoxXcode62 := $(patsubst %/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk,%,$(firstword $(rsort $(PATH_TOOL_VBoxXcode62))))
+ endif
+else
+ # Resolve any fance stuff once and for all.
+ PATH_TOOL_VBoxXcode62 := $(PATH_TOOL_VBoxXcode62)
+endif
+
+# Additional paths derived from the above (external usage as well as tool internal).
+PATH_TOOL_VBoxXcode62_SDKS      ?= $(PATH_TOOL_VBoxXcode62)/Platforms/MacOSX.platform/Developer/SDKs
+PATH_TOOL_VBoxXcode62_TOOLCHAIN ?= $(PATH_TOOL_VBoxXcode62)/Toolchains/XcodeDefault.xctoolchain
+PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN)/usr/bin/
+
+# Tools macros.
+TOOL_VBoxXcode62_CC        ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)clang$(HOSTSUFF_EXE)
+TOOL_VBoxXcode62_CXX       ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)clang++$(HOSTSUFF_EXE)
+TOOL_VBoxXcode62_OBJC      ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)clang$(HOSTSUFF_EXE)
+TOOL_VBoxXcode62_OBJCXX    ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)clang$(HOSTSUFF_EXE)
+TOOL_VBoxXcode62_AS        ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)clang$(HOSTSUFF_EXE)
+TOOL_VBoxXcode62_LD        ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)clang++$(HOSTSUFF_EXE)
+TOOL_VBoxXcode62_LD_SYSMOD ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)clang++$(HOSTSUFF_EXE)
+ifndef TOOL_VBoxXcode62_LDFLAGS.$(KBUILD_TARGET)
+ TOOL_VBoxXcode62_LDFLAGS.dll ?= -dynamiclib
+else
+ TOOL_VBoxXcode62_LDFLAGS.dll ?= $(TOOL_VBoxXcode62_LDFLAGS.$(KBUILD_TARGET))
+endif
+TOOL_VBoxXcode62_LDFLAGS.sysmod ?= -r
+TOOL_VBoxXcode62_DSYMUTIL  ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)dsymutil$(HOSTSUFF_EXE)
+
+ifdef SLKRUNS
+ TOOL_VBoxXcode62_CC     += -fmessage-length=0
+ TOOL_VBoxXcode62_CXX    += -fmessage-length=0
+ TOOL_VBoxXcode62_OBJC   += -fmessage-length=0
+ TOOL_VBoxXcode62_OBJCXX += -fmessage-length=0
+endif
+
+# Set up environment macros.
+TOOL_VBoxXcode62_ENV_SETUP ?= $(REDIRECT) \
+	-E 'DEVELOPER_DIR=$(PATH_TOOL_VBoxXcode62)' \
+	-E 'PATH=$(PATH_TOOL_VBoxXcode62)/usr/bin/:$(PATH_TOOL_VBoxXcode62)/Toolchains/XcodeDefault.xctoolchain/usr/bin:$(PATH)' \
+	--
+TOOL_VBoxXcode62_ENV_SETUP_EXT ?= $(REDIRECT_EXT) \
+	-E 'DEVELOPER_DIR=$(PATH_TOOL_VBoxXcode62)' \
+	-E 'PATH=$(PATH_TOOL_VBoxXcode62)/usr/bin/:$(PATH_TOOL_VBoxXcode62)/Toolchains/XcodeDefault.xctoolchain/usr/bin:$(PATH)' \
+	--
+
+# General Properties used by kBuild
+TOOL_VBoxXcode62_COBJSUFF         ?= .o
+TOOL_VBoxXcode62_CFLAGS           ?=
+TOOL_VBoxXcode62_CFLAGS.debug     ?= -g
+TOOL_VBoxXcode62_CFLAGS.profile   ?= -O2 #-g -pg
+TOOL_VBoxXcode62_CFLAGS.release   ?= -O2
+TOOL_VBoxXcode62_CINCS            ?=
+TOOL_VBoxXcode62_CDEFS            ?=
+
+TOOL_VBoxXcode62_CXXOBJSUFF       ?= .o
+TOOL_VBoxXcode62_CXXFLAGS         ?=
+TOOL_VBoxXcode62_CXXFLAGS.debug   ?= -g
+TOOL_VBoxXcode62_CXXFLAGS.profile ?= -O2 #-g -pg
+TOOL_VBoxXcode62_CXXFLAGS.release ?= -O2
+TOOL_VBoxXcode62_CXXINCS          ?=
+TOOL_VBoxXcode62_CXXDEFS          ?=
+
+TOOL_VBoxXcode62_OBJCOBJSUFF      ?= .o
+TOOL_VBoxXcode62_OBJCFLAGS        ?=
+TOOL_VBoxXcode62_OBJCFLAGS.debug  ?= -g
+TOOL_VBoxXcode62_OBJCFLAGS.profile ?= -O2 #-g -pg
+TOOL_VBoxXcode62_OBJCFLAGS.release ?= -O2
+TOOL_VBoxXcode62_OBJCINCS         ?=
+TOOL_VBoxXcode62_OBJCDEFS         ?=
+
+TOOL_VBoxXcode62_OBJCXXOBJSUFF        ?= .o
+TOOL_VBoxXcode62_OBJCXXFLAGS          ?=
+TOOL_VBoxXcode62_OBJCXXFLAGS.debug    ?= -g
+TOOL_VBoxXcode62_OBJCXXFLAGS.profile  ?= -O2 #-g -pg
+TOOL_VBoxXcode62_OBJCXXFLAGS.release  ?= -O2
+TOOL_VBoxXcode62_OBJCXXINCS           ?=
+TOOL_VBoxXcode62_OBJCXXDEFS           ?=
+
+TOOL_VBoxXcode62_ASFLAGS          ?= -x assembler-with-cpp
+TOOL_VBoxXcode62_ASFLAGS.debug    ?= -g
+TOOL_VBoxXcode62_ASFLAGS.profile  ?= -g
+TOOL_VBoxXcode62_ASOBJSUFF        ?= .o
+
+TOOL_VBoxXcode62_AR               ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)ar$(HOSTSUFF_EXE)
+TOOL_VBoxXcode62_ARFLAGS          ?= -c -rs
+TOOL_VBoxXcode62_ARLIBSUFF        ?= .a
+
+TOOL_VBoxXcode62_LDFLAGS          ?=
+TOOL_VBoxXcode62_LDFLAGS.debug    ?= -g
+TOOL_VBoxXcode62_LDFLAGS.profile  ?= -g
+
+TOOL_VBoxXcode62_STRIP_PROGRAM    ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)strip -SXxru
+TOOL_VBoxXcode62_STRIP_DLL        ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)strip -Sxru
+TOOL_VBoxXcode62_STRIP_SYSMOD     ?= $(PATH_TOOL_VBoxXcode62_TOOLCHAIN_BIN_SLASH)strip -Sru
+
+
+##
+# Calculate the files in the debug bundle.
+# @param    1           The whole output filename.
+# @param    2   	The output filename sans suffix.
+TOOL_VBoxXcode62_DEBUG_BUNDLE_FN = \
+	$(1).dSYM/Contents/Info.plist \
+	$(1).dSYM/Contents/Resources/DWARF/$(notdir $(1))
+
+##
+# Calculate the files in the debug bundle.
+# @param    1           The whole linker output filename.
+# @param    2   	The linker output filename sans suffix.
+# @param    3           The desired install name (no dir slash).
+# @remarks  The Info.plist has some reference to the original name, but gdb
+#           does not care and only check for a symbol file in the DWARF
+#           directory with the same name as the debugged module.
+TOOL_VBoxXcode62_DEBUG_INSTALL_FN = \
+	$(3).dSYM/ \
+	$(3).dSYM/Contents/ \
+	$(3).dSYM/Contents/Resources/ \
+	$(3).dSYM/Contents/Resources/DWARF/ \
+	$(1).dSYM/Contents/Info.plist=>$(3).dSYM/Contents/Info.plist \
+	$(1).dSYM/Contents/Resources/DWARF/$(notdir $(1))=>$(3).dSYM/Contents/Resources/DWARF/$(notdir $(3))
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VBoxXcode62_COMPILE_C_DEPEND =
+TOOL_VBoxXcode62_COMPILE_C_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+ TOOL_VBoxXcode62_COMPILE_C_USES_KOBJCACHE = 1
+ TOOL_VBoxXcode62_COMPILE_C_OUTPUT = $(outbase).i
+ define TOOL_VBoxXcode62_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).i\
+		$(TOOL_VBoxXcode62_CC) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_VBoxXcode62_CC) -c\
+		$(flags) -x c\
+		-o $(obj)\
+		-
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+ endef
+else  # !KBUILD_USE_KOBJCACHE
+ TOOL_VBoxXcode62_COMPILE_C_OUTPUT =
+ define TOOL_VBoxXcode62_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+ endef
+endif # !KUSE_OBJCACHE
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VBoxXcode62_COMPILE_CXX_DEPEND =
+TOOL_VBoxXcode62_COMPILE_CXX_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+ TOOL_VBoxXcode62_COMPILE_CXX_USES_KOBJCACHE = 1
+ TOOL_VBoxXcode62_COMPILE_CXX_OUTPUT = $(outbase).ii
+ define TOOL_VBoxXcode62_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).ii\
+		$(TOOL_VBoxXcode62_CXX) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep)\
+		-Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_VBoxXcode62_CXX) -c\
+		$(flags) -x c++\
+		-o $(obj)\
+		-
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+ endef
+else  # !KBUILD_USE_KOBJCACHE
+ TOOL_VBoxXcode62_COMPILE_CXX_OUTPUT =
+ define TOOL_VBoxXcode62_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep)\
+		-Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+ endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Objective-C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VBoxXcode62_COMPILE_OBJC_DEPEND =
+TOOL_VBoxXcode62_COMPILE_OBJC_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+ TOOL_VBoxXcode62_COMPILE_OBJC_USES_KOBJCACHE = 1
+ TOOL_VBoxXcode62_COMPILE_OBJC_OUTPUT = $(outbase).mi
+ define TOOL_VBoxXcode62_COMPILE_OBJC_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).ii\
+		$(TOOL_VBoxXcode62_OBJC) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_VBoxXcode62_OBJC) -c\
+		$(flags) -x objective-c \
+		-o $(obj)\
+		-
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+ endef
+else  # !KBUILD_USE_KOBJCACHE
+ TOOL_VBoxXcode62_COMPILE_OBJC_OUTPUT =
+ define TOOL_VBoxXcode62_COMPILE_OBJC_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_OBJC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+ endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Objective-C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VBoxXcode62_COMPILE_OBJCXX_DEPEND =
+TOOL_VBoxXcode62_COMPILE_OBJCXX_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+ TOOL_VBoxXcode62_COMPILE_OBJCXX_USES_KOBJCACHE = 1
+ TOOL_VBoxXcode62_COMPILE_OBJCXX_OUTPUT = $(outbase).mii
+ define TOOL_VBoxXcode62_COMPILE_OBJCXX_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).mii\
+		$(TOOL_VBoxXcode62_OBJCXX) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_VBoxXcode62_OBJCXX) -c\
+		$(flags) -x objective-c++ \
+		-o $(obj)\
+		-
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+ endef
+else  # !KBUILD_USE_KOBJCACHE
+ TOOL_VBoxXcode62_COMPILE_OBJCXX_OUTPUT =
+ define TOOL_VBoxXcode62_COMPILE_OBJCXX_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_OBJCXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+ endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_VBoxXcode62_COMPILE_AS_OUTPUT =
+TOOL_VBoxXcode62_COMPILE_AS_DEPEND =
+TOOL_VBoxXcode62_COMPILE_AS_DEPORD =
+define TOOL_VBoxXcode62_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_AS) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	%$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VBoxXcode62_LINK_LIBRARY_OUTPUT =
+TOOL_VBoxXcode62_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_VBoxXcode62_LINK_LIBRARY_DEPORD =
+define TOOL_VBoxXcode62_LINK_LIBRARY_CMDS
+	$(if $(strip $(objs)),$(call xargs,$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_AR) $(flags) $(out),$(objs)))
+	$(foreach lib,$(othersrc)\
+		,$(NL)$(TAB)$(call MSG_AR_MERGE,$(target),$(out),$(lib)) \
+		$(NL)$(TAB)$(QUIET)$(RM_EXT) -f $(dir $(outbase))ar.tmp.dir/* \
+		$(NL)$(TAB)$(QUIET)$(MKDIR) -p $(dir $(outbase))/ar.tmp.dir/ \
+		$(NL)$(TAB)$(QUIET)(cd $(dir $(outbase))ar.tmp.dir/ \
+			&& $(TOOL_VBoxXcode62_ENV_SETUP_EXT) $(TOOL_VBoxXcode62_AR) -x $(abspath $(lib)) \
+		    && $(RM_EXT) -f ./__.SYMDEF* \
+			&& $(TOOL_VBoxXcode62_ENV_SETUP_EXT) $(TOOL_VBoxXcode62_AR) $(flags) $(out) *) \
+		$(NL)$(TAB)$(QUIET)$(RM_EXT) -f $(dir $(outbase))/ar.tmp.dir/* \
+		$(NL)$(TAB)$(QUIET)$(RMDIR) $(dir $(outbase))ar.tmp.dir/)
+endef
+
+
+## Link program
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VBoxXcode62_LINK_PROGRAM_OUTPUT = $(outbase).rsp
+TOOL_VBoxXcode62_LINK_PROGRAM_OUTPUT_DEBUG = $(call TOOL_VBoxXcode62_DEBUG_BUNDLE_FN,$(out))
+TOOL_VBoxXcode62_LINK_PROGRAM_DEBUG_INSTALL_FN = $(TOOL_VBoxXcode62_DEBUG_INSTALL_FN)
+TOOL_VBoxXcode62_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_VBoxXcode62_LINK_PROGRAM_DEPORD =
+define TOOL_VBoxXcode62_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp $(objs)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_LD) $(flags) -o $(out)\
+		-filelist $(outbase).rsp\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_DSYMUTIL) -o $(out).dSYM/ $(out)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_STRIP_PROGRAM) $(out)
+ endif
+endef
+
+
+## Link DLL
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VBoxXcode62_LINK_DLL_OUTPUT = $(outbase).rsp
+TOOL_VBoxXcode62_LINK_DLL_OUTPUT_DEBUG = $(call TOOL_VBoxXcode62_DEBUG_BUNDLE_FN,$(out))
+TOOL_VBoxXcode62_LINK_DLL_DEBUG_INSTALL_FN = $(TOOL_VBoxXcode62_DEBUG_INSTALL_FN)
+TOOL_VBoxXcode62_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_VBoxXcode62_LINK_DLL_DEPORD =
+define TOOL_VBoxXcode62_LINK_DLL_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp $(objs)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_LD) $(TOOL_VBoxXcode62_LDFLAGS.dll) $(flags) -o $(out)\
+		$(call TOOL_VBoxXcode62_LD_SONAME,$(target),$(out))\
+		-filelist $(outbase).rsp\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_DSYMUTIL) -o $(out).dSYM/ $(out)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_STRIP_DLL) $(out)
+ endif
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		System module name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VBoxXcode62_LINK_SYSMOD_OUTPUT = $(outbase).rsp
+TOOL_VBoxXcode62_LINK_SYSMOD_OUTPUT_DEBUG = $(call TOOL_VBoxXcode62_DEBUG_BUNDLE_FN,$(out))
+TOOL_VBoxXcode62_LINK_SYSMOD_DEBUG_INSTALL_FN = $(TOOL_VBoxXcode62_DEBUG_INSTALL_FN)
+TOOL_VBoxXcode62_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_VBoxXcode62_LINK_SYSMOD_DEPORD =
+define TOOL_VBoxXcode62_LINK_SYSMOD_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp $(objs)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_LD_SYSMOD) $(TOOL_VBoxXcode62_LDFLAGS.sysmod) $(flags) -o $(out)\
+		-filelist $(outbase).rsp\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_DSYMUTIL) -o $(out).dSYM/ $(out)
+	$(QUIET)$(TOOL_VBoxXcode62_ENV_SETUP) $(TOOL_VBoxXcode62_STRIP_SYSMOD) $(out)
+ endif
+endef
+

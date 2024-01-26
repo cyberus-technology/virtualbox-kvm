@@ -1,0 +1,57 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the vboxsf (linux shared folders module).
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# Populate FILES_VBOXSF_NOBIN
+#
+INSTALLS += vboxsf-src
+include $(PATH_SUB_CURRENT)/files_vboxsf
+vboxsf-src_INST         = $(INST_ADDITIONS)src/vboxsf/
+vboxsf-src_SOURCES      = \
+	$(subst $(DQUOTE),,$(FILES_VBOXSF_NOBIN))
+vboxsf-src_EXEC_SOURCES = \
+	$(subst $(DQUOTE),,$(FILES_VBOXSF_BIN))
+
+# Build test for the Guest Additions kernel modules (kmk check).
+$(evalcall2 VBOX_LINUX_KMOD_TEST_BUILD_RULE_FN,vboxsf-src,vboxguest-src,)
+
+#
+# The mount util.
+#
+PROGRAMS += mount.vboxsf
+mount.vboxsf_TEMPLATE    = VBoxGuestR3Exe
+mount.vboxsf_DEFS        = _GNU_SOURCE
+mount.vboxsf_SOURCES     = \
+	mount.vboxsf.c \
+	vbsfmount.c
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

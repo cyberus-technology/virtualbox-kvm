@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+    <?include Defines.wxi ?>
+
+    <!-- Note: GUIDs in WiX *must* be uppercase! -->
+    <!-- Always include an upgrade ID or otherwise upgrade installation will not be possible. When doing
+         a major upgrade (more than just fixing a few files) change the product GUID. We always do a major
+         upgrade even for minor VBox updates. For that only change the product ID and the product version.
+         The upgrade code *never* must be changed! -->
+
+    <!-- Update / Upgrade policies:
+         Update Type    Package Code    Product Version     Product Code    Upgrade Code
+         Small update   change          don't change        don't change    don't change
+         Minor update   change          change              don't change    don't change
+         Major upgrade  change          change              change          don't change -->
+
+    <!-- Old product ID: <Product Id="B59FE77B-738F-4f1c-AB48-3104895AF676"
+         Old upgrade code of innotek: UpgradeCode="F5FFAEBF-97AE-4038-8F91-4DE719456127" -->
+
+    <Module Id="msm_VBoxApp"
+            Language="!(loc.LANG)"
+            Version="$(var.Property_Version)">
+
+        <Package Id="d255feb6-597d-4f49-a170-e34f289fa0d3"
+                 Keywords="Installer, Setup"
+                 Description="$(env.VBOX_PRODUCT) $(var.Property_VersionExt) installation package"
+                 Comments="$(env.VBOX_PRODUCT) installation package"
+                 Manufacturer="$(env.VBOX_VENDOR)"
+                 InstallerVersion="200"
+                 AdminImage="yes"
+                 InstallPrivileges="elevated"
+                 Platform="$(var.Property_Platform)"
+                 SummaryCodepage="1252"/>
+
+        <?include CommonProperties.wxi ?>
+        <?include PublicProperties.wxi ?>
+
+        <Property Id="local_VBOX_REGISTERFILEEXTENSIONS" Value="Empty" />
+        <Configuration Name="argRegisterExtensions" Format="Text" DefaultValue="Not passed"/>
+        <Substitution Table="CustomAction" Row="registerExtensions" Column="Target" Value="[=argRegisterExtensions]"/>
+        <CustomAction Id="registerExtensions" Property="local_VBOX_REGISTERFILEEXTENSIONS" Value="[local_VBOX_REGISTERFILEEXTENSIONS]" Execute="immediate" />
+
+        <!-- Here comes the file/directory list -->
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="msm_VBoxApplicationFolder" FileSource=".">
+
+                <?include VBoxMergeApp.wxi ?>
+
+            </Directory> <!-- msm_VBoxApplicationFolder directory -->
+        </Directory> <!-- TARGETDIR -->
+
+        <!-- Custom actions -->
+        <Binary Id="VBoxInstallHelper" SourceFile="$(env.PATH_OUT)\bin\VBoxInstallHelper.dll" />
+        <?include VBoxMergeAppCA.wxi ?>
+
+        <InstallExecuteSequence>
+            <Custom Action="registerExtensions" After="AppSearch"/>
+            <?include VBoxMergeAppSeq.wxi ?>
+        </InstallExecuteSequence>
+
+    </Module>
+</Wix>

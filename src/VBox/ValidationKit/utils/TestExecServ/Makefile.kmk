@@ -1,0 +1,87 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - The Basic Remote Execution Service.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+PROGRAMS += TestExecService
+TestExecService_TEMPLATE = VBoxValidationKitR3
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ TestExecService_DEFS = \
+ 	KBUILD_TARGET="$(KBUILD_TARGET)" \
+ 	KBUILD_TARGET_ARCH="$(KBUILD_TARGET_ARCH)"
+else
+ TestExecService_DEFS = \
+ 	KBUILD_TARGET=\"$(KBUILD_TARGET)\" \
+ 	KBUILD_TARGET_ARCH=\"$(KBUILD_TARGET_ARCH)\"
+endif
+TestExecService_SOURCES = \
+	TestExecService.cpp \
+	TestExecServiceTcp.cpp
+
+ifn1of ($(KBUILD_TARGET), os2)
+ TestExecService_SOURCES += \
+ 	TestExecServiceSerial.cpp
+endif
+
+INSTALLS += TestExecServiceFiles
+TestExecServiceFiles_TEMPLATE                = VBoxValidationKitR3
+TestExecServiceFiles_INST                    = $(INST_VALIDATIONKIT)
+TestExecServiceFiles_SOURCES                := \
+	vboxtxs-readme.txt
+
+TestExecServiceFiles_EXEC_SOURCES.linux   := \
+	$(PATH_SUB_CURRENT)/linux/vboxtxs.sh=>linux/vboxtxs \
+	$(PATH_SUB_CURRENT)/linux/vboxtxs.service=>linux/vboxtxs.service \
+	$(PATH_SUB_CURRENT)/linux/vboxtxs-nat.sh=>linux/vboxtxs-nat
+
+TestExecServiceFiles_SOURCES.solaris        := \
+	$(PATH_SUB_CURRENT)/solaris/vboxtxs.xml=>solaris/vboxtxs.xml \
+	$(PATH_SUB_CURRENT)/solaris/vboxtxs-sol10.xml=>solaris/vboxtxs-sol10.xml
+TestExecServiceFiles_EXEC_SOURCES.solaris := \
+	$(PATH_SUB_CURRENT)/solaris/vboxtxs.sh=>solaris/vboxtxs.sh
+
+TestExecServiceFiles_SOURCES.win            := \
+	$(PATH_SUB_CURRENT)/win/vboxtxs.reg=>win/vboxtxs.reg \
+	$(PATH_SUB_CURRENT)/win/vboxtxs-nat.reg=>win/vboxtxs-nat.reg
+TestExecServiceFiles_EXEC_SOURCES.win     := \
+	$(PATH_SUB_CURRENT)/win/vboxtxs.cmd=>win/vboxtxs.cmd \
+	$(PATH_SUB_CURRENT)/win/vboxtxs-nat.cmd=>win/vboxtxs-nat.cmd
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

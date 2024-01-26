@@ -1,0 +1,1227 @@
+# $Id: footer-pass2-compiling-targets.kmk 3521 2021-12-18 13:41:28Z bird $
+## @file
+# kBuild - Footer - Target lists - Pass 2 - Compiling Targets.
+#
+
+#
+# Copyright (c) 2004-2019 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version source of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+
+#
+# Object processing.
+#
+
+ifndef NO_COMPILE_CMDS_DEPS
+ ## Generates the rules for building a specific object and the aliases.
+ # for building a source file.
+ # @param    $(obj)    The object file.
+ define def_target_source_rule_v3plus
+$$(obj): .MUST_MAKE = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_CMDS_PREV_),$$(commands $$@),FORCE)
+$$(obj) + $$(kbsrc_output) +| $$(kbsrc_output_maybe) : $$(kbsrc_depend) | $$(kbsrc_depord) $(target_intermediate_vars)
+	%$$(call MSG_COMPILE,$(target),$(source),$$@,$(type))
+  ifndef TOOL_$(tool)_COMPILE_$(type)_DONT_PURGE_OUTPUT
+	$$(QUIET)$$(RM) -f -- $(dep) $(obj) $(kbsrc_output) $(kbsrc_output_maybe)
+  endif
+
+$(kbsrc_cmds)
+
+	%$$(QUIET2)$$(APPEND) -in '$(dep)' '' 'define $(target)_$(subst :,_,$(source))_CMDS_PREV_' '--insert-command=$(obj)' 'endef'
+$$(basename $$(notdir $$(obj))).o: $$(obj)
+ endef # def_target_source_rule_v3plus
+
+ ## Generates the rules for building a specific object and the aliases, kObjCache variant.
+ # for building a source file.
+ # @param    $(obj)    The object file.
+ define def_target_source_rule_v3plus_objcache
+$$(obj): .MUST_MAKE = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_CMDS_PREV_),$$(commands $$@),FORCE)
+_OUT_FILES += $(outbase).koc
+$$(outbase).koc +| $$(obj) $$(kbsrc_output) $$(kbsrc_output_maybe) : $$(kbsrc_depend) | $$(kbsrc_depord) $(target_intermediate_vars)
+	%$$(call MSG_COMPILE,$(target),$(source),$$@,$(type))
+
+$(kbsrc_cmds)
+
+	%$$(QUIET2)$$(APPEND) -in '$(dep)' '' 'define $(target)_$(subst :,_,$(source))_CMDS_PREV_' '--insert-command=$(obj)' 'endef'
+$$(basename $$(notdir $$(obj))).o: $$(obj)
+ endef # def_target_source_rule_v3plus_objcache
+
+else # NO_COMPILE_CMDS_DEPS
+
+ ## Generates the rules for building a specific object and the aliases.
+ # for building a source file.
+ # @param    $(obj)    The object file.
+ define def_target_source_rule_v3plus
+$$(obj) + $$(kbsrc_output) +| $$(kbsrc_output_maybe) : $$(kbsrc_depend) | $$(kbsrc_depord) $(target_intermediate_vars)
+	%$$(call MSG_COMPILE,$(target),$(source),$$@,$(type))
+  ifndef TOOL_$(tool)_COMPILE_$(type)_DONT_PURGE_OUTPUT
+	$$(QUIET)$$(RM) -f -- $(dep) $(obj) $(kbsrc_output) $(kbsrc_output_maybe)
+  endif
+
+$(kbsrc_cmds)
+
+$$(basename $$(notdir $$(obj))).o: $$(obj)
+ endef # def_target_source_rule_v3plus
+
+ ## Generates the rules for building a specific object and the aliases, kObjCache variant.
+ # for building a source file.
+ # @param    $(obj)    The object file.
+ define def_target_source_rule_v3plus_objcache
+_OUT_FILES += $(outbase).koc
+$$(outbase).koc +| $$(obj) $$(kbsrc_output) $$(kbsrc_output_maybe) : $$(kbsrc_depend) | $$(kbsrc_depord) $(target_intermediate_vars)
+	%$$(call MSG_COMPILE,$(target),$(source),$$@,$(type))
+
+$(kbsrc_cmds)
+
+$$(basename $$(notdir $$(obj))).o: $$(obj)
+ endef # def_target_source_rule_v3plus_objcache
+
+endif # NO_COMPILE_CMDS_DEPS
+$(eval-opt-var def_target_source_rule_v3plus)
+$(eval-opt-var def_target_source_rule_v3plus_objcache)
+
+
+##
+## Legacy legacy legacy - start
+##
+
+## Wrapper
+ifndef NO_COMPILE_CMDS_DEPS
+ if1of ($(KMK_FEATURES),dot-must-make)
+  _DEP_COMPILE_CMDS =
+  # for debugging:  $$(warning MUST_MAKE=$$$$(comp-cmds-ex $$$$($(target)_$(subst :,_,$(source))_CMDS_PREV_), $$$$(commands $$@)) -> $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_CMDS_PREV_),$$(commands $$@),FORCE))
+ else
+  _DEP_COMPILE_CMDS = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_CMDS_PREV_),$$(commands $(obj)),FORCE)
+ endif
+else
+ _DEP_COMPILE_CMDS =
+endif
+
+## Generates the rules for building a specific object, and the aliases - legacy version.
+# for building a source file.
+# @param    $(obj)    The object file.
+define def_target_source_rule
+ifndef NO_COMPILE_CMDS_DEPS
+$(obj): .MUST_MAKE = $$(comp-cmds-ex $$($(target)_$(subst :,_,$(source))_CMDS_PREV_),$$(commands $$@),FORCE)
+endif
+ifneq ($(TOOL_$(tool)_COMPILE_$(type)_USES_KOBJCACHE),)
+_OUT_FILES += $(outbase).koc
+$(outbase).koc +| $(obj) $($(target)_$(source)_OUTPUT_) $($(target)_$(source)_OUTPUT_MAYBE_) : \
+		$($(target)_$(source)_DEPEND_) $(value _DEP_COMPILE_CMDS) \
+		| $($(target)_$(source)_DEPORD_) $(target_intermediate_vars)
+	%$$(call MSG_COMPILE,$(target),$(source),$$@,$(type))
+else
+$(obj) + $($(target)_$(source)_OUTPUT_) +| $($(target)_$(source)_OUTPUT_MAYBE_) : \
+		$($(target)_$(source)_DEPEND_) $(value _DEP_COMPILE_CMDS) \
+		| $($(target)_$(source)_DEPORD_) $(target_intermediate_vars)
+	%$$(call MSG_COMPILE,$(target),$(source),$$@,$(type))
+ifndef TOOL_$(tool)_COMPILE_$(type)_DONT_PURGE_OUTPUT
+	$$(QUIET)$$(RM) -f -- $(dep) $(obj) $($(target)_$(source)_OUTPUT_) $($(target)_OUTPUT_MAYBE_)
+endif
+endif
+
+$($(target)_$(source)_CMDS_)
+
+ifndef NO_COMPILE_CMDS_DEPS
+ ifdef KBUILD_HAVE_OPTIMIZED_APPEND
+	%$$(QUIET2)$$(APPEND) -in '$(dep)' \
+		'' \
+		'define $(target)_$(subst :,_,$(source))_CMDS_PREV_' \
+		'--insert-command=$(obj)' \
+		'endef'
+ else
+	%$$(QUIET2)$$(APPEND) -n '$(dep)' '' 'define $(target)_$(subst :,_,$(source))_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(obj)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+ endif
+endif
+
+$(basename $(notdir $(obj))).o: $(obj)
+
+## @todo make this 'local cmds,output,output_maybe,depend and depord' in 0.2.x or when a new kb-src-one is added.
+$(target)_$(source)_CMDS_ :=
+$(target)_$(source)_OUTPUT_ :=
+$(target)_$(source)_OUTPUT_MAYBE_ :=
+$(target)_$(source)_DEPEND_ :=
+$(target)_$(source)_DEPORD_ :=
+endef # def_target_source_rule
+$(eval-opt-var def_target_source_rule)
+##
+## Legacy legacy legacy - end
+
+
+
+## wrapper the link command dependency check.
+ifndef NO_LINK_CMDS_DEPS
+ if1of ($(KMK_FEATURES),dot-must-make)
+  _DEP_LINK_CMDS =
+ else
+  _DEP_LINK_CMDS = $$(comp-cmds-ex $$($(target)_CMDS_PREV_),$$(commands $(out)),FORCE)
+ endif
+else
+ _DEP_LINK_CMDS =
+endif
+
+## Generate the link rule for a target.
+# @param    $(target)               The normalized target name.
+# @param    $(dirdep)               Directories we depend upon begin created before linking.
+# @param    $(dep)                  The name of the dependency file.
+# @param    $(out)
+# @param    $($(target)_2_OUTPUT)   Output files from the link.
+# @param    $($(target)_2_OUTPUT_MAYBE)	Output files that the link may perhaps create.
+# @param    $($(target)_2_OUTPUT_MAYBE_PRECIOUS)	Output files that the link may perhaps create but shouldn't be deleted.
+# @param    $($(target)_2_DEPEND)   Dependencies.
+# @param    $($(target)_2_DEPORD)   Dependencies which should only affect build order.
+# @param    $(cmds)                 The link commands.
+# @param    $($(target)_CMDS_PREV_) The link commands from the previous run.
+define def_link_rule
+$$(call KB_FN_ASSERT_ABSPATH,out)
+ifndef NO_LINK_CMDS_DEPS
+$(out): .MUST_MAKE = $$(comp-cmds-ex $$($(target)_CMDS_PREV_),$$(commands $$@),FORCE)
+endif
+$(out) \
++ $($(target)_2_OUTPUT) \
++ $($(target)_2_OUTPUT_DEBUG_FILES) \
++ $($(target)_2_OUTPUT_DEBUG_DIRS) \
++| $($(target)_2_OUTPUT_MAYBE) $($(target)_2_OUTPUT_MAYBE_PRECIOUS) : \
+		$$$$($(target)_2_DEPEND) \
+		$(value _DEP_LINK_CMDS) \
+		| \
+		$$$$($(target)_2_DEPORD)
+	%$$(call MSG_LINK,$(target),$$@,$(tool_do))
+	$$(QUIET)$$(RM) -f -- $(dep) $(out) $($(target)_2_OUTPUT) $($(target)_2_OUTPUT_MAYBE) $($(target)_2_OUTPUT_DEBUG_FILES)
+ifdef $(target)_2_OUTPUT_DEBUG_DIRS
+	$$(QUIET)$$(RM) -Rf -- $($(target)_2_OUTPUT_DEBUG_DIRS)
+endif
+
+$(cmds)
+
+ifndef NO_LINK_CMDS_DEPS
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'define $(target)_CMDS_PREV_'
+	%$$(QUIET2)$$(APPEND) -c '$(dep)' '$(out)'
+	%$$(QUIET2)$$(APPEND) '$(dep)' 'endef'
+endif
+
+$(basename $(notdir $(out))):: $(out)
+
+endef # def_link_rule
+$(eval-opt-var def_link_rule)
+
+
+## Generate the link & lib install rule
+# Implicit parameters: target, out, $(target)_1_STAGE_TARGET, mode,
+#                      pre_install_cmds, post_install_cmds
+define def_link_install_rule
+$$(call KB_FN_ASSERT_ABSPATH,$(target)_1_INST_TARGET)
+$($(target)_1_INST_TARGET): $(out) | $$$$(dir $$$$@)
+	%$$(call MSG_INST_TRG,$(target),$(out),$$@)
+	$(pre_install_cmds)
+
+	$$(QUIET)$$(INSTALL) $(if $(mode),-m $(mode)) $(if $(uid),-o $(uid)) $(if $(gid),-g $(gid)) -- $(out) $$@
+	$(post_install_cmds)
+
+endef
+
+
+## Generate the link & lib stage installation rule
+# Implicit parameters: target, out, $(target)_1_STAGE_TARGET, mode,
+#                      pre_install_cmds, post_install_cmds
+define def_link_stage_rule
+$$(call KB_FN_ASSERT_ABSPATH,$(target)_1_STAGE_TARGET)
+$($(target)_1_STAGE_TARGET): $(out) | $$$$(dir $$$$@)
+	%$$(call MSG_INST_TRG,$(target),$(out),$$@)
+	$(pre_install_cmds)
+
+	$$(QUIET)$$(INSTALL_STAGING) $(if $(mode),-m $(mode)) $(if $(uid),-o $(uid)) $(if $(gid),-g $(gid)) -- $(out) $$@
+	$(post_install_cmds)
+
+
+$(basename $(notdir $(out))):: $($(target)_1_STAGE_TARGET)
+
+endef
+
+
+## def_src_handler_*
+#
+# @{
+define def_src_handler_c
+local type := C
+ $(kb-src-one 4)
+endef
+
+define def_src_handler_cxx
+local type := CXX
+ $(kb-src-one 4)
+endef
+
+define def_src_handler_objc
+local type := OBJC
+ $(kb-src-one 4)
+endef
+
+define def_src_handler_objcxx
+local type := OBJCXX
+ $(kb-src-one 4)
+endef
+
+define def_src_handler_asm
+local type := AS
+ $(kb-src-one 4)
+endef
+
+define def_src_handler_rc
+local type := RC
+ $(kb-src-one 4)
+endef
+
+ifdef KMK_WITH_QUOTING
+define def_src_handler_obj
+ifeq ($(defpath),)
+ $(target)_2_OBJS += $(source)
+else
+ $(target)_2_OBJS += $(qabspathex ,$(source), $(defpath))
+endif
+endef
+else
+define def_src_handler_obj
+ifeq ($(defpath),)
+ $(target)_2_OBJS += $(source)
+else
+ $(target)_2_OBJS += $(abspathex $(source), $(defpath))
+endif
+endef
+endif
+## @}
+
+## Handle one source.
+# .
+define def_src_handler_one
+local suff := $(suffix $(source))
+local src_handler := $(firstword $(filter $(suff):%, $($(target)_$(source)_SRC_HANDLERS) $($(source)_SRC_HANDLERS) $(target_src_handlers) ))
+local handler := $(patsubst $(suff):%,%,$(src_handler))
+ifneq ($(handler),)
+ $(evalvalctx $(handler))
+else
+ othersrc += $(source)
+endif
+endef # def_src_handler_one
+
+## Generic macro for processing all target sources.
+# @param    $(target)   Normalized target name.
+# @param    $(defpath)
+# @param    much-more...
+# @returns  othersrc, $(target)_2_OBJS, ++
+ifdef KMK_WITH_QUOTING
+define def_target_sources
+local target_src_handlers := $($(target)_SRC_HANDLERS) $(KBUILD_SRC_HANDLERS)
+$(foreachfile source,\
+	$($(target)_SOURCES)\
+	$($(target)_SOURCES.$(bld_trg))\
+	$($(target)_SOURCES.$(bld_trg).$(bld_type))\
+	$($(target)_SOURCES.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_SOURCES.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_SOURCES.$(bld_trg_arch))\
+	$($(target)_SOURCES.$(bld_trg_cpu))\
+	$($(target)_SOURCES.$(bld_type))\
+	,$(evalvalctx def_src_handler_one) )
+
+$(foreachfile source,\
+	$($(target)_GEN_SOURCES_)\
+	$($(target)_GEN_SOURCES_.$(bld_trg))\
+	$($(target)_GEN_SOURCES_.$(bld_trg).$(bld_type))\
+	$($(target)_GEN_SOURCES_.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_GEN_SOURCES_.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_GEN_SOURCES_.$(bld_trg_arch))\
+	$($(target)_GEN_SOURCES_.$(bld_trg_cpu))\
+	$($(target)_GEN_SOURCES_.$(bld_type))\
+	,$(evalvalctx def_src_handler_one) )
+endef # def_target_sources
+else
+define def_target_sources
+local target_src_handlers := $($(target)_SRC_HANDLERS) $(KBUILD_SRC_HANDLERS)
+$(foreach source,\
+	$($(target)_SOURCES)\
+	$($(target)_SOURCES.$(bld_trg))\
+	$($(target)_SOURCES.$(bld_trg).$(bld_type))\
+	$($(target)_SOURCES.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_SOURCES.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_SOURCES.$(bld_trg_arch))\
+	$($(target)_SOURCES.$(bld_trg_cpu))\
+	$($(target)_SOURCES.$(bld_type))\
+	,$(evalvalctx def_src_handler_one) )
+
+$(foreach source,\
+	$($(target)_GEN_SOURCES_)\
+	$($(target)_GEN_SOURCES_.$(bld_trg))\
+	$($(target)_GEN_SOURCES_.$(bld_trg).$(bld_type))\
+	$($(target)_GEN_SOURCES_.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_GEN_SOURCES_.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_GEN_SOURCES_.$(bld_trg_arch))\
+	$($(target)_GEN_SOURCES_.$(bld_trg_cpu))\
+	$($(target)_GEN_SOURCES_.$(bld_type))\
+	,$(evalvalctx def_src_handler_one) )
+endef # def_target_sources
+endif
+$(eval-opt-var def_target_sources)
+
+
+##
+# Install a debug directory.
+# @param    debug_dir           The directory name.
+define def_link_install_debug_dir_rule
+local dir := $(debug_inst_path)/$(debug_inst2)$(debug_dir)
+$$(call KB_FN_ASSERT_ABSPATH,dir)
+$$(dir): | $$$$(dir $$$$(patsubst %/,%,$$$$@))
+	%$$(call MSG_INST_DIR,$$@)
+	$$(QUIET)$$(MKDIR) -p -- $$@
+$(target)_2_DEBUG_$(debug_var)_TARGET_DIRS += $$(dir)
+endef # def_link_install_debug_dir_rule
+
+##
+# Install a debug file.
+# @param    debug_file          Src=>Dst file pair.
+define def_link_install_debug_file_rule
+local dst := $(debug_inst_path)/$(debug_inst2)$(word 2, $(subst =>,$(SP),$(debug_file)))
+$$(call KB_FN_ASSERT_ABSPATH,dst)
+local src := $(word 1, $(subst =>,$(SP),$(debug_file)))
+$$(call KB_FN_ASSERT_ABSPATH,src)
+$$(dst): $$(src) | $$$$(dir $$$$@)
+	%$$(call MSG_INST_FILE,$$<,$$@)
+	$$(QUIET)$(debug_install_cmd) $(if $(mode),-m $(mode)) $(if $(uid),-o $(uid)) $(if $(gid),-g $(gid)) -- $$< $$@
+$(target)_2_DEBUG_$(debug_var)_TARGET_FILES += $$(dst)
+endef # def_link_install_debug_file_rule
+
+##
+# Install debug info to $(debug_inst), where debug_inst can be a directory or
+# file (just like $(inst) and $(stage).  Used for both staging and installing.
+define def_target_install_only_debug
+if "$(substr $(debug_inst),-1,1)" == "/"
+ if "$(debug_inst)" == "./"
+  local debug_inst2 :=
+ else
+  local debug_inst2 := $(debug_inst)
+ endif
+ local debug_dirs  := $(patsubst $($(target)_0_OUTDIR)/%,%,$($(target)_2_OUTPUT_DEBUG_DIRS))
+ ifneq ($(strip $(root $(debug_dirs))),)
+  $(error kBuild: Bad tool? debug_dirs='$(debug_dirs)', expected all to be under '$(outbase)')
+ endif
+ local debug_files := $(foreach file, $(patsubst $($(target)_0_OUTDIR)/%,%,$($(target)_2_OUTPUT_DEBUG_FILES)) \
+                        ,$($(target)_0_OUTDIR)/$(file)=>$(file))
+else
+ local debug_notdir:= $(notdir $(debug_inst))
+ local debug_inst2 := $(dir $(debug_inst))
+ local debug_files := $(call TOOL_$(tool)_$(tool_do)_DEBUG_INSTALL_FN,$(out),$(outbase),$(debug_notdir))
+ local debug_dirs  := $(filter     %/,$(debug_files))
+ local debug_files := $(filter-out %/,$(debug_files))
+endif
+$(foreach debug_dir, $(debug_dirs), $(eval $(def_link_install_debug_dir_rule)))
+$(foreach debug_file, $(debug_files), $(eval $(def_link_install_debug_file_rule)))
+endef
+
+
+## Generic macro for generating the install rule(s) for a target.
+#
+# @param	$(target)   Normalized target name.
+# @param	$(out)      The output file.
+# @param	$(typevar)  The name of the variable with all the root targets of its type.
+# @param	$(target_type_mode) The default file mode implied by the target type.
+define def_target_install_only
+if1of ($($(target)_1_INSTTYPE) $($(target)_1_DEBUG_INSTTYPE), both stage)
+ # Determin common variables.
+ local mode := $(firstword \
+ 	$($(target)_MODE.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+ 	$($(target)_MODE.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_MODE.$(bld_trg).$(bld_type)) \
+ 	$($(target)_MODE.$(bld_trg_arch)) \
+ 	$($(target)_MODE.$(bld_trg)) \
+ 	$($(target)_MODE.$(bld_type)) \
+ 	$($(target)_MODE) \
+	$(target_type_mode) )
+ local uid := $(firstword \
+ 	$($(target)_UID.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+ 	$($(target)_UID.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_UID.$(bld_trg).$(bld_type)) \
+ 	$($(target)_UID.$(bld_trg_arch)) \
+ 	$($(target)_UID.$(bld_trg)) \
+ 	$($(target)_UID.$(bld_type)) \
+ 	$($(target)_UID) )
+ local gid := $(firstword \
+ 	$($(target)_GID.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+ 	$($(target)_GID.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_GID.$(bld_trg).$(bld_type)) \
+ 	$($(target)_GID.$(bld_trg_arch)) \
+ 	$($(target)_GID.$(bld_trg)) \
+ 	$($(target)_GID.$(bld_type)) \
+ 	$($(target)_GID) )
+ local pre_install_cmds  := $(evalcall def_fn_prop_get_first_defined,PRE_INST_CMDS)
+ local post_install_cmds := $(evalcall def_fn_prop_get_first_defined,POST_INST_CMDS)
+endif
+
+ifneq ($($(target)_1_INSTTYPE),none)
+ # Generate the rules
+ ifeq ($($(target)_1_INSTTYPE),both)
+$(eval $(def_link_install_rule))
+  _INSTALLS_FILES += $($(target)_1_INST_TARGET)
+ endif
+$(eval $(def_link_stage_rule))
+ _STAGE_FILES += $($(target)_1_STAGE_TARGET)
+ $(typevar) += $($(target)_1_STAGE_TARGET)
+else  # INSTTYPE == none
+ $(typevar) += $(out)
+endif # INSTTYPE == none
+
+# Install debug info.
+$(target)_2_DEBUG_STAGE_TARGET_DIRS :=
+$(target)_2_DEBUG_STAGE_TARGET_FILES :=
+$(target)_2_DEBUG_INSTALL_TARGET_DIRS :=
+$(target)_2_DEBUG_INSTALL_TARGET_FILES :=
+
+if  (   defined($(target)_2_OUTPUT_DEBUG_DIRS) \
+     || defined($(target)_2_OUTPUT_DEBUG_FILES) ) \
+ && "$($(target)_1_DEBUG_INSTTYPE)" != "none"
+ local mode := $(if $(mode),$(mode)$(COMMA)a-x,0644)
+
+ ifeq ($($(target)_1_DEBUG_INSTTYPE),both)
+  local debug_inst_path   := $(PATH_INS)
+  local debug_install_cmd := $(INSTALL)
+  local debug_var         := INSTALL
+  $(foreach debug_inst, $($(target)_1_DEBUG_INST), $(evalvalctx def_target_install_only_debug))
+ endif
+
+ local debug_inst_path    := $(PATH_STAGE)
+ local debug_install_cmd  := $(INSTALL_STAGING)
+ local debug_var          := STAGE
+ if1of ($($(target)_1_DEBUG_INSTTYPE), stage both)
+  $(foreach debug_inst, $($(target)_1_DEBUG_STAGE), $(evalvalctx def_target_install_only_debug))
+ endif
+ if1of ($($(target)_1_INSTTYPE), stage both)
+  ifndef debug_nostage
+   $(foreach debug_inst,$($(target)_1_STAGE), $(evalvalctx def_target_install_only_debug))
+  endif
+ endif
+
+ _DEBUG_STAGE_DIRS    += $($(target)_2_DEBUG_STAGE_TARGET_DIRS)
+ _DEBUG_STAGE_FILES   += $($(target)_2_DEBUG_STAGE_TARGET_FILES)
+ _DEBUG_INSTALL_DIRS  += $($(target)_2_DEBUG_INSTALL_TARGET_DIRS)
+ _DEBUG_INSTALL_FILES += $($(target)_2_DEBUG_INSTALL_TARGET_FILES)
+
+ $(basename $(notdir $(out))):: $($(target)_2_DEBUG_STAGE_TARGET_DIRS) $($(target)_2_DEBUG_STAGE_TARGET_FILES)
+endif
+
+endef # def_target_install_only
+
+
+
+#
+# LIBRARIES
+#
+
+## Library (one).
+# @param    $(target)   Normalized library (target) name.
+define def_lib
+# library basics
+## @todo prefix
+local bld_type    := $(firstword $($(target)_BLD_TYPE)     $(KBUILD_TYPE))
+local bld_trg     := $(firstword $($(target)_BLD_TRG)      $(KBUILD_TARGET))
+local bld_trg_arch:= $(firstword $($(target)_BLD_TRG_ARCH) $(KBUILD_TARGET_ARCH))
+local bld_trg_cpu := $(firstword $($(target)_BLD_TRG_CPU)  $(KBUILD_TARGET_CPU))
+local tool        := $(call _TARGET_TOOL,$(target),AR)
+ifeq ($(tool),)
+$(error kBuild: Library target $(target) does not have a tool defined!)
+endif
+local name        := $(firstword\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg).$(bld_type))\
+	$($(target)_NAME.$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg))\
+	$($(target)_NAME.$(bld_type))\
+	$($(target)_NAME)\
+	$(target))
+local outbase     := $(call TARGET_BASE,$(name),$(target))
+$(target)_0_OUTDIR:= $(patsubst %/,%,$(dir $(outbase)))
+$(call KB_FN_ASSIGN_DEPRECATED,PATH_$(target),$($(target)_0_OUTDIR), $(target)_0_OUTDIR)
+local suff        := $(firstword\
+	$($(target)_LIBSUFF.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_LIBSUFF.$(bld_trg))\
+	$($(target)_LIBSUFF)\
+	$(TOOL_$(tool)_ARLIBSUFF.$(bld_trg).$(bld_trg_arch))\
+	$(TOOL_$(tool)_ARLIBSUFF.$(bld_trg))\
+	$(TOOL_$(tool)_ARLIBSUFF)\
+	$(SUFF_LIB))
+local out         := $(outbase)$(suff)
+local defpath     := $($(target)_DEFPATH)
+ifeq ($(defpath),)
+ local defpath    := $($(target)_PATH)
+endif
+$(target)_1_TARGET:= $(out)
+$(call KB_FN_ASSIGN_DEPRECATED,TARGET_$(target),$($(target)_1_TARGET), $(target)_1_TARGET)
+# no local here - must be writable across some foreachs.
+othersrc          :=
+$(target)_2_OBJS  :=
+$(target)_2_INTERMEDIATES =
+
+# kObjCache.
+ifdef KBUILD_USE_KOBJCACHE
+ ifneq ($($(target)_KOBJCACHE),)
+local use_objcache := 1
+ else
+local use_objcache :=
+ endif
+local use_objcache :=
+endif
+
+# Target level intermediates (before units!).
+local target_intermediate_vars := $$$$($(target)_2_INTERMEDIATES) $(foreach var, \
+	$(target)_INTERMEDIATES \
+	$(target)_INTERMEDIATES.$(bld_trg) \
+	$(target)_INTERMEDIATES.$(bld_trg).$(bld_trg_arch) \
+	$(target)_INTERMEDIATES.$(bld_trg_arch) \
+	$(target)_INTERMEDIATES.$(bld_trg_cpu) \
+	$(target)_INTERMEDIATES.$(bld_type) \
+	,$(if-expr defined($(var)),$$$$($(var)),))
+
+# Do units pre source callouts.
+local units       := \
+	$($(target)_USES.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_USES.$(bld_trg_arch))\
+	$($(target)_USES.$(bld_trg))\
+	$($(target)_USES.$(bld_type))\
+	$($(target)_USES)
+$(foreach unit,$(units),$(evalvalctx def_unit_$(unit)_target_pre))
+$(foreach unit,$(units),$(evalvalctx def_unit_$(unit)_target_pre_2))
+
+# source -> object
+$(evalval def_target_sources)
+
+# library linking
+local tool        := $(call _TARGET_TOOL,$(target),AR)
+local name        := $(firstword\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg).$(bld_type))\
+	$($(target)_NAME.$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg))\
+	$($(target)_NAME.$(bld_type))\
+	$($(target)_NAME)\
+	$(target))
+local outbase     := $(call TARGET_BASE,$(name),$(target))
+local flags       :=\
+	$(TOOL_$(tool)_ARFLAGS)\
+	$(TOOL_$(tool)_ARFLAGS.$(bld_type))\
+	$(ARFLAGS)\
+	$(ARFLAGS.$(bld_type))\
+	$($(target)_ARFLAGS)\
+	$($(target)_ARFLAGS.$(bld_type)) \
+	$($(target)_ARFLAGS.$(bld_trg)) \
+	$($(target)_ARFLAGS.$(bld_trg_arch)) \
+	$($(target)_ARFLAGS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_ARFLAGS.$(bld_trg_cpu))
+local dirdep      := $(call DIRDEP,$(dir $(out)))
+local deps        := \
+	$($(target)_DEPS.$(bld_trg_cpu)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_DEPS.$(bld_trg_arch)) \
+	$($(target)_DEPS.$(bld_trg)) \
+	$($(target)_DEPS.$(bld_type)) \
+	$($(target)_DEPS) \
+	$($(target)_LNK_DEPS.$(bld_trg_cpu)) \
+	$($(target)_LNK_DEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_LNK_DEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_LNK_DEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_LNK_DEPS.$(bld_trg_arch)) \
+	$($(target)_LNK_DEPS.$(bld_trg)) \
+	$($(target)_LNK_DEPS.$(bld_type)) \
+	$($(target)_LNK_DEPS)
+local orderdeps   := \
+	$($(target)_ORDERDEPS.$(bld_trg_cpu)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_ORDERDEPS.$(bld_trg_arch)) \
+	$($(target)_ORDERDEPS.$(bld_trg)) \
+	$($(target)_ORDERDEPS.$(bld_type)) \
+	$($(target)_ORDERDEPS) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg_cpu)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg_arch)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_type)) \
+	$($(target)_LNK_ORDERDEPS)
+
+# Adjust paths if we got a default path.
+ifneq ($(defpath),)
+ local deps       := $(abspathex $(deps),$(defpath))
+ local orderdeps  := $(abspathex $(orderdeps),$(defpath))
+ othersrc := $(abspathex $(othersrc),$(defpath))
+endif
+
+
+# Custom pre-link actions.
+local pre_cmds  := $(evalcall def_fn_prop_get_all_prefixed_priority_last,PRE_CMDS,$(NLTAB))
+local post_cmds := $(evalcall def_fn_prop_get_all_prefixed_priority_last,POST_CMDS,$(NLTAB))
+
+# eliminate this guy?
+local objs = $($(target)_2_OBJS)
+
+# dependency file
+local dep := $(out)$(SUFF_DEP)
+ifndef NO_LINK_CMDS_DEPS
+ _DEPFILES_INCLUDED += $(dep)
+ ifdef KB_HAVE_INCLUDEDEP_QUEUE
+  includedep-queue $(dep)
+ else
+  includedep $(dep)
+ endif
+endif
+
+# check that the tool is defined.
+ifndef TOOL_$(tool)_LINK_LIBRARY_CMDS
+$(warning kBuild: tools: \
+	1 $($(target)_$(source)TOOL.$(bld_trg).$(bld_trg_arch)) \
+	2 $($(target)_$(source)TOOL.$(bld_trg)) \
+	3 $($(target)_$(source)TOOL) \
+	4 $($(target)_TOOL.$(bld_trg).$(bld_trg_arch)) \
+	5 $($(target)_TOOL.$(bld_trg)) \
+	6 $($(target)_TOOL) \
+	7 $($(source)TOOL) \
+	8 $($(source)TOOL.$(bld_trg).$(bld_trg_arch)) \
+	9 $($(source)TOOL.$(bld_trg)) \
+	10 $(TOOL.$(bld_trg).$(bld_trg_arch)) \
+	11 $(TOOL.$(bld_trg)) \
+	12 $(TOOL) )
+$(error kBuild: TOOL_$(tool)_LINK_LIBRARY_CMDS isn't defined! target=$(target) )
+endif
+
+# call the tool
+local  cmds := $(TOOL_$(tool)_LINK_LIBRARY_CMDS)
+ifneq ($(pre_cmds),)
+ local cmds := $(TAB)$(pre_cmds)$(NL)$(TAB)$(cmds)
+endif
+ifneq ($(post_cmds),)
+ local cmds := $(cmds)$(NL)$(TAB)$(post_cmds)
+endif
+$(target)_2_OUTPUT := $(TOOL_$(tool)_LINK_LIBRARY_OUTPUT)
+$(target)_2_OUTPUT_MAYBE := $(TOOL_$(tool)_LINK_LIBRARY_OUTPUT_MAYBE)
+$(target)_2_OUTPUT_MAYBE_PRECIOUS := $(TOOL_$(tool)_LINK_LIBRARY_OUTPUT_MAYBE_PRECIOUS)
+$(target)_2_DEPEND := $(TOOL_$(tool)_LINK_LIBRARY_DEPEND) $(deps) $($(target)_2_OBJS)
+$(target)_2_DEPORD := $(TOOL_$(tool)_LINK_LIBRARY_DEPORD) $(dirdep) $(orderdeps)
+
+# generate the link rule.
+$(eval $(def_link_rule))
+
+# installing and globals.
+local target_type_mode := a+r,u+w
+$(evalval def_target_install_only)
+
+_OUT_FILES += $($(target)_2_OUTPUT) $($(target)_2_OUTPUT_MAYBE) $($(target)_2_OUTPUT_MAYBE_PRECIOUS) $(out)
+_CLEAN_FILES += $($(target)_CLEAN) $($(target)_CLEAN.$(bld_trg)) $($(target)_CLEAN.$(bld_trg).$(bld_trg_arch)) $($(target)_CLEAN.$(bld_trg_arch)) $($(target)_CLEAN.$(bld_trg_cpu)) $($(target)_CLEAN.$(bld_type))
+_DIRS += $($(target)_BLDDIRS) $($(target)_BLDDIRS.$(bld_trg)) $($(target)_BLDDIRS.$(bld_trg).$(bld_trg_arch)) $($(target)_BLDDIRS.$(bld_trg_arch)) $($(target)_BLDDIRS.$(bld_trg_cpu)) $($(target)_BLDDIRS.$(bld_type))
+_OBJS += $($(target)_2_OBJS)
+
+endef # def_lib
+$(eval-opt-var def_lib)
+
+# Process libraries
+typevar := _LIBS
+tool_do := LINK_LIBRARY
+mode := 0644
+$(foreach target, $(_ALL_LIBRARIES), $(evalvalctx def_lib))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done library targets)
+endif
+
+
+#
+# Link operations.
+#
+
+##
+# Link prolog
+#
+# @param    $(target)   Normalized target name.
+# @param    $(EXT)      EXE,DLL,SYS.
+# @param    $(typevar)  The name of the variable with all the root targets of its type.
+define def_link_common
+# basics
+local bld_type    := $(firstword $($(target)_BLD_TYPE)     $(KBUILD_TYPE))
+local bld_trg     := $(firstword $($(target)_BLD_TRG)      $(KBUILD_$(bld_trg_base_var)))
+local bld_trg_arch:= $(firstword $($(target)_BLD_TRG_ARCH) $(KBUILD_$(bld_trg_base_var)_ARCH))
+local bld_trg_cpu := $(firstword $($(target)_BLD_TRG_CPU)  $(KBUILD_$(bld_trg_base_var)_CPU))
+
+local tool        := $(call _TARGET_TOOL,$(target),LD)
+local name        := $(firstword\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg).$(bld_type))\
+	$($(target)_NAME.$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg))\
+	$($(target)_NAME.$(bld_type))\
+	$($(target)_NAME)\
+	$(target))
+local outbase     := $(call TARGET_BASE,$(name),$(target))
+$(target)_0_OUTDIR:= $(patsubst %/,%,$(dir $(outbase)))
+$(call KB_FN_ASSIGN_DEPRECATED,PATH_$(target),$($(target)_0_OUTDIR), $(target)_0_OUTDIR)
+local suff := $(firstword \
+	$($(target)_$(EXT)SUFF.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_$(EXT)SUFF.$(bld_trg))\
+	$($(target)_$(EXT)SUFF)\
+	$(TOOL_$(tool)_LD$(EXT)SUFF.$(bld_trg).$(bld_trg_arch))\
+	$(TOOL_$(tool)_LD$(EXT)SUFF.$(bld_trg))\
+	$(TOOL_$(tool)_LD$(EXT)SUFF)\
+	$($(EXTPRE)SUFF_$(EXT)) )
+local out         := $(outbase)$(suff)
+$(target)_1_TARGET:= $(out)
+$(call KB_FN_ASSIGN_DEPRECATED,TARGET_$(target),$($(target)_1_TARGET), $(target)_1_TARGET)
+local defpath     := $($(target)_DEFPATH)
+ifeq ($(defpath),)
+ local defpath    := $($(target)_PATH)
+endif
+# no local here - must be writable across some foreachs.
+othersrc          :=
+$(target)_2_OBJS  :=
+$(target)_2_INTERMEDIATES =
+
+# kObjCache.
+ifdef KBUILD_USE_KOBJCACHE
+ ifneq ($($(target)_KOBJCACHE),)
+local use_objcache := 1
+ else
+local use_objcache :=
+ endif
+local use_objcache :=
+endif
+
+# Target level intermediates (before units!).
+local target_intermediate_vars := $$$$($(target)_2_INTERMEDIATES) $(foreach var, \
+	$(target)_INTERMEDIATES \
+	$(target)_INTERMEDIATES.$(bld_trg) \
+	$(target)_INTERMEDIATES.$(bld_trg).$(bld_trg_arch) \
+	$(target)_INTERMEDIATES.$(bld_trg_arch) \
+	$(target)_INTERMEDIATES.$(bld_trg_cpu) \
+	$(target)_INTERMEDIATES.$(bld_type) \
+	,$(if-expr defined($(var)),$$$$($(var)),))
+
+# Do units pre source callouts.
+local units       := \
+	$($(target)_USES.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_USES.$(bld_trg_arch))\
+	$($(target)_USES.$(bld_trg))\
+	$($(target)_USES.$(bld_type))\
+	$($(target)_USES)
+$(foreach unit,$(units),$(evalvalctx def_unit_$(unit)_target_pre))
+$(foreach unit,$(units),$(evalvalctx def_unit_$(unit)_target_pre_2))
+
+# source -> object
+$(evalval def_target_sources)
+
+# more link stuff.
+local tool        := $(call _TARGET_TOOL,$(target),LD)
+local name        := $(firstword\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg).$(bld_type))\
+	$($(target)_NAME.$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg))\
+	$($(target)_NAME.$(bld_type))\
+	$($(target)_NAME)\
+	$(target))
+local outbase     := $(call TARGET_BASE,$(name),$(target))
+local flags       :=\
+	$(TOOL_$(tool)_LDFLAGS)\
+	$(TOOL_$(tool)_LDFLAGS.$(bld_type))\
+	$(TOOL_$(tool)_LDFLAGS.$(bld_trg))\
+	$(TOOL_$(tool)_LDFLAGS.$(bld_trg_arch))\
+	$(TOOL_$(tool)_LDFLAGS.$(bld_trg).$(bld_trg_arch))\
+	$(TOOL_$(tool)_LDFLAGS.$(bld_trg_cpu))\
+	$(foreach sdk, $(SDKS) \
+	               $(SDKS.$(bld_type)) \
+	               $(SDKS.$(bld_trg)) \
+	               $(SDKS.$(bld_trg_arch)) \
+	               $(SDKS.$(bld_trg).$(bld_trg_arch)),\
+		$(SDK_$(sdk)_LDFLAGS)\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_type))\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_trg))\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_trg_arch))\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_trg).$(bld_trg_arch))\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_trg_cpu)))\
+	$(LDFLAGS)\
+	$(LDFLAGS.$(bld_type))\
+	$(LDFLAGS.$(bld_trg))\
+	$(LDFLAGS.$(bld_trg_arch))\
+	$(LDFLAGS.$(bld_trg).$(bld_trg_arch))\
+	$(LDFLAGS.$(bld_trg_cpu))\
+	$(foreach sdk, $($(target)_SDKS) \
+	               $($(target)_SDKS.$(bld_type)) \
+	               $($(target)_SDKS.$(bld_trg)) \
+	               $($(target)_SDKS.$(bld_trg_arch)) \
+	               $($(target)_SDKS.$(bld_trg).$(bld_trg_arch)),\
+		$(SDK_$(sdk)_LDFLAGS)\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_type))\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_trg))\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_trg_arch))\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_trg).$(bld_trg_arch))\
+		$(SDK_$(sdk)_LDFLAGS.$(bld_trg_cpu)))\
+	$($(target)_LDFLAGS)\
+	$($(target)_LDFLAGS.$(bld_type))\
+	$($(target)_LDFLAGS.$(bld_trg))\
+	$($(target)_LDFLAGS.$(bld_trg_arch))\
+	$($(target)_LDFLAGS.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_LDFLAGS.$(bld_trg_cpu))
+local libs        :=\
+	$($(target)_LIBS.$(bld_trg_cpu))\
+	$($(target)_LIBS.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_LIBS.$(bld_trg_arch))\
+	$($(target)_LIBS.$(bld_trg))\
+	$($(target)_LIBS.$(bld_type))\
+	$($(target)_LIBS)\
+	$(foreach sdk, $($(target)_SDKS.$(bld_trg).$(bld_trg_arch)) \
+		       $($(target)_SDKS.$(bld_trg_arch)) \
+		       $($(target)_SDKS.$(bld_trg)) \
+		       $($(target)_SDKS.$(bld_type)) \
+		       $($(target)_SDKS),\
+		$(SDK_$(sdk)_LIBS.$(bld_trg_cpu))\
+		$(SDK_$(sdk)_LIBS.$(bld_trg).$(bld_trg_arch))\
+		$(SDK_$(sdk)_LIBS.$(bld_trg_arch))\
+		$(SDK_$(sdk)_LIBS.$(bld_trg))\
+		$(SDK_$(sdk)_LIBS.$(bld_type))\
+		$(SDK_$(sdk)_LIBS))\
+	$(LIBS.$(bld_trg_cpu))\
+	$(LIBS.$(bld_trg).$(bld_trg_arch))\
+	$(LIBS.$(bld_trg_arch))\
+	$(LIBS.$(bld_trg))\
+	$(LIBS.$(bld_type))\
+	$(LIBS)\
+	$(foreach sdk, $(SDKS.$(bld_trg).$(bld_trg_arch)) \
+	               $(SDKS.$(bld_trg_arch)) \
+	               $(SDKS.$(bld_trg)) \
+	               $(SDKS.$(bld_type)) \
+	               $(SDKS),\
+		$(SDK_$(sdk)_LIBS.$(bld_trg_cpu))\
+		$(SDK_$(sdk)_LIBS.$(bld_trg).$(bld_trg_arch))\
+		$(SDK_$(sdk)_LIBS.$(bld_trg_arch))\
+		$(SDK_$(sdk)_LIBS.$(bld_trg))\
+		$(SDK_$(sdk)_LIBS.$(bld_type))\
+		$(SDK_$(sdk)_LIBS))\
+	$(TOOL_$(tool)_LIBS.$(bld_trg_cpu))\
+	$(TOOL_$(tool)_LIBS.$(bld_trg).$(bld_trg_arch))\
+	$(TOOL_$(tool)_LIBS.$(bld_trg_arch))\
+	$(TOOL_$(tool)_LIBS.$(bld_trg))\
+	$(TOOL_$(tool)_LIBS.$(bld_type))\
+	$(TOOL_$(tool)_LIBS)
+local libpath    :=\
+	$($(target)_LIBPATH.$(bld_trg_cpu))\
+	$($(target)_LIBPATH.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_LIBPATH.$(bld_trg_arch))\
+	$($(target)_LIBPATH.$(bld_trg))\
+	$($(target)_LIBPATH.$(bld_type))\
+	$($(target)_LIBPATH)\
+	$(foreach sdk, $($(target)_SDKS.$(bld_trg).$(bld_trg_arch)) \
+		       $($(target)_SDKS.$(bld_trg_arch)) \
+		       $($(target)_SDKS.$(bld_trg)) \
+		       $($(target)_SDKS.$(bld_type)) \
+		       $($(target)_SDKS),\
+		$(SDK_$(sdk)_LIBPATH.$(bld_trg_cpu))\
+		$(SDK_$(sdk)_LIBPATH.$(bld_trg).$(bld_trg_arch))\
+		$(SDK_$(sdk)_LIBPATH.$(bld_trg_arch))\
+		$(SDK_$(sdk)_LIBPATH.$(bld_trg))\
+		$(SDK_$(sdk)_LIBPATH.$(bld_type))\
+		$(SDK_$(sdk)_LIBPATH))\
+	$(LIBPATH.$(bld_trg_cpu))\
+	$(LIBPATH.$(bld_trg).$(bld_trg_arch))\
+	$(LIBPATH.$(bld_trg_arch))\
+	$(LIBPATH.$(bld_trg))\
+	$(LIBPATH.$(bld_type))\
+	$(LIBPATH)\
+	$(foreach sdk, $(SDKS.$(bld_trg).$(bld_trg_arch)) \
+	               $(SDKS.$(bld_trg_arch)) \
+	               $(SDKS.$(bld_trg)) \
+	               $(SDKS.$(bld_type)) \
+	               $(SDKS),\
+		$(SDK_$(sdk)_LIBPATH.$(bld_trg_cpu))\
+		$(SDK_$(sdk)_LIBPATH.$(bld_trg).$(bld_trg_arch))\
+		$(SDK_$(sdk)_LIBPATH.$(bld_trg_arch))\
+		$(SDK_$(sdk)_LIBPATH.$(bld_trg))\
+		$(SDK_$(sdk)_LIBPATH.$(bld_type))\
+		$(SDK_$(sdk)_LIBPATH))\
+	$(TOOL_$(tool)_LIBPATH.$(bld_trg_cpu))\
+	$(TOOL_$(tool)_LIBPATH.$(bld_trg).$(bld_trg_arch))\
+	$(TOOL_$(tool)_LIBPATH.$(bld_trg_arch))\
+	$(TOOL_$(tool)_LIBPATH.$(bld_trg))\
+	$(TOOL_$(tool)_LIBPATH.$(bld_type))\
+	$(TOOL_$(tool)_LIBPATH)
+local dirdep      := $(call DIRDEP,$(dir $(out)))
+local deps        := \
+	$($(target)_DEPS.$(bld_trg_cpu)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_DEPS.$(bld_trg_arch)) \
+	$($(target)_DEPS.$(bld_trg)) \
+	$($(target)_DEPS.$(bld_type)) \
+	$($(target)_DEPS) \
+	$($(target)_LNK_DEPS.$(bld_trg_cpu)) \
+	$($(target)_LNK_DEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_LNK_DEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_LNK_DEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_LNK_DEPS.$(bld_trg_arch)) \
+	$($(target)_LNK_DEPS.$(bld_trg)) \
+	$($(target)_LNK_DEPS.$(bld_type)) \
+	$($(target)_LNK_DEPS)
+local orderdeps   := \
+	$($(target)_ORDERDEPS.$(bld_trg_cpu)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_ORDERDEPS.$(bld_trg_arch)) \
+	$($(target)_ORDERDEPS.$(bld_trg)) \
+	$($(target)_ORDERDEPS.$(bld_type)) \
+	$($(target)_ORDERDEPS) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg_cpu)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg_arch)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_trg)) \
+	$($(target)_LNK_ORDERDEPS.$(bld_type)) \
+	$($(target)_LNK_ORDERDEPS)
+
+# Adjust paths if we got a default path.
+ifneq ($(defpath),)
+ ifdef KMK_WITH_QUOTING
+  local libpath    := $(qabspathex ,$(libpath),$(defpath))
+  local deps       := $(qabspathex ,$(deps),$(defpath))
+  local orderdeps  := $(qabspathex ,$(orderdeps),$(defpath))
+  othersrc := $(qabspathex ,$(othersrc),$(defpath))
+ else
+  local libpath    := $(abspathex $(libpath),$(defpath))
+  local deps       := $(abspathex $(deps),$(defpath))
+  local orderdeps  := $(abspathex $(orderdeps),$(defpath))
+  othersrc := $(abspathex $(othersrc),$(defpath))
+ endif
+ # libs are not subject to this because of the the -l<lib> stuff. Use $(<target>_DEFPATH)/lib if relative to current dir!
+endif
+
+# Debug info.
+local ld_debug      := $(evalcall def_fn_prop_get_first_defined,LD_DEBUG)
+local debug_inst    := $(evalcall def_fn_prop_get_first_defined,DEBUG_INST)
+local debug_stage   := $(evalcall def_fn_prop_get_first_defined,DEBUG_STAGE)
+local debug_nostage := $(evalcall def_fn_prop_get_first_word,DEBUG_NOSTAGE)
+
+# Custom pre/post-link actions.
+local pre_cmds      := $(evalcall def_fn_prop_get_all_prefixed_priority_last,PRE_CMDS,$(NLTAB))
+local post_cmds     := $(evalcall def_fn_prop_get_all_prefixed_priority_last,POST_CMDS,$(NLTAB))
+
+# eliminate this guy?
+local objs = $($(target)_2_OBJS)
+
+# dependency file
+local dep := $(outbase)$(SUFF_DEP)
+ifndef NO_LINK_CMDS_DEPS
+ _DEPFILES_INCLUDED += $(dep)
+ ifdef KB_HAVE_INCLUDEDEP_QUEUE
+  includedep-queue $(dep)
+ else
+  includedep $(dep)
+ endif
+endif
+
+# check that the tool is defined.
+ifndef TOOL_$(tool)_$(tool_do)_CMDS
+$(warning kBuild: tools: \
+	1 $($(target)_$(source)TOOL.$(bld_trg).$(bld_trg_arch)) \
+	2 $($(target)_$(source)TOOL.$(bld_trg)) \
+	3 $($(target)_$(source)TOOL) \
+	4 $($(target)_TOOL.$(bld_trg).$(bld_trg_arch)) \
+	5 $($(target)_TOOL.$(bld_trg)) \
+	6 $($(target)_TOOL) \
+	7 $($(source)TOOL.$(bld_trg).$(bld_trg_arch)) \
+	8 $($(source)TOOL.$(bld_trg)) \
+	9 $($(source)TOOL) \
+	10 $(TOOL.$(bld_trg).$(bld_trg_arch)) \
+	11 $(TOOL.$(bld_trg)) \
+	12 $(TOOL) )
+$(error kBuild: TOOL_$(tool)_$(tool_do)_CMDS isn't defined! target=$(target) )
+endif
+
+# call the tool
+local cmds   := $(TOOL_$(tool)_$(tool_do)_CMDS)
+ifneq ($(pre_cmds),)
+ local cmds  := $(TAB)$(pre_cmds)$(NL)$(TAB)$(cmds)
+endif
+ifneq ($(post_cmds),)
+ local cmds  := $(cmds)$(NL)$(TAB)$(post_cmds)
+endif
+$(target)_2_OUTPUT              := $(TOOL_$(tool)_$(tool_do)_OUTPUT)
+$(target)_2_OUTPUT_MAYBE        := $(TOOL_$(tool)_$(tool_do)_OUTPUT_MAYBE)
+$(target)_2_OUTPUT_MAYBE_PRECIOUS := $(TOOL_$(tool)_$(tool_do)_OUTPUT_MAYBE_PRECIOUS)
+if1of ($(ld_debug), split)
+ $(target)_2_OUTPUT_DEBUG_FILES := $(filter-out %/,$(TOOL_$(tool)_$(tool_do)_OUTPUT_DEBUG))
+ $(target)_2_OUTPUT_DEBUG_DIRS  := $(filter     %/,$(TOOL_$(tool)_$(tool_do)_OUTPUT_DEBUG))
+else
+ $(target)_2_OUTPUT_DEBUG_FILES :=
+ $(target)_2_OUTPUT_DEBUG_DIRS  :=
+endif
+$(target)_2_DEPEND              := $(TOOL_$(tool)_$(tool_do)_DEPEND) $(deps) $($(target)_2_OBJS)
+$(target)_2_DEPORD              := $(TOOL_$(tool)_$(tool_do)_DEPORD) $(dirdep) $(orderdeps)
+
+# generate the link rule.
+$(eval $(def_link_rule))
+
+# installation targets
+local target_type_mode :=
+$(evalval def_target_install_only)
+
+# Update globals.
+_OBJS += $($(target)_2_OBJS)
+_OUT_FILES += $($(target)_2_OUTPUT) $($(target)_2_OUTPUT_MAYBE) $($(target)_2_OUTPUT_MAYBE_PRECIOUS) $($(target)_2_OUTPUT_DEBUG_FILES) $(out)
+_CLEAN_FILES += $($(target)_CLEAN) $($(target)_CLEAN.$(bld_trg)) $($(target)_CLEAN.$(bld_trg).$(bld_trg_arch)) $($(target)_CLEAN.$(bld_trg_arch)) $($(target)_CLEAN.$(bld_trg_cpu)) $($(target)_CLEAN.$(bld_type))
+_DIRS += $($(target)_BLDDIRS) $($(target)_BLDDIRS.$(bld_trg)) $($(target)_BLDDIRS.$(bld_trg).$(bld_trg_arch)) $($(target)_BLDDIRS.$(bld_trg_arch)) $($(target)_BLDDIRS.$(bld_trg_cpu)) $($(target)_BLDDIRS.$(bld_type))
+_INSTALLS_FILES += $(INSTARGET_$(target))
+
+endef # def_link_common
+$(eval-opt-var def_link_common)
+
+
+#
+# BLDPROGS
+#
+
+# Process build programs.
+EXT     := EXE
+EXTPRE  := HOST
+tool_do := LINK_PROGRAM
+typevar := _BLDPROGS
+mode    := 0755
+bld_trg_base_var := HOST
+$(foreach target, $(_ALL_BLDPROGS), $(evalvalctx def_link_common))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done build program targets)
+endif
+
+
+#
+# DLLS
+#
+
+# Process dlls
+EXT     := DLL
+EXTPRE  :=
+tool_do := LINK_DLL
+typevar := _DLLS
+mode    := 0644
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_DLLS), $(evalvalctx def_link_common))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done dll targets)
+endif
+
+
+#
+# IMPORT LIBRARIES
+#
+#   - On OS/2 and windows these are libraries.
+#   - On other platforms they are fake DLLs.
+#
+EXTPRE  :=
+typevar := _IMPORT_LIBS
+mode    := 0644
+bld_trg_base_var := TARGET
+ifeq ($(filter-out nt os2 win win64 win32,$(KBUILD_TARGET)),)
+ EXT     := LIB
+ tool_do := LINK_LIBRARY
+ $(foreach target, $(_ALL_IMPORT_LIBS), $(evalvalctx def_lib))
+else
+ EXT     := DLL
+ tool_do := LINK_DLL
+ $(foreach target, $(_ALL_IMPORT_LIBS), $(evalvalctx def_link_common))
+endif
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done import library targets)
+endif
+
+
+#
+# PROGRAMS
+#
+
+# Process programs
+EXT     := EXE
+EXTPRE  :=
+tool_do := LINK_PROGRAM
+typevar := _PROGRAMS
+mode    := 0755
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_PROGRAMS), $(evalvalctx def_link_common))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done program targets)
+endif
+
+
+#
+# SYSMODS
+#
+
+# Process sysmods
+EXT     := SYS
+EXTPRE  :=
+tool_do := LINK_SYSMOD
+typevar := _SYSMODS
+mode    := 0644
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_SYSMODS), $(evalvalctx def_link_common))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done sysmod targets)
+endif
+
+
+#
+# MISCBINS
+#
+
+# Process MISCBINS
+EXT     := BIN
+EXTPRE  :=
+tool_do := LINK_MISCBIN
+typevar := _MISCBINS
+mode    := 0644
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_MISCBINS), $(evalvalctx def_link_common))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done misc binary targets)
+endif
+

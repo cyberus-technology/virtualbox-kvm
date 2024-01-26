@@ -1,0 +1,328 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for the FreeBSD installer.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+ifneq ($(KBUILD_HOST),freebsd)
+ $(error "The FreeBSD installer can only be built on FreeBSD!")
+endif
+
+#
+# Globals and targets.
+#
+VBOX_PATH_FBSD_INST_SRC      := $(PATH_SUB_CURRENT)
+VBOX_FBSD_INST_OUT_DIR       := $(PATH_TARGET)/Installer/freebsd
+VBOX_FBSD_INST_STAGE_DIR     := $(PATH_TARGET)/Installer/freebsd/install
+VBOX_FBSD_DBG_PATH           := usr/lib/debug/opt/VirtualBox
+VBOX_FBSD_PACKAGE_NAME        = VirtualBox-$(VBOX_VERSION_STRING)-r$(VBOX_SVN_REV).tbz
+VBOX_FBSD_INST_LIB_DIR       := $(VBOX_FBSD_INST_STAGE_DIR)/lib
+VBOX_FBSD_INST_BIN_DIR       := $(VBOX_FBSD_INST_STAGE_DIR)/bin
+VBOX_FBSD_INST_LIBVBOX_DIR   := $(VBOX_FBSD_INST_LIB_DIR)/virtualbox
+VBOX_FBSD_INST_SHARE_DIR     := $(VBOX_FBSD_INST_STAGE_DIR)/share
+VBOX_FBSD_INST_SHAREAPP_DIR  := $(VBOX_FBSD_INST_SHARE_DIR)/applications
+VBOX_FBSD_INST_SHAREICON_DIR := $(VBOX_FBSD_INST_SHARE_DIR)/pixmaps
+VBOX_FBSD_INST_SHAREVBOX_DIR := $(VBOX_FBSD_INST_SHARE_DIR)/virtualbox
+
+# Unset this to speed up things during makefile hacking.
+VBOX_FBSD_INST_DEP_ON_MAKEFILE := $(MAKEFILE_CURRENT)
+
+BLDDIRS  += $(VBOX_FBSD_INST_OUT_DIR) $(VBOX_FBSD_INST_STAGE_DIR)
+PACKING  += $(PATH_STAGE_BIN)/$(VBOX_FBSD_PACKAGE_NAME)
+
+OTHER_CLEAN   += \
+	$(addprefix $(VBOX_FBSD_INST_STAGE_DIR)/, \
+	pkg_plist \
+	LICENSE) \
+	$(wildcard $(VBOX_FBSD_INST_OUT_DIR)/VirtualBox-*)
+
+#
+# FreeBSD installs.
+#
+INSTALLS += freebsd-misc
+freebsd-misc_INST = bin/
+freebsd-misc_MODE = a+r,u+w
+freebsd-misc_SOURCES = \
+	$(PATH_ROOT)/src/VBox/Frontends/VirtualBox/images/$(if $(VBOX_OSE),OSE,NonOSE)/VirtualBox_32px.png=>VBox.png \
+	$(if $(VBOX_OSE),,$(VBOX_BRAND_LICENSE_TXT)=>LICENSE) \
+	$(if $(VBOX_WITH_QTGUI),$(freebsd-misc_0_OUTDIR)/virtualbox.desktop,) \
+	$(if $(VBOX_WITH_QTGUI),$(freebsd-misc_0_OUTDIR)/virtualboxvm.desktop,)
+freebsd-misc_CLEAN = $(freebsd-misc_0_OUTDIR)/virtualbox.desktop
+freebsd-misc_CLEAN += $(freebsd-misc_0_OUTDIR)/virtualboxvm.desktop
+
+$$(PATH_freebsd-misc)/virtualbox.desktop: $(VBOX_PATH_INST_COMMON_SRC)/virtualbox.desktop.in $(VBOX_VERSION_STAMP) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$<)
+	$(QUIET)$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+" \
+		--output $@ $<
+
+$$(PATH_freebsd-misc)/virtualboxvm.desktop: $(VBOX_PATH_INST_COMMON_SRC)/virtualboxvm.desktop.in $(VBOX_VERSION_STAMP) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$<)
+	$(QUIET)$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+" \
+		--output $@ $<
+#
+# The files residing in bin/ that we'll ship.
+#
+
+# Strip these binaries
+VBOX_FBSD_STRIP_BIN = \
+	VBoxDD.so \
+	VBoxDD2.so \
+	VBoxDDU.so \
+	VBoxVMM.so \
+	VBoxRT.so \
+	$(if $(VBOX_WITH_VBOXSDL),VBoxSDL $(if $(VBOX_WITH_HARDENING),VBoxSDL.so),) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD), VBoxSharedClipboard.so,) \
+	$(if $(VBOX_WITH_SHARED_FOLDERS), VBoxSharedFolders.so,) \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBoxGuestPropSvc.so,) \
+	$(if $(VBOX_WITH_GUEST_CONTROL),VBoxGuestControlSvc.so,) \
+	VBoxHostChannel.so \
+	$(if $(VBOX_WITH_MAIN), \
+	VBoxManage \
+	VBoxNetDHCP $(if $(VBOX_WITH_HARDENING),VBoxNetDHCP.so,) \
+	VBoxNetAdpCtl \
+	VBoxSVC \
+	VBoxXPCOM.so \
+	VBoxXPCOMC.so \
+	VBoxXPCOMIPCD \
+	components/VBoxXPCOMIPCC.so \
+	components/VBoxSVCM.so \
+	components/VBoxC.so,) \
+	VBoxTestOGL \
+	$(if $(VBOX_WITH_PYTHON),VBoxPython.so,) \
+	$(if $(VBOX_WITH_DTRACE),VBoxDTrace,) \
+	$(if $(VBOX_WITH_HOST_SHIPPING_AUDIO_TEST),VBoxAudioTest,)
+
+# Do not remove relocation information of these binaries
+VBOX_FBSD_STRIP_OBJ = \
+	VBoxDDRC.rc \
+	VBoxDDR0.r0 \
+	VMMRC.rc \
+	VMMR0.r0
+
+# Do not strip anything of these files
+VBOX_FBSD_NO_STRIP = \
+	$(if $(VBOX_OSE),,LICENSE) \
+	$(if $(VBOX_WITH_MAIN), \
+	components/VBoxXPCOMBase.xpt \
+	components/VirtualBox_XPCOM.xpt) \
+	vboxdrv.tar.gz
+
+# EFI firmware
+ifdef VBOX_WITH_EFIFW_PACKING
+ VBOX_FBSD_NO_STRIP += \
+ 	VBoxEFI32.fd \
+ 	VBoxEFI64.fd
+endif
+
+# Symlinks residing in bin/
+VBOX_FBSD_SYMLINKS = \
+	$(if $(VBOX_WITH_MAIN), \
+	VBoxManage \
+	VBoxSVC) \
+	$(if $(VBOX_WITH_VBOXSDL),VBoxSDL,) \
+	$(if $(VBOX_WITH_DTRACE),VBoxDTrace,) \
+	$(if $(VBOX_WITH_HOST_SHIPPING_AUDIO_TEST),VBoxAudioTest,)
+
+# Qt GUI
+ifdef VBOX_WITH_QTGUI
+ include $(PATH_ROOT)/src/VBox/Frontends/VirtualBox/nls/ApprovedLanguages.kmk
+ VBOX_FBSD_STRIP_BIN += \
+ 	VBoxKeyboard.so \
+ 	VirtualBox \
+ 	$(if $(VBOX_WITH_HARDENING),VirtualBox.so) \
+ 	$(if $(VBOX_WITH_DEBUGGER_GUI),VBoxDbg.so DbgPlugInDiggers.so,)
+ VBOX_FBSD_SYMLINKS += \
+ 	VirtualBox
+ VBOX_FBSD_NO_STRIP += \
+ 	$(VBOX_LICENSE_FILES) \
+ 	$(if $(VBOX_WITH_ORACLE_QT),$(notdir $(wildcard $(PATH_STAGE_BIN)/lib*VBox*)),) \
+ 	$(if $(VBOX_WITH_ORACLE_QT),accessible/libqtaccessiblewidgets.so,) \
+ 	$(foreach f,$(VBOX_APPROVED_GUI_LANGUAGES),nls/VirtualBox_$(f).qm nls/qt_$(f).qm)
+ VBOX_FBSD_DESKTOP_FILE = \
+ 	virtualbox.desktop \
+ 	virtualboxvm.desktop
+ VBOX_FBSD_ICON_FILE = \
+ 	VBox.png
+endif
+
+# Guest Additions
+ifdef VBOX_WITH_ADDITIONS_PACKING
+ VBOX_FBSD_NO_STRIP += \
+ 	additions/VBoxGuestAdditions.iso
+endif
+
+# Documentation
+ifdef VBOX_WITH_DOCS_PACKING
+ VBOX_FBSD_NO_STRIP += \
+ 	VirtualBox.chm UserManual.pdf \
+ 	$(foreach f,$(VBOX_MANUAL_ADD_LANGUAGES),VirtualBox_$(f).chm UserManual_$(f).pdf)
+endif
+
+# VRDP
+ifdef VBOX_WITH_VRDP
+ VBOX_FBSD_STRIP_BIN += \
+ 	VBoxVRDP.so \
+ 	VBoxAuth.so
+endif
+
+# Headless
+ifdef VBOX_WITH_HEADLESS
+ VBOX_FBSD_STRIP_BIN += \
+ 	VBoxHeadless \
+ 	$(if $(VBOX_WITH_HARDENING),VBoxHeadless.so)
+ VBOX_FBSD_SYMLINKS += \
+ 	VBoxHeadless
+endif
+
+# Webservices
+ifdef VBOX_WITH_WEBSERVICES
+ VBOX_FBSD_STRIP_BIN += \
+ 	vboxwebsrv
+ VBOX_FBSD_SYMLINKS += \
+ 	vboxwebsrv
+endif
+
+# DTrace library, testcase and scripts (as the rest of this file, this makes bold
+# ASSUMPTIONS about VBPX_INST_XXX variable values).
+ifdef VBOX_WITH_DTRACE
+ VBOX_FBSD_NO_STRIP += \
+ 	$(addprefix dtrace/lib/$(KBUILD_TARGET_ARCH)/,$(VBOXINST_DTRACE_LIB_ARCH_FILES)) \
+ 	$(addprefix dtrace/testcase/$(KBUILD_TARGET_ARCH)/,$(VBOXINST_DTRACE_TESTCASE_ARCH_FILES)) \
+ 	$(addprefix dtrace/scripts/,$(VBOXINST_DTRACE_SCRIPTS_FILES))
+endif
+
+#
+# All the bin files that goes into the archives.
+#
+VBOX_FBSD_ARCH_FILES := $(VBOX_FBSD_STRIP_BIN) $(VBOX_FBSD_STRIP_OBJ) $(VBOX_FBSD_NO_STRIP)
+
+# Cleanup of the files we copy/symlink from bin.
+OTHER_CLEAN += $(addprefix $(VBOX_FBSD_INST_LIBVBOX_DIR)/,$(VBOX_FBSD_ARCH_FILES))
+
+#
+# The module source archive
+#
+$(PATH_STAGE_BIN)/vboxdrv.tar.gz: \
+		src
+	$(call MSG_TOOL, export_modules.sh,,$@)
+	$(QUIET)$(PATH_STAGE_BIN)/export_modules.sh $@
+
+#
+# The generic installer.
+## @todo r=aeichner: Create pkg_plist dynamically based on the available features
+#
+$(PATH_STAGE_BIN)/$(VBOX_FBSD_PACKAGE_NAME): \
+		$(VBOX_VERSION_STAMP) \
+		$(VBOX_FBSD_INST_OUT_DIR)/pkg_plist \
+		$(addprefix $(VBOX_FBSD_INST_LIBVBOX_DIR)/,$(VBOX_FBSD_ARCH_FILES)) \
+		$(addprefix $(VBOX_FBSD_INST_BIN_DIR)/,$(VBOX_FBSD_SYMLINKS)) \
+		$(if $(VBOX_OSE),,$(VBOX_BRAND_LICENSE_TXT)) \
+		$(if $(VBOX_WITH_QTGUI),$(addprefix $(VBOX_FBSD_INST_SHAREAPP_DIR)/,$(VBOX_FBSD_DESKTOP_FILE)),) \
+		$(if $(VBOX_WITH_QTGUI),$(addprefix $(VBOX_FBSD_INST_SHAREICON_DIR)/,$(VBOX_FBSD_ICON_FILE)),) \
+		$(VBOX_PATH_FBSD_INST_SRC)/postinstall.sh \
+		$(VBOX_PATH_FBSD_INST_SRC)/postdeinstall.sh
+	$(call MSG_TOOL,pkg_create,,$@)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)pkg_create \
+		-I $(VBOX_PATH_FBSD_INST_SRC)/postinstall.sh \
+		-K $(VBOX_PATH_FBSD_INST_SRC)/postdeinstall.sh \
+		-c $(VBOX_PATH_FBSD_INST_SRC)/pkg-comment \
+		-d $(VBOX_PATH_FBSD_INST_SRC)/pkg-descr \
+		-f $(VBOX_FBSD_INST_OUT_DIR)/pkg_plist \
+		-p /usr/local \
+		-s $(VBOX_FBSD_INST_STAGE_DIR) \
+		$@
+	$(QUIET)$(RM) -Rf $(VBOX_FBSD_INST_STAGE_DIR)
+
+$(addprefix $(VBOX_FBSD_INST_LIBVBOX_DIR)/,$(VBOX_FBSD_STRIP_BIN)): \
+		$(VBOX_FBSD_INST_LIBVBOX_DIR)/% : $(PATH_STAGE_BIN)/%
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(INSTALL) -d $(dir $@)
+	$(QUIET)$(INSTALL) -m 0755 $(if $(VBOX_DO_STRIP),-s,) $< $@
+
+# pattern rule for striping and copying the VBOX_FBSD_STRIP_OBJ files to install/lib/virtualbox
+$(addprefix $(VBOX_FBSD_INST_LIBVBOX_DIR)/,$(VBOX_FBSD_STRIP_OBJ)): \
+		$(VBOX_FBSD_INST_LIBVBOX_DIR)/% : $(PATH_STAGE_BIN)/%
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(INSTALL) -d $(dir $@)
+ifeq ($(VBOX_DO_STRIP),)
+	$(QUIET)$(INSTALL) -m 0644 $< $@
+else # strip to temp file because of umask.
+	$(QUIET)objcopy --strip-unneeded -R .comment $< $@.tmp
+	$(QUIET)$(INSTALL) -m 0644 $@.tmp $@
+	$(QUIET)$(RM) -f -- $@.tmp
+endif
+
+# pattern rule for linking the VBOX_FBSD_NO_STRIP into lib/virtualbox/
+$(addprefix $(VBOX_FBSD_INST_LIBVBOX_DIR)/,$(VBOX_FBSD_NO_STRIP)): \
+		$(VBOX_FBSD_INST_LIBVBOX_DIR)/% : $(PATH_STAGE_BIN)/%
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(INSTALL) -d $(dir $@)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(INSTALL) -m 0644 $< $@
+
+# pattern rule for symlinking the VBOX_FBSD_SYMLINKS into bin/
+$(addprefix $(VBOX_FBSD_INST_BIN_DIR)/,$(VBOX_FBSD_SYMLINKS)): \
+		$(VBOX_FBSD_INST_BIN_DIR)/% : $(PATH_STAGE_BIN)/%
+	$(call MSG_INST_SYM,$<,$@)
+	$(QUIET)$(INSTALL) -d $(dir $@)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(LN_SYMLINK) ../lib/virtualbox/$(notdir $@) $@
+
+# pattern rule for copying the VBOX_FBSD_DESKTOP_FILE into share/applications/
+$(addprefix $(VBOX_FBSD_INST_SHAREAPP_DIR)/,$(VBOX_FBSD_DESKTOP_FILE)): \
+		$(VBOX_FBSD_INST_SHAREAPP_DIR)/% : $(PATH_STAGE_BIN)/%
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(INSTALL) -d $(dir $@)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(INSTALL) -m 0644 $< $@
+
+# pattern rule for copying the VBOX_FBSD_ICON_FILE into share/pixmaps/
+$(addprefix $(VBOX_FBSD_INST_SHAREICON_DIR)/,$(VBOX_FBSD_ICON_FILE)): \
+		$(VBOX_FBSD_INST_SHAREICON_DIR)/% : $(PATH_STAGE_BIN)/%
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(INSTALL) -d $(dir $@)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(INSTALL) -m 0644 $< $@
+
+# Create pkg_plist
+$(VBOX_FBSD_INST_OUT_DIR)/pkg_plist: \
+		$(VBOX_PATH_FBSD_INST_SRC)/pkg_plist
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(INSTALL) -d $(dir $@)
+	$(QUIET)$(CP) -- "$<" "$@"
+ifdef VBOX_WITH_DTRACE
+	$(QUIET)$(APPEND) -n "$@" "@mode 644" \
+		$(addprefix lib/virtualbox/dtrace/lib/$(KBUILD_TARGET_ARCH)/,$(VBOXINST_DTRACE_LIB_ARCH_FILES)) \
+		$(addprefix lib/virtualbox/dtrace/testcase/$(KBUILD_TARGET_ARCH)/,$(VBOXINST_DTRACE_TESTCASE_ARCH_FILES)) \
+		$(addprefix lib/virtualbox/dtrace/scripts/,$(VBOXINST_DTRACE_SCRIPTS_FILES)) \
+		"@mode 755" \
+		"bin/VBoxDTrace"
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,34 @@
+
+Test VM - t-dos71 - PC-DOS 7.1 (or 7.0)
+=======================================
+
+Setup:
+ - Create a default DOS VM 't-dos71'.
+ - Install DOS (single partition, etc).  Make sure to install the IBM anti virus.
+ - Make sure POWER.EXE is loaded by Config.sys and that emm386 isn't used.
+ - Add /V to HIMEM.
+ - Install CDROM driver (e.g. OAK).
+ - Copy DosSleep.exe and DosVmOff.com onto the disk (C:\).
+ - Create c:\test.bat with the following content:
+     echo TESTING: chkdsk C: >COM1
+     C:\DOS\CHKDSK.COM C:
+     @IF NOT ERRORLEVEL 0 GOTO fail
+     @
+     echo TESTING: IBM anti virus scan >COM1
+     c:\dos\ibmavsp.exe C: -ALL -NLOG
+     @IF NOT ERRORLEVEL 0 GOTO fail
+     @
+     echo PASSED>COM1
+     goto done
+
+     :fail
+     echo FAILED>COM1
+     goto done
+
+     :done
+     @echo Powering off in 5 seconds...
+     dossleep 5
+     dosvmoff
+ - Edit c:\autoexec.bat appending "echo on" and "call c:\test.bat".
+ - Check that C:\config.sys contains himem.sys from windows and no emm386.
+

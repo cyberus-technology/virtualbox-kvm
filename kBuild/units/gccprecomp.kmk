@@ -1,0 +1,67 @@
+# $Id: gccprecomp.kmk 3415 2020-08-20 23:43:33Z bird $
+## @file
+# kBuild Unit - Target Level Precompiled Headers for GNU GCC.
+#
+
+#
+# Copyright (c) 2016-2019 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+
+UNIT_gccprecomp = Target level precompiled Headers for Visual C++
+
+#
+# Early target processing pass #1.
+#
+# This sets $(target)_1_GCC_PCH_DIR as the include directory for the precompiled
+# header, adding it to BLDDIRS to get a mkdir rule for it, and then calculates the
+# .gch name and stores that in $(target)_1_GCC_PCH_FILE for compile rule dependencies.
+#
+define def_unit_gccprecomp_target_pre
+ $(target)_BLDDIRS        += $($(target)_0_OUTDIR)/pch/
+ $(target)_1_GCC_PCH_DIR  := $($(target)_0_OUTDIR)/pch/
+ $(target)_1_GCC_PCH_FILE := $($(target)_0_OUTDIR)/pch/$(notdir $($(target)_PCH_HDR)).gch
+endef
+
+#
+# Early target processing pass #2.
+#
+# This sets up a rule for creating the .gch file after qt5 and similar units
+# are done modifying INCS, DEFS and company.  The 'tool' variable is defined by
+# footer-pass2-compiling-targets.kmk and is really the LD tool, but that'll
+# have to do for now.  The '-PCH' variant of the GCC/LLVM tool, is defined together
+# with $(tool) and allow us to bypass the options and dependencies triggered
+# by _1_VCC_PCH_FILE, _1_VCC_COMMON_OBJ_PDB and _PCH_HDR, and also make sure we
+# don't get circular dependencies by way of kDepObj and the debug info.
+#
+define def_unit_gccprecomp_target_pre_2
+ local source := $($(target)_PCH_HDR)
+ local suff   := $(suffix $(source))
+ local type   := PCH
+ $(kb-src-one 4)
+endef
+

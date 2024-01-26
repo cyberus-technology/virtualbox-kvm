@@ -1,0 +1,100 @@
+# $Id: makefile.tstVBoxAPIWin $
+## @file
+# tstVBoxAPILinux makefile
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+#
+# Several assumptions and propositions:
+# - Visual Studio has already installed on machine or you already have nmake.exe, cl.exe, link.exe
+# - Windows SDK has already installed on machine or you already have Uuid.Lib Ole32.Lib OleAut32.Lib OleDlg.Lib
+# - VirtualBox SDK was downloaded and was placed into folder where VirtualBox had been installed.
+# - nmake is a default tool that builds projects based on commands contained in this description file
+# - cl is cl.exe - Windows compiler
+# - link is link.exe - Windows linker
+# - all needed paths have been set in working environment. It means that when you type "cl" from the console,
+#   Windows shall find cl.exe by using enviroment variable PATH or something similar.
+#
+# The best way to accomplish it is to run a script vcvars32.bat located in the Visual studio "bin" directory.
+# This script installs needed paths in your working environment.
+# Important!!!
+# Script vcvars32.bat sets up needed paths only for local console session.
+# For permanent using, needed paths must be added globally.
+#
+# Several possible examples of paths:
+# VS_INSTALL_PATH = "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\"
+# VS_INCLUDE_PATH = "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include"
+# WIN_SDK_INCLUDE_PATH = "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\Include"
+# WIN_SDK_LIB_PATH = "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\Lib\x64\"
+# VB_INSTALL_PATH = "C:\Program Files\Oracle\VirtualBox"
+#
+
+
+CXX = cl
+LINK = link
+PATH_MSCOM     = ../../../bindings/mscom
+INCS_MSCOM     = $(PATH_MSCOM)/include
+LIBS_MSCOM     = $(PATH_MSCOM)/lib
+
+LIBS_DEPS = "Uuid.Lib" "Ole32.Lib" "OleAut32.Lib" "OleDlg.Lib"
+
+tstVBoxAPIWin_SOURCES  = $(LIBS_MSCOM)/VirtualBox_i.c
+tstVBoxAPIWin_DEPS     = $(INCS_MSCOM)
+
+COMPILER_CMDLINE = /Zi /nologo /W3 /WX- /Od /Oy- /Gm /EHsc /RTC1 /GS /fp:precise /Gd /analyze- /errorReport:queue
+
+LINKER_CMDLINE = /INCREMENTAL /DEBUG /SUBSYSTEM:CONSOLE
+
+#   default linking
+tstVBoxAPIWin.exe: tstVBoxAPIWin.obj VirtualBox_i.obj
+	$(LINK) /out:tstVBoxAPIWin.exe $** $(LIBS_DEPS)
+
+#   default compilation
+tstVBoxAPIWin.obj:
+	$(CXX) /c /I$(INCS_MSCOM) tstVBoxAPIWin.cpp
+
+#   default compilation
+VirtualBox_i.obj:
+	$(CXX) /c /I$(INCS_MSCOM) $(tstVBoxAPIWin_SOURCES)
+
+#   linking with defined linker's options
+#tstVBoxAPIWin.exe: tstVBoxAPIWin.obj VirtualBox_i.obj
+#	$(LINK) $(LINKER_CMDLINE) /out:tstVBoxAPIWin.exe $** $(LIBS_DEPS)
+
+#   compile with  pre-defined compiler's options and locally defined paths
+#tstVBoxAPIWin.obj:
+#	$(CXX) /c $(COMPILER_CMDLINE) /I$(INCS_MSCOM) /I$(WIN_SDK_INCLUDE_PATH) /I$(VS_INCLUDE_PATH) tstVBoxAPIWin.cpp
+
+#   compile with locally defined paths
+#tstVBoxAPIWin.obj:
+#	$(CXX) /c /I$(INCS_MSCOM) /I$(WIN_SDK_INCLUDE_PATH) /I$(VS_INCLUDE_PATH) tstVBoxAPIWin.cpp
+
+#   compile with  pre-defined compiler's options and locally defined paths
+#VirtualBox_i.obj:
+#	$(CXX) /c $(COMPILER_CMDLINE) /I$(INCS_MSCOM) /I$(WIN_SDK_INCLUDE_PATH) /I$(VS_INCLUDE_PATH) $(tstVBoxAPIWin_SOURCES)
+
+#   compile with locally defined paths
+#VirtualBox_i.obj:
+#	$(CXX) /c /I$(INCS_MSCOM) /I$(WIN_SDK_INCLUDE_PATH) /I$(VS_INCLUDE_PATH) $(tstVBoxAPIWin_SOURCES)
+

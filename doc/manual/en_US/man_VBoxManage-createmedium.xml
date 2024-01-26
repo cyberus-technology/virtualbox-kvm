@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage createmedium
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-createmedium" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage createmedium</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-createmedium</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-createmedium</refname>
+    <refpurpose>create a new medium</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-createmedium">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage createmedium</command>
+      <group>
+        <arg choice="plain"><replaceable>disk</replaceable></arg>
+        <arg choice="plain"><replaceable>dvd</replaceable></arg>
+        <arg choice="plain"><replaceable>floppy</replaceable></arg>
+      </group>
+      <arg choice="req">--filename=<replaceable>filename</replaceable></arg>
+      <group>
+        <arg choice="plain">--size=<replaceable>megabytes</replaceable></arg>
+        <arg choice="plain">--sizebyte=<replaceable>bytes</replaceable></arg>
+      </group>
+      <arg>--diffparent=<group choice="plain">
+          <arg choice="plain"><replaceable>UUID</replaceable></arg>
+          <arg choice="plain"><replaceable>filename</replaceable></arg>
+        </group></arg>
+      <arg>--format=<group choice="plain">
+          <arg choice="plain"><replaceable>VDI</replaceable></arg>
+          <arg choice="plain"><replaceable>VMDK</replaceable></arg>
+          <arg choice="plain"><replaceable>VHD</replaceable></arg>
+        </group></arg>
+      <arg>--variant Standard,Fixed,Split2G,Stream,ESX,Formatted,RawDisk</arg>
+      <arg choice="plain" rep="repeat">--property
+          <replaceable>name</replaceable>=<replaceable>value</replaceable></arg>
+      <arg choice="plain" rep="repeat">--property-file
+          <replaceable>name</replaceable>=<replaceable>/path/to/file/with/value</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage createmedium</command> command creates a
+      new medium, such as a disk image file.
+    </para>
+    <note>
+      <para>
+        For compatibility with earlier versions of &product-name;, you
+        can use the <command>createvdi</command> and
+        <command>createhd</command> commands instead of the
+        <command>createmedium</command> command.
+      </para>
+    </note>
+    <variablelist>
+      <varlistentry>
+        <term>disk | dvd | floppy</term>
+        <listitem><para>
+            Specifies the media type. The default value is
+            <literal>disk</literal>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--filename=<replaceable>filename</replaceable></option></term>
+        <listitem><para>
+            Specifies the absolute path name to a file on the host file
+            system.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--size=<replaceable>megabytes</replaceable></option></term>
+        <listitem><para>
+            Specifies the image capacity in one megabyte units.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--sizebyte=<replaceable>bytes</replaceable></option></term>
+        <listitem><para>
+            Specifies the image capacity in one byte units.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--diffparent=<replaceable>UUID</replaceable> | <replaceable>filename</replaceable></option></term>
+        <listitem><para>
+            Specifies the Universally Unique Identifier (UUID) or
+            absolute path name of a differencing image parent file on
+            the host file system.
+          </para><para>
+            Use this file to share a base box disk image among VMs.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--format=VDI | VMDK | VHD</option></term>
+        <listitem><para>
+            Specifies the file format of the output file. Valid formats
+            are <literal>VDI</literal>, <literal>VMDK</literal>, and
+            <literal>VHD</literal>. The default format is
+            <literal>VDI</literal>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--variant=Standard,Fixed,Split2G,Stream,ESX,Formatted,RawDisk</option></term>
+        <listitem><para>
+            Specifies the file format variant for the target medium,
+            which is a comma-separated list of variants. Following are
+            the valid values:
+          </para><itemizedlist>
+            <listitem><para>
+                <literal>Standard</literal> is the default disk image
+                type, which has a dynamically allocated file size.
+              </para></listitem>
+            <listitem><para>
+                <literal>Fixed</literal> uses a disk image that has a
+                fixed file size.
+              </para></listitem>
+            <listitem><para>
+                <literal>Split2G</literal> indicates that the disk image
+                is split into 2GB segments. This value is valid for VMDK
+                disk images only.
+              </para></listitem>
+            <listitem><para>
+                <literal>Stream</literal> optimizes the disk image for
+                downloading. This value is valid for VMDK disk images
+                only.
+              </para></listitem>
+            <listitem><para>
+                <literal>ESX</literal> is used for some VMWare products.
+                This value is valid for VMDK disk images only.
+              </para></listitem>
+            <listitem><para>
+                <literal>Formatted</literal> formats the medium automatically.
+                This value is valid for floppy images only.
+              </para></listitem>
+            <listitem><para>
+                <literal>RawDisk</literal> is used for creating a VMDK
+                image which provides direct access to the hard disk on
+                the host using its raw interface. This value is valid for
+                VMDK disk images only. For detailed information about raw
+                disk access, see <xref linkend="adv-storage-config"/>.
+              </para></listitem>
+          </itemizedlist><para>
+            Note that not all variant combinations are valid. Specifying
+            incompatible variant values in the list will produce an
+            error message.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--property <replaceable>name</replaceable>=<replaceable>value</replaceable></option></term>
+        <listitem><para>
+            Specifies any required file format dependent parameters in
+            <literal>key=value</literal> form. Optional.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--property-file <replaceable>name
+          </replaceable>=<replaceable>/path/to/file/with/value</replaceable></option></term>
+        <listitem><para>
+            Specifies any required file format dependent parameters in
+            <literal>key=file/with/value</literal> form. The value is
+            taken from the file. Optional.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command creates a new disk image file named
+      <filename>disk01.vdi</filename>. The file size is 1024 megabytes.
+    </para>
+<screen>$ VBoxManage createmedium --filename disk01.vdi --size 1024</screen>
+    <para>
+      The following command creates a new floppy disk image file named
+      <filename>floppy01.vdi</filename>. The file size is 1 megabyte.
+    </para>
+<screen>$ VBoxManage createmedium floppy --filename floppy01.img --size 1</screen>
+    <para>
+        The following command creates a raw disk image of an entire physical disk
+        on a Linux host.
+    </para>
+    <screen>$ VBoxManage createmedium disk --filename=/path/to/rawdisk.vmdk --variant=RawDisk --format=VMDK --property RawDrive=/dev/sda</screen>
+  </refsect1>
+</refentry>

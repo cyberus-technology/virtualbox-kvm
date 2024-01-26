@@ -1,0 +1,198 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for the Windows guest miniport driver.
+#
+
+#
+# Copyright (C) 2011-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# VBoxVideo - Windows Guest Additions XPDM Miniport Video Driver
+#
+# Note. This has to run on NT4! (*_NT4 => *_W2K3 when targeting 64-bit.)
+#
+SYSMODS += VBoxVideo
+VBoxVideo_TEMPLATE      = VBoxGuestR0Drv
+VBoxVideo_SDKS          = ReorderCompilerIncs $(VBOX_WINDDK_GST_NT4)
+VBoxVideo_DEFS          = VBOX_XPDM_MINIPORT VBOX_WITH_8BPP_MODES VBOX_USING_$(VBOX_WINDDK_GST_NT4)
+VBoxVideo_DEFS         += LOG_TO_BACKDOOR #LOG_ENABLED
+VBoxVideo_DEFS         += VBOX_SVN_REV=$(VBOX_SVN_REV)
+ifdef VBOX_WITH_VIDEOHWACCEL
+ VBoxVideo_DEFS        += VBOX_WITH_VIDEOHWACCEL
+endif
+VBoxVideo_INCS          = \
+	../../../include \
+	.. \
+	. \
+	$(VBOX_GRAPHICS_INCS)
+VBoxVideo_LDFLAGS.x86   = /Entry:DriverEntry@8
+VBoxVideo_LDFLAGS.amd64 = /Entry:DriverEntry
+VBoxVideo_SOURCES       = \
+	xpdm/VBoxMPDriver.cpp \
+	xpdm/VBoxMP.def \
+	xpdm/VBoxMP.rc \
+	xpdm/VBoxMPVideoPortAPI.cpp \
+	xpdm/VBoxMPInternal.cpp \
+	xpdm/VBoxMPRegistry.cpp \
+	xpdm/VBoxMPIOCTL.cpp \
+	common/VBoxMPUtils.cpp \
+	common/VBoxMPCommon.cpp \
+	common/VBoxMPHGSMI.cpp \
+	common/VBoxMPVidModes.cpp \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIBase.cpp \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIBuffers.cpp \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIHostCmd.cpp \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/Modesetting.cpp
+VBoxVideo_LIBS          = \
+	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/videoprt.lib \
+	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/ntoskrnl.lib \
+	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/hal.lib \
+	$(VBOX_LIB_VBGL_R0) \
+	$(VBOX_LIB_IPRT_GUEST_R0_NT4) \
+	$(VBOX_PATH_ADDITIONS_LIB)/HGSMIGuestR0Lib$(VBOX_SUFF_LIB)
+ifeq ($(KBUILD_TARGET_ARCH),x86)
+ VBoxVideo_LIBS         += \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_NT4)_LIB)/exsup.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/BufferOverflowK.lib # Needed for ___security_cookie.
+endif
+VBoxVideo_USES.win = vboximportchecker
+VBoxVideo_VBOX_IMPORT_CHECKER.win.x86 = nt4/r0
+VBoxVideo_VBOX_IMPORT_CHECKER.win.amd64 = xp64/r0
+
+ifdef VBOX_WITH_WDDM
+ #
+ # VBoxWddm - Windows Guest Additions WDDM Miniport Video Driver
+ #
+ SYSMODS += VBoxWddm
+ VBoxWddm_TEMPLATE         = VBoxGuestR0Drv
+ VBoxWddm_SDKS             = $(VBOX_WINDDK_GST_W8)
+ VBoxWddm_DEFS            += VBOX_WDDM_MINIPORT VBOX_WITH_WDDM VBOX_WITH_HGCM
+ # WIN9X_COMPAT_SPINLOCK inlines KeInitializeSpinLock in W8 DDK (Windows 7 or older ntoskrnl does not export it).
+ VBoxWddm_DEFS            += WIN9X_COMPAT_SPINLOCK
+ VBoxWddm_DEFS            += VBOX_WITH_8BPP_MODES
+ ifdef VBOX_WITH_VIDEOHWACCEL
+  VBoxWddm_DEFS           += VBOX_WITH_VIDEOHWACCEL
+ endif
+ ifdef VBOXWDDM_WITH_VBVA
+  VBoxWddm_DEFS           += VBOXWDDM_WITH_VBVA
+  VBoxWddm_DEFS           += VBOXWDDM_RENDER_FROM_SHADOW
+  ifdef VBOXVDMA_WITH_VBVA
+   VBoxWddm_DEFS          += VBOXVDMA_WITH_VBVA
+  endif
+ endif
+ VBoxWddm_DEFS            += LOG_TO_BACKDOOR
+ VBoxWddm_DEFS            += VBOX_SVN_REV=$(VBOX_SVN_REV)
+ VBoxWddm_INCS            += \
+ 	../../../include \
+ 	.. \
+ 	. \
+ 	$(VBOX_GRAPHICS_INCS)
+
+ VBoxWddm_LDFLAGS.x86     += /Entry:DriverEntry@8
+ VBoxWddm_LDFLAGS.amd64   += /Entry:DriverEntry
+
+ VBoxWddm_SOURCES          = \
+ 	wddm/VBoxMPWddm.cpp \
+ 	wddm/VBoxMPLegacy.cpp \
+ 	wddm/VBoxMPVidPn.cpp \
+ 	wddm/VBoxMPVdma.cpp \
+ 	wddm/VBoxMPShgsmi.cpp \
+ 	wddm/VBoxMPCm.cpp \
+ 	wddm/VBoxMPSa.cpp \
+ 	wddm/VBoxMPMisc.cpp \
+ 	wddm/VBoxWddm.rc \
+ 	wddm/VBoxMPRegistry.cpp \
+ 	wddm/VBoxMPVModes.cpp \
+ 	common/VBoxMPUtils.cpp \
+ 	common/VBoxMPCommon.cpp \
+ 	common/VBoxMPHGSMI.cpp \
+ 	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIBase.cpp \
+ 	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIBuffers.cpp \
+ 	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIHostCmd.cpp \
+ 	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/VBVABase.cpp \
+ 	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/Modesetting.cpp
+
+ ifdef VBOXWDDM_WITH_VBVA
+  VBoxWddm_SOURCES        += \
+  	wddm/VBoxMPVbva.cpp
+ endif
+ ifdef VBOX_WITH_VIDEOHWACCEL
+  VBoxWddm_SOURCES        += \
+  	wddm/VBoxMPVhwa.cpp
+ endif
+
+ VBoxWddm_LIBS             = \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W8)_LIB)/BufferOverflowK.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W8)_LIB)/ntoskrnl.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W8)_LIB)/hal.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W8)_LIB)/displib.lib \
+ 	$(VBOX_LIB_VBGL_R0) \
+ 	$(VBOX_LIB_IPRT_GUEST_R0) \
+ 	$(VBOX_PATH_ADDITIONS_LIB)/HGSMIGuestR0Lib$(VBOX_SUFF_LIB)
+
+ VBoxWddm_LIBS.x86         = \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W8)_LIB)/memcmp.lib
+
+ ifdef VBOX_WITH_VMSVGA
+  VBoxWddm_DEFS           += VBOX_WITH_VMSVGA
+  VBoxWddm_DEFS           += __STDC_VERSION__=0    # for mesa include/c99_compat.h
+  VBoxWddm_DEFS           += WIN9X_COMPAT_SPINLOCK # to avoid multiple KeInitializeSpinLock on amd64
+  VBoxWddm_INCS           += \
+  	$(PATH_ROOT)/src/VBox/Additions/3D/win/include \
+  	$(PATH_ROOT)/src/VBox/Devices/Graphics/vmsvga_include
+  VBoxWddm_SOURCES        += \
+  	wddm/gallium/Svga.cpp \
+  	wddm/gallium/SvgaCmd.cpp \
+  	wddm/gallium/SvgaFifo.cpp \
+  	wddm/gallium/SvgaHostObjects.cpp \
+  	wddm/gallium/SvgaHw.cpp \
+  	wddm/gallium/VBoxMPGaFence.cpp \
+  	wddm/gallium/VBoxMPGaUtils.cpp \
+  	wddm/gallium/VBoxMPGaWddm.cpp
+ endif
+
+ ifdef VBOX_WITH_VMSVGA3D_DX
+  VBoxWddm_DEFS           += VBOX_WITH_VMSVGA3D_DX
+  VBoxWddm_SOURCES        += \
+  	wddm/gallium/SvgaRender.cpp \
+  	wddm/gallium/VBoxMPDX.cpp
+ endif
+
+endif # VBOX_WITH_WDDM
+
+#
+# Signing requires both miniport and display drivers so it'll be dealt with in the parent makefile.
+#
+if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+ VBoxVideo_INSTTYPE            = none
+ VBoxVideo_DEBUG_INSTTYPE      = both
+ ifdef VBOX_WITH_WDDM
+  VBoxWddm_INSTTYPE            = none
+  VBoxWddm_DEBUG_INSTTYPE      = both
+ endif
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,418 @@
+; $Id: bs3-fpustate-1-template.mac $
+;; @file
+; BS3Kit - bs3-fpustate-1, assembly template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+;*********************************************************************************************************************************
+;*  Header Files                                                                                                                 *
+;*********************************************************************************************************************************
+%include "bs3kit-template-header.mac"   ; setup environment
+
+
+;*********************************************************************************************************************************
+;*  External Symbols                                                                                                             *
+;*********************************************************************************************************************************
+TMPL_BEGIN_TEXT
+
+
+;;
+; Initializes the FPU state and saves it to pFxState.
+;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_InitState)(X86FXSTATE BS3_FAR *pFxState, void *pvMmioReg);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_InitState, BS3_PBC_NEAR
+        BS3_CALL_CONV_PROLOG 2
+        push    xBP
+        mov     xBP, xSP
+        push    xBX
+TONLY16 push    ds
+        pushf
+TONLY64 sub     xSP, 20h
+
+        ;
+        ; x87 state.
+        ;
+        fninit
+        fld     dword [TMPL_DATA16_WRT(g_r32V1)]
+        fld     qword [TMPL_DATA16_WRT(g_r64V1)]
+        fld     tword [TMPL_DATA16_WRT(g_r80V1)]
+        fld     qword [TMPL_DATA16_WRT(g_r64V1)]
+        fld     dword [TMPL_DATA16_WRT(g_r32V2)]
+        fld     dword [TMPL_DATA16_WRT(g_r80_QNaNMax)]
+        fld     tword [TMPL_DATA16_WRT(g_r80_SNaNMax)]
+        fld     tword [TMPL_DATA16_WRT(g_r80_ThirtyTwo)]
+
+        ;
+        ; We'll later be using FMUL to test actually using the FPU in RC & R0,
+        ; so for everything to line up correctly with FPU CS:IP and FPU DS:DP,
+        ; we'll call the function here too.  This has the benefitial side effect
+        ; of loading correct FPU DS/DS values so we can check that they don't
+        ; get lost either.  Also, we now don't have to guess whether the CPU
+        ; emulation sets CS/DS or not.
+        ;
+TONLY16 push    xPRE [xBP + xCB + cbCurRetAddr + sCB + 2]
+        push    xPRE [xBP + xCB + cbCurRetAddr + sCB]
+        BS3_CALL TMPL_NM(bs3FpuState1_FMul), 1
+        add     xSP, sCB
+
+        ;
+        ; SSE state
+        ;
+        movdqu  xmm0, [TMPL_DATA16_WRT(g_r32_0dot1)]
+        movdqu  xmm1, [TMPL_DATA16_WRT(g_r32_Two)]
+        movdqu  xmm2, [TMPL_DATA16_WRT(g_r32_ThirtyTwo)]
+        movdqu  xmm3, [TMPL_DATA16_WRT(g_r32_SNaN)]
+        movdqu  xmm4, [TMPL_DATA16_WRT(g_r80_ThirtyTwo)]
+        movdqu  xmm5, [TMPL_DATA16_WRT(g_r32_NegQNaN)]
+        movdqu  xmm6, [TMPL_DATA16_WRT(g_r64_Zero)]
+        movdqu  xmm7, [TMPL_DATA16_WRT(g_r64_Two)]
+%if TMPL_BITS == 64
+        movdqu  xmm8, [TMPL_DATA16_WRT(g_r64_Ten)]
+        movdqu  xmm9, [TMPL_DATA16_WRT(g_r64_ThirtyTwo)]
+        movdqu  xmm10, [TMPL_DATA16_WRT(g_r64_Max)]
+        movdqu  xmm11, [TMPL_DATA16_WRT(g_r64_SNaN)]
+        movdqu  xmm12, [TMPL_DATA16_WRT(g_r64_NegQNaN)]
+        movdqu  xmm13, [TMPL_DATA16_WRT(g_r64_QNaNMax)]
+        movdqu  xmm14, [TMPL_DATA16_WRT(g_r64_DnMax)]
+        movdqu  xmm15, [TMPL_DATA16_WRT(g_r80_Eleven)]
+%endif
+
+        ;; @todo status regs
+
+        ;
+        ; Save it.  Note that DS is no longer valid in 16-bit code.
+        ; To be on the safe side, we load and save the state once again.
+        ;
+TONLY16 mov     ds, [xBP + xCB + cbCurRetAddr + 2]
+        mov     xBX, [xBP + xCB + cbCurRetAddr]
+        cli
+%if TMPL_BITS == 64
+        o64 fxsave [xBX]
+        fninit
+        o64 fxrstor [xBX]
+        o64 fxsave [xBX]
+%else
+        fxsave  [xBX]
+        fninit
+        fxrstor [xBX]
+        fxsave  [xBX]
+%endif
+
+.return:
+TONLY64 add     xSP, 20h
+        popf
+TONLY16 pop     ds
+        pop     xBX
+        mov     xSP, xBP
+        pop     xBP
+        BS3_CALL_CONV_EPILOG 2
+        BS3_HYBRID_RET
+BS3_PROC_END_MODE   bs3FpuState1_InitState
+
+
+;;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_Restore)(X86FXSTATE const BS3_FAR *pFxState);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_Restore, BS3_PBC_NEAR
+        push    xBP
+        mov     xBP, xSP
+
+%if TMPL_BITS == 64
+        o64     fxrstor [rcx]
+
+%elif TMPL_BITS == 32
+        mov     eax, [xBP + xCB*2]
+        fxrstor [eax]
+
+%elif TMPL_BITS == 16
+        mov     ax, ds
+        mov     ds, [xBP + xCB + cbCurRetAddr + 2]
+        mov     xBX, [xBP + xCB + cbCurRetAddr]
+        fxrstor [bx]
+        mov     ds, ax
+%else
+ %error TMPL_BITS
+%endif
+
+        mov     xSP, xBP
+        pop     xBP
+        BS3_HYBRID_RET
+BS3_PROC_END_MODE   bs3FpuState1_Restore
+
+;;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_Save)(X86FXSTATE BS3_FAR *pFxState);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_Save, BS3_PBC_NEAR
+        push    xBP
+        mov     xBP, xSP
+
+%if TMPL_BITS == 64
+        o64     fxsave [rcx]
+
+%elif TMPL_BITS == 32
+        mov     eax, [xBP + xCB*2]
+        fxsave  [eax]
+
+%elif TMPL_BITS == 16
+        push    bx
+        push    ds
+        mov     ds, [xBP + xCB + cbCurRetAddr + 2]
+        mov     bx, [xBP + xCB + cbCurRetAddr]
+        fxsave  [bx]
+        pop     ds
+        pop     bx
+%else
+ %error TMPL_BITS
+%endif
+
+        mov     xSP, xBP
+        pop     xBP
+        BS3_HYBRID_RET
+BS3_PROC_END_MODE   bs3FpuState1_Save
+
+
+;;
+; Performs a MOVDQU write on the specified memory.
+;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_MovDQU_Write)(void *pvMmioReg);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_MovDQU_Write, BS3_PBC_NEAR
+        BS3_CALL_CONV_PROLOG 1
+        push    xBP
+        mov     xBP, xSP
+        push    xBX
+TONLY16 push    ds
+
+        ; Load the register pointer.
+        mov     xBX, [xBP + xCB + cbCurRetAddr]
+TONLY16 mov     ds,  [xBP + xCB + cbCurRetAddr + 2]
+
+        ; Do read.
+        movdqu  [xBX], xmm0
+
+TONLY16 pop     ds
+        pop     xBX
+        leave
+        BS3_CALL_CONV_EPILOG 1
+        BS3_HYBRID_RET
+BS3_PROC_END_MODE   bs3FpuState1_MovDQU_Write
+
+
+;;
+; Performs a MOVDQU write to the specified memory.
+;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_MovDQU_Read)(void *pvMmioReg);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_MovDQU_Read, BS3_PBC_NEAR
+        BS3_CALL_CONV_PROLOG 2
+        push    xBP
+        mov     xBP, xSP
+        push    xBX
+TONLY16 push    ds
+        sub     xSP, 20h
+%if TMPL_BITS == 16
+        movdqu  [xBP - xCB - xCB - 2 - 18h], xmm2
+%else
+        movdqu  [xSP], xmm2
+%endif
+
+        ; Load the register pointer.
+        mov     xBX, [xBP + xCB + cbCurRetAddr]
+TONLY16 mov     ds,  [xBP + xCB + cbCurRetAddr + 2]
+
+
+        ; Do read.
+        movdqu  xmm2, [xBX]
+
+        ; Save the result.
+        mov     xBX, [xBP + xCB + cbCurRetAddr + sCB]
+TONLY16 mov     ds,  [xBP + xCB + cbCurRetAddr + sCB + 2]
+        movups  [xBX], xmm2
+
+%if TMPL_BITS == 16
+        movdqu  xmm2, [xBP - xCB - xCB - 2 - 18h]
+%else
+        movdqu  xmm2, [xSP]
+%endif
+        add     xSP, 20h
+TONLY16 pop     ds
+        pop     xBX
+        mov     xSP, xBP
+        pop     xBP
+        BS3_CALL_CONV_EPILOG 2
+        BS3_HYBRID_RET
+BS3_PROC_END_MODE   bs3FpuState1_MovDQU_Read
+
+
+;;
+; Performs a MOVUPS write on the specified memory.
+;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_MovUPS_Write)(void *pvMmioReg);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_MovUPS_Write, BS3_PBC_NEAR
+        BS3_CALL_CONV_PROLOG 1
+        push    xBP
+        mov     xBP, xSP
+        push    xBX
+TONLY16 push    ds
+
+        ; Load the register pointer.
+        mov     xBX, [xBP + xCB + cbCurRetAddr]
+TONLY16 mov     ds,  [xBP + xCB + cbCurRetAddr + 2]
+
+        ; Do read.
+        movups  [xBX], xmm3
+
+TONLY16 pop     ds
+        pop     xBX
+        leave
+        BS3_CALL_CONV_EPILOG 1
+        BS3_HYBRID_RET
+BS3_PROC_END_MODE   bs3FpuState1_MovUPS_Write
+
+
+;;
+; Performs a MOVUPS write to the specified memory.
+;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_MovUPS_Read)(void *pvMmioReg, void *pvResult);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_MovUPS_Read, BS3_PBC_NEAR
+        BS3_CALL_CONV_PROLOG 2
+        push    xBP
+        mov     xBP, xSP
+        push    xBX
+TONLY16 push    ds
+        sub     xSP, 20h
+%if TMPL_BITS == 16
+        movups  [xBP - xCB - xCB - 2 - 18h], xmm1
+%else
+        movups  [xSP], xmm1
+%endif
+
+        ; Load the register pointer.
+        mov     xBX, [xBP + xCB + cbCurRetAddr]
+TONLY16 mov     ds,  [xBP + xCB + cbCurRetAddr + 2]
+
+
+        ; Do read.
+        movups  xmm1, [xBX]
+
+        ; Save the result.
+        mov     xBX, [xBP + xCB + cbCurRetAddr + sCB]
+TONLY16 mov     ds,  [xBP + xCB + cbCurRetAddr + sCB + 2]
+        movups  [xBX], xmm1
+
+%if TMPL_BITS == 16
+        movups  xmm1, [xBP - xCB - xCB - 2 - 18h]
+%else
+        movups  xmm1, [xSP]
+%endif
+        add     xSP, 20h
+TONLY16 pop     ds
+        pop     xBX
+        mov     xSP, xBP
+        pop     xBP
+        BS3_CALL_CONV_EPILOG 2
+        BS3_HYBRID_RET
+BS3_PROC_END_MODE   bs3FpuState1_MovUPS_Read
+
+
+;;
+; Performs a FNSTENV write on the specified memory.
+;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_FNStEnv)(void *pvMmioReg);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_FNStEnv, BS3_PBC_NEAR
+        BS3_CALL_CONV_PROLOG 1
+        push    xBP
+        mov     xBP, xSP
+        push    xBX
+TONLY16 push    ds
+
+        ; Load the register pointer.
+        mov     xBX, [xBP + xCB + cbCurRetAddr]
+TONLY16 mov     ds,  [xBP + xCB + cbCurRetAddr + 2]
+
+        ; Just write.
+        fnstenv [xBX]
+
+TONLY16 pop     ds
+        pop     xBX
+        mov     xSP, xBP
+        pop     xBP
+        BS3_CALL_CONV_EPILOG 1
+        BS3_HYBRID_RET
+BS3_PROC_END_MODE   bs3FpuState1_FNStEnv
+
+
+;;
+; Performs a FMUL on the specified memory, after writing a 64-bit value to it first.
+;
+; BS3_DECL_NEAR(void) TMPL_NM(bs3FpuState1_FMul)(void *pvMmioReg, void *pvResultIgnored);
+;
+BS3_PROC_BEGIN_MODE bs3FpuState1_FMul, BS3_PBC_NEAR
+        BS3_CALL_CONV_PROLOG 2
+        push    xBP
+        mov     xBP, xSP
+        push    xBX
+TONLY16 push    ds
+
+        ; Load the value we'll be multiplying with into register(s) while ds is DATA16.
+        mov     sAX, [TMPL_DATA16_WRT(g_r64_One)]
+TNOT64  mov     edx, [4 + TMPL_DATA16_WRT(g_r64_One)]
+
+        ; Load the register pointer.
+        mov     xBX, [xBP + xCB + cbCurRetAddr]
+TONLY16 mov     ds,  [xBP + xCB + cbCurRetAddr + 2]
+
+        ; Just write.
+        mov     [xBX], sAX
+TNOT64  mov     [xBX + 4], edx
+        call    .do_it
+
+TONLY16 pop     ds
+        pop     xBX
+        mov     xSP, xBP
+        pop     xBP
+        BS3_CALL_CONV_EPILOG 2
+        BS3_HYBRID_RET
+.do_it:
+        fmul    qword [xBX]
+        ret
+BS3_PROC_END_MODE   bs3FpuState1_FMul
+
+
+%include "bs3kit-template-footer.mac"   ; reset environment
+

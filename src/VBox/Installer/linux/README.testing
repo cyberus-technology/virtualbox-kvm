@@ -1,0 +1,35 @@
+$Id: README.testing $
+This file documents things which need testing when updating the Linux host
+installers or anything which might indirectly affect them.  This should be
+updated as we discover new things which could break.
+
+General:
+
+ * Test building, installing and running the run, RPM and Debian packages.
+ * Test removing the packages - any errors?  Any files left behind?  Can the
+   package be re-installed and run after removal?
+ * Test upgrading them from any version we are likely to want to upgrade from.
+   Make sure we can start.
+ * Make sure that RPM/deb packages will not install if the run package is
+   installed and vice-versa.
+
+USB:
+
+ * Make sure that /dev/vboxusb and /etc/udev/rules.d/60-vboxdrv.rules exist
+   after installation with service start and do not exist after removal.  They
+   should disappear when the vboxdrv service is stopped and re-appear when it
+   is re-started.  This should also work when distribution packages are switched
+   for run and vice-versa.
+
+Services:
+
+ * Make sure that the services start correctly on different types of system.
+   Known supported cases:
+  * old Redhat (e.g. RHEL 5 and earlier): sysvinit and chkconfig
+  * old SUSE (12.0 and earlier): sysvinit and insserv
+  * Gentoo: open-rc
+  * very old Debian (5 and earlier): sysvinit, update-rc.d, non-dependency-based
+  * old Debian (6 and 7): sysvinit, update-rc.d, dependency-based
+  * Ubuntu (9.10 to 14.10): upstart
+  * Ubuntu 14.10: systemd installed, upstart used
+  * Recent non-Gentoo distributions: systemd

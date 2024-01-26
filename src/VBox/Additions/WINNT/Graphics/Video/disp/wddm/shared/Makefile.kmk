@@ -1,0 +1,78 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the VirtualBox WDDM user mode driver
+#
+
+#
+# Copyright (C) 2017-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# VBoxDispMpLogger - display backdoor logger library
+#
+LIBRARIES += VBoxDispMpLogger
+VBoxDispMpLogger_TEMPLATE    = VBoxGuestR3Lib
+VBoxDispMpLogger_SDKS        = ReorderCompilerIncs $(VBOX_WINDDK_GST_WLH)
+VBoxDispMpLogger_DEFS        = UNICODE _UNICODE VBOX_WITH_WDDM VBOX_WITH_HGCM
+VBoxDispMpLogger_INCS        = \
+	$(PATH_ROOT)/src/VBox/Additions/WINNT/Graphics/Video/disp/wddm/shared \
+	$(VBOX_GRAPHICS_INCS)
+VBoxDispMpLogger_SOURCES     = \
+	VBoxDispMpLogger.cpp
+
+#
+# 64-bit systems needs a 32-bit version of VBoxDispMpLogger.
+#
+LIBRARIES.amd64 += VBoxDispMpLogger-x86
+VBoxDispMpLogger-x86_TEMPLATE    = VBoxGuestR3Lib
+VBoxDispMpLogger-x86_EXTENDS = VBoxDispMpLogger
+VBoxDispMpLogger-x86_BLD_TRG_ARCH = x86
+VBoxDispMpLogger-x86_DEFS = $(VBoxDispMpLogger_DEFS) VBOX_WDDM_WOW64
+
+
+#
+# VBoxWddmUmKmt - User mode kernel mode thunk (KMT) interfaces
+#
+LIBRARIES += VBoxWddmUmKmt
+VBoxWddmUmKmt_TEMPLATE    = VBoxGuestR3Lib
+VBoxWddmUmKmt_SDKS        = ReorderCompilerIncs $(VBOX_WINDDK_GST_WLH)
+VBoxWddmUmKmt_DEFS        = UNICODE _UNICODE VBOX_WITH_WDDM VBOX_WITH_HGCM
+VBoxWddmUmKmt_INCS        = \
+	$(PATH_ROOT)/src/VBox/Additions/WINNT/Graphics/Video/disp/wddm/shared \
+	$(VBOX_GRAPHICS_INCS)
+VBoxWddmUmKmt_SOURCES     = \
+	VBoxDispKmt.cpp
+
+#
+# 64-bit systems needs a 32-bit version of VBoxWddmUmKmt.
+#
+LIBRARIES.amd64 += VBoxWddmUmKmt-x86
+VBoxWddmUmKmt-x86_TEMPLATE     = VBoxGuestR3Lib
+VBoxWddmUmKmt-x86_EXTENDS      = VBoxWddmUmKmt
+VBoxWddmUmKmt-x86_BLD_TRG_ARCH = x86
+VBoxWddmUmKmt-x86_DEFS         = $(VBoxWddmUmKmt_DEFS) VBOX_WDDM_WOW64
+
+
+include $(FILE_KBUILD_SUB_FOOTER)

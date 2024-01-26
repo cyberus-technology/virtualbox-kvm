@@ -1,0 +1,100 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for the VirtualBox X11 keyboard library
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+if1of ($(KBUILD_TARGET), freebsd linux openbsd netbsd solaris) # X11
+ DLLS        += VBoxKeyboard
+ OTHERS      += $(PATH_STAGE_BIN)/vboxkeyboard.tar.bz2
+ OTHER_CLEAN += $(PATH_STAGE_BIN)/vboxkeyboard.tar.bz2
+endif
+
+
+#
+# VBoxKeyboard - keyboard library for X11.
+#
+VBoxKeyboard_TEMPLATE = VBoxR3Dll
+VBoxKeyboard_SOURCES  = \
+	keyboard.c
+VBoxKeyboard_LIBS     = X11
+VBoxKeyboard_LIBPATH  = $(VBOX_LIBPATH_X11)
+
+
+#
+# vboxkeyboard.tar.gz - the LGPLed keyboard library must always be
+# redistributed with usable sources.
+#
+# This rule will link create a temporary symlink to src/X11/ and tar
+# up the selected files into a tarball that is installed into the
+# bin directory (probably belongs in /usr/shared/somewhere really,
+# but wtf, it's not like we're even trying to be FHS compliant).
+#
+VBOX_KEYBOARD_STAGE_DIR = $(PATH_TARGET)/VBoxKeyboard/install
+VBOX_KEYBOARD_DEST_DIR = $(VBOX_KEYBOARD_STAGE_DIR)/VBoxKeyboard/
+
+## @todo kBuild need support for copying files into _1_OUTDIR.
+INSTALLS += VBoxKeyboard-Files
+VBoxKeyboard-Files_INSTTYPE = stage
+VBoxKeyboard-Files_INST     = misc-staging/VBoxKeyboard/
+VBoxKeyboard-Files_MODE     = a+r,u+w
+VBoxKeyboard-Files_SOURCES  = \
+	COPYING.LIB \
+	keyboard.c \
+	keyboard-layouts.h \
+	keyboard-list.h \
+	keyboard-tables.h \
+	keyboard-types.h \
+	Makefile \
+	../../../../../include/VBox/VBoxKeyboard.h=>VBox/VBoxKeyboard.h
+
+INSTALLS += VBoxKeyboard-Tarball
+VBoxKeyboard-Tarball_INST    = $(INST_BIN)
+VBoxKeyboard-Tarball_MODE    = a+r,u+w
+VBoxKeyboard-Tarball_SOURCES = $(VBoxKeyboard-Tarball_0_OUTDIR)/vboxkeyboard.tar.bz2
+VBoxKeyboard-Tarball_CLEAN   = $(VBoxKeyboard-Tarball_0_OUTDIR)/vboxkeyboard.tar.bz2
+
+$$(VBoxKeyboard-Tarball_0_OUTDIR)/vboxkeyboard.tar.bz2: \
+		$$(VBoxKeyboard-Files_2_STAGE_TARGETS) \
+		$(MAKEFILE_CURRENT) \
+		| $$(dir $$@)
+	$(call MSG_L1,Packing $@)
+	$(QUIET)$(RM) -f -- $@ $(patsubst %.bz2,%,$@)
+ifdef VBOX_GTAR
+	$(QUIET)$(VBOX_GTAR) --dereference --owner 0 --group 0 --ignore-failed-read \
+		-cjRf $@ \
+ 		-C $(PATH_STAGE)/$(VBoxKeyboard-Files_INST).. VBoxKeyboard
+else
+	$(QUIET)tar -cjf $@ \
+ 		-C $(PATH_STAGE)/$(VBoxKeyboard-Files_INST).. VBoxKeyboard
+endif
+	$(QUIET)$(CHMOD) 0644 $@
+
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,67 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Solaris VBoxUSB kernel extension.
+#
+
+#
+# Copyright (C) 2008-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# vboxusbmon - The Solaris USB Monitor Kernel module.
+#
+SYSMODS.solaris         += vboxusbmon
+vboxusbmon_TEMPLATE      = VBoxR0Drv
+vboxusbmon_DEFS          = IN_RT_R0 VBOX_SVN_REV=$(VBOX_SVN_REV)
+vboxusbmon_DEPS         += $(VBOX_SVN_REV_KMK)
+vboxusbmon_INCS         := . .. include
+vboxusbmon_LDFLAGS      += -N drv/vboxdrv -N misc/usba
+vboxusbmon_SOURCES       = \
+	VBoxUSBMon-solaris.c \
+	../USBFilter.cpp \
+	../VBoxUSBFilterMgr.cpp
+
+#
+# vboxusb - The Solaris Generic USB Client Kernel module.
+#
+SYSMODS.solaris         += vboxusb
+vboxusb_TEMPLATE         = VBoxR0Drv
+vboxusb_DEFS             = IN_RT_R0 IN_SUP_R0 VBOX_SVN_REV=$(VBOX_SVN_REV)
+vboxusb_DEPS            += $(VBOX_SVN_REV_KMK)
+vboxusb_INCS            := . include/
+vboxusb_LDFLAGS         += -N drv/vboxdrv -N drv/vboxusbmon -N misc/usba
+vboxusb_SOURCES          = \
+	VBoxUSB-solaris.c
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

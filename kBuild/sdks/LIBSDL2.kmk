@@ -1,0 +1,154 @@
+# $Id: LIBSDL2.kmk 3588 2023-01-31 13:45:33Z bird $
+## @file
+# kBuild SDK - Simple DirectMedia Layer v2.x, targeting $(KBUILD_TARGET).
+#
+
+#
+# Copyright (c) 2006-2023 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_LIBSDL2 := Simple DirectMedia Layer v2.x, targeting $(KBUILD_TARGET).
+
+# SDK Specific Properties
+_SDK_LIBSDL2_IS_FRAMEWORK := no
+ifndef PATH_SDK_LIBSDL2
+ PATH_SDK_LIBSDL2 := $(firstfile $(rsortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_TRG)/libsdl2/v*)))
+ ifeq ($(PATH_SDK_LIBSDL2),)
+  PATH_SDK_LIBSDL2 := $(firstfile $(rsortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_BLD)/libsdl2/v*)))
+ endif
+ ifeq ($(PATH_SDK_LIBSDL2),)
+  # Darwin might have a framework for it.
+  ifeq ($(KBUILD_TARGET),darwin)
+   PATH_SDK_LIBSDL2 := $(firstword $(wildcard \
+	/System/Library/Frameworks/SDL2.framework/SDL2 \
+	/Library/Frameworks/SDL2.framework/SDL2 \
+	) )
+   ifneq ($(PATH_SDK_LIBSDL2),)
+    PATH_SDK_LIBSDL2 := $(patsubst %/,%,$(dir $(PATH_SDK_LIBSDL2)))
+    _SDK_LIBSDL2_IS_FRAMEWORK := yes
+   endif
+  endif
+
+  ifeq ($(PATH_SDK_LIBSDL2),)
+   PATH_SDK_LIBSDL2 := $(firstword $(foreach root,$(KBUILD_LIB_SEARCH_ROOTS) \
+   	,$(if $(wildcard $(addsuffix libSDL2.*,$(addprefix $(root),$(KBUILD_LIB_SEARCH_SUBS)))),$(root),) ))
+   ifeq ($(PATH_SDK_LIBSDL2),/)
+	PATH_SDK_LIBSDL2 := /.
+   else ifneq ($(PATH_SDK_LIBSDL2),)
+	PATH_SDK_LIBSDL2 := $(patsubst %/,%,$(PATH_SDK_LIBSDL2))
+   else
+    $(warning kBuild: PATH_SDK_LIBSDL2 couldn't be determined!)
+    PATH_SDK_LIBSDL2 := $(KBUILD_DEVTOOLS_TRG)/libsdl/not/found
+   endif
+  endif
+ endif
+else
+ PATH_SDK_LIBSDL2 := $(PATH_SDK_LIBSDL2)
+ ifeq ($(KBUILD_TARGET),darwin)
+  # Check if it's the framework or not.
+  _SDK_LIBSDL2_IS_FRAMEWORK := $(if $(wildcard $(PATH_SDK_LIBSDL2)/Headers/SDL.h),yes)
+ endif
+endif
+ifeq ($(KBUILD_TARGET).$(_SDK_LIBSDL2_IS_FRAMEWORK),darwin.yes)
+ PATH_SDK_LIBSDL2_FRAMEWORKS_DIR := $(abspath $(PATH_SDK_LIBSDL2)/..)
+endif
+
+#
+# The way libsdl is distributed on the different platforms
+# varies quite a bit, thus this kludge.
+#
+ifeq ($(KBUILD_TARGET),os2) ## @todo
+ LIB_SDK_LIBSDL2_SDLMAIN  ?=
+ DLL_SDK_LIBSDL2_SDL      ?= $(PATH_SDK_LIBSDL2)/dll/sdl2.dll
+ LIB_SDK_LIBSDL2_SDL      ?= $(PATH_SDK_LIBSDL2)/lib/sdl2.lib
+ LIB_SDK_LIBSDL2_SDLIMAGE ?= $(PATH_SDK_LIBSDL2)/lib/sdl2img.lib
+ LIB_SDK_LIBSDL2_SDLMIXER ?= $(PATH_SDK_LIBSDL2)/lib/sdl2mix.lib
+ LIB_SDK_LIBSDL2_SDLTTF   ?= $(PATH_SDK_LIBSDL2)/lib/sdl2ttf.lib
+
+ # General Properties used by kBuild
+ SDK_LIBSDL2_INCS         ?= $(PATH_SDK_LIBSDL2)/h/SDL2
+ SDK_LIBSDL2_LIBS         ?= $(LIB_SDK_LIBSDL2_SDL)
+ SDK_LIBSDL2_LIBPATH      ?= $(PATH_SDK_LIBSDL2)/lib
+
+else ifeq ($(KBUILD_TARGET),win) # ASSUMES VC++ on windows, sorry.
+ include $(KBUILD_PATH)/win-common.kmk
+ LIB_SDK_LIBSDL2_SDLMAIN  ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2main.lib
+ LIB_SDK_LIBSDL2_SDL      ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2.lib
+ DLL_SDK_LIBSDL2_SDL      ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2.dll
+ LIB_SDK_LIBSDL2_SDLTEST  ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2test.lib
+
+ LIB_SDK_LIBSDL2_SDLGFX   ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2test.lib
+ LIB_SDK_LIBSDL2_SDLIMAGE ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2_image.lib
+ LIB_SDK_LIBSDL2_SDLMIXER ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2_mixer.lib
+ LIB_SDK_LIBSDL2_SDLNET   ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2_net.lib
+ LIB_SDK_LIBSDL2_SDLTTF   ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2_ttf.lib
+ DLL_SDK_LIBSDL2_SDLTTF   ?= $(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))/SDL2_ttf.dll
+
+ # General Properties used by kBuild
+ SDK_LIBSDL2_INCS         ?= $(PATH_SDK_LIBSDL2)/include
+ SDK_LIBSDL2_LIBS         ?= $(LIB_SDK_LIBSDL2_SDL)
+ SDK_LIBSDL2_LIBPATH      ?= $(PATH_SDK_LIBSDL2)/$(PATH_SDK_LIBSDL2)/lib/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))
+
+else ifeq ($(KBUILD_TARGET).$(_SDK_LIBSDL2_IS_FRAMEWORK),darwin.yes)
+ # darwin + framework
+ LIB_SDK_LIBSDL2_SDLMAIN  ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL2_SDL      ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL2_SDLGFX   ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL2_SDLIMAGE ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL2_SDLMIXER ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL2_SDLNET   ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL2_SDLTTF   ?= $(NO_SUCH_VARIABLE)
+
+ # General Properties used by kBuild
+ SDK_LIBSDL2_INCS         ?= $(PATH_SDK_LIBSDL2)/Headers
+ SDK_LIBSDL2_LDFLAGS      ?= -F$(PATH_SDK_LIBSDL2_FRAMEWORKS_DIR) -framework SDL2
+ SDK_LIBSDL2_CFLAGS       ?= -F$(PATH_SDK_LIBSDL2_FRAMEWORKS_DIR)
+ SDK_LIBSDL2_CXXFLAGS     ?= -F$(PATH_SDK_LIBSDL2_FRAMEWORKS_DIR)
+ SDK_LIBSDL2_OBJCFLAGS    ?= -F$(PATH_SDK_LIBSDL2_FRAMEWORKS_DIR)
+ SDK_LIBSDL2_OBJCXXFLAGS  ?= -F$(PATH_SDK_LIBSDL2_FRAMEWORKS_DIR)
+
+else # ASSUMES Unix like system
+ LIB_SDK_LIBSDL2_SDLMAIN  ?= SDL2main
+ LIB_SDK_LIBSDL2_SDL      ?= SDL2
+ LIB_SDK_LIBSDL2_SDLGFX   ?= SDL2_gfx
+ LIB_SDK_LIBSDL2_SDLIMAGE ?= SDL2_image
+ LIB_SDK_LIBSDL2_SDLMIXER ?= SDL2_mixer
+ LIB_SDK_LIBSDL2_SDLNET   ?= SDL2_net
+ LIB_SDK_LIBSDL2_SDLTTF   ?= SDL2_ttf
+
+ # General Properties used by kBuild
+ ifndef SDK_LIBSDL2_INCS
+  if exists("$(PATH_SDK_LIBSDL2)/include/SDL2/")
+   SDK_LIBSDL2_INCS := $(PATH_SDK_LIBSDL2)/include/SDL2
+  else
+   SDK_LIBSDL2_INCS := $(PATH_SDK_LIBSDL2)/include
+  endif
+ endif
+ SDK_LIBSDL2_LIBS    ?= $(LIB_SDK_LIBSDL2_SDL)
+ SDK_LIBSDL2_LIBPATH ?= $(PATH_SDK_LIBSDL2)/lib
+endif
+

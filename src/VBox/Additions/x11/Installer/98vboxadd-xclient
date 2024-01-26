@@ -1,0 +1,48 @@
+#!/bin/sh
+## @file
+# Start the Guest Additions X11 Client
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# Sanity check: if non-writeable PID-files are present in the user home
+# directory VBoxClient will fail to start.
+for i in $HOME/.vboxclient-*.pid; do
+    test -w $i || rm -f $i
+done
+
+if ! test -c /dev/vboxguest 2>/dev/null; then
+   # Do not start if the kernel module is not present.
+   # Execute notify-send in the back-ground to avoid racing with sddm,
+   # as notify-send may wait for sddm to start while it waits for us to exit.
+   notify-send "VBoxClient: the VirtualBox kernel service is not running.  Exiting." &
+elif test -z "${SSH_CONNECTION}"; then
+   # This script can also be triggered by a connection over SSH, which is not
+   # what we had in mind, so we do not start VBoxClient in that case.  We do
+   # not use "exit" here as this script is "source"d, not executed.
+  /usr/bin/VBoxClient --clipboard
+  /usr/bin/VBoxClient --checkhostversion
+  /usr/bin/VBoxClient --seamless
+  /usr/bin/VBoxClient --draganddrop
+  /usr/bin/VBoxClient --vmsvga-session # In case VMSVGA emulation is enabled
+fi

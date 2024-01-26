@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage cloud image
+-->
+<!--
+    Copyright (C) 2018-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-cloudimage" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage cloud image</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-cloudimage</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-cloudimage</refname>
+    <refpurpose>Управление облачными образами</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-create" sepchar=" "> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage cloud</command>
+        <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+        <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+        <arg choice="plain">image</arg>
+        <arg choice="plain">create</arg>
+        <arg choice="req">--display-name=<replaceable>имя</replaceable></arg>
+        <arg>--bucket-name=<replaceable>имя</replaceable></arg>
+        <arg>--object-name=<replaceable>имя</replaceable></arg>
+        <arg>--instance-id=<replaceable>уникальный id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-info" sepchar=" ">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+      <arg choice="plain">image</arg>
+      <arg choice="plain">info</arg>
+      <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-delete" sepchar=" ">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+      <arg choice="plain">image</arg>
+      <arg choice="plain">delete</arg>
+      <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-import" sepchar=" ">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+      <arg choice="plain">image</arg>
+      <arg choice="plain">import</arg>
+      <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+      <arg>--bucket-name=<replaceable>имя</replaceable></arg>
+      <arg>--object-name=<replaceable>имя</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-export" sepchar=" ">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+      <arg choice="plain">image</arg>
+      <arg choice="plain">export</arg>
+      <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+      <arg choice="req">--display-name=<replaceable>имя</replaceable></arg>
+      <arg>--bucket-name=<replaceable>имя</replaceable></arg>
+      <arg>--object-name=<replaceable>имя</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+
+    <refsect2 id="vboxmanage-cloudimage-common-options">
+      <title>Общие параметры</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para>Подкоманды <command>cloudimage</command> реализуют стандартные операции над облачными образами, как то
+        create/delete/show/import/export. Следующие общие параметры должны находиться между "cloud" и последующими подкомандами:</para>
+      <variablelist>
+        <varlistentry>
+          <term>--provider=<replaceable>имя</replaceable></term>
+          <listitem><para>Короткое имя облачного провайдера.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--profile=<replaceable>имя</replaceable></term>
+          <listitem><para>Имя облачного профиля. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-create">
+      <title>cloud image create</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Создает новый образ в облаке.
+        Существует два стандартных способа создать образ в облаке:
+        1. Создать образ из объекта в облачном хранилище;
+        2. Создать образ из существующего облачного экземпляра.
+        Для первого способа требуются параметры:
+        bucket-name - имя облачной корзины где находится объект;
+        object-name - имя объекта в корзине;
+        display-name - имя для нового образа в облаке.
+        Для второго способа требуются параметры:
+        instance-id - Id экземпляра в облаке;
+        display-name - имя для нового образа в облаке.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--display-name</option></term><listitem><para>Имя для нового образа в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Имя облачной корзины где размещен объект.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term><listitem><para>Имя объекта в корзине.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--instance-id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий экземпляр в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-info">
+      <title>cloud image info</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Показывает информацию об облачном образе с указанным id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий образ в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-delete">
+      <title>cloud image delete</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Удаляет образ с указанным id из облака.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий образ в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-import">
+      <title>cloud image import</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Импортирует образ с указанным id из облака на локальный хост.
+        Результатом является объект в локальной папке "temp" локального хоста.
+        Возможный подход может состоят из двух основных этапов:
+        1. Создать объект из образа в облачном хранилище;
+        2. Загрузить объект на локальный хост.
+        Поэтому, следующие параметры могут потребоваться:
+        bucket-name - имя облачной корзины где будет создан объект;
+        object-name - имя объекта в корзине. Если параметр "object-name" отсутствует, будет использовано показанное имя образа.
+        Если первый этап не нужен, требуется только параметр "id".
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий образ в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Имя облачной корзины, где будет создан объект.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term>
+            <listitem>
+              <para>
+                Имя созданного объекта в корзине. У загруженного объекта будет такое же имя.
+              </para>
+            </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-export">
+      <title>cloud image export</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Экспортирует существующий образ VBox с указанным uuid из локального хоста в облако.
+        Результатом является новый образ в облаке.
+        Возможный подход может состоят из двух основных этапов:
+        1. Загрузить образ VBox в облачное хранилище;
+        2. Создать образ из загруженного объекта.
+        Поэтому, следующие параметры могут потребоваться:
+        bucket-name - имя облачной корзины куда будет загружен объект;
+        object-name - имя объекта в корзине. Если параметр "object-name" отсутствует, будет использован id образа;
+        display-name - имя для нового образа в облаке.
+        Если первый этап не нужен, требуются только параметры "id" и "display-name".
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор образа в VirtualBox.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--display-name</option></term><listitem><para>Имя для нового образа в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Имя облачной корзины куда будет загружен образ (объект).</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term><listitem><para>Имя объекта в корзине.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+</refentry>
+

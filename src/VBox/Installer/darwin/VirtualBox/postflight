@@ -1,0 +1,117 @@
+#!/bin/sh
+# $Id: postflight $
+## @file
+# Post installation script.
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+CPDIR="/bin/cp -f -R"
+INSTALL=/usr/bin/install
+
+
+#
+# Install the Python bindings
+#
+VBOX_INSTALL_PATH=/Applications/VirtualBox.app/Contents/MacOS
+PYTHON="python python2.3 python2.5 python2.6 python2.7"
+if [ -e "${VBOX_INSTALL_PATH}/sdk/installer/vboxapisetup.py" ]; then
+    for p in $PYTHON; do
+        # Install the python bindings if python is in the path
+        if [ "`\${p} -c 'print "test"' 2> /dev/null`" = "test" ]; then
+                echo  1>&2 "Python found: ${p}, installing bindings..."
+                # Pass install path via environment
+                export VBOX_INSTALL_PATH
+                /bin/sh -c "cd $VBOX_INSTALL_PATH/sdk/installer && ${p} vboxapisetup.py install"
+                /bin/sh -c "cd $VBOX_INSTALL_PATH/sdk/installer && ${p} vboxapisetup.py clean --all"
+        fi
+    done
+fi
+
+#
+# Install the vboxweb service file for launchd
+#
+VBOXWEBSRV="${VBOX_INSTALL_PATH}/org.virtualbox.vboxwebsrv.plist"
+VBOXWEBSRV_TRG="${HOME}/Library/LaunchAgents"
+if [ -e "${VBOXWEBSRV}" -a -e "${VBOXWEBSRV_TRG}" ]; then
+    echo "Installing vboxwebsrv launchd file to ${VBOXWEBSRV_TRG}"
+    if [ "x" != "x${USER}" ]; then
+        ${INSTALL} -S -o "${USER}" -m 0644 "${VBOXWEBSRV}" "${VBOXWEBSRV_TRG}/"
+    else
+        ${INSTALL} -S -m 0644 "${VBOXWEBSRV}" "${VBOXWEBSRV_TRG}/"
+    fi
+fi
+
+#
+# Install any custom files
+#
+DATAPATH="`/usr/bin/dirname "${0}"`/../../../../../.."
+if [ -d "${DATAPATH}/.custom" ]; then
+    echo  1>&2 "Copy ${DATAPATH}/.custom to ${VBOX_INSTALL_PATH}...";
+    ${CPDIR} "${DATAPATH}/.custom/"   "${VBOX_INSTALL_PATH}/custom"
+fi
+
+#
+# Register our file extensions
+#
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+if [ -e "${LSREGISTER}" -a "x" != "x${USER}" ]; then
+    echo "Register file extensions for \"${USER}\""
+    /usr/bin/sudo -u "${USER}" ${LSREGISTER} -f /Applications/VirtualBox.app
+    /usr/bin/sudo -u "${USER}" ${LSREGISTER} -f /Applications/VirtualBox.app/Contents/Resources/vmstarter.app
+fi
+
+# Check environment.
+if [ "${INSTALLER_TEMP}x" == "x" ]; then
+    echo "Required environment variable INSTALLER_TEMP is missing. Aborting installation."
+    exit 1;
+fi
+
+# Restore previously installed Extension Packs (if any)
+if [ -d "${INSTALLER_TEMP}/ExtensionPacks" ]; then
+    cp -r "${INSTALLER_TEMP}/ExtensionPacks" "${VBOX_INSTALL_PATH}"
+    rm -rf "${INSTALLER_TEMP}/ExtensionPacks"
+fi
+
+#
+# Correct the ownership of the directories in case there
+# was an existing installation.
+#
+chown -R root:admin /Applications/VirtualBox.app
+
+#
+# Workaround for 10.11 beta 6 in which the above chown strips the set-uid-to-root bit.
+#
+SET_UID_BINARIES="MacOS/VBoxNetAdpCtl"
+SET_UID_BINARIES="${SET_UID_BINARIES} MacOS/VBoxHeadless MacOS/VBoxNetDHCP MacOS/VBoxNetNAT Resources/VirtualBoxVM.app/Contents/MacOS/VirtualBoxVM" # WITH_HARDENING
+for bin in ${SET_UID_BINARIES}; do
+    chmod u+s "/Applications/VirtualBox.app/Contents/${bin}"
+done
+
+# Install provisioning profile if present, needed by VBoxHeadless.
+if [ -f /Applications/VirtualBox.app/Contents/embedded.provisionprofile ]; then
+    profiles -i -F /Applications/VirtualBox.app/Contents/embedded.provisionprofile
+fi
+
+exit 0;
+

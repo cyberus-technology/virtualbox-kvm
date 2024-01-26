@@ -1,0 +1,104 @@
+# $Id: MSLINK510.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild Tool Config - Microsoft Link v5.10
+#
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_MSLINK510 := Microsoft Segmented-Executable Linker  Version 5.10
+
+# Tool Specific Properties
+ifndef TOOL_MSLINK510_LD
+ TOOL_MSLINK510_LD := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS)/os2.x86/ddk/*/base/tools/link$(HOSTSUFF_EXE))))
+ ifeq ($(TOOL_MSLINK510_LD),)
+  TOOL_MSLINK510_LD := $(firstword $(rsort $(wildcard \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/video/tools/os2.386/lx.386/bin/link$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/base32/tools/os2.386/bin/link$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/base32/tools/os2.386/lx.386/bin/link$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/print/tools/os2.386/lx.386/bin/link$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/wpshell/tools/os2.386/lx.386/bin/link$(HOSTSUFF_EXE) \
+	$(KBUILD_DEVTOOLS)/os2.x86/ddk/*/mme/tools/os2.386/lx.386/bin/link$(HOSTSUFF_EXE) \
+	)))
+ endif
+ ifneq ($(TOOL_MSLINK510_LD),)
+  TOOL_MSLINK510_LD := $(TOOL_MSLINK510_LD)
+ endif
+endif
+ifeq ($(TOOL_MSLINK510_LD),)
+ TOOL_MSLINK510_LD := $(firstword $(which link$(HOSTSUFF_EXE)) path/notfound/link$(HOSTSUFF_EXE))
+endif
+
+TOOL_MSLINK510_ENV_SETUP = $(REDIRECT) \
+	-Z -E 'LIB=$1' \
+	--
+
+# General Properties used by kBuild
+TOOL_MSLINK510_LDFLAGS ?= /nologo /map:full /linenumbers
+
+TOOL_MSLINK510_LINK_PROGRAM_OUTPUT = $(outbase).map $(outbase).rsp
+TOOL_MSLINK510_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_MSLINK510_LINK_PROGRAM_DEPORD =
+define TOOL_MSLINK510_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp '$(subst $(SP),+' ',$(strip $(subst /,\,$(objs)))),'
+	$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(out)),'
+	$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(outbase)).map,'
+	$(QUIET)$(APPEND) -n $(outbase).rsp '$(subst $(SP),+' ',$(strip $(subst /,\,$(libs))))$(if $(filter %.def,$(othersrc)),$(COMMA),;)'
+	$(if $(filter %.def,$(othersrc)),$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(filter %.def,$(othersrc)));',)
+	$(QUIET)$(call TOOL_MSLINK510_ENV_SETUP,$(subst $(SP),;,$(libpath))) \
+		$(TOOL_MSLINK510_LD) $(flags) '@$(subst /,\,$(outbase).rsp)'
+endef
+
+
+TOOL_MSLINK510_LINK_DLL_OUTPUT = $(outbase).map $(outbase).rsp
+TOOL_MSLINK510_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_MSLINK510_LINK_DLL_DEPORD =
+define TOOL_MSLINK510_LINK_DLL_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp '$(subst $(SP),+' ',$(strip $(subst /,\,$(objs)))),'
+	$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(out)),'
+	$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(outbase)).map,'
+	$(QUIET)$(APPEND) -n $(outbase).rsp '$(subst $(SP),+' ',$(strip $(subst /,\,$(libs))))$(if $(filter %.def,$(othersrc)),$(COMMA),;)'
+	$(if $(filter %.def,$(othersrc)),$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(filter %.def,$(othersrc)));',)
+	$(QUIET)$(call TOOL_MSLINK510_ENV_SETUP,$(subst $(SP),;,$(libpath))) \
+		$(TOOL_MSLINK510_LD) $(flags) '@$(subst /,\,$(outbase).rsp)'
+endef
+
+
+TOOL_MSLINK510_LINK_SYSMOD_OUTPUT = $(outbase).map $(outbase).rsp
+TOOL_MSLINK510_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_MSLINK510_LINK_SYSMOD_DEPORD =
+define TOOL_MSLINK510_LINK_SYSMOD_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp '$(subst $(SP),+' ',$(strip $(subst /,\,$(objs)))),'
+	$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(out)),'
+	$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(outbase)).map,'
+	$(QUIET)$(APPEND) -n $(outbase).rsp '$(subst $(SP),+' ',$(strip $(subst /,\,$(libs))))$(if $(filter %.def,$(othersrc)),$(COMMA),;)'
+	$(if $(filter %.def,$(othersrc)),$(QUIET)$(APPEND) $(outbase).rsp '$(subst /,\,$(filter %.def,$(othersrc)));',)
+	$(QUIET)$(call TOOL_MSLINK510_ENV_SETUP,$(subst $(SP),;,$(libpath))) \
+		$(TOOL_MSLINK510_LD) $(flags) '@$(subst /,\,$(outbase).rsp)'
+endef
+

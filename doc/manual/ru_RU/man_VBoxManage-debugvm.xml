@@ -1,0 +1,673 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage debugvm
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-debugvm" lang="en">
+
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage debugvm</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-debugvm</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-debugvm</refname>
+    <refpurpose>интроспекция и гостевая отладка</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-dumpvmcore">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">dumpvmcore</arg>
+      <arg>--filename=<replaceable>name</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-info">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">info</arg>
+      <arg choice="req"><replaceable>элемент</replaceable></arg>
+      <arg rep="repeat"><replaceable>аргументы</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-injectnmi">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">injectnmi</arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-log">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">log</arg>
+      <group><arg>--release</arg><arg>--debug</arg></group>
+      <arg rep="repeat"><replaceable>настройки-группы</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-logdest">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">logdest</arg>
+      <group><arg>--release</arg><arg>--debug</arg></group>
+      <arg rep="repeat"><replaceable>назначения</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-logflags">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">logflags</arg>
+      <group><arg>--release</arg><arg>--debug</arg></group>
+      <arg rep="repeat"><replaceable>флаги</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-osdetect">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">osdetect</arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-osinfo">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">osinfo</arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-osdmesg">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">osdmesg</arg>
+      <arg>--lines=<replaceable>строки</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-getregisters">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">getregisters</arg>
+      <arg>--cpu=<replaceable>id</replaceable></arg>
+      <arg rep="repeat"><replaceable>набор-регистров.имя-регистра</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-setregisters">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">setregisters</arg>
+      <arg>--cpu=<replaceable>id</replaceable></arg>
+      <arg rep="repeat"><replaceable>набор-регистров.имя-регистра</replaceable>=<replaceable>значение</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-show">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">show</arg>
+      <group><arg>--human-readable</arg><arg>--sh-export</arg><arg>--sh-eval</arg><arg>--cmd-set</arg></group>
+      <arg rep="repeat"><replaceable>элемент-настроек</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-stack">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">stack</arg>
+      <arg>--cpu=<replaceable>id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-statistics">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">statistics</arg>
+      <arg>--reset</arg>
+      <arg>--descriptions</arg>
+      <arg>--pattern=<replaceable>шаблон</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-guestsample">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|имя-ВМ</replaceable></arg>
+      <arg choice="plain">guestsample</arg>
+      <arg>--filename=<replaceable>имя-файла</replaceable></arg>
+      <arg>--sample-interval-us=<replaceable>интервал</replaceable></arg>
+      <arg>--sample-time-us=<replaceable>время</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1>
+    <title>Описание</title>
+
+    <para>
+      Команды "debugvm" предназначены для экспертов, которые хотят разобраться в деталях
+      исполнения виртуальной машины. Как и отладчик VM описанный в
+      <xref linkend="ts_debugger" />, эти команды полезны только если хорошо разбираетесь
+      в архитектуре PC и знаете как отлаживать программное обеспечение.
+    </para>
+
+    <refsect2 id="vboxmanage-debugvm-common-options">
+      <title>Общие параметры</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para>Все подкоманды <command>debugvm</command> выполняются в работающей виртуальной
+      машине:</para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid|имя-ВМ</replaceable></term>
+          <listitem><para>Или UUID или имя (чувствительно к регистру) ВМ.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-dumpvmcore">
+      <title>debugvm dumpvmcore</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Создает файл системного дампа указанной ВМ. Этот файл будет иметь
+        стандартный формат ELF ядра (с пользовательскими секциями); Смотрите
+        <xref linkend="ts_guest-core-format" />.
+      </para>
+      <para>
+        Команда соответствует команде <command>writecore</command> отладчика.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--filename=<replaceable>имя-файла</replaceable></option></term>
+          <listitem><para>Имя выходного файла.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-info">
+      <title>debugvm info</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Отображает информацию относительно VMM, эмуляции устройств и
+        назначенных драйверов.
+      </para>
+      <para>
+        Команда соответствует команде <command>info</command> отладчика.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>элемент</replaceable></term>
+          <listitem>
+            <para>Имя элемента для отображения. Специальное имя
+            <option>help</option> показывает список всех доступных
+            элементов и подсказок по необязательным аргументам.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>аргументы</replaceable></term>
+          <listitem>
+            <para>Необязательная строка аргументов для обработчика элемента.
+              Большинство элементов не требуют дополнительных аргументов. Нераспознанные
+              аргументы в основном игнорируются.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-injectnmi">
+      <title>debugvm injectnmi</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Внедряет немаскируемое прерывание (NMI) в гостевую систему. Это может быть
+        полезно для определенных сценариев отладки. Что точно произойдет, зависит
+        от гостевой операционной системы, однако NMI может вызвать крах всей
+        гостевой ОС. Не используйте если не знаете что вы делаете.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-log">
+      <title>debugvm log</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Изменяет настройки группы для журналирования ВМ процесса в режимах отладки
+        (<option>--debug</option>) или выпуска (<option>--release</option>).
+      </para>
+      <para>
+        <replaceable>настройки-группы</replaceable> в основном строки в форме
+        <computeroutput>em.e.f.l</computeroutput>, <computeroutput>hm=~0</computeroutput>
+        и <computeroutput>-em.f</computeroutput>. Поддерживаются базовые подстановочные
+        знаки для сопоставления групп. Группа
+        <computeroutput>all</computeroutput> - это псевдоним для всех групп.
+      </para>
+      <para>
+        Пожалуйста, имейте ввиду, что настройки группы применяются как модификация
+        текущих настроек.
+      </para>
+      <para>
+        Эта команда соответствует команде <command>log</command> отладчика.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-logdest">
+      <title>debugvm logdest</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Изменяет настройки назначения для журналирования ВМ процесса в режимах
+        отладки (<option>--debug</option>) или выпуска (<option>--release</option>).
+        Более подробную информацию по формату назначения лучше посмотреть в
+        src/VBox/Runtime/common/log/log.cpp.
+      </para>
+      <para>
+        <replaceable>назначения</replaceable> - это одна или несколько мнемоник,
+        которые могут предваряться "no" для их отключения. Некоторые из них берут
+        значения после разделителей ":" или "=". Множественные мнемоники могут
+        разделяться через пробел или задаваться как отдельные аргументы в командной
+        строке.
+      </para>
+      <para>
+        Список доступных назначений:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>file[=<replaceable>файл</replaceable>], nofile</option></term>
+          <listitem><para>Указывает файл журнала. Если файл журнала не указан, он
+              будет сгенерирован на основе текущего времени UTC и имени процесса ВМ и
+              помещен в текущую директорию процесса ВМ. Заметим, что данная команда
+              не имеет силы если файл журнала уже открыт.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>dir=<replaceable>директория</replaceable>, nodir</option></term>
+          <listitem><para>Указывает директорию для файлов журналов. Заметим, что данная
+              команда не имеет силы если файл журнала уже открыт.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>history=<replaceable>количество</replaceable>, nohistory</option></term>
+          <listitem><para>Ненулевые значения включают историю журналов. Значение показывает
+            сколько хранить старых файлов журналов.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>histsize=<replaceable>байт</replaceable></option></term>
+          <listitem><para>Максимальный размер файла журнала перед сменой файла. По умолчанию бесконечно.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>histtime=<replaceable>секунды</replaceable></option></term>
+          <listitem><para>Максимальный возраст (в секундах) файла журнала перед сменой файла. По умолчанию бесконечно.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>ringbuffer, noringbuffer</option></term>
+          <listitem><para>Записывать журнал только в буфер журнала до явного сброса на диск
+              (например через assertion). Это быстро и сохраняет дисковое пространство.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>stdout, nostdout</option></term>
+          <listitem><para>Записывать содержимое журнала в стандартный поток вывода.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>stdout, nostdout</option></term>
+          <listitem><para>Записывать содержимое журнала в стандартный поток ошибок.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>debugger, nodebugger</option></term>
+          <listitem><para>Записывать содержимое журнала в отладчик, если поддерживается ОС хоста.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>com, nocom</option></term>
+          <listitem><para>Записывать содержимое журнала в COM порт. Применимо только для raw-режима и ring-0 журналирования.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>user, nouser</option></term>
+          <listitem><para>Пользовательское назначение, не имеющее значения для процессов ВМ.</para></listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+        Эта команда соответствует команде <command>logdest</command> отладчика.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-logflags">
+      <title>debugvm logflags</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Изменяет флаги журналирования ВМ процесса в режимах отладки
+        (<option>--debug</option>) или выпуска (<option>--release</option>). Пожалуйста,
+        имейте ввиду, что изменения применяются к существующим и не подменяют их.
+      </para>
+      <para>
+        <replaceable>флаги</replaceable> - это список мнемоник, опционально предваряемые
+        "no", "!", "~" или "-" для смены значения на противоположное. Префикс "+" может
+        использоваться для отмены предыдущего противоположного значения или как разделитель,
+        хотя лучше использовать пробел или отдельные аргументы.
+      </para>
+      <para>
+        Список мнемоник флагов с их противоположной формой, где применимо
+        (звездочка показывает значение по умолчанию):
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>enabled*, disabled</option></term>
+          <listitem><para>Включает или выключает журналирование.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>buffered, unbuffered*</option></term>
+          <listitem><para>Включает буферизацию вывода журнала перед записью в назначение.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>writethrough(/writethru)</option></term>
+          <listitem><para>Открывать ли файл назначения со сквозной буферизацией или нет.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>flush</option></term>
+          <listitem><para>Включает сброс выходного файла на диск после каждой записи в журнал.</para></listitem>
+        </varlistentry>
+        <!-- Prefixes -->
+        <varlistentry>
+          <term><option>lockcnts</option></term>
+          <listitem><para>Предварять каждую строку журнала количеством блокировок текущего потока.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>cpuid</option></term>
+          <listitem><para>Предварять каждую строку журнала ID текущего ЦПУ.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>pid</option></term>
+          <listitem><para>Предварять каждую строку журнала ID текущего процесса.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>flagno</option></term>
+          <listitem><para>Предварять каждую строку журнала числовыми значениями флагов соответствующих записи в журанал.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>flag</option></term>
+          <listitem><para>Предварять каждую строку журнала мнемониками флагов соответствующих записи в журанал.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>groupno</option></term>
+          <listitem><para>Предварять каждую строку журнала номером группы соответствующей записи в журанал.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>group</option></term>
+          <listitem><para>Предварять каждую строку журнала именем группы соответствующей записи в журанал.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>tid</option></term>
+          <listitem><para>Предварять каждую строку журнала ID текущего потока.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>thread</option></term>
+          <listitem><para>Предварять каждую строку журнала именем текущего потока.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>time</option></term>
+          <listitem><para>Предварять каждую строку журнала текущим временем UTC.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>timeprog</option></term>
+          <listitem><para>Предварять каждую строку журнала текущим монотонным временем, прошедшим с момента старта программы.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>msprog</option></term>
+          <listitem><para>Предварять каждую строку журнала текущим монотонным временем в милисекундах, прошедшим с момента старта программы.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>ts</option></term>
+          <listitem><para>Предварять каждую строку журнала текущим монотонным временем в наносекундах.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>tsc</option></term>
+          <listitem><para>Предварять каждую строку журнала текущим временем ЦПУ (TSC).</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>rel, abs*</option></term>
+          <listitem><para>Выбирает как отображать префиксы <computeroutput>ts</computeroutput> и
+              <computeroutput>tsc</computeroutput>: как время относительно предыдущей строки журнала
+              или как абсолютное время.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>hex*, dec</option></term>
+          <listitem><para>Выбирает как форматировать префиксы <computeroutput>ts</computeroutput> и
+              <computeroutput>tsc</computeroutput>: как шестнадцатиричные значения или как десятичные.
+              </para></listitem>
+        </varlistentry>
+
+        <!-- Suffixes and weird stuff. -->
+        <varlistentry>
+          <term><option>custom</option></term>
+          <listitem><para>Пользовательский префикс записи журнала. По умолчанию не имеет значения для ВМ процессов.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>usecrlf, uself*</option></term>
+          <listitem><para>Выводить используя окончания строк в стиле DOS (CRLF) или UNIX (LF).</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>overwrite*, append</option></term>
+          <listitem><para>Перезаписывать файл назначения или добавлять строки в конец файла.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>
+        Эта команда соответствует команде <command>logflags</command> отладчика.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-osdetect">
+      <title>debugvm osdetect</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Заставляет отладчик VMM (заново) определить гостевую операционную систему (ОС).
+        Команда сначала загружает все плагины отладчика.
+      </para>
+      <para>
+        Эта команда соответствует команде <command>detect</command> отладчика.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-osinfo">
+      <title>debugvm osinfo</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Отображает информацию о гостевой операционной системе (ОС), ранее
+        определенной отладчиком VMM.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-osdmesg">
+      <title>debugvm osdmesg</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Отображает журнал ядра гостевой ОС, если она определена и поддерживается.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--lines=<replaceable>строки</replaceable></option></term>
+          <listitem><para>Количество отображаемых строк. Счет ведется с конца журнала.
+          По умолчанию бесконечно.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-getregisters">
+      <title>debugvm getregisters</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Получает значения регистров гостевых ЦПУ и эмулируемых устройств.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>набор-регистров.имя-регистра</replaceable></term>
+          <listitem>
+            <para>Один или несколько регистров, где каждый указывается в следующих формах:</para>
+            <orderedlist>
+              <listitem><para>набор-регистров.имя-регистра.под-поле</para></listitem>
+              <listitem><para>набор-регистров.имя-регистра</para></listitem>
+              <listitem><para>имя-регистра-цпу.под-поле</para></listitem>
+              <listitem><para>имя-регистра-цпу</para></listitem>
+              <listitem><para>all</para></listitem>
+            </orderedlist>
+            <para>Форма <replaceable>all</replaceable> показывает все регистры (без под-полей).
+              Имена регистров не чувствительно к регистру.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cpu=<replaceable>id</replaceable></option></term>
+          <listitem><para>Выбирает набор регистров ЦПУ при указании только
+            регистра ЦПУ (3-я и 4-я формы). По умолчанию 0.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-setregisters">
+      <title>debugvm setregisters</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Изменяет значения регистров гостевой ОС и эмулируемых устройств.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>набор-регистров.имя-регистра=значение</replaceable></term>
+          <listitem>
+            <para>Присвоение значений одному или нескольким регистрами, где каждый
+              указывается в следующих формах:</para>
+            <orderedlist>
+              <listitem><para>набор-регистров.имя-регистра.под-поле=значение</para></listitem>
+              <listitem><para>набор-регистров.имя-регистра=значение</para></listitem>
+              <listitem><para>имя-регистра-цпу.под-поле=значение</para></listitem>
+              <listitem><para>имя-регистра-цпу=значение</para></listitem>
+            </orderedlist>
+            <para>Форматр значений должен быть в том же стиле, в каком отображаются
+              по команде <command>getregisters</command>, за исключением того, что
+              могут быть указаны восмеричные и десятичные значения вместо
+              шестнадцатиричных.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cpu=<replaceable>id</replaceable></option></term>
+          <listitem><para>Выбирает набор регистров ЦПУ при указании только
+              регистра ЦПУ (3-я и 4-я формы). По умолчанию 0.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-show">
+      <title>debugvm show</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Отображает настройки журнала для ВМ.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--human-readable</option></term>
+          <listitem><para>Выбирает человеко-читаемый вывод.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sh-export</option></term>
+          <listitem><para>Выбирает формат вывода в стиле bourne shell команды <command>export</command>.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sh-eval</option></term>
+          <listitem><para>Выбирает формат вывода в стиле аргументов bourne shell команды <command>eval</command>.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cmd-set</option></term>
+          <listitem><para>Выбирает формат вывода в стиле команды DOS <command>SET</command>.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>settings-item</replaceable></term>
+          <listitem>
+            <para>Указывает что отображать. Один или несколько из следующих:</para>
+            <itemizedlist>
+              <listitem><para>logdbg-settings - настройки журнала в режиме отладки.</para></listitem>
+              <listitem><para>logrel-settings - настройки журнала в режиме выпуска.</para></listitem>
+              <listitem><para>log-settings - псевдоним для настроек журнала в режимах и отладки и выпуска.</para></listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-stack">
+      <title>debugvm stack</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Разматывает стеки гостевого ЦПУ в меру наших возможностей. Рекомендуется
+        сначала запустить команду <command>osdetect</command> чтобы получить
+        символы и возможно информацию для раскрутки стека.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--cpu=<replaceable>id</replaceable></option></term>
+          <listitem><para>Выбирает один гостевой ЦПУ, у которого надо отобразить стек. По умолчанию все ЦПУ.</para> </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-statistics">
+      <title>debugvm statistics</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Отображает или сбрасывает статистики VMM.
+      </para>
+      <para>
+        Получает значения регистров для гостевых ЦПУ и эмулируемых устройств.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--pattern=<replaceable>шаблон</replaceable></option></term>
+          <listitem><para>Шаблоны с подстановочными знаками в стиле DOS/NT для выбранных статистик.
+            Множественные шаблоны указываются через символ '|' (канал) в качестве разделителя.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--reset</option></term>
+          <listitem><para>Выбрать сброс вместо режима отображения.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-guestsample">
+      <title>debugvm guestsample</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Создает отчет с выборками о гостевой активности.
+      </para>
+      <para>
+        Получает имя файла куда сбрасывать отчет.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--filename=<replaceable>имя-файла</replaceable></option></term>
+          <listitem><para>Имя файла куда сбрасывать отчет с выборками.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sample-interval-us=<replaceable>интервал</replaceable></option></term>
+          <listitem><para>Интервал в микросекундах между гостевыми выборками.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sample-time-us=<replaceable>time</replaceable></option></term>
+          <listitem><para>Количество микросекунд, в течение которых берется выборка.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+
+  </refsect1>
+
+</refentry>
+

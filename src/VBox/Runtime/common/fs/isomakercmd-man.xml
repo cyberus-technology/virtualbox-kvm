@@ -1,0 +1,590 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage for RTIsoMaker/VISO
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    The contents of this file may alternatively be used under the terms
+    of the Common Development and Distribution License Version 1.0
+    (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+    in the VirtualBox distribution, in which case the provisions of the
+    CDDL are applicable instead of those of the GPL.
+
+    You may elect to license modified versions of this file under the
+    terms and conditions of either the GPL or the CDDL or both.
+
+    SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<refentry id="viso" lang="en">
+
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VISO file format / RTIsoMaker</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>viso</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <!--<refname>VISO</refname>-->
+    <refname>viso</refname>
+    <refpurpose>ISO image maker</refpurpose>
+    <refclass>IPRT</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-viso"> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>RTIsoMaker</command>
+      <arg><replaceable>options</replaceable></arg>
+      <arg>@<replaceable>commands.rsp</replaceable></arg>
+      <arg choice="req" rep="repeat"><replaceable>filespec</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>Construct a virtual ISO 9660 / Joliet / UDF / HFS hybrid image and either write it to a
+    file (RTIsoMaker) or serve it as a virtual image (VISO).</para>
+
+    <refsect2 id="viso-viso">
+      <title>VISO file format</title>
+      <para>A VISO file is a virtual ISO image, i.e. constructed in memory from a bunch of files on
+        the host.  A VISO is just the recipe describing how to go about this using a syntax vaguely
+        similar to mkisofs and genisoimage.</para>
+
+      <para>One requirement is that the VISO file must start with one of the
+        <option>--iprt-iso-maker-file-marker</option> options. Which of the options you use will
+        dictate the quoting and escaping rules used when reading the file.  The option takes the
+        image UUID as an argument.</para>
+
+      <para>The VISO files are treated as UTF-8 and must not contain any byte order marker (BOM).
+        There is currently no way to comment out lines in a VISO file.</para>
+
+    </refsect2>
+
+    <refsect2 id="viso-filespecs">
+      <title>File specifications and --name-setup</title>
+      <para>All non-options that does not start with '@' are taken to indicate a file, directory,
+        or similar that is should be added to the ISO image.  Directories are added recursively and
+        content is subject to filtering options.</para>
+
+      <para>Since there can be up to six different namespaces on an ISO, it is handy to be able to
+        control the names used in each and be able to exclude an object from one or more namespaces.
+        The <option>--name-setup</option> option specifies the file specification format to use
+        forthwith.</para>
+
+      <para>The default setup is:</para>
+      <!-- indent this: -->
+      <para><computeroutput>    --name-setup iso+joliet+udf+hfs</computeroutput></para>
+
+      <para>Which means you specify one on-ISO name for all namespaces followed by '=' and the
+        source file system name.  Only specifying the source file system will add the
+        file/dir/whatever to the root of the ISO image.</para>
+
+      <para>Lets look at the following two examples:</para>
+
+      <!-- indent these -->
+      <para><computeroutput>    /docs/readme.txt=/home/user/Documents/product-x-readme.txt</computeroutput></para>
+      <para><computeroutput>    /home/user/Documents/product-x-readme.txt</computeroutput></para>
+
+      <para>In the first case the file <computeroutput>'/home/user/Documents/product-x-readme.txt'</computeroutput>
+        is added to the ISO image as <computeroutput>'/docs/readme.txt'</computeroutput> in all
+        enabled namespaces.  In the primary ISO 9660 namespace, the filename will by default be
+        converted to upper case because it's required by the spec.</para>
+
+      <para>In the second case the file is added to the root under the name
+        <computeroutput>'product-x-readme.txt'</computeroutput> in all namespaces. Though, in the
+        primary ISO 9660 namespace the name will be transformed to apply with the current ISO level,
+        probably uppercased, possibly truncated too. </para>
+
+      <para>Given  <option>--name-setup iso,joliet,udf</option>  you can specify the name individually
+        for each of the three namespace, if you like.  If you omit any, they will use last name given.
+        Any names left blank (<computeroutput>==</computeroutput>) will be considered omitted.</para>
+
+      <para>A different name in each namespace:</para>
+      <para><computeroutput>    /ISO.TXT=/Joliet.TxT=/UDF.txt=/tmp/iso/real.txt</computeroutput></para>
+      <para>Specific name in the ISO 9660 namespace, same in the rest:</para>
+      <para><computeroutput>    /ISO.TXT=/OtherNamespaces.TxT=/tmp/iso/real.txt</computeroutput></para>
+      <para>Omit the file from the ISO 9660 namespace:</para>
+      <para><computeroutput>    =/OtherNamespaces.TxT=/tmp/iso/real.txt</computeroutput></para>
+      <para>Omit the file from the joliet namespace:</para>
+      <para><computeroutput>    /ISO.TXT==/UDF.TxT=/tmp/iso/real.txt</computeroutput></para>
+      <para>Use the same filename as the source everywhere:</para>
+      <para><computeroutput>    /tmp/iso/real.txt</computeroutput></para>
+
+
+      <para>Using for instance  <option>--name-setup udf</option>  you can add a files/dirs/whatever
+        to select namespace(s) without the more complicated empty name syntax above.</para>
+
+      <para>When adding directories, you can only control the naming and omitting of the directory
+        itself, not any recursively added files and directories below it.</para>
+
+    </refsect2>
+  </refsect1>
+
+  <refsect1 id="viso-options">
+    <title>Options</title>
+
+    <refsect2 id="viso-options-general">
+      <title>General</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-o <replaceable>output-file</replaceable></option></term>
+          <term><option>--output=<replaceable>output-file</replaceable></option></term>
+          <listitem><para>The output filename.  This option is not supported in VISO mode.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--name-setup=<replaceable>spec</replaceable></option></term>
+          <listitem><para>Configures active namespaces and how file specifications are to be
+              interpreted.  The specification is a comma separated list.  Each element in the list is
+              a sub-list separated by space, <computeroutput>'+'</computeroutput> or
+              <computeroutput>'|'</computeroutput> giving the namespaces that elements controls.
+              Namespaces are divied into two major and minor ones, you cannot specifying a minor
+              before the major it belongs to.</para>
+           <para>Major namespaces and aliases in parentheses:</para>
+           <itemizedlist spacing="compact">
+             <listitem><para>iso (primary, iso9660, iso-9660, primary-iso, iso-primary)</para></listitem>
+             <listitem><para>joliet</para></listitem>
+             <listitem><para>udf</para></listitem>
+             <listitem><para>hfs (hfs-plus)</para></listitem>
+           </itemizedlist>
+           <para>Minor namespaces:</para>
+           <itemizedlist spacing="compact">
+              <listitem><para>rock:        rock ridge on previous major namespace (iso / joliet)</para></listitem>
+              <listitem><para>iso-rock:    rock ridge extensions on primary ISO 9660 namespace</para></listitem>
+              <listitem><para>joliet-rock: rock ridge on joliet namespace (just for fun)</para></listitem>
+              <listitem><para>trans-tbl:   translation table file on previous major namespace</para></listitem>
+              <listitem><para>iso-trans-tbl</para></listitem>
+              <listitem><para>joliet-trans-tbl</para></listitem>
+              <listitem><para>udf-trans-tbl</para></listitem>
+              <listitem><para>hfs-trans-tbl</para></listitem>
+           </itemizedlist>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--name-setup-from-import</option></term>
+          <listitem><para>This is for use following one or more <option>--import-iso</option>
+              operations and will pick a configuration matching the imported content as best we can.
+              If the imported ISOs only had a iso9660 namespace, the joliet, udf and hfs namespaces
+              will be removed.  This is useful when adding additional files to the ISO and will
+              prevent guest from picking a namespace without the imported ISO content when mounting it.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--push-iso=<replaceable>iso-file</replaceable></option></term>
+          <term><option>--push-iso-no-joliet=<replaceable>iso-file</replaceable></option></term>
+          <term><option>--push-iso-no-rock-<replaceable>iso-file</replaceable></option></term>
+          <term><option>--push-iso-no-rock-no-joliet=<replaceable>iso-file</replaceable></option></term>
+          <listitem><para>Open the specified ISO file and use it as source file system until the
+            corresponding <option>--pop</option> options is encountered.  The variations are for
+            selecting which namespace on the ISO to (not) access.  These options are handy for copying
+            files/directories/stuff from an ISO without having to extract them first or using the
+            <computeroutput>:iprtvfs:</computeroutput> syntax.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--pop</option></term>
+          <listitem><para>Pops a <option>--push-iso</option> of the source file system stack.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--import-iso=<replaceable>iso-file</replaceable></option></term>
+          <listitem><para>Imports everything on the given ISO file, including boot configuration and
+            system area (first 16 sectors) content.  You can use <option>--name-setup</option> to omit
+            namespaces.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="viso-options-namespaces">
+      <title>Namespaces</title>
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--iso-level=<replaceable>0|1|2|3</replaceable></option></term> <!-- FIXME: imperfect markup -->
+          <listitem>
+            <para>Sets the ISO level:</para>
+            <itemizedlist spacing="compact">
+              <listitem><para>0: Disable primary ISO namespace.</para></listitem>
+              <listitem><para>1: ISO level 1: Filenames 8.3 format and limited to 4GB - 1.</para></listitem>
+              <listitem><para>2: ISO level 2: 31 char long names and limited to 4GB - 1.</para></listitem>
+              <listitem><para>3: ISO level 3: 31 char long names and support for >=4GB files. (default)</para></listitem>
+              <listitem><para>4: Fictive level used by other tools. Not yet implemented.</para></listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--rock-ridge</option></term>
+          <term><option>--limited-rock-ridge</option></term>
+          <term><option>--no-rock-ridge</option></term>
+          <listitem><para>Enables or disables rock ridge support for the primary ISO 9660 namespace.
+              The <option>--limited-rock-ridge</option> option omits a couple of bits in the root
+              directory that would make Linux pick rock ridge over joliet.</para>
+            <para>Default: <option>--limited-rock-ridge</option></para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-J</option></term>
+          <term><option>--joliet</option></term>
+          <term><option>--no-joliet</option></term>
+          <listitem><para>Enables or disable the joliet namespace.  This option must precede any file
+            specifications.</para>
+            <para>Default: <option>--joliet</option></para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--joliet-ucs-level=<replaceable>1|2|3</replaceable></option></term> <!-- FIXME: imperfect markup -->
+          <term><option>--ucs-level=<replaceable>1|2|3</replaceable></option></term>
+          <listitem><para>Set the Joliet UCS support level.  This is currently only flagged in the
+            image but not enforced on the actual path names.</para>
+            <para>Default level: 3</para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="viso-options-file-attributes">
+      <title>File Attributes</title>
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--rational-attribs</option></term>
+          <listitem><para>Enables rational file attribute handling (default):</para>
+            <itemizedlist spacing="compact">
+              <listitem><para>Owner ID is set to zero</para></listitem>
+              <listitem><para>Group ID is set to zero</para></listitem>
+              <listitem><para>Mode is set to 0444 for non-executable files.</para></listitem>
+              <listitem><para>Mode is set to 0555 for executable files.</para></listitem>
+              <listitem><para>Mode is set to 0555 for directories, preserving stick bits.</para></listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--strict-attribs</option></term>
+          <listitem><para>Counters <option>--rational-attribs</option> and causes attributes to be
+            recorded exactly as they appear in the source.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--file-mode=<replaceable>mode</replaceable></option></term>
+          <term><option>--no-file-mode</option></term>
+          <listitem><para>Controls the forced file mode mask for rock ridge, UDF and HFS.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--dir-mode=<replaceable>mode</replaceable></option></term>
+          <term><option>--no-dir-mode</option></term>
+          <listitem><para>Controls the forced directory mode mask for rock ridge, UDF and HFS.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--new-dir-mode=<replaceable>mode</replaceable></option></term>
+          <listitem><para>Controls the default mode mask (rock ridge, UDF, HFS) for directories that
+            are created implicitly.  The <option>--dir-mode</option> option overrides this.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--chmod=<replaceable>mode</replaceable>:<replaceable>on-iso-file</replaceable></option></term>
+          <listitem><para>Explictily sets the rock ridge, UDF and HFS file mode for a file/dir/whatever
+            that has already been added to the ISO.  The mode can be octal, <computeroutput>ra+x</computeroutput>,
+            <computeroutput>a+r</computeroutput>, or <computeroutput>a+rx</computeroutput>.
+            (Support for more complicated mode specifications may be implemented at a later point.)</para>
+            <para>Note that only namespaces in the current --name-setup are affected.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--chown=<replaceable>owner-id</replaceable>:<replaceable>on-iso-file</replaceable></option></term>
+          <listitem><para>Explictily sets the rock ridge, UDF and HFS file owner ID (numeric) for a
+            file/dir/whatever that has already been added to the ISO.</para>
+            <para>Note that only namespaces in the current --name-setup are affected.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>--chgrp=<replaceable>group-id</replaceable>:<replaceable>on-iso-file</replaceable></term>
+          <listitem><para>Explictily sets the rock ridge, UDF and HFS file group ID (numeric) for a
+            file/dir/whatever that has already been added to the ISO.</para>
+            <para>Note that only namespaces in the current --name-setup are affected.</para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="viso-options-booting">
+      <title>Booting</title>
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--eltorito-new-entry</option></term>
+          <term><option>--eltorito-alt-boot</option></term>
+          <listitem><para>Starts a new El Torito boot entry.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--eltorito-add-image=<replaceable>filespec</replaceable></option></term>
+          <listitem><para>File specification of a file that should be added to the image and used as
+            the El Torito boot image of the current boot entry.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-b <replaceable>on-iso-file</replaceable></option></term>
+          <term><option>--eltorito-boot=<replaceable>on-iso-file</replaceable></option></term>
+          <listitem><para>Specifies a file on the ISO as the El Torito boot image for the current boot
+            entry.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--eltorito-floppy-12</option></term>
+          <term><option>--eltorito-floppy-144</option></term>
+          <term><option>--eltorito-floppy-288</option></term>
+          <term><option>--no-emulation-boot</option></term>
+          <term><option>--hard-disk-boot</option></term>
+          <listitem><para>Sets the boot image emulation type of the current El Torito boot entry.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--boot-load-seg=<replaceable>seg</replaceable></option></term>
+          <listitem><para>Specify the image load segment for the current El Torito boot entry.</para>
+            <para>Default: 0x7c0</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--boot-load-size=<replaceable>sectors</replaceable></option></term>
+          <listitem><para>Specify the image load size in emulated sectors for the current El Torito
+            boot entry.</para>
+            <para>Default: 4 (sectors of 512 bytes)</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--no-boot</option></term>
+          <listitem><para>Indicates that the current El Torito boot entry isn't bootable. (The BIOS
+            will allegedly configure the emulation, but not attempt booting.)</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--boot-info-table</option></term>
+          <listitem><para>Write a isolinux/syslinux boot info table into the boot image for the
+            current El Torito boot entry.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--eltorito-platform-id=<replaceable>id</replaceable></option></term>
+          <listitem><para>Set the El Torito platform ID of the current entry, a new entry of the
+            verification entry depending on when it's used.  The ID must be one of:
+            <computeroutput>x86</computeroutput>, <computeroutput>PPC</computeroutput>,
+            <computeroutput>Mac</computeroutput>, <computeroutput>efi</computeroutput></para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-c <replaceable>namespec</replaceable></option></term>
+          <term><option>--boot-catalog=<replaceable>namespec</replaceable></option></term>
+          <listitem><para>Enters the El Torito boot catalog into the namespaces as a file.  The
+            <replaceable>namespec</replaceable> uses the same format as a 'filespec', but omits the
+            final source file system name component.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-G <replaceable>file</replaceable></option></term>
+          <term><option>--generic-boot=<replaceable>file</replaceable></option></term>
+          <listitem><para>Specifies a file that should be loaded at offset 0 in the ISO image.  The
+            file must not be larger than 32KB.  When creating a hybrid image, parts of this may be
+            regenerated by partition tables and such.</para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="viso-options-string-properties">
+      <title>String properties (applied to active namespaces only)</title>
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--abstract=<replaceable>file-id</replaceable></option></term>
+          <listitem><para>The name of the abstract file in the root dir.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-A <replaceable>text|_file-id</replaceable></option></term>
+          <term><option>--application-id=<replaceable>text|_file-id</replaceable></option></term>
+          <listitem><para>Application ID string or root file name.  The latter must be prefixed with
+            an underscore.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--biblio=<replaceable>file-id</replaceable></option></term>
+          <listitem><para>The name of the bibliographic file in the root dir.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--copyright=<replaceable>file-id</replaceable></option></term>
+          <listitem><para>The name of the copyright file in the root dir.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-P <replaceable>text|_file-id</replaceable></option></term>
+          <term><option>--publisher=<replaceable>text|_file-id</replaceable></option></term>
+          <listitem><para>Publisher ID string or root file name.  The latter must be prefixed with an
+            underscore.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-p <replaceable>text|_file-id</replaceable></option></term>
+          <term><option>--preparer=<replaceable>text|_file-id</replaceable></option></term>
+          <listitem><para>Data preparer ID string or root file name.  The latter must be prefixed
+            with an underscore.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--sysid=<replaceable>text</replaceable></option></term>
+          <listitem><para>System ID string.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--volid=<replaceable>text</replaceable></option></term>
+          <term><option>--volume-id=<replaceable>text</replaceable></option></term>
+          <listitem><para>Volume ID string (label).  (It is possible to set different labels for
+            primary ISO 9660, joliet, UDF and HFS by changing the active namespaces using the
+            <option>--name-setup</option> option between <option>--volume-id</option> occurences.)</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--volset=<replaceable>text</replaceable></option></term>
+          <listitem><para>Volume set ID string.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="viso-options-compatibility">
+      <title>Compatibility:</title>
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--graft-points</option></term>
+          <listitem><para>Alias for --name-setup iso+joliet+udf+hfs.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-l</option></term>
+          <term><option>--long-names</option></term>
+          <listitem><para>Allow 31 charater filenames.  Just ensure ISO level >= 2 here.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-R</option></term>
+          <term><option>--rock</option></term>
+          <listitem><para>Same as <option>--rock-ridge</option> and <option>--strict-attribs</option>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-r</option></term>
+          <term><option>--rational-rock</option></term>
+          <listitem><para>Same as <option>--rock-ridge</option> and <option>--rational-attribs</option>.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+
+    <refsect2 id="viso-options-viso-specific">
+      <title>VISO Specific:</title>
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--iprt-iso-maker-file-marker=<replaceable>UUID</replaceable></option></term>
+          <term><option>--iprt-iso-maker-file-marker-bourne=<replaceable>UUID</replaceable></option></term>
+          <term><option>--iprt-iso-maker-file-marker-bourne-sh=<replaceable>UUID</replaceable></option></term>
+          <listitem><para>Used as first option in a VISO file to specify the file UUID and that it is
+            formatted using bourne-shell argument quoting &amp; escaping style.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--iprt-iso-maker-file-marker-ms=<replaceable>UUID</replaceable></option></term>
+          <term><option>--iprt-iso-maker-file-marker-ms-sh=<replaceable>UUID</replaceable></option></term>
+          <listitem><para>Used as first option in a VISO file to specify the file UUID and that it is
+            formatted using microsoft CRT argument quoting &amp; escaping style.</para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+
+    <refsect2 id="viso-options-testing">
+      <title>Testing (not applicable to VISO):</title>
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--output-buffer-size=<replaceable>bytes</replaceable></option></term>
+          <listitem><para>Selects a specific output buffer size for testing virtual image reads.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--random-output-buffer-size</option></term>
+          <listitem><para>Enables randomized buffer size for each virtual image read, using the
+            current output buffer size (<option>--output-buffer-size</option>) as maximum.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--random-order-verification=<replaceable>size</replaceable></option></term>
+          <listitem><para>Enables verification pass of the image that compares blocks of the given
+            size in random order from the virtual and output images.</para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+  </refsect1>
+</refentry>
+

@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage natnetwork
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-natnetwork" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage natnetwork</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-natnetwork</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-natnetwork</refname>
+    <refpurpose>create, modify, and manage a NAT network</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-add">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage natnetwork add</command>
+      <group>
+        <arg choice="plain">--disable</arg>
+        <arg choice="plain">--enable</arg>
+      </group>
+      <arg choice="req">--netname=<replaceable>name</replaceable></arg>
+      <arg choice="req">--network=<replaceable>network</replaceable></arg>
+      <arg>--dhcp=on|off</arg>
+      <arg>--ipv6=on|off</arg>
+      <arg>--loopback-4=<replaceable>rule</replaceable></arg>
+      <arg>--loopback-6=<replaceable>rule</replaceable></arg>
+      <arg>--port-forward-4=<replaceable>rule</replaceable></arg>
+      <arg>--port-forward-6=<replaceable>rule</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-list">
+      <command>VBoxManage natnetwork list</command>
+      <arg><replaceable>filter-pattern</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-modify">
+      <command>VBoxManage natnetwork modify</command>
+      <arg>--dhcp=on|off</arg>
+      <group>
+        <arg choice="plain">--disable</arg>
+        <arg choice="plain">--enable</arg>
+      </group>
+      <arg choice="req">--netname=<replaceable>name</replaceable></arg>
+      <arg choice="req">--network=<replaceable>network</replaceable></arg>
+      <arg>--ipv6=on|off</arg>
+      <arg>--loopback-4=<replaceable>rule</replaceable></arg>
+      <arg>--loopback-6=<replaceable>rule</replaceable></arg>
+      <arg>--port-forward-4=<replaceable>rule</replaceable></arg>
+      <arg>--port-forward-6=<replaceable>rule</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-remove">
+      <command>VBoxManage natnetwork remove</command>
+      <arg choice="req">--netname=<replaceable>name</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-start">
+      <command>VBoxManage natnetwork start</command>
+      <arg choice="req">--netname=<replaceable>name</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-natnetwork-stop">
+      <command>VBoxManage natnetwork stop</command>
+      <arg choice="req">--netname=<replaceable>name</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage natnetwork</command> command enables you
+      to create, modify and manage a NAT network.
+    </para>
+    <para>
+      NAT networks use the Network Address Translation (NAT) service.
+      The service groups systems into a network and prevents external
+      systems from directly accessing the systems in the network. The
+      service also enables the systems in the network to communicate
+      with each other and with external systems by means of TCP and UDP
+      over IPv4 and IPv6.
+    </para>
+    <para>
+      A NAT service is attached to an internal network. For a VM to use
+      the NAT service, you must attach the VM to the internal network.
+      Specify the name of the internal network when you create the NAT
+      service. Note that the internal network is created if it does not
+      already exist.
+    </para>
+    <refsect2 id="vboxmanage-natnetwork-add">
+      <title>Add a NAT Network Service</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage natnetwork add</command> command creates
+        a new internal network interface, and adds a NAT network
+        service. You must use this command before you can attach the VM
+        to the NAT network.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--disable</option></term>
+          <listitem><para>
+              Disables the NAT network service.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--enable</option></term>
+          <listitem><para>
+              Enables the NAT network service.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--netname=<replaceable>name</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the new internal network interface
+              on the host OS.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--network</option></term>
+          <listitem><para>
+              Specifies the static or DHCP network address and mask of
+              the NAT service interface. By default, this value
+              specifies the static network address.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--dhcp</option></term>
+          <listitem><para>
+              Enables or disables the DHCP server that you specify by
+              using the <option>--netname</option> option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ipv6</option></term>
+          <listitem><para>
+              Enables or disables IPv6. By default, IPv6 is disabled and
+              IPv4 is enabled.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--loopback-4=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Enables an IPv4 loopback interface by using the specified
+              rule.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--loopback-6=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Enables an IPv6 loopback interface by using the specified
+              rule.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port-forward-4=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Enables IPv4 port forwarding by using the rule specified
+              by <replaceable>rule</replaceable>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port-forward-6=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Enables IPv6 port forwarding by using the rule specified
+              by <replaceable>rule</replaceable>.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-remove">
+      <title>Remove a NAT Network Service</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage natnetwork remove</command> command
+        removes the specified NAT network service.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--netname=<replaceable>name</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the NAT network service to remove.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-start">
+      <title>Start a NAT Network Service</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage natnetwork start</command> command
+        starts a NAT network service and any associated DHCP server.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--netname=<replaceable>name</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the NAT network service to start.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-stop">
+      <title>Stop a NAT Network Service</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage natnetwork stop</command> command stops
+        a NAT network service and any associated DHCP server.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--netname=<replaceable>name</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the NAT network service to stop.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-list">
+      <title>List All NAT Network Services</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage natnetwork list</command> command lists
+        all NAT network services. You can use a pattern to show a subset
+        of the NAT network services.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>filter-pattern</replaceable></term>
+          <listitem><para>
+              Specifies an optional filtering pattern.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-natnetwork-modify">
+      <title>Modify the Settings of a NAT Network Service</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage natnetwork modify</command> command
+        modifies the settings of an existing internal network interface.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--disable</option></term>
+          <listitem><para>
+              Disables the NAT network service.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--enable</option></term>
+          <listitem><para>
+              Enables the NAT network service.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--netname=<replaceable>name</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the new internal network interface
+              on the host OS.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--network</option></term>
+          <listitem><para>
+              Specifies the static or DHCP network address and mask of
+              the NAT service interface. By default, this value
+              specifies the static network address.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--dhcp</option></term>
+          <listitem><para>
+              Enables or disables the DHCP server that you specify by
+              using the <option>--netname</option> option.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ipv6</option></term>
+          <listitem><para>
+              Enables or disables IPv6. By default, IPv6 is disabled and
+              IPv4 is enabled.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--loopback-4=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Enables an IPv4 loopback interface by using the specified
+              rule.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--loopback-6=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Enables an IPv6 loopback interface by using the specified
+              rule.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port-forward-4=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Enables IPv4 port forwarding by using the rule specified
+              by <replaceable>rule</replaceable>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port-forward-6=<replaceable>rule</replaceable></option></term>
+          <listitem><para>
+              Enables IPv6 port forwarding by using the rule specified
+              by <replaceable>rule</replaceable>.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      The following command shows how to create a NAT network for the
+      <literal>natnet1</literal> internal network that uses the
+      <literal>192.168.15.0/24</literal> network address and mask of the
+      NAT service interface. In this static configuration, the gateway
+      is assigned the <literal>192.168.15.1</literal> IP address by
+      default. Note that this IP address is the next address after the
+      network address that you specify with the
+      <option>--network</option> option.
+    </para>
+<screen>$ VBoxManage natnetwork add --netname natnet1 --network "192.168.15.0/24" --enable</screen>
+    <para>
+      The following command shows how to add a DHCP server to the
+      <literal>natnet1</literal> NAT network after creation:
+    </para>
+<screen>$ VBoxManage natnetwork modify --netname natnet1 --dhcp on</screen>
+  </refsect1>
+</refentry>

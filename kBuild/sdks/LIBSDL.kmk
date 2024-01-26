@@ -1,0 +1,168 @@
+# $Id: LIBSDL.kmk 3418 2020-08-21 11:02:13Z bird $
+## @file
+# kBuild SDK - Simple DirectMedia Layer, targeting $(KBUILD_TARGET).
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_LIBSDL := Simple DirectMedia Layer, targeting $(KBUILD_TARGET).
+
+# SDK Specific Properties
+_SDK_LIBSDK_IS_FRAMEWORK := no
+ifndef PATH_SDK_LIBSDL
+ PATH_SDK_LIBSDL := $(wildcard $(KBUILD_DEVTOOLS_TRG)/libsdl/v*)
+ ifeq ($(PATH_SDK_LIBSDL),)
+  PATH_SDK_LIBSDL := $(wildcard $(KBUILD_DEVTOOLS_BLD)/libsdl/v*)
+ endif
+ ifneq ($(PATH_SDK_LIBSDL),)
+  PATH_SDK_LIBSDL := $(lastword $(sort $(PATH_SDK_LIBSDL)))
+ else
+
+  # Darwin might have a framework for it.
+  ifeq ($(KBUILD_TARGET),darwin)
+   PATH_SDK_LIBSDL := $(firstword $(wildcard \
+	/System/Library/Frameworks/SDL.framework/SDL \
+	/Library/Frameworks/SDL.framework/SDL \
+	) )
+   ifneq ($(PATH_SDK_LIBSDL),)
+    PATH_SDK_LIBSDL := $(patsubst %/,%,$(dir $(PATH_SDK_LIBSDL)))
+    _SDK_LIBSDK_IS_FRAMEWORK := yes
+   endif
+  endif
+
+  ifeq ($(PATH_SDK_LIBSDL),)
+   PATH_SDK_LIBSDL := $(firstword $(foreach root,$(KBUILD_LIB_SEARCH_ROOTS) \
+   	,$(if $(wildcard $(addsuffix libSDL.*,$(addprefix $(root),$(KBUILD_LIB_SEARCH_SUBS)))),$(root),) ))
+   ifeq ($(PATH_SDK_LIBSDL),/)
+	PATH_SDK_LIBSDL := /.
+   else ifneq ($(PATH_SDK_LIBSDL),)
+	PATH_SDK_LIBSDL := $(patsubst %/,%,$(PATH_SDK_LIBSDL))
+   else
+    $(warning kBuild: PATH_SDK_LIBSDL couldn't be determined!)
+    PATH_SDK_LIBSDL := $(KBUILD_DEVTOOLS_TRG)/libsdl/not/found
+   endif
+  endif
+ endif
+else
+ PATH_SDK_LIBSDL := $(PATH_SDK_LIBSDL)
+ ifeq ($(KBUILD_TARGET),darwin)
+  # Check if it's the framework or not.
+  _SDK_LIBSDK_IS_FRAMEWORK := $(if $(wildcard $(PATH_SDK_LIBSDL)/Headers/SDL.h),yes)
+ endif
+endif
+
+#
+# The way libsdl is distributed on the different platforms
+# varies quite a bit, thus this kludge.
+#
+ifeq ($(KBUILD_TARGET),os2)
+ LIB_SDK_LIBSDL_SDLMAIN  ?=
+ DLL_SDK_LIBSDL_SDL      ?= $(PATH_SDK_LIBSDL)/SDL/SDL12.dll
+ DLL_SDK_LIBSDL_FSLIB    ?= $(PATH_SDK_LIBSDL)/SDL/FSLib.dll
+ LIB_SDK_LIBSDL_SDL      ?= $(PATH_SDK_LIBSDL)/SDL/SDL12.lib
+ LIB_SDK_LIBSDL_SDLGFX   ?= $(PATH_SDK_LIBSDL)/SDLGfx/SDLGFX.lib
+ LIB_SDK_LIBSDL_SDLIMAGE ?= $(PATH_SDK_LIBSDL)/SDLImage/SDLIMAGE.lib
+ LIB_SDK_LIBSDL_SDLMIXER ?= $(PATH_SDK_LIBSDL)/SDLMixer/SDLMIXER.lib
+ LIB_SDK_LIBSDL_SDLNET   ?= $(PATH_SDK_LIBSDL)/SDLNet/SDLNET.lib
+ LIB_SDK_LIBSDL_SDLTTF   ?= $(PATH_SDK_LIBSDL)/SDLTTF/SDLTTF.lib
+
+ # General Properties used by kBuild
+ SDK_LIBSDL_INCS ?= \
+ 	$(PATH_SDK_LIBSDL)/SDL/include \
+ 	$(PATH_SDK_LIBSDL)/SDLGfx \
+ 	$(PATH_SDK_LIBSDL)/SDLImage \
+ 	$(PATH_SDK_LIBSDL)/SDLMixer \
+ 	$(PATH_SDK_LIBSDL)/SDLNet \
+ 	$(PATH_SDK_LIBSDL)/SDLTTF
+ SDK_LIBSDL_LIBS ?= \
+ 	$(LIB_SDK_LIBSDL_SDL)
+ SDK_LIBSDL_LIBPATH ?= \
+ 	$(PATH_SDK_LIBSDL)/SDL \
+ 	$(PATH_SDK_LIBSDL)/SDLGfx \
+ 	$(PATH_SDK_LIBSDL)/SDLImage \
+ 	$(PATH_SDK_LIBSDL)/SDLMixer \
+ 	$(PATH_SDK_LIBSDL)/SDLNet \
+ 	$(PATH_SDK_LIBSDL)/SDLTTF
+
+else ifeq ($(KBUILD_TARGET),win) # ASSUMES VC++ on windows, sorry.
+ LIB_SDK_LIBSDL_SDLMAIN  ?= $(PATH_SDK_LIBSDL)/lib/SDLmain.lib
+ LIB_SDK_LIBSDL_SDL      ?= $(PATH_SDK_LIBSDL)/lib/SDL.lib
+ DLL_SDK_LIBSDL_SDL      ?= $(PATH_SDK_LIBSDL)/lib/SDL.dll
+ LIB_SDK_LIBSDL_SDLGFX   ?= $(PATH_SDK_LIBSDL)/lib/SDL_gfx.lib
+ LIB_SDK_LIBSDL_SDLIMAGE ?= $(PATH_SDK_LIBSDL)/lib/SDL_image.lib
+ LIB_SDK_LIBSDL_SDLMIXER ?= $(PATH_SDK_LIBSDL)/lib/SDL_mixer.lib
+ LIB_SDK_LIBSDL_SDLNET   ?= $(PATH_SDK_LIBSDL)/lib/SDL_net.lib
+ LIB_SDK_LIBSDL_SDLTTF   ?= $(PATH_SDK_LIBSDL)/lib/SDL_ttf.lib
+ DLL_SDK_LIBSDL_SDLTTF   ?= $(PATH_SDK_LIBSDL)/lib/SDL_ttf.dll
+
+ # General Properties used by kBuild
+ SDK_LIBSDL_INCS ?= \
+	$(PATH_SDK_LIBSDL)/include/SDL \
+	$(PATH_SDK_LIBSDL)/include
+ SDK_LIBSDL_LIBS ?= \
+	$(LIB_SDK_LIBSDL_SDL)
+ SDK_LIBSDL_LIBPATH ?= \
+ 	$(PATH_SDK_LIBSDL)/lib
+
+else ifeq ($(KBUILD_TARGET).$(_SDK_LIBSDK_IS_FRAMEWORK),darwin.yes)
+ # darwin + framework
+ LIB_SDK_LIBSDL_SDLMAIN  ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL_SDL      ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL_SDLGFX   ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL_SDLIMAGE ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL_SDLMIXER ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL_SDLNET   ?= $(NO_SUCH_VARIABLE)
+ LIB_SDK_LIBSDL_SDLTTF   ?= $(NO_SUCH_VARIABLE)
+
+ # General Properties used by kBuild
+ SDK_LIBSDL_INCS         ?= $(PATH_SDK_LIBSDL)/Headers
+ SDK_LIBSDL_LDFLAGS      ?= -framework SDL
+
+else # ASSUMES Unix like system
+ LIB_SDK_LIBSDL_SDLMAIN  ?= SDLmain
+ LIB_SDK_LIBSDL_SDL      ?= SDL
+ LIB_SDK_LIBSDL_SDLGFX   ?= SDL_gfx
+ LIB_SDK_LIBSDL_SDLIMAGE ?= SDL_image
+ LIB_SDK_LIBSDL_SDLMIXER ?= SDL_mixer
+ LIB_SDK_LIBSDL_SDLNET   ?= SDL_net
+ LIB_SDK_LIBSDL_SDLTTF   ?= SDL_ttf
+
+ # General Properties used by kBuild
+ ifndef SDK_LIBSDL_INCS
+  ifneq ($(wildcard $(PATH_SDK_LIBSDL)/include/SDL/),)
+   SDK_LIBSDL_INCS := $(PATH_SDK_LIBSDL)/include/SDL
+  else
+   SDK_LIBSDL_INCS := $(PATH_SDK_LIBSDL)/include
+  endif
+ endif
+ SDK_LIBSDL_LIBS ?= \
+	$(LIB_SDK_LIBSDL_SDL)
+ SDK_LIBSDL_LIBPATH ?= \
+ 	$(PATH_SDK_LIBSDL)/lib
+endif

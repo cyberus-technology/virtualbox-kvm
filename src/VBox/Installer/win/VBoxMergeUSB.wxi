@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi"
+         xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+    <Directory Id="dir_VBoxUSBFilter" Name="filter">
+<?if $(env.VBOX_SIGNING_MODE)!= none ?>
+        <Component Id="cp_USBFilterDriverCat_PreW10" Guid="ef18fb4d-4530-40db-2957-de2dc90243ab" Win64="$(var.Property_Win64)">
+            <Condition><![CDATA[(NOT VBOX_IS_WINDOWS_10)]]></Condition>
+            <File Id="file_VBoxUSBMon_PreW10.cat" Name="VBoxUSBMon.cat" Source="$(env.PATH_OUT)\bin\VBoxUSBMon-PreW10.cat" />
+        </Component>
+        <Component Id="cp_USBFilterDriverCat_W10" Guid="341ce4ca-d00e-4a43-f4e3-453eacc6b493" Win64="$(var.Property_Win64)">
+            <Condition><![CDATA[(VBOX_IS_WINDOWS_10)]]></Condition>
+            <File Id="file_VBoxUSBMon_W10.cat" Name="VBoxUSBMon.cat" Source="$(env.PATH_OUT)\bin\VBoxUSBMon.cat" />
+        </Component>
+<?endif ?>
+        <Component Id="cp_USBFilterDriver" Guid="B7D782D2-96DF-4775-A0E1-A76CF7B04B65" Win64="$(var.Property_Win64)">
+            <difxapp:Driver AddRemovePrograms="no" ForceInstall="yes" DeleteFiles="yes"
+                  Legacy="$(var.Property_DriverLegacy)" Sequence="3" PlugAndPlayPrompt="no"/>
+            <File Id="file_VBoxUSBMon.sys" Name="VBoxUSBMon.sys"
+                  Source="$(env.PATH_OUT)\bin\VBoxUSBMon.sys" />
+            <File Id="file_VBoxUSBMon.inf" Name="VBoxUSBMon.inf"
+                  Source="$(env.PATH_OUT)\bin\VBoxUSBMon.inf" />
+        </Component>
+    </Directory>
+
+    <Directory Id="dir_VBoxUSBDevice" Name="device">
+<?if $(env.VBOX_SIGNING_MODE)!= none ?>
+        <Component Id="cp_USBDeviceDriverCat_PreW10" Guid="43cc14cb-06e9-46c2-d507-20423150ccbd" Win64="$(var.Property_Win64)">
+            <Condition><![CDATA[(NOT VBOX_IS_WINDOWS_10)]]></Condition>
+            <File Id="file_VBoxUSB_PreW10.cat" Name="VBoxUSB.cat" Source="$(env.PATH_OUT)\bin\VBoxUSB-PreW10.cat" />
+        </Component>
+        <Component Id="cp_USBDeviceDriverCat_W10" Guid="2127015e-7a96-4b8d-6015-b1e51a75b5ba" Win64="$(var.Property_Win64)">
+            <Condition><![CDATA[(VBOX_IS_WINDOWS_10)]]></Condition>
+            <File Id="file_VBoxUSB_W10.cat" Name="VBoxUSB.cat" Source="$(env.PATH_OUT)\bin\VBoxUSB.cat" />
+        </Component>
+<?endif ?>
+        <Component Id="cp_USBDeviceDriver" Guid="010FE46A-E358-43E2-8BDC-38BC8BEC82E0" Win64="$(var.Property_Win64)">
+            <difxapp:Driver AddRemovePrograms="no" ForceInstall="yes"  DeleteFiles="yes"
+                  Legacy="$(var.Property_DriverLegacy)" Sequence="3" PlugAndPlayPrompt="no"/>
+            <File Id="file_VBoxUSB.sys" Name="VBoxUSB.sys"
+                  Source="$(env.PATH_OUT)\bin\VBoxUSB.sys" />
+            <File Id="file_VBoxUSB.inf" Name="VBoxUSB.inf"
+                  Source="$(env.PATH_OUT)\bin\VBoxUSB.inf" />
+        </Component>
+    </Directory>
+
+</Include>

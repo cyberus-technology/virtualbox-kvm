@@ -1,0 +1,461 @@
+# $Id: GCC42MACHO.kmk 3567 2022-06-26 20:00:02Z bird $
+## @file
+# kBuild Tool Config - GCC v4.2.x targeting Darwin (Mac OS X) Mach-O.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_GCC42MACHO := GCC v4.2.x targeting Darwin (Mac OS X) Mach-O.
+
+# Tool Specific Properties
+ifndef TOOL_GCC42MACHO_PREFIX
+ TOOL_GCC42MACHO_PREFIX   :=
+endif
+ifndef TOOL_GCC42MACHO_SUFFIX
+ TOOL_GCC42MACHO_SUFFIX   := -4.2$(HOSTSUFF_EXE)
+endif
+TOOL_GCC42MACHO_PREFIX2   ?=
+TOOL_GCC42MACHO_SUFFIX2   ?=
+TOOL_GCC42MACHO_CC        ?= $(TOOL_GCC42MACHO_PREFIX)gcc$(TOOL_GCC42MACHO_SUFFIX)
+TOOL_GCC42MACHO_CXX       ?= $(TOOL_GCC42MACHO_PREFIX)g++$(TOOL_GCC42MACHO_SUFFIX)
+TOOL_GCC42MACHO_OBJC      ?= $(TOOL_GCC42MACHO_PREFIX)gcc$(TOOL_GCC42MACHO_SUFFIX)
+TOOL_GCC42MACHO_OBJCXX    ?= $(TOOL_GCC42MACHO_PREFIX)gcc$(TOOL_GCC42MACHO_SUFFIX)
+TOOL_GCC42MACHO_AS        ?= $(TOOL_GCC42MACHO_PREFIX)gcc$(TOOL_GCC42MACHO_SUFFIX)
+TOOL_GCC42MACHO_LD        ?= $(TOOL_GCC42MACHO_PREFIX)gcc$(TOOL_GCC42MACHO_SUFFIX)
+TOOL_GCC42MACHO_LD_SYSMOD ?= $(TOOL_GCC42MACHO_PREFIX)gcc$(TOOL_GCC42MACHO_SUFFIX)
+TOOL_GCC42MACHO_LDFLAGS.dll ?= -dynamiclib
+TOOL_GCC42MACHO_LDFLAGS.sysmod ?= -r
+#TOOL_GCC42MACHO_LD_SONAME = -Wl,-dylib_install_name $(firstword $($(1)_SONAME.$(KBUILD_TARGET).$(KBUILD_TYPE)) $($(1)_SONAME.$(KBUILD_TARGET)) $($(1)_SONAME.$(KBUILD_TYPE)) $($(1)_SONAME) $(notdir $(2)))
+
+TOOL_GCC42MACHO_AR        ?= $(TOOL_GCC4MACHO_PREFIX2)ar$(TOOL_GCC4MACHO_SUFFIX2)
+TOOL_GCC42MACHO_DSYMUTIL  ?= $(TOOL_GCC4MACHO_PREFIX2)dsymutil$(TOOL_GCC4MACHO_SUFFIX2)
+TOOL_GCC42MACHO_STRIP     ?= $(TOOL_GCC4MACHO_PREFIX2)strip$(TOOL_GCC4MACHO_SUFFIX2)
+TOOL_GCC42MACHO_STRIP_PROGRAM ?= $(TOOL_GCC42MACHO_STRIP) -SXxru
+TOOL_GCC42MACHO_STRIP_DLL     ?= $(TOOL_GCC42MACHO_STRIP) -Sxru
+TOOL_GCC42MACHO_STRIP_SYSMOD  ?= $(TOOL_GCC42MACHO_STRIP) -Sru
+
+# General Properties used by kBuild
+TOOL_GCC42MACHO_COBJSUFF         ?= .o
+TOOL_GCC42MACHO_CFLAGS           ?=
+TOOL_GCC42MACHO_CFLAGS.debug     ?= -g
+TOOL_GCC42MACHO_CFLAGS.profile   ?= -g -O2 #-pg
+TOOL_GCC42MACHO_CFLAGS.release   ?= -O2
+TOOL_GCC42MACHO_CINCS            ?=
+TOOL_GCC42MACHO_CDEFS            ?=
+
+TOOL_GCC42MACHO_CXXOBJSUFF       ?= .o
+TOOL_GCC42MACHO_CXXFLAGS         ?=
+TOOL_GCC42MACHO_CXXFLAGS.debug   ?= -g
+TOOL_GCC42MACHO_CXXFLAGS.profile ?= -g -O2 #-pg
+TOOL_GCC42MACHO_CXXFLAGS.release ?= -O2
+TOOL_GCC42MACHO_CXXINCS          ?=
+TOOL_GCC42MACHO_CXXDEFS          ?=
+
+TOOL_GCC42MACHO_OBJCOBJSUFF      ?= .o
+TOOL_GCC42MACHO_OBJCFLAGS        ?=
+TOOL_GCC42MACHO_OBJCFLAGS.debug  ?= -g
+TOOL_GCC42MACHO_OBJCFLAGS.profile?= -O2 #-g -pg
+TOOL_GCC42MACHO_OBJCFLAGS.release?= -O2
+TOOL_GCC42MACHO_OBJCINCS         ?=
+TOOL_GCC42MACHO_OBJCDEFS         ?=
+
+TOOL_GCC42MACHO_OBJCXXOBJSUFF        ?= .o
+TOOL_GCC42MACHO_OBJCXXFLAGS          ?=
+TOOL_GCC42MACHO_OBJCXXFLAGS.debug    ?= -g
+TOOL_GCC42MACHO_OBJCXXFLAGS.profile  ?= -O2 #-g -pg
+TOOL_GCC42MACHO_OBJCXXFLAGS.release  ?= -O2
+TOOL_GCC42MACHO_OBJCXXINCS           ?=
+TOOL_GCC42MACHO_OBJCXXDEFS           ?=
+
+TOOL_GCC42MACHO_ASFLAGS          ?= -x assembler-with-cpp
+TOOL_GCC42MACHO_ASFLAGS.debug    ?= -g
+TOOL_GCC42MACHO_ASFLAGS.profile  ?= -g
+TOOL_GCC42MACHO_ASOBJSUFF        ?= .o
+
+TOOL_GCC42MACHO_ARFLAGS          ?= -c -rs
+TOOL_GCC42MACHO_ARLIBSUFF        ?= .a
+
+TOOL_GCC42MACHO_LDFLAGS          ?=
+TOOL_GCC42MACHO_LDFLAGS.debug    ?= -g
+TOOL_GCC42MACHO_LDFLAGS.profile  ?= -g
+
+
+##
+# Calculate the files in the debug bundle.
+# @param    1           The whole output filename.
+# @param    2   	The output filename sans suffix.
+TOOL_GCC42MACHO_DEBUG_BUNDLE_FN = \
+    $(1).dSYM/ \
+    $(1).dSYM/Contents/ \
+    $(1).dSYM/Contents/Resources/ \
+    $(1).dSYM/Contents/Resources/DWARF/ \
+    $(1).dSYM/Contents/Info.plist \
+    $(1).dSYM/Contents/Resources/DWARF/$(notdir $(1))
+
+##
+# Calculate the files in the debug bundle.
+# @param    1           The whole linker output filename.
+# @param    2   	The linker output filename sans suffix.
+# @param    3           The desired install name (no dir slash).
+# @remarks  The Info.plist has some reference to the original name, but gdb
+#           does not care and only check for a symbol file in the DWARF
+#           directory with the same name as the debugged module.
+TOOL_GCC42MACHO_DEBUG_INSTALL_FN= \
+    $(3).dSYM/ \
+    $(3).dSYM/Contents/ \
+    $(3).dSYM/Contents/Resources/ \
+    $(3).dSYM/Contents/Resources/DWARF/ \
+    $(1).dSYM/Contents/Info.plist=>$(3).dSYM/Contents/Info.plist \
+    $(1).dSYM/Contents/Resources/DWARF/$(notdir $(1))=>$(3).dSYM/Contents/Resources/DWARF/$(notdir $(3))
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC42MACHO_COMPILE_C_DEPEND =
+TOOL_GCC42MACHO_COMPILE_C_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC42MACHO_COMPILE_C_USES_KOBJCACHE = 1
+TOOL_GCC42MACHO_COMPILE_C_OUTPUT = $(outbase).i
+define TOOL_GCC42MACHO_COMPILE_C_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).i\
+		$(TOOL_GCC42MACHO_CC) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC42MACHO_CC) -c\
+		$(flags) -fpreprocessed -x c\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else  # !KBUILD_USE_KOBJCACHE
+TOOL_GCC42MACHO_COMPILE_C_OUTPUT =
+define TOOL_GCC42MACHO_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_GCC42MACHO_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KUSE_OBJCACHE
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC42MACHO_COMPILE_CXX_DEPEND =
+TOOL_GCC42MACHO_COMPILE_CXX_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC42MACHO_COMPILE_CXX_USES_KOBJCACHE = 1
+TOOL_GCC42MACHO_COMPILE_CXX_OUTPUT = $(outbase).ii
+define TOOL_GCC42MACHO_COMPILE_CXX_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).ii\
+		$(TOOL_GCC42MACHO_CXX) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC42MACHO_CXX) -c\
+		$(flags) -fpreprocessed -x c++\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else  # !KBUILD_USE_KOBJCACHE
+TOOL_GCC42MACHO_COMPILE_CXX_OUTPUT =
+define TOOL_GCC42MACHO_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_GCC42MACHO_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Objective-C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC42MACHO_COMPILE_OBJC_DEPEND =
+TOOL_GCC42MACHO_COMPILE_OBJC_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC42MACHO_COMPILE_OBJC_USES_KOBJCACHE = 1
+TOOL_GCC42MACHO_COMPILE_OBJC_OUTPUT = $(outbase).mi
+define TOOL_GCC42MACHO_COMPILE_OBJC_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).ii\
+		$(TOOL_GCC42MACHO_OBJC) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC42MACHO_OBJC) -c\
+		$(flags) -fpreprocessed -x cbjective-c\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else  # !KBUILD_USE_KOBJCACHE
+TOOL_GCC42MACHO_COMPILE_OBJC_OUTPUT =
+define TOOL_GCC42MACHO_COMPILE_OBJC_CMDS
+	$(QUIET)$(TOOL_GCC42MACHO_OBJC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Objective-C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_GCC42MACHO_COMPILE_OBJCXX_DEPEND =
+TOOL_GCC42MACHO_COMPILE_OBJCXX_DEPORD =
+ifdef KBUILD_USE_KOBJCACHE
+TOOL_GCC42MACHO_COMPILE_OBJCXX_USES_KOBJCACHE = 1
+TOOL_GCC42MACHO_COMPILE_OBJCXX_OUTPUT = $(outbase).mii
+define TOOL_GCC42MACHO_COMPILE_OBJCXX_CMDS
+	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
+		--kObjCache-cpp $(outbase).mii\
+		$(TOOL_GCC42MACHO_OBJCXX) -E -o -\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		$(abspath $(source))\
+		--kObjCache-cc $(obj)\
+		$(TOOL_GCC42MACHO_OBJCXX) -c\
+		$(flags) -fpreprocessed -x objective-c++\
+		-o $(obj)\
+		-
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+else  # !KBUILD_USE_KOBJCACHE
+TOOL_GCC42MACHO_COMPILE_OBJCXX_OUTPUT =
+define TOOL_GCC42MACHO_COMPILE_OBJCXX_CMDS
+	$(QUIET)$(TOOL_GCC42MACHO_OBJCXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+endif # !KBUILD_USE_KOBJCACHE
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_GCC42MACHO_COMPILE_AS_OUTPUT =
+TOOL_GCC42MACHO_COMPILE_AS_DEPEND =
+TOOL_GCC42MACHO_COMPILE_AS_DEPORD =
+define TOOL_GCC42MACHO_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_GCC42MACHO_AS) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC42MACHO_LINK_LIBRARY_OUTPUT =
+TOOL_GCC42MACHO_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_GCC42MACHO_LINK_LIBRARY_DEPORD =
+define TOOL_GCC42MACHO_LINK_LIBRARY_CMDS
+	$(if $(strip $(objs)),$(call xargs,$(QUIET)$(TOOL_GCC42MACHO_AR) $(flags) $(out),$(objs)))
+	$(foreach lib,$(othersrc)\
+		,$(NL)$(TAB)$(call MSG_AR_MERGE,$(target),$(out),$(lib)) \
+		$(NL)$(TAB)$(QUIET)$(RM_EXT) -f $(dir $(outbase))ar.tmp.dir/* \
+		$(NL)$(TAB)$(QUIET)$(MKDIR) -p $(dir $(outbase))/ar.tmp.dir/ \
+		$(NL)$(TAB)$(QUIET)(cd $(dir $(outbase))ar.tmp.dir/ \
+			&& $(TOOL_GCC42MACHO_AR) -x $(abspath $(lib)) \
+		    && $(RM_EXT) -f ./__.SYMDEF* \
+			&& $(TOOL_GCC42MACHO_AR) $(flags) $(out) *) \
+		$(NL)$(TAB)$(QUIET)$(RM_EXT) -f $(dir $(outbase))/ar.tmp.dir/* \
+		$(NL)$(TAB)$(QUIET)$(RMDIR) $(dir $(outbase))ar.tmp.dir/)
+endef
+
+
+## Link program
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC42MACHO_LINK_PROGRAM_OUTPUT = $(outbase).rsp
+TOOL_GCC42MACHO_LINK_PROGRAM_OUTPUT_DEBUG = $(call TOOL_GCC42MACHO_DEBUG_BUNDLE_FN,$(out))
+TOOL_GCC42MACHO_LINK_PROGRAM_DEBUG_INSTALL_FN = $(TOOL_GCC42MACHO_DEBUG_INSTALL_FN)
+TOOL_GCC42MACHO_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_GCC42MACHO_LINK_PROGRAM_DEPORD =
+define TOOL_GCC42MACHO_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp $(objs)
+	$(QUIET)$(TOOL_GCC42MACHO_LD) $(flags) -o $(out)\
+		-filelist $(outbase).rsp\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_GCC42MACHO_DSYMUTIL) -o $(out).dSYM/ $(out)
+	$(QUIET)$(TOOL_GCC42MACHO_STRIP_PROGRAM) $(out)
+ endif
+endef
+
+
+
+## Link DLL
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC42MACHO_LINK_DLL_OUTPUT = $(outbase).rsp
+TOOL_GCC42MACHO_LINK_DLL_OUTPUT_DEBUG = $(call TOOL_GCC42MACHO_DEBUG_BUNDLE_FN,$(out))
+TOOL_GCC42MACHO_LINK_DLL_DEBUG_INSTALL_FN = $(TOOL_GCC42MACHO_DEBUG_INSTALL_FN)
+TOOL_GCC42MACHO_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_GCC42MACHO_LINK_DLL_DEPORD =
+define TOOL_GCC42MACHO_LINK_DLL_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp $(objs)
+	$(QUIET)$(TOOL_GCC42MACHO_LD) $(TOOL_GCC42MACHO_LDFLAGS.dll) $(flags) -o $(out)\
+		$(call TOOL_GCC42MACHO_LD_SONAME,$(target),$(out))\
+		-filelist $(outbase).rsp\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_GCC42MACHO_DSYMUTIL) -o $(out).dSYM/ $(out)
+	$(QUIET)$(TOOL_GCC42MACHO_STRIP_DLL) $(out)
+ endif
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		System module name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_GCC42MACHO_LINK_SYSMOD_OUTPUT = $(outbase).rsp
+TOOL_GCC42MACHO_LINK_SYSMOD_OUTPUT_DEBUG = $(call TOOL_GCC42MACHO_DEBUG_BUNDLE_FN,$(out))
+TOOL_GCC42MACHO_LINK_SYSMOD_DEBUG_INSTALL_FN = $(TOOL_GCC42MACHO_DEBUG_INSTALL_FN)
+TOOL_GCC42MACHO_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_GCC42MACHO_LINK_SYSMOD_DEPORD =
+define TOOL_GCC42MACHO_LINK_SYSMOD_CMDS
+	$(QUIET)$(APPEND) -n $(outbase).rsp $(objs)
+	$(QUIET)$(TOOL_GCC42MACHO_LD_SYSMOD) $(TOOL_GCC42MACHO_LDFLAGS.sysmod) $(flags) -o $(out)\
+		-filelist $(outbase).rsp\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))
+ ifeq ($(ld_debug),split)
+	$(QUIET)$(TOOL_GCC42MACHO_DSYMUTIL) -o $(out).dSYM/ $(out)
+	$(QUIET)$(TOOL_GCC42MACHO_STRIP_SYSMOD) $(out)
+ endif
+endef
+

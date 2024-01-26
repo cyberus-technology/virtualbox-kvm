@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage guestproperty
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-guestproperty" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage guestproperty</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-guestproperty</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-guestproperty</refname>
+    <refpurpose>управляет гостевыми свойствами виртуальной машины</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-get">
+      <command>VBoxManage guestproperty get</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="req"><replaceable>имя-свойства</replaceable></arg>
+      <arg>--verbose</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-enumerate">
+      <command>VBoxManage guestproperty enumerate</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg>--patterns=<replaceable>шаблоны</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-set">
+      <command>VBoxManage guestproperty set</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="req"><replaceable>имя-свойства</replaceable></arg>
+      <arg><replaceable>значение-свойства</replaceable><arg>--flags=<replaceable>флаги</replaceable></arg></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-unset">
+      <command>VBoxManage guestproperty unset</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="req"><replaceable>имя-свойства</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-guestproperty-wait">
+      <command>VBoxManage guestproperty wait</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="req"><replaceable>шаблоны</replaceable></arg>
+      <arg>--timeout=<replaceable>миллисекунды</replaceable></arg>
+      <arg>--fail-on-timeout</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage guestproperty</command> позволяет
+      установить или получить свойства работающей виртуальной машины (ВМ).
+      Смотрите <xref linkend="guestadd-guestprops" />. Гостевые свойства -
+      это произвольные пары строк в виде имя-значение, которые могут
+      быть записаны и прочтены как с гостевой системы так и с хоста.
+      В результате эти свойства могут быть использованы как канал
+      связи небольшого объема для строк при условии, что гость работает
+      и установлены Дополнения Гостевой ОС. Также, Дополнения
+      Гостевой ОС автоматически устанавливают и поддерживают значения
+      ключей, начинающихся с <literal>/VirtualBox/</literal>.
+    </para>
+    <refsect2>
+      <title>Общие командные операнды</title>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable>|<replaceable>имя-ВМ</replaceable></term>
+          <listitem><para>
+              Задает Универсальный Уникальный Идентификатор (UUID) или
+              имя ВМ.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-enumerate">
+      <title>Показать все свойства виртуальной машины</title>
+      <para>
+        Команда <command>VBoxManage guestproperty enumerate</command>
+        показывает каждое гостевое свойство и его значение для
+        указанной ВМ. Заметим, что вывод ограничен если невозможно
+        подсоединиться к процессу гостевой службы, например потому
+        что ВМ не работает или не установлены Дополнения Гостевой ОС.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--patterns=<replaceable>шаблон</replaceable></option></term>
+          <listitem><para>
+              Фильтрует список свойств основанный на указанном
+              шаблоне, который может содержать следующие
+              подстановочные знаки:
+            </para><variablelist>
+              <varlistentry>
+                <term><literal>*</literal> (звездочка)</term>
+                <listitem><para>
+                    Представляет любое количество произвольных символов.
+                    Например, шаблон <literal>/VirtualBox*</literal>
+                    соответствует всем свойствам, начинающимся с
+                    <literal>/VirtualBox</literal>.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>?</literal> (знак вопроса)</term>
+                <listitem><para>
+                    Представляет один произвольный символ. Например
+                    шаблон <literal>fo?</literal> соответствует и
+                    <literal>foo</literal> и <literal>for</literal>.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>|</literal> (канал)</term>
+                <listitem><para>
+                    Задает несколько альтернативных шаблонов.
+                    Например шаблон <literal>s*|t*</literal>
+                    соответствует свойствам, начинающимся с
+                    <literal>s</literal> или <literal>t</literal>.
+                  </para></listitem>
+              </varlistentry>
+            </variablelist></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-get">
+      <title>Получить значение свойства виртуальной машины</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage guestproperty get</command>
+        получает значение указанного свойства. Если свойство не
+        найдено, например, потому что гостевая система сейчас не
+        работает, команда выдает следующее сообщение:
+      </para>
+<screen>No value set!</screen>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>имя-свойства</replaceable></term>
+          <listitem><para>
+              Задает имя свойства.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--verbose</option></term>
+          <listitem><para>
+              Выдает значение свойства, метку времени и любые указанные
+              аттрибуты значения.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-set">
+      <title>Задать значение свойства для виртуальной машины</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage guestproperty set</command> позволяет
+        задать свойство гостевой системы, указывая свойство и его значение.
+        Если значение опущено, свойство удаляется.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>имя-свойства</replaceable></term>
+          <listitem><para>
+              Задает имя свойства.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>значение-свойства</replaceable></term>
+          <listitem><para>
+              Указывает значение свойства. Если значение не указано,
+              существующее значение удаляется.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--flags=<replaceable>флаги</replaceable></option></term>
+          <listitem><para>
+              Задает дополнительные аттрибуты значения. Могут быть указаны
+              следующие аттрибуты в виде списка значений разделенных запятыми:
+            </para><variablelist>
+              <varlistentry>
+                <term><literal>TRANSIENT</literal></term>
+                <listitem><para>
+                    Удаляет значение с данными ВМ при завершении ВМ.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>TRANSRESET</literal></term>
+                <listitem><para>
+                    Удаляет значение при завершении или рестарте ВМ.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>RDONLYGUEST</literal></term>
+                <listitem><para>
+                    Задает значение, которое может быть изменено только
+                    хостом. Гостевая система может только прочитать
+                    значение свойства.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>RDONLYHOST</literal></term>
+                <listitem><para>
+                    Задает значение, которое может быть изменено только
+                    гостевой системой. Хост может только прочитать
+                    значение свойства.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>READONLY</literal></term>
+                <listitem><para>
+                    Задает неизменяемое значение.
+                  </para></listitem>
+              </varlistentry>
+            </variablelist></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-wait">
+      <title>Ожидать создания, удаления или изменения значения свойства</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage guestproperty wait</command> ожидает
+        создания, удаления или изменения определенного свойства,
+        описанного строкой шаблона.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>шаблоны</replaceable></term>
+          <listitem><para>
+              Задает шаблон, соответствующий свойствам, необходимым
+              для ожидания. По информации о подстановочных знаках
+              в шаблоне смотрите описание опции
+              <option>--patterns</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--timeout<replaceable>миллисекунды</replaceable></option></term>
+          <listitem><para>
+              Задает количество миллисекунд ожидания.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--fail-on-timeout</option></term>
+          <listitem><para>
+              Указывает, что команда должна закончиться неудачей
+              если достигнут порог ожидания.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-guestproperty-unset">
+      <title>Удалить значение свойства виртуальной машины</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage guestproperty unset</command>
+        удаляет значение гостевого свойства.
+      </para>
+      <para>
+        Альтернативная формат этой подкоманды <command>delete</command>.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>имя-свойства</replaceable></term>
+          <listitem><para>
+              Задает имя свойства.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда выдает список гостевых свойств и их значений
+      для ВМ <literal>win8</literal>.
+    </para>
+<screen>$ VBoxManage guestproperty enumerate win8</screen>
+    <para>
+      Следующая команда создает гостевое свойство называемое
+      <literal>region</literal> для ВМ <literal>win8</literal>.
+      Значение свойства устанавливается в <literal>west</literal>.
+    </para>
+<screen>$ VBoxManage guestproperty set win8 region west</screen>
+  </refsect1>
+</refentry>

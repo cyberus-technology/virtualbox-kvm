@@ -1,0 +1,103 @@
+.test-radv:
+  extends:
+    - .test-vk
+    - .radv-rules
+  variables:
+    VK_DRIVER: radeon
+    DRIVER_NAME: radv
+    ACO_DEBUG: validateir,validatera
+    MESA_VK_IGNORE_CONFORMANCE_WARNING: 1
+
+radv-navy_flounder-vkd3d-proton:
+  extends:
+    - .test-radv
+    - .vkd3d-proton-test
+    - .test-manual
+  variables:
+    VKD3D_PROTON_RESULTS: "navy_flounder"
+  tags:
+    - amdgpu:codename:NAVY_FLOUNDER
+
+radv-navy_flounder-traces:
+  extends:
+    - .test-radv
+    - .piglit-traces-test
+    - .test-manual
+  variables:
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-radv.yml"
+    PIGLIT_REPLAY_DEVICE_NAME: "vk-amd-navy_flounder"
+    PIGLIT_REPLAY_GFXRECON_REPLAY_EXTRA_ARGS: "-m rebind"
+    PIGLIT_RESULTS: "radv-navy_flounder-replay"
+  tags:
+    - amdgpu:codename:NAVY_FLOUNDER
+
+radv-raven-traces:
+  extends:
+    - .test-radv
+    - .piglit-traces-test
+    - .test-manual
+  variables:
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-radv.yml"
+    PIGLIT_REPLAY_DEVICE_NAME: "vk-amd-raven"
+    PIGLIT_RESULTS: "radv-raven-replay"
+  tags:
+    - amdgpu:codename:RAVEN
+
+# Can only be triggered manually on personal branches because RADV is the only
+# driver that does Vulkan testing at the moment.
+radv_polaris10_vkcts:
+  extends:
+    - .deqp-test-vk
+    - .test-radv
+    - .test-manual
+  variables:
+    GPU_VERSION: radv-polaris10-aco
+  tags:
+    - polaris10
+
+# Run three jobs in parallel each running 1/30th of the test suite
+radv_stoney_vkcts:amd64:
+  extends:
+    - .lava-test:amd64
+    - .radv-rules
+  parallel: 3
+  variables:
+    DEQP_VER: vk
+    DEQP_FRACTION: 10
+    FDO_CI_CONCURRENT: 4
+    DEQP_EXPECTED_RENDERER: STONEY
+    DEVICE_TYPE: hp-11A-G6-EE-grunt
+    DTB: ""
+    GPU_VERSION: radv-stoney-aco
+    BOOT_METHOD: depthcharge
+    KERNEL_IMAGE_TYPE: ""
+    HWCI_KERNEL_MODULES: amdgpu
+    HWCI_FREQ_MAX: "true"
+    VK_DRIVER: radeon
+    DRIVER_NAME: radv
+  tags:
+    - mesa-ci-x86-64-lava-hp-11A-G6-EE-grunt
+
+radv-fossils:
+  extends:
+    - .fossilize-test
+    - .test-radv
+  script:
+    # Pitcairn (GFX6)
+    - export RADV_FORCE_FAMILY="pitcairn"
+    - ./install/fossilize-runner.sh
+    # Bonaire (GFX7)
+    - export RADV_FORCE_FAMILY="bonaire"
+    - ./install/fossilize-runner.sh
+    # Polaris10 (GFX8)
+    - export RADV_FORCE_FAMILY="polaris10"
+    - ./install/fossilize-runner.sh
+    # Vega10 (GFX9)
+    - export RADV_FORCE_FAMILY="vega10"
+    - ./install/fossilize-runner.sh
+    # Navi10 (GFX10)
+    - export RADV_FORCE_FAMILY="navi10"
+    - ./install/fossilize-runner.sh
+    # Sienna Cichlid (GFX10)
+    - export RADV_FORCE_FAMILY="sienna_cichlid"
+    - ./install/fossilize-runner.sh

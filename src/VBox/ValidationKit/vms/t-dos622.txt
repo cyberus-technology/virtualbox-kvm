@@ -1,0 +1,50 @@
+
+Test VM - t-dos622 - DOS 6.22
+=============================
+
+Setup:
+ - Create a default DOS VM 't-dos622'.
+ - Install DOS (single partition, etc).
+ - Install CDROM driver (e.g. OAK).
+ - Copy DosSleep.exe and DosVmOff.com onto the disk (C:\).
+ - Create c:\test.bat with the following content:
+     echo on
+
+     echo TESTING chkdsk.exe C: >COM1
+     dossleep 1
+     C:\DOS\CHKDSK.EXE C:
+     IF NOT ERRORLEVEL 0 goto fail
+
+     echo TESTING msd.exe /P NUL >COM1
+     dossleep 1
+     C:\DOS\MSD.EXE /P NUL
+
+     echo TESTING qbasic.exe /RUN C:\HELLO.BAS >COM1
+     dossleep 1
+     C:\DOS\QBASIC.EXE /RUN C:\HELLO.BAS
+     IF NOT ERRORLEVEL 0 goto fail
+
+     REM Done
+     echo PASSED>COM1
+     goto done
+
+     :fail
+     echo FAILED>COM1
+     goto done
+
+     :done
+     echo Powering off the VM in 5 seconds...
+     dossleep 1
+     dossleep 1
+     dossleep 1
+     dossleep 1
+     dossleep 1
+     dosvmoff
+     :exit
+ - Create C:\HELLO.BAS with the following content:
+     PRINT "Hello World!"
+     SYSTEM
+     END
+ - Edit c:\autoexec.bat appending "echo on" and "call c:\test.bat".
+ - Check that C:\config.sys contains himem.sys from windows and no emm386.
+

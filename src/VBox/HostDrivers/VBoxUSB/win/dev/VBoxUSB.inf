@@ -1,0 +1,88 @@
+; $Id: VBoxUSB.inf $
+;; @file
+; VBox host drivers - USB drivers - Win32 USB device
+;
+
+;
+; Copyright (C) 2011-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+[Version]
+Signature="$Windows NT$"
+Class=USB
+ClassGUID={36FC9E60-C465-11CF-8056-444553540000}
+provider=%ORACLE%
+;edit-DriverVer=08/26/2008,2.00.0000
+;cat CatalogFile=VBoxUSB.cat
+
+[SourceDisksNames]
+1=%Disk_Description%,,,
+
+[SourceDisksFiles]
+VBoxUSB.sys = 1
+
+[Manufacturer]
+%ORACLE%=VBoxUSB@COMMA-NT-ARCH@
+
+[VBoxUSB@DOT-NT-ARCH@]
+%USB\VID_80EE&PID_CAFE.DeviceDesc%=VBoxUSB.Dev, USB\VID_80EE&PID_CAFE
+
+[DestinationDirs]
+VBoxUSB.Files.Ext = 10,System32\Drivers
+
+[VBoxUSB.Dev.NT]
+CopyFiles=VBoxUSB.Files.Ext
+
+[VBoxUSB.Dev.NT.Services]
+Addservice = VBoxUSB, 0x00000002, VBoxUSB.AddService
+
+[VBoxUSB.AddService]
+DisplayName    = %VBoxUSB.SvcDesc%
+ServiceType    = 1                  ; SERVICE_KERNEL_DRIVER
+StartType      = 3                  ; SERVICE_DEMAND_START
+ErrorControl   = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %10%\System32\Drivers\VBoxUSB.sys
+AddReg         = VBoxUSB.AddReg
+LoadOrderGroup = Base
+
+[VBoxUSB.AddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,VBoxUSB.sys
+
+[VBoxUSB.Files.Ext]
+VBoxUSB.sys
+
+;---------------------------------------------------------------;
+
+[Strings]
+ORACLE="Oracle Corporation"
+Disk_Description="VBoxUSB Installation Disk"
+USB\VID_80EE&PID_CAFE.DeviceDesc="VirtualBox USB"
+VBoxUSB.SvcDesc="VirtualBox USB"

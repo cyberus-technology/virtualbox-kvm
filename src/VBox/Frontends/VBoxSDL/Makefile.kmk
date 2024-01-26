@@ -1,0 +1,167 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for VBoxSDL (a simple frontend based on SDL).
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+if !defined(VBOX_WITH_HARDENING) || "$(KBUILD_TARGET)" != "darwin" # No hardened VBoxSDL on darwin.
+
+
+ ifdef VBOX_WITH_HARDENING
+  #
+  # Hardened VBoxSDL
+  #
+  PROGRAMS += VBoxSDLHardened
+  VBoxSDLHardened_TEMPLATE = VBoxR3HardenedExe
+  VBoxSDLHardened_SOURCES = VBoxSDLHardened.cpp
+  VBoxSDLHardened_NAME = VBoxSDL
+  $(call VBOX_SET_VER_INFO_EXE,VBoxSDLHardened,VirtualBox Pure SDL Frontend,$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+ endif
+
+
+ #
+ # VBoxSDL
+ #
+ ifdef VBOX_WITH_HARDENING
+  DLLS += VBoxSDL
+ else
+  PROGRAMS += VBoxSDL
+ endif
+ VBoxSDL_TEMPLATE := $(if $(VBOX_WITH_HARDENING),VBoxMainClientDll,VBoxMainClientExe)
+ VBoxSDL_SDKS      = LIBSDL2
+ VBoxSDL_SOURCES   = \
+ 	VBoxSDL.cpp \
+ 	Framebuffer.cpp \
+ 	Helper.cpp \
+ 	../Common/PasswordInput.cpp
+ VBoxSDL_SOURCES.darwin = \
+ 	VBoxSDLMain-darwin.m \
+ 	Framebuffer-darwin.m
+
+ VBoxSDL_DEFS      =
+ VBoxSDL_DEFS.freebsd = VBOXSDL_WITH_X11
+ VBoxSDL_DEFS.linux = _GNU_SOURCE VBOXSDL_WITH_X11
+ VBoxSDL_DEFS.solaris = VBOXSDL_WITH_X11
+ ifdef VBOX_OPENGL
+  #VBoxSDL_DEFS.linux += VBOX_OPENGL
+ endif
+ VBoxSDL_DEFS.win.x86 = _WIN32_WINNT=0x0500
+ VBoxSDL_DEFS.win.amd64 = _WIN32_WINNT=0x0510
+
+ VBoxSDL_INCS = \
+ 	$(VBoxSDL_0_OUTDIR) \
+ 	$(VBOX_GRAPHICS_INCS) \
+ 	../Common
+ if1of ($(KBUILD_TARGET), freebsd linux netbsd openbsd solaris) # X11
+  VBoxSDL_INCS += \
+  	$(VBOX_XCURSOR_INCS)
+ endif
+ ifn1of ($(KBUILD_TARGET), solaris) # Probably wrong with SDL2
+  VBoxSDL_LIBS = \
+  	$(LIB_SDK_LIBSDL2_SDLMAIN)
+ endif
+ if1of ($(KBUILD_TARGET), freebsd linux netbsd openbsd solaris) # X11
+  VBoxSDL_LIBS += \
+  	$(PATH_STAGE_DLL)/VBoxKeyboard$(VBOX_SUFF_DLL) \
+  	$(VBOX_XCURSOR_LIBS) \
+  	X11
+  VBoxSDL_LIBPATH = \
+  	$(VBOX_LIBPATH_X11)
+ endif
+ ifdef VBOX_OPENGL
+  #VBoxSDL_LIBS.linux += GL
+ endif
+
+ VBoxSDL_LDFLAGS.darwin = \
+ 	-framework Foundation -framework AppKit
+ VBoxSDL_LDFLAGS.win = -SubSystem:Windows
+
+ VBoxSDL_CLEAN = $(VBoxSDL_0_OUTDIR)/Ico64x01.h
+ VBoxSDL_INTERMEDIATES = $(VBoxSDL_0_OUTDIR)/Ico64x01.h
+
+
+ # Convert the pnm-file to a byte array.
+ $$(VBoxSDL_0_OUTDIR)/Ico64x01.h: $(PATH_ROOT)/src/VBox/Frontends/VBoxSDL/ico64x01.pnm $(VBOX_BIN2C) | $$(dir $$@)
+	$(call MSG_TOOL,bin2c,VBoxSDL,$<,$@)
+	$(QUIET)$(VBOX_BIN2C) Ico64x01 $< $@
+
+ ifdef VBOX_WITH_HARDENING
+  $(call VBOX_SET_VER_INFO_DLL,VBoxSDL,VirtualBox Pure SDL Frontend,$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+ else
+  $(call VBOX_SET_VER_INFO_EXE,VBoxSDL,VirtualBox Pure SDL Frontend,$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+ endif
+
+
+ #
+ # tstSDL
+ #
+ if 0
+  PROGRAMS += tstSDL
+  tstSDL_TEMPLATE = VBoxR3TstExe
+  tstSDL_SDKS = LIBSDL2
+  tstSDL_INST = $(INST_TESTCASE)
+  tstSDL_SOURCES = \
+  	VBoxSDLTest.cpp
+  tstSDL_SOURCES.darwin = \
+  	VBoxSDLMain-darwin.m
+  tstSDL_DEFS = IN_RING3 IN_RT_R3 _GNU_SOURCE
+  tstSDL_DEFS.win.x86 = _WIN32_WINNT=0x0500
+  ifdef VBOX_OPENGL
+   tstSDL_DEFS.linux = VBOX_OPENGL
+  endif
+
+
+  tstSDL_LIBS = \
+  	$(LIB_RUNTIME)
+  ifn1of ($(KBUILD_TARGET), solaris)
+   tstSDL_LIBS += \
+   	$(LIB_SDK_LIBSDL2_SDLMAIN)
+  endif
+
+  ifdef VBOX_OPENGL
+   tstSDL_LIBS.linux += GL
+  endif
+  if1of ($(KBUILD_TARGET), freebsd linux netbsd openbsd solaris) # X11
+   tstSDL_LIBPATH = \
+   	$(VBOX_LIBPATH_X11)
+  endif
+
+  tstSDL_LDFLAGS.darwin = \
+  	-framework Foundation -framework AppKit
+ endif
+ ## @todo What was this stuff doing here? The exception config is saying two different things, and why just -O for release builds?
+ #tstSDL_CXXFLAGS.win = \
+ #	-EHsc
+ #tstSDL_CXXFLAGS.linux = \
+ #	-DNDEBUG -DTRIMMED -O -Wall -fno-rtti -fno-exceptions \
+ #	-Wno-non-virtual-dtor -Wno-long-long -fshort-wchar -pthread -pipe
+ # Is this what's intended? Why -fshort-wchar?
+ tstSDL_DEFS.linux = NDEBUG TRIMMED
+ tstSDL_CXXFLAGS.linux = -O -Wall -Wno-non-virtual-dtor -Wno-long-long -fshort-wchar
+
+
+endif # !VBOX_WITH_HARDENING || "$(KBUILD_TARGET)" != "darwin"
+include $(FILE_KBUILD_SUB_FOOTER)

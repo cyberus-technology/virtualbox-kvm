@@ -1,0 +1,125 @@
+; $Id: env-bs2-r0-common.mac $
+;; @file
+; Instruction Test Environment - Boot Sector Type 2, Ring-0.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; SPDX-License-Identifier: GPL-3.0-only
+;
+
+%ifndef ___env_bs2_r0_common_mac
+%define ___env_bs2_r0_common_mac
+
+
+;; Same as BEGINPROC in asmdefs.mac.
+%macro VBINSTST_BEGINPROC 1
+VBINSTST_GLOBALNAME_EX %1, function hidden
+%endm
+
+;; Same as ENDPROC in asmdefs.mac.
+%macro VBINSTST_ENDPROC 1,
+VBINSTST_GLOBALNAME_EX %1 %+ _EndProc, function hidden
+%endm
+
+;; Same as NAME in asmdefs.mac.
+%define VBINSTST_NAME(a_Name)   TMPL_NM(a_Name)
+
+;; Same as GLOBALNAME_EX in asmdefs.mac.
+%macro VBINSTST_GLOBALNAME_EX 2,
+VBINSTST_NAME(%1):
+%endmacro
+
+;; Same as BEGINCODE in asmdefs.mac.
+%macro VBINSTST_BEGINCODE 0,
+BEGINCODE
+%endmacro
+
+;; Same as BEGINDATA in asmdefs.mac.
+%macro VBINSTST_BEGINDATA 0,
+BEGINDATA
+%endmacro
+
+
+;
+; Trap related macros.
+;
+%define VBINSTST_CAN_DO_TRAPS 1
+
+%macro VBINSTST_TRAP_INSTR 3+,
+        section .traprecs
+    istruc BS2TRAPREC
+        at BS2TRAPREC.offWhere,           dd (%%trapinstr - VBINSTST_IMAGE_BASE_LABLE)
+        at BS2TRAPREC.offResumeAddend,    db (%%resume - %%trapinstr)
+        at BS2TRAPREC.u8TrapNo,           db %1
+        at BS2TRAPREC.u16ErrCd,           dw %2
+    iend
+        VBINSTST_BEGINCODE
+ %if %1 != X86_XCPT_BP
+  %%trapinstr:
+        %3
+ %else
+        %3
+  %%trapinstr:
+ %endif
+        call    VBINSTST_NAME(Common_MissingTrap_ %+ %1)
+ %%resume:
+%endmacro
+
+%macro VBINSTST_TRAP_RECS_BEGIN 0,
+        VBINSTST_BEGINDATA
+        section .traprecs progbits valign=8 vfollows=.data align=8 follows=.data
+        dq 0ffffffffeeeeeeeeh
+        dq 0ddddddddcccccccch
+VBINSTST_GLOBALNAME_EX g_aTrapRecs, hidden
+        VBINSTST_BEGINCODE
+%endmacro
+
+%macro VBINSTST_TRAP_RECS_END 0,
+        section .traprecs
+VBINSTST_GLOBALNAME_EX g_aTrapRecsEnd, hidden
+        dq 0ddddddddcccccccch
+        dq 0ffffffffeeeeeeeeh
+        VBINSTST_BEGINCODE
+%endmacro
+
+%macro VBINSTST_TRAP_RECS_INSTALL 0,
+        mov     sAX, VBINSTST_NAME(g_aTrapRecs)
+        mov     edx, VBINSTST_NAME(g_aTrapRecsEnd) - VBINSTST_NAME(g_aTrapRecs)
+        shr     edx, BS2TRAPREC_SIZE_SHIFT
+        mov     sCX, VBINSTST_IMAGE_BASE_LABLE
+        VBINSTST_CALL_TEST_INSTALL_TRAP_RECS
+%endmacro
+
+%macro VBINSTST_TRAP_RECS_UNINSTALL 0,
+        xor     sAX, sAX
+        xor     edx, edx
+        xor     sCX, sCX
+        VBINSTST_CALL_TEST_INSTALL_TRAP_RECS
+%endmacro
+
+
+;
+; Include the common bits (contains code using above macros)
+;
+%include "env-common.mac"
+
+%endif
+

@@ -1,0 +1,282 @@
+/* $Id: bs3-memalloc-1.c64 $ */
+/** @file
+ * BS3Kit - bs3-timers-1, 64-bit C code.
+ */
+
+/*
+ * Copyright (C) 2021-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+
+/*********************************************************************************************************************************
+*   Header Files                                                                                                                 *
+*********************************************************************************************************************************/
+#include <bs3kit.h>
+#include <iprt/asm-amd64-x86.h>
+#include <VBox/VMMDevTesting.h>
+
+
+/*********************************************************************************************************************************
+*   Global Variables                                                                                                             *
+*********************************************************************************************************************************/
+/** Copy of interesting E820 entries. */
+static INT15E820ENTRY g_aEntries[16];
+/** Number of interesting entires. */
+static unsigned       g_cEntries = 0;
+/** Number of intersting bytes found. */
+static uint64_t       g_cbInteresting = 0;
+/** Lowest interesting address. */
+static uint64_t       g_uInterestingStart = UINT64_MAX;
+/** End of interesting addresses. */
+static uint64_t       g_uInterestingEnd = 0;
+
+
+/**
+ * For subsequence touch iterations that doesn't allocate any RAM.
+ *
+ * This may cause page pool activitiy if we've got more memory than we have room
+ * for in the pool.  This depends on amount of guest RAM and how much could be
+ * backed by large pages.
+ */
+static uint64_t CheckTouchedMemory(void)
+{
+    unsigned iEntry;
+    uint64_t iPage = 0;
+    uint64_t cErrors = 0;
+    for (iEntry = 0; iEntry < g_cEntries; iEntry++)
+    {
+        uint64_t volatile *pu64Cur = (uint64_t *)g_aEntries[iEntry].uBaseAddr;
+        uint64_t           cbLeft  = g_aEntries[iEntry].cbRange;
+        while (cbLeft >= X86_PAGE_SIZE)
+        {
+            /* Check first. */
+            if (RT_LIKELY(   pu64Cur[0] == iPage
+                          && pu64Cur[1] == iPage))
+            { /* likely */ }
+            else
+            {
+                Bs3TestFailedF("%p: %#llx + %#llx, expected twice %#llx\n", pu64Cur, pu64Cur[0], pu64Cur[1], iPage);
+                cErrors++;
+            }
+
+            /* Then write again. */
+            pu64Cur[0] = iPage;
+            pu64Cur[1] = iPage;
+
+            /* Advance. */
+            iPage++;
+            pu64Cur += X86_PAGE_SIZE / sizeof(*pu64Cur);
+            cbLeft  -= X86_PAGE_SIZE;
+        }
+    }
+    return cErrors;
+}
+
+
+/**
+ * First touching of memory, assuming content is ZERO.
+ */
+static uint64_t FirstTouchMemory(void)
+{
+    unsigned iEntry;
+    uint64_t iPage = 0;
+    for (iEntry = 0; iEntry < g_cEntries; iEntry++)
+    {
+        uint64_t volatile *pu64Cur = (uint64_t volatile *)g_aEntries[iEntry].uBaseAddr;
+        uint64_t           cbLeft  = g_aEntries[iEntry].cbRange;
+        while (cbLeft >= X86_PAGE_SIZE)
+        {
+            /*
+             * Write to the page first so we won't waste time mapping the zero
+             * page and get straight to the actual page allocation.
+             */
+            pu64Cur[0] = iPage;
+
+            /* Then check that the 2nd qword is zero before writing it. */
+            if (RT_LIKELY(pu64Cur[1] == 0))
+            { /* likely */ }
+            else
+                Bs3TestFailedF("%p: %#llx, expected zero\n", pu64Cur, pu64Cur[1]);
+            pu64Cur[1] = iPage;
+
+            /* Advance. */
+            iPage++;
+            pu64Cur += X86_PAGE_SIZE / sizeof(*pu64Cur);
+            cbLeft  -= X86_PAGE_SIZE;
+        }
+    }
+    return iPage;
+}
+
+
+/**
+ * Translates a E820 entry type to a string.
+ */
+static const char *getEntryTypeName(uint32_t uType)
+{
+    switch (uType)
+    {
+        case INT15E820_TYPE_USABLE: return "USABLE";
+        case INT15E820_TYPE_RESERVED: return "RESERVED";
+        case INT15E820_TYPE_ACPI_RECLAIMABLE: return "ACPI_RECLAIMABLE";
+        case INT15E820_TYPE_ACPI_NVS: return "ACPI_NVS";
+        case INT15E820_TYPE_BAD: return "BAD";
+        default: return "unknown";
+    }
+}
+
+BS3_DECL(void) Main_lm64()
+{
+    uint32_t uCont;
+    unsigned i;
+
+    Bs3TestInit("bs3-memalloc-1");
+
+    /*
+     * Get the E820 memory descriptors and pick out those describing memory not
+     * already used by the Bs3Kit.
+     */
+    Bs3TestSub("INT15h/E820");
+    for (uCont = i = 0; i < 2048; i++)
+    {
+        uint32_t const uEbxCur = uCont;
+        INT15E820ENTRY Entry   = { 0, 0, 0, 0 };
+        uint32_t       cbEntry = sizeof(Entry);
+        if (!Bs3BiosInt15hE820_lm64(&Entry, &cbEntry, &uCont))
+        {
+            Bs3TestFailedF("int15h/E820 failed i=%u", i);
+            break;
+        }
+        Bs3TestPrintf("#%u/%#x: %#018llx LB %#018llx %s (%d)\n",
+                      i, uEbxCur, Entry.uBaseAddr, Entry.cbRange, getEntryTypeName(Entry.uType), Entry.uType);
+        if (Entry.uType == INT15E820_TYPE_USABLE)
+        {
+            if (Entry.uBaseAddr >= _4G)
+            {
+                if (g_cEntries < RT_ELEMENTS(g_aEntries))
+                {
+                    g_cbInteresting += Entry.cbRange;
+                    if (g_uInterestingStart > Entry.uBaseAddr)
+                        g_uInterestingStart = Entry.uBaseAddr;
+                    if (g_uInterestingEnd < Entry.uBaseAddr + Entry.cbRange)
+                        g_uInterestingEnd = Entry.uBaseAddr + Entry.cbRange;
+                    Bs3MemCpy(&g_aEntries[g_cEntries++], &Entry, sizeof(Entry));
+                }
+                else
+                    Bs3TestFailedF("Too many interesting E820 entries! Extend g_aEntries!\n");
+            }
+        }
+
+        /* Done? */
+        if (uCont == 0)
+            break;
+    }
+    if (g_cEntries == 0)
+        Bs3TestFailedF("No interesting E820 entries! Make sure you've assigned more than 4GB to the VM!\n");
+    else
+    {
+        uint64_t uFailurePoint = 0;
+        int      rc;
+        Bs3TestPrintf("Found %u interesting entries covering %#llx bytes (%u GB).\n"
+                      "From %#llx to %#llx\n",
+                      g_cEntries, g_cbInteresting, (unsigned)(g_cbInteresting / _1G), g_uInterestingStart, g_uInterestingEnd);
+
+        if (g_uBs3EndOfRamAbove4G < g_uInterestingEnd)
+            Bs3TestFailedF("g_uBs3EndOfRamAbove4G (%#llx) is lower than g_uInterestingEnd (%#llx)!\n",
+                           g_uBs3EndOfRamAbove4G, g_uInterestingEnd);
+
+
+        /*
+         * Map all the memory (Bs3Kit only maps memory below 4G).
+         */
+        Bs3TestSub("Mapping memory above 4GB");
+        if (!(g_uBs3CpuDetected & BS3CPU_F_PSE))
+            Bs3TestFailedF("PSE was not detected!\n");
+        else if (!(ASMGetCR4() & X86_CR4_PSE))
+            Bs3TestFailedF("PSE was not enabled!\n");
+        else if (RT_SUCCESS(rc = Bs3PagingMapRamAbove4GForLM(&uFailurePoint)))
+        {
+#define PAGES_2_MB(a_cPages) ((a_cPages) / (_1M / X86_PAGE_SIZE))
+            uint64_t cTotalPages;
+            unsigned iLoop;
+
+            /*
+             * Time touching all the memory.
+             */
+            Bs3TestSub("Allocation speed");
+            {
+                uint64_t const  nsStart       = Bs3TestNow();
+                uint64_t const  uTscStart     = ASMReadTSC();
+                uint64_t const  cPages        = FirstTouchMemory();
+                uint64_t const  cTicksElapsed = ASMReadTSC() - uTscStart;
+                uint64_t const  cNsElapsed    = Bs3TestNow() - nsStart;
+                uint64_t uThruput;
+                Bs3TestValue("Pages",                       cPages,                 VMMDEV_TESTING_UNIT_PAGES);
+                Bs3TestValue("MiBs",                        PAGES_2_MB(cPages),     VMMDEV_TESTING_UNIT_MEGABYTES);
+                Bs3TestValue("Alloc elapsed",               cNsElapsed,             VMMDEV_TESTING_UNIT_NS);
+                Bs3TestValue("Alloc elapsed in ticks",      cTicksElapsed,          VMMDEV_TESTING_UNIT_TICKS);
+                Bs3TestValue("Page alloc time",             cNsElapsed / cPages,    VMMDEV_TESTING_UNIT_NS_PER_PAGE);
+                Bs3TestValue("Page alloc time in ticks",    cTicksElapsed / cPages, VMMDEV_TESTING_UNIT_TICKS_PER_PAGE);
+                uThruput = cPages * RT_NS_1SEC / cNsElapsed;
+                Bs3TestValue("Alloc thruput",               uThruput,               VMMDEV_TESTING_UNIT_PAGES_PER_SEC);
+                Bs3TestValue("Alloc thruput in MiBs",       PAGES_2_MB(uThruput),   VMMDEV_TESTING_UNIT_MEGABYTES_PER_SEC);
+                cTotalPages = cPages;
+            }
+
+            /*
+             * Time accessing all the memory again.  This might give a clue as to page pool performance.
+             */
+            for (iLoop = 0; iLoop < 2; iLoop++)
+            {
+                Bs3TestSub(iLoop == 0 ? "2nd access" : "3rd access");
+                {
+                    uint64_t const  nsStart       = Bs3TestNow();
+                    uint64_t const  uTscStart     = ASMReadTSC();
+                    uint64_t const  cErrors       = CheckTouchedMemory();
+                    uint64_t const  cTicksElapsed = ASMReadTSC() - uTscStart;
+                    uint64_t const  cNsElapsed    = Bs3TestNow() - nsStart;
+                    uint64_t uThruput;
+                    Bs3TestValue("Access elapsed",              cNsElapsed,             VMMDEV_TESTING_UNIT_NS);
+                    Bs3TestValue("Access elapsed in ticks",     cTicksElapsed,          VMMDEV_TESTING_UNIT_TICKS);
+                    Bs3TestValue("Page access time",            cNsElapsed / cTotalPages, VMMDEV_TESTING_UNIT_NS_PER_PAGE);
+                    Bs3TestValue("Page access time in ticks",   cTicksElapsed / cTotalPages, VMMDEV_TESTING_UNIT_TICKS_PER_PAGE);
+                    uThruput = cTotalPages * RT_NS_1SEC / cNsElapsed;
+                    Bs3TestValue("Access thruput",              uThruput,               VMMDEV_TESTING_UNIT_PAGES_PER_SEC);
+                    Bs3TestValue("Access thruput in MiBs",      PAGES_2_MB(uThruput),   VMMDEV_TESTING_UNIT_MEGABYTES_PER_SEC);
+                }
+            }
+        }
+        else
+            Bs3TestFailedF("Bs3PagingMapRamAbove4GForLM failed at %#llx: %d", uFailurePoint, rc);
+    }
+
+    Bs3TestTerm();
+}
+

@@ -1,0 +1,97 @@
+# $Id: NASM.kmk 3520 2021-12-18 13:39:52Z bird $
+## @file
+# kBuild Tool Config - Netwide Assembler v0.98+.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_NASM := Netwide Assembler v0.98+
+
+# Tool Specific Properties
+ifndef PATH_TOOL_NASM
+ PATH_TOOL_NASM := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST)/nasm/v*.*)))
+ if "$(PATH_TOOL_NASM)" == "" && "$(KBUILD_DEVTOOLS_HST_ALT)" != ""
+  PATH_TOOL_NASM := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST_ALT)/nasm/v*.*)))
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_TOOL_NASM := $(PATH_TOOL_NASM)
+endif
+
+ifneq ($(PATH_TOOL_NASM),)
+ TOOL_NASM_AS ?= $(PATH_TOOL_NASM)/nasm$(HOSTSUFF_EXE)
+else
+ TOOL_NASM_AS ?= nasm$(HOSTSUFF_EXE)
+endif
+
+# kSubmit
+ifdef TOOL_NASM_USE_KSUBMIT
+ ifeq ($(KBUILD_HOST),win)
+  TOOL_NASM_KSUBMIT ?= kmk_builtin_kSubmit $1 --
+ endif
+endif
+
+# General Properties used by kBuild
+TOOL_NASM_ASFLAGS ?=
+
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_NASM_COMPILE_AS_OUTPUT = $(outbase).lst
+TOOL_NASM_COMPILE_AS_DEPEND =
+TOOL_NASM_COMPILE_AS_DEPORD =
+define TOOL_NASM_COMPILE_AS_CMDS
+ifdef TOOL_NASM_KSUBMIT
+	$(QUIET)$(call TOOL_NASM_KSUBMIT, -C $(PATH_OUT_BASE)) $(TOOL_NASM_AS)\
+		$(flags) $(qaddsuffix sh,/,$(qaddprefix ,-i, $(incs))) $(qaddprefix sh,-D, $(defs))\
+		-l $(outbase).lst\
+		-o $(obj)\
+		-MD "$(dep)" -MP\
+		$(qabspath sh,$(source))
+else
+	$(QUIET)$(REDIRECT) -C $(PATH_OUT_BASE) -- $(TOOL_NASM_AS)\
+		$(flags) $(qaddsuffix sh,/,$(qaddprefix ,-i, $(incs))) $(qaddprefix sh,-D, $(defs))\
+		-l $(outbase).lst\
+		-o $(obj)\
+		-MD "$(dep)" -MP\
+		$(qabspath sh,$(source))
+endif
+endef
+

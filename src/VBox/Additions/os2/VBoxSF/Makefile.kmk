@@ -1,0 +1,241 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for the OS/2 Guest Additions Shared Folder FSD.
+#
+
+#
+# Copyright (c) 2007 knut st. osmundsen <bird-src-spam@anduin.net>
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation
+# files (the "Software"), to deal in the Software without
+# restriction, including without limitation the rights to use,
+# copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following
+# conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
+
+ifneq ($(KBUILD_HOST),os2)
+ VBOX_USE_WATCOM_FOR_OS2  = 1
+ KBUILD_TARGET      = os2
+ BUILD_TARGET       = os2
+ KBUILD_TARGET_ARCH = x86
+ BUILD_TARGET_ARCH  = x86
+endif
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Debug segment name hack for NASM and dependency workaround (see valkit/bootsector).
+#
+include $(KBUILD_PATH)/tools/NASM.kmk
+TOOL_VBoxNasmDot = Our version of the NASM tool
+ifndef TOOL_VBoxNasmDot_PATH
+ ifdef TOOL_VBoxNasm_PATH
+  TOOL_VBoxNasmDot_PATH = $(TOOL_VBoxNasm_PATH)
+ else
+  TOOL_VBoxNasmDot_PATH   := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST)/nasm/v*.*)))
+  if "$(TOOL_VBoxNasmDot_PATH)" == "" && "$(KBUILD_DEVTOOLS_HST_ALT)" != ""
+   TOOL_VBoxNasmDot_PATH  := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST_ALT)/nasm/v*.*)))
+  endif
+ endif
+endif
+ifneq ($(TOOL_VBoxNasmDot_PATH),)
+ TOOL_VBoxNasmDot_AS     ?= $(TOOL_VBoxNasmDot_PATH)/nasm$(HOSTSUFF_EXE)
+else
+ TOOL_VBoxNasmDot_AS     ?= nasm$(HOSTSUFF_EXE)
+endif
+TOOL_VBoxNasmDot_ASFLAGS ?= $(TOOL_NASM_ASFLAGS)
+TOOL_VBoxNasmDot_COMPILE_AS_OUTPUT = $(outbase).lst
+TOOL_VBoxNasmDot_COMPILE_AS_DEPEND = $(dotseg_1_TARGET)
+TOOL_VBoxNasmDot_COMPILE_AS_DEPORD =
+define TOOL_VBoxNasmDot_COMPILE_AS_CMDS
+ ifdef TOOL_VBoxNasmDot_USE_KSUBMIT
+	$(QUIET)kmk_builtin_kSubmit -C $(PATH_OUT_BASE) -- $(TOOL_VBoxNasmDot_AS)\
+		$(flags) $(qaddprefix sh,-i, $(qaddsuffix ,/,$(incs))) $(qaddprefix sh,-D, $(defs))\
+		-l $(outbase).lst\
+		-o $(obj)\
+               -MD "$(dep)" -MP\
+		$(abspath $(source))
+ else
+	$(QUIET)$(REDIRECT) -C $(PATH_OUT_BASE) -- $(TOOL_VBoxNasmDot_AS)\
+		$(flags) $(qaddprefix sh,-i, $(qaddsuffix ,/,$(incs))) $(qaddprefix sh,-D, $(defs))\
+		-l $(outbase).lst\
+		-o $(obj)\
+               -MD "$(dep)" -MP\
+		$(abspath $(source))
+ endif
+	$(QUIET)"$(dotseg_1_TARGET)" "$(obj)"
+endef
+
+#
+# Tool for renaming segments and groups from '$debug_*' to '.debug_*'.
+#
+BLDPROGS += dotseg
+dotseg_TEMPLATE = VBoxBldProg
+dotseg_SOURCES = dotseg.cpp
+
+
+#
+# IFS kBuild template tweak.
+#
+TEMPLATE_VBoxR0DrvIFS = Hack to make sure we link a library. IFS must not be physical devices, but DLLs!
+TEMPLATE_VBoxR0DrvIFS_EXTENDS = VBoxGuestR0Drv
+ifdef VBOX_USE_WATCOM_FOR_OS2
+ TEMPLATE_VBoxR0DrvIFS_LDFLAGS = $(subst physdevice,dll, $(TEMPLATE_VBoxGuestR0Drv_LDFLAGS))
+endif
+TEMPLATE_VBoxR0DrvIFS_SYSSUFF = .ifs
+TEMPLATE_VBoxR0DrvIFS_DLLSUFF = .ifs
+TEMPLATE_VBoxR0DrvIFS_ASTOOL = VBoxNasmDot
+
+
+#
+# The OS/2 shared folder installable file system driver (IFS).
+#
+SYSMODS += VBoxSF
+VBoxSF_TEMPLATE      = VBoxR0DrvIFS
+VBoxSF_DEFS          = VBOX_WITH_HGCM
+VBoxSF_INCS         := \
+	. \
+	$(PATH_ROOT)/src/VBox/Runtime/include
+ifdef VBOX_USE_WATCOM_FOR_OS2
+ VBoxSF_LDFLAGS     := \
+ 	OPTION MODNAME='VBoxSF' \
+ 	SEG TYPE CODE PRELOAD DYNAMIC SHARED NONPERMANENT, \
+ 	TYPE DATA PRELOAD DYNAMIC
+ #	OPTION DESCRIPTION "'VirtualBox Guest Additions Shared Folder FSD for OS/2.'" - quoting issues
+ # Data exports:
+ VBoxSF_LDFLAGS += \
+ 	EXPORT 'FS_ATTRIBUTE' \
+ 	EXPORT 'FS_NAME' \
+ 	EXPORT 'FS_MPSAFEFLAGS2' \
+ 	EXPORT 'FS32_ATTRIBUTE'
+ # 16-bit entry points.
+ VBoxSF_LDFLAGS += \
+ 	EXPORT 'FS_ALLOCATEPAGESPACE' \
+ 	EXPORT 'FS_ATTACH' \
+ 	EXPORT 'FS_CANCELLOCKREQUEST' \
+ 	EXPORT 'FS_CANCELLOCKREQUESTL' \
+ 	EXPORT 'FS_CHDIR' \
+ 	EXPORT 'FS_CHGFILEPTR' \
+ 	EXPORT 'FS_CLOSE' \
+ 	EXPORT 'FS_COMMIT' \
+ 	EXPORT 'FS_COPY' \
+ 	EXPORT 'FS_DELETE' \
+ 	EXPORT 'FS_DOPAGEIO' \
+ 	EXPORT 'FS_EXIT' \
+ 	EXPORT 'FS_FILEATTRIBUTE' \
+ 	EXPORT 'FS_FILEINFO' \
+ 	EXPORT 'FS_FILEIO' \
+ 	EXPORT 'FS_FILELOCKS' \
+ 	EXPORT 'FS_FILELOCKSL' \
+ 	EXPORT 'FS_FINDCLOSE' \
+ 	EXPORT 'FS_FINDFIRST' \
+ 	EXPORT 'FS_FINDFROMNAME' \
+ 	EXPORT 'FS_FINDNEXT' \
+ 	EXPORT 'FS_FINDNOTIFYCLOSE' \
+ 	EXPORT 'FS_FINDNOTIFYFIRST' \
+ 	EXPORT 'FS_FINDNOTIFYNEXT' \
+ 	EXPORT 'FS_FLUSHBUF' \
+ 	EXPORT 'FS_FSCTL' \
+ 	EXPORT 'FS_FSINFO' \
+ 	EXPORT 'FS_INIT' \
+ 	EXPORT 'FS_IOCTL' \
+ 	EXPORT 'FS_MKDIR' \
+ 	EXPORT 'FS_MOUNT' \
+ 	EXPORT 'FS_MOVE' \
+ 	EXPORT 'FS_NEWSIZE' \
+ 	EXPORT 'FS_NEWSIZEL' \
+ 	EXPORT 'FS_NMPIPE' \
+ 	EXPORT 'FS_OPENCREATE' \
+ 	EXPORT 'FS_OPENPAGEFILE' \
+ 	EXPORT 'FS_PATHINFO' \
+ 	EXPORT 'FS_PROCESSNAME' \
+ 	EXPORT 'FS_READ' \
+ 	EXPORT 'FS_RMDIR' \
+ 	EXPORT 'FS_SETSWAP' \
+ 	EXPORT 'FS_SHUTDOWN' \
+ 	EXPORT 'FS_VERIFYUNCNAME' \
+ 	EXPORT 'FS_WRITE'
+ # 32-bit entry points.
+ VBoxSF_LDFLAGS += \
+ 	EXPORT 'FS32_CHGFILEPTRL' \
+ 	EXPORT 'FS32_READ' \
+ 	EXPORT 'FS32_READFILEATCACHE' \
+ 	EXPORT 'FS32_RETURNFILECACHE' \
+ 	EXPORT 'FS32_WRITE'
+else
+ VBoxSF_LDFLAGS     := $(addprefix -Zlinker , \
+ 	SEG TYPE CODE PRELOAD DYNAMIC SHARED NONPERMANENT, \
+ 	TYPE DATA PRELOAD DYNAMIC)
+ #VBoxSF_LDFLAGS      += -s -t -v
+endif
+
+VBoxSF_SOURCES       = \
+	VBoxSFA.asm \
+	VBoxSF.cpp \
+	VBoxSFFile.cpp \
+	VBoxSFFind.cpp \
+	VBoxSFInit.cpp
+ifndef VBOX_USE_WATCOM_FOR_OS2
+ VBoxSF_SOURCES     += \
+ 	VBoxSF.def
+endif
+
+VBoxSFA.asm_DEFS    = VBOX_SVN_REV_STR="$(VBOX_SVN_REV)" VBOX_VERSION_STRING="$(VBOX_VERSION_STRING)"
+VBoxSFInit.cpp_DEFS = VBOX_SVN_REV=$(VBOX_SVN_REV)
+
+VBoxSF_LIBS          = \
+	$(VBOX_LIB_VBGL_R0) \
+	$(VBOX_LIB_IPRT_GUEST_R0)
+ifdef VBOX_USE_WATCOM_FOR_OS2
+ VBoxSF_LIBS        += $(PATH_IGCC)/lib/libend.lib
+else
+ VBoxSF_LIBS        += end
+endif
+
+
+#
+# Simple utility for attaching a shared folder to a drive letter.
+#
+PROGRAMS += VBoxSFUtil
+ifdef VBOX_USE_WATCOM_FOR_OS2
+ VBoxSFUtil_TEMPLATE = DUMMY
+ VBoxSFUtil_TOOL    = OPENWATCOM
+ VBoxSFUtil_ASTOOL  = NASM
+ VBoxSFUtil_ASFLAGS = -f obj -DASM_FORMAT_OMF
+ VBoxSFUtil_INCS    = $(PATH_TOOL_OPENWATCOM)/h/os2
+ VBoxSFUtil_LDFLAGS = -bcl=os2v2 #"IMPORT DosGlobalInfo doscalls.217"
+ VBoxSFUtil_DEFS    = $(DEFS) IN_RING3
+else
+ VBoxSFUtil_TEMPLATE = VBoxGuestR3Exe
+endif
+VBoxSFUtil_SOURCES  = \
+	VBoxSFUtil.cpp \
+	VBoxSFUtilA.asm
+
+#PROGRAMS += VBoxSFUtil16
+#VBoxSFUtil16_TEMPLATE = DUMMY
+#VBoxSFUtil16_TOOL     = OPENWATCOM-16
+#VBoxSFUtil16_ASTOOL   = NASM
+#VBoxSFUtil16_INCS     = $(PATH_TOOL_OPENWATCOM)/h/os2
+#VBoxSFUtil16_LDFLAGS  = -bcl=os2
+#VBoxSFUtil16_SOURCES  = VBoxSFUtil.cpp
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

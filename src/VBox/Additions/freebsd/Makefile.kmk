@@ -1,0 +1,195 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the FreeBSD guest additions base directory.
+#
+
+#
+# Copyright (C) 2008-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+ifneq ($(KBUILD_HOST),freebsd)
+ $(error "The FreeBSD guest additions installer can only be built on FreeBSD!")
+endif
+
+# Include sub-makefiles.
+#include $(PATH_SUB_CURRENT)/vboxvfs/Makefile.kmk
+include $(PATH_SUB_CURRENT)/drm/Makefile.kmk
+
+#
+# Globals
+#
+VBOX_FBSD_ADD_INS_OUT_DIR          := $(PATH_TARGET)/Additions/Installer/freebsd
+BLDDIRS                            += \
+	$(VBOX_FBSD_ADD_INS_OUT_DIR) \
+	$(VBOX_FBSD_ADD_INS_OUT_DIR)/module
+VBOX_PATH_FREEBSD_ADDITION_INSTALLER := $(PATH_SUB_CURRENT)/Installer
+VBOX_PATH_X11_ADDITION_INSTALLER     := $(PATH_ROOT)/src/VBox/Additions/x11/Installer
+
+
+#
+# Targets
+#
+ifndef VBOX_OSE
+ BLDDIRS     += $(VBOX_FBSD_ADD_INS_OUT_DIR) $(VBOX_FBSD_ADD_INS_OUT_DIR)/module
+ PACKING     += $(PATH_STAGE_BIN)/additions/VBoxFreeBSDAdditions.tbz
+ OTHER_CLEAN += $(PACKING)
+endif
+
+
+#
+# Files to install
+#
+VBOX_FBSD_ADD_STRIP_BIN = \
+	VBoxService \
+	VBoxClient \
+	VBoxControl \
+	vboxmouse_drv_70.so \
+	vboxmouse_drv_71.so \
+	vboxmouse_drv_14.so \
+	vboxmouse_drv_15.so \
+	vboxmouse_drv_16.so \
+	vboxmouse_drv_17.so \
+	vboxvideo_drv_70.so \
+	vboxvideo_drv_71.so \
+	vboxvideo_drv_13.so \
+	vboxvideo_drv_14.so \
+	vboxvideo_drv_15.so \
+	vboxvideo_drv_16.so \
+	vboxvideo_drv_17.so
+
+VBOX_FBSD_ADD_MODULES = \
+	vboxguest \
+	vboxvideo_drm
+
+#
+# All the bin files that go into the archives.
+#
+VBOX_FBSD_ADD_DBG_SYM_FILES := $(addsuffix .dbgsym,$(VBOX_FBSD_ADD_STRIP_BIN))
+VBOX_FBSD_ADD_INS_FILES := $(addprefix $(VBOX_FBSD_ADD_INS_OUT_DIR)/,$(VBOX_FBSD_ADD_STRIP_BIN) $(VBOX_FBSD_ADD_STRIP_OBJ) $(VBOX_FBSD_ADD_DBG_SYM_FILES))
+VBOX_FBSD_ADD_INS_MODULES := $(addprefix $(VBOX_FBSD_ADD_INS_OUT_DIR)/module/,$(VBOX_FBSD_ADD_MODULES))
+
+# Cleanup of the installer directory files
+OTHER_CLEAN += $(VBOX_FBSD_ADD_INS_FILES)) $(VBOX_FBSD_ADD_INS_MODULES)
+
+# pattern rule for copying the debug info from the VBOX_FBSD_ADD_STRIP_BIN files to the installation directory
+$(addprefix $(VBOX_FBSD_ADD_INS_OUT_DIR)/,$(VBOX_FBSD_ADD_DBG_SYM_FILES)): \
+		$(VBOX_FBSD_ADD_INS_OUT_DIR)/%.dbgsym : $(PATH_STAGE_BIN)/additions/% | $$(dir $$@)
+	$(call MSG_TOOL,copydbg,$<,$@)
+	$(QUIET)objcopy --only-keep-debug $< $@
+
+# pattern rule for stripping and copying the VBOX_FBSD_ADD_STRIP_BIN files to the installation directory
+$(addprefix $(VBOX_FBSD_ADD_INS_OUT_DIR)/,$(VBOX_FBSD_ADD_STRIP_BIN)): \
+		$(VBOX_FBSD_ADD_INS_OUT_DIR)/% : $(PATH_STAGE_BIN)/additions/% \
+		$(VBOX_FBSD_ADD_INS_OUT_DIR)/%.dbgsym \
+		| $$(dir $$@)
+	$(call MSG_INST_FILE,$<,$@)
+	$(QUIET)$(INSTALL) -m 0755 $(if $(VBOX_DO_STRIP),-s,) $< $@
+	$(QUIET)objcopy --add-gnu-debuglink=$(addsuffix .dbgsym,$@) $@
+
+# pattern rule for stripping and copying the VBOX_FBSD_ADD_STRIP_OBJ files to the installation directory
+$(addprefix $(VBOX_FBSD_ADD_INS_OUT_DIR)/,$(VBOX_FBSD_ADD_STRIP_OBJ)): \
+		$(VBOX_FBSD_ADD_INS_OUT_DIR)/% : $(PATH_STAGE_BIN)/additions/% | $$(dir $$@)
+	$(call MSG_INST_FILE,$<,$@)
+ifeq ($(VBOX_DO_STRIP),)
+	$(QUIET)$(INSTALL) -m 0644 $< $@
+else # strip to temp file because of umask.
+	$(QUIET)objcopy --strip-unneeded -R .comment $< $@.tmp
+	$(QUIET)$(INSTALL) -m 0644 $@.tmp $@
+	$(QUIET)$(RM) -f -- $@.tmp
+endif
+
+# pattern rule for copying the VBOX_FBSD_ADD_MODULES files to the installation directory
+$(VBOX_FBSD_ADD_INS_MODULES): \
+		$(VBOX_FBSD_ADD_INS_OUT_DIR)/module/% : $(PATH_STAGE_BIN)/additions/src/% | $(VBOX_FBSD_ADD_INS_OUT_DIR)/module/
+	$(call MSG_INST_FILE,$<,$@)
+# Remove target directories first, otherwise the behaviour of cp will not be
+# what we want if it already exists. See the cp manual page for more details.
+	$(QUIET)$(RM) -Rf $@
+	$(QUIET)cp -af $< $(VBOX_FBSD_ADD_INS_OUT_DIR)/module
+
+
+INSTALLS += $(if $(VBOX_OSE),, fbsd_add_inst-nobin)
+fbsd_add_inst-nobin_INST = obj/Additions/Installer/freebsd
+fbsd_add_inst-nobin_MODE = a+r,u+w
+fbsd_add_inst-nobin_SOURCES = \
+	../x11/Installer/98vboxadd-xclient \
+	../x11/Installer/vboxclient.desktop \
+	../x11/Installer/vboxvideo.ids \
+	../x11/Installer/x11config.pl \
+	../x11/Installer/x11config15.pl
+
+
+INSTALLS += GuestDrivers-src
+GuestDrivers-src_INST = bin/additions/src/
+GuestDrivers-src_MODE = a+r,u+w
+GuestDrivers-src_SOURCES = Makefile
+
+# this file needs editing before it can be included in the generic installer.
+$(VBOX_FBSD_ADD_INS_OUT_DIR)/install.sh: \
+		$(VBOX_PATH_FREEBSD_ADDITION_INSTALLER)/install.sh | $$(dir $$@)
+	$(QUIET)$(SED) \
+	    -e "s;_VERSION_;$(VBOX_VERSION_STRING);g" \
+	    -e "s;_BUILD_;$(shell date);g" \
+	    -e "s;_OSE_;$(VBOX_OSE);g" \
+	    -e "s;_BUILDTYPE_;$(KBUILD_TYPE);g" \
+	    -e "s;_ARCH_;$(KBUILD_TARGET_ARCH);g" \
+	    --output $(VBOX_FBSD_ADD_INS_OUT_DIR)/install_.sh \
+	    $<
+	$(QUIET)$(INSTALL) -m 0755 $(VBOX_FBSD_ADD_INS_OUT_DIR)/install_.sh $@
+	$(QUIET)$(RM) $(VBOX_FBSD_ADD_INS_OUT_DIR)/install_.sh
+OTHERS_CLEAN += $(VBOX_FBSD_ADD_INS_OUT_DIR)/install.sh
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+
+
+#
+# Build the FreeBSD Guest Additions installer package.
+#
+# Note that $(PATH_SUB_CURRENT) was changed by subfooter.kmk above and
+# any references should be made via variables assigned a know value via := .
+#
+# We need to depend on all source files for the additions and shared
+# folders kernel modules.
+## @todo Replace the wildcard stuff by the correct file lists now that
+#        we've got everything included.
+#
+$(PATH_STAGE_BIN)/additions/VBoxFreeBSDAdditions.tbz: \
+		$$(fbsd_add_inst-nobin_2_STAGE_TARGETS) \
+		$$(fbsd_add_inst-bin_2_STAGE_TARGETS) \
+		$(VBOX_FBSD_ADD_INS_FILES) \
+		$(VBOX_FBSD_ADD_INS_MODULES) \
+		$(VBOX_FBSD_ADD_INS_OUT_DIR)/install.sh \
+		$(wildcard $(PATH_STAGE_BIN)/additions/src/*) \
+		$(wildcard $(PATH_STAGE_BIN)/additions/src/*/*) \
+		$(wildcard $(PATH_STAGE_BIN)/additions/src/*/*/*) \
+		$(wildcard $(PATH_STAGE_BIN)/additions/src/*/*/*/*) \
+		$(VBOX_VERSION_STAMP) $(VBOX_SVN_REV_HEADER)
+	pkg_create \
+		-I $(VBOX_PATH_FREEBSD_ADDITION_INSTALLER)/install.sh \
+		-c $(VBOX_PATH_FREEBSD_ADDITION_INSTALLER)/pkg-comment \
+		-d $(VBOX_PATH_FREEBSD_ADDITION_INSTALLER)/pkg-descr \
+		-f $(VBOX_PATH_FREEBSD_ADDITION_INSTALLER)/pkg-plist \
+		$@
+

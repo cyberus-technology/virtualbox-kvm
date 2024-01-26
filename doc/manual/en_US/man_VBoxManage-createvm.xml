@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage createvm
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-createvm" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage createvm</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-createvm</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-createvm</refname>
+    <refpurpose>create a new virtual machine</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-createvm">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage createvm</command>
+      <arg choice="req">--name=<replaceable>name</replaceable></arg>
+      <arg>--basefolder=<replaceable>basefolder</replaceable></arg>
+      <arg>--default</arg>
+      <arg>--group=<replaceable>group-ID</replaceable>,...</arg>
+      <arg>--ostype=<replaceable>ostype</replaceable></arg>
+      <arg>--register</arg>
+      <arg>--uuid=<replaceable>uuid</replaceable></arg>
+      <arg>--cipher <replaceable>cipher</replaceable></arg>
+      <arg>--password-id <replaceable>password-id</replaceable></arg>
+      <arg>--password <replaceable>file</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage createvm</command> command creates a new
+      XML virtual machine (VM) definition file.
+    </para>
+    <para>
+      You must specify the name of the VM by using <option>--name
+      <replaceable>name</replaceable></option>. This name is used by
+      default as the name of the settings file that has the
+      <filename>.vbox</filename> extension and the machine folder, which
+      is a subfolder of the <filename>$HOME/VirtualBox VMs</filename>
+      directory.
+    </para>
+    <para>
+      The actual file name may not correspond directly to the VM name
+      if it violates the host OS file name requirements (such as using
+      the path separator or other reserved characters, they will be
+      substituted with a placeholder). If you later rename the VM, the
+      file and folder names will be updated to match the new name
+      automatically.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Command Options</title>
+    <para>
+      In addition to specifying the name or UUID of the VM, which is
+      required, you can specify any of the following options:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><option>--basefolder=<replaceable>basefolder</replaceable></option></term>
+        <listitem><para>
+            Specifies the name of the folder in which to save the
+            machine configuration file for the new VM.
+          </para><para>
+            Note that the names of the file and the folder do not change
+            if you rename the VM.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--default</option></term>
+        <listitem><para>
+            Applies a default hardware configuration for the specified
+            guest OS. By default, the VM is created with minimal
+            hardware.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--group=<replaceable>group-ID</replaceable>,...</option></term>
+        <listitem><para>
+            Assigns the VM to the specified groups. If you specify more
+            than one group, separate each group name with a comma.
+          </para><para>
+            Note that each group is identified by a group ID that starts
+            with a slash character (<literal>/</literal>) so that groups
+            can be nested. By default, a VM is always assigned
+            membership to the <literal>/</literal> group.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--ostype=<replaceable>ostype</replaceable></option></term>
+        <listitem><para>
+            Specifies the guest OS to run in the VM. Run the
+            <command>VBoxManage list ostypes</command> command to see
+            the available OS types.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--register</option></term>
+        <listitem><para>
+            Registers the VM with your &product-name; installation. By
+            default, the <command>VBoxManage createvm</command> command
+            creates only the XML configuration for the VM but does not
+            register the VM. If you do not register the VM at creation,
+            you can run the <command>VBoxManage registervm</command>
+            command after you create the VM.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--uuid=<replaceable>uuid</replaceable></option></term>
+        <listitem><para>
+            Specifies the Universally Unique Identifier (UUID) of the
+            VM. Ensure that this UUID is unique within the
+            &product-name; namespace of the host or of its VM group
+            memberships if you decide to register the VM. By default,
+            &product-name; provides the UUID.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--cipher <replaceable>cipher</replaceable></option></term>
+        <listitem><para>
+            Specifies the cipher to use for encryption. Valid values are
+            <literal>AES-128</literal> or
+            <literal>AES-256</literal>.
+          </para><para>
+            This option enables you to set up encryption on VM.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--password-id <replaceable>password-id</replaceable></option></term>
+        <listitem><para>
+            Specifies a new password identifier that is used for correct
+            identification when supplying multiple passwords for the VM.
+          </para><para>
+            This option enables you to set up encryption on VM.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--password <replaceable>file</replaceable></option></term>
+        <listitem><para>
+            Use the <option>--password</option> to supply the encryption
+            password of the VM. Either specify the absolute pathname of a
+            password file on the host operating system, or <literal>-</literal>
+            to prompt you for the password on the command line.
+          </para><para>
+            This option enables you to set up encryption on VM.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command creates a VM called <literal>vm2</literal>
+      where you plan to run a 64-bit version of Oracle Linux.
+    </para>
+<screen>$ VBoxManage createvm --name "vm2" --ostype "Oracle_64"</screen>
+    <para>
+      The following command creates and registers a VM called
+      <literal>vm3</literal>.
+    </para>
+<screen>$ VBoxManage createvm --name "vm3" --register</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <xref linkend="vboxmanage-list" />,
+      <xref linkend="vboxmanage-registervm" />
+    </para>
+  </refsect1>
+</refentry>

@@ -1,0 +1,311 @@
+diff -Nru TestFloat-3e-virgin/Makefile.kmk TestFloat-3e/Makefile.kmk
+--- TestFloat-3e-virgin/Makefile.kmk	1970-01-01 01:00:00.000000000 +0100
++++ TestFloat-3e/Makefile.kmk	2022-08-22 21:44:59.264546989 +0200
+@@ -0,0 +1,271 @@
++# $Id: TestFloat-3e-patch.diff $
++## @file
++# Sub-Makefile for TestFloat-3e.
++#
++
++#
++# Copyright (C) 2022 Oracle and/or its affiliates.
++#
++# This file is part of VirtualBox base platform packages, as
++# available from https://www.virtualbox.org.
++#
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License
++# as published by the Free Software Foundation, in version 3 of the
++# License.
++#
++# This program is distributed in the hope that it will be useful, but
++# WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++# General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, see <https://www.gnu.org/licenses>.
++#
++# SPDX-License-Identifier: GPL-3.0-only
++#
++
++SUB_DEPTH = ../../../..
++include $(KBUILD_PATH)/subheader.kmk
++
++#
++# Basis template for building test stuff.
++#
++TEMPLATE_VBoxTestFloat = Template for building SoftFloat-3e
++TEMPLATE_VBoxTestFloat_EXTENDS = VBoxR3DllNonPedantic
++TEMPLATE_VBoxTestFloat_SDKS    = $(TEMPLATE_VBoxR3DllNonPedantic_SDKS) VBOX_SOFTFLOAT
++TEMPLATE_VBoxTestFloat_DEFS    = $(TEMPLATE_VBoxR3DllNonPedantic_DEFS) \
++	FLOAT16 \
++	FLOAT64 \
++	EXTFLOAT80 \
++	FLOAT128 \
++	FLOAT_ROUND_ODD
++ifn1of ($(KBUILD_TARGET), win)
++TEMPLATE_VBoxTestFloat_DEFS.amd64 = $(TEMPLATE_VBoxR3DllNonPedantic_DEFS.amd64) LONG_DOUBLE_IS_EXTFLOAT80
++endif
++if1of ($(KBUILD_TARGET), win)
++ TEMPLATE_VBoxTestFloat_INCS.amd64 = ../build/Win-amd64-VCC $(TEMPLATE_VBoxR3DllNonPedantic_INCS.amd64)
++else
++ TEMPLATE_VBoxTestFloat_INCS.amd64 = build/Linux-x86_64-GCC $(TEMPLATE_VBoxR3DllNonPedantic_INCS.amd64)
++endif
++TEMPLATE_VBoxTestFloat_INCS = $(TEMPLATE_VBoxR3DllNonPedantic_INCS) \
++	source/subj-C \
++	source
++
++# -wd4068: test_a_ui32_z_f16.c(48): warning C4068: unknown pragma 'STDC'
++# -wd4146: primitives.h(74): warning C4146: unary minus operator applied to unsigned type, result still unsigned
++# -wd4715: genCases_f16.c(336) : warning C4715: 'f16Random': not all control paths return a value
++TEMPLATE_VBoxTestFloat_CFLAGS.win = $(TEMPLATE_VBoxR3DllNonPedantic_CFLAGS) -wd4068 -wd4146 -wd4715
++
++#
++# For linking test executables.
++#
++TEMPLATE_VBoxTestFloatExe = Template for building SoftFloat-3e programs.
++TEMPLATE_VBoxTestFloatExe_EXTENDS = VBoxTestFloat
++TEMPLATE_VBoxTestFloatExe_INST    = $(INST_TESTCASE)
++TEMPLATE_VBoxTestFloatExe_LIBS    = \
++	$(VBox-TestFloat_1_TARGET) \
++	$(TEMPLATE_VBoxTestFloat_LIBS)
++
++# -wd4098: testfloat.c(438): warning C4098: 'subjFunction_az_extF80_rx': 'void' function returning a value
++# -wd4102: testfloat.c(767): warning C4102: 'test_abz_f16': unreferenced label
++# -wd4701: testfloat.c(1410) : warning C4701: potentially uninitialized local variable 'roundingMode' used
++TEMPLATE_VBoxTestFloatExe_CFLAGS.win = $(TEMPLATE_VBoxTestFloat_CFLAGS.win) -wd4098 -wd4102 -wd4701
++
++
++#
++# Library.
++#
++LIBRARIES += VBox-TestFloat
++VBox-TestFloat_TEMPLATE    := VBoxTestFloat
++VBox-TestFloat_INSTTYPE    := none
++VBox-TestFloat_SOURCES     := \
++	source/uint128_inline.c \
++	source/uint128.c \
++	source/fail.c \
++	source/functions_common.c \
++	source/functionInfos.c \
++	source/standardFunctionInfos.c \
++	source/random.c \
++	source/genCases_common.c \
++	source/genCases_writeTestsTotal.c \
++	source/verCases_inline.c \
++	source/verCases_common.c \
++	source/verCases_writeFunctionName.c \
++	source/readHex.c \
++	source/writeHex.c \
++	source/writeCase_a_ui32.c \
++	source/writeCase_a_ui64.c \
++	source/writeCase_a_f16.c \
++	source/writeCase_ab_f16.c \
++	source/writeCase_abc_f16.c \
++	source/writeCase_a_f32.c \
++	source/writeCase_ab_f32.c \
++	source/writeCase_abc_f32.c \
++	source/writeCase_a_f64.c \
++	source/writeCase_ab_f64.c \
++	source/writeCase_abc_f64.c \
++	source/writeCase_a_extF80M.c \
++	source/writeCase_ab_extF80M.c \
++	source/writeCase_a_f128M.c \
++	source/writeCase_ab_f128M.c \
++	source/writeCase_abc_f128M.c \
++	source/writeCase_z_bool.c \
++	source/writeCase_z_ui32.c \
++	source/writeCase_z_ui64.c \
++	source/writeCase_z_f16.c \
++	source/writeCase_z_f32.c \
++	source/writeCase_z_f64.c \
++	source/writeCase_z_extF80M.c \
++	source/writeCase_z_f128M.c \
++	source/testLoops_common.c \
++       \
++	source/test_a_ui32_z_f16.c \
++	source/test_a_ui32_z_f32.c \
++	source/test_a_ui32_z_f64.c \
++	source/test_a_ui32_z_extF80.c \
++	source/test_a_ui32_z_f128.c \
++	source/test_a_ui64_z_f16.c \
++	source/test_a_ui64_z_f32.c \
++	source/test_a_ui64_z_f64.c \
++	source/test_a_ui64_z_extF80.c \
++	source/test_a_ui64_z_f128.c \
++	source/test_a_i32_z_f16.c \
++	source/test_a_i32_z_f32.c \
++	source/test_a_i32_z_f64.c \
++	source/test_a_i32_z_extF80.c \
++	source/test_a_i32_z_f128.c \
++	source/test_a_i64_z_f16.c \
++	source/test_a_i64_z_f32.c \
++	source/test_a_i64_z_f64.c \
++	source/test_a_i64_z_extF80.c \
++	source/test_a_i64_z_f128.c \
++	source/test_a_f16_z_ui32_rx.c \
++	source/test_a_f16_z_ui64_rx.c \
++	source/test_a_f16_z_i32_rx.c \
++	source/test_a_f16_z_i64_rx.c \
++	source/test_a_f16_z_ui32_x.c \
++	source/test_a_f16_z_ui64_x.c \
++	source/test_a_f16_z_i32_x.c \
++	source/test_a_f16_z_i64_x.c \
++	source/test_a_f16_z_f32.c \
++	source/test_a_f16_z_f64.c \
++	source/test_a_f16_z_extF80.c \
++	source/test_a_f16_z_f128.c \
++	source/test_az_f16.c \
++	source/test_az_f16_rx.c \
++	source/test_abz_f16.c \
++	source/test_abcz_f16.c \
++	source/test_ab_f16_z_bool.c \
++	source/test_a_f32_z_ui32_rx.c \
++	source/test_a_f32_z_ui64_rx.c \
++	source/test_a_f32_z_i32_rx.c \
++	source/test_a_f32_z_i64_rx.c \
++	source/test_a_f32_z_ui32_x.c \
++	source/test_a_f32_z_ui64_x.c \
++	source/test_a_f32_z_i32_x.c \
++	source/test_a_f32_z_i64_x.c \
++	source/test_a_f32_z_f16.c \
++	source/test_a_f32_z_f64.c \
++	source/test_a_f32_z_extF80.c \
++	source/test_a_f32_z_f128.c \
++	source/test_az_f32.c \
++	source/test_az_f32_rx.c \
++	source/test_abz_f32.c \
++	source/test_abcz_f32.c \
++	source/test_ab_f32_z_bool.c \
++	source/test_a_f64_z_ui32_rx.c \
++	source/test_a_f64_z_ui64_rx.c \
++	source/test_a_f64_z_i32_rx.c \
++	source/test_a_f64_z_i64_rx.c \
++	source/test_a_f64_z_ui32_x.c \
++	source/test_a_f64_z_ui64_x.c \
++	source/test_a_f64_z_i32_x.c \
++	source/test_a_f64_z_i64_x.c \
++	source/test_a_f64_z_f16.c \
++	source/test_a_f64_z_f32.c \
++	source/test_a_f64_z_extF80.c \
++	source/test_a_f64_z_f128.c \
++	source/test_az_f64.c \
++	source/test_az_f64_rx.c \
++	source/test_abz_f64.c \
++	source/test_abcz_f64.c \
++	source/test_ab_f64_z_bool.c \
++	source/test_a_extF80_z_ui32_rx.c \
++	source/test_a_extF80_z_ui64_rx.c \
++	source/test_a_extF80_z_i32_rx.c \
++	source/test_a_extF80_z_i64_rx.c \
++	source/test_a_extF80_z_ui32_x.c \
++	source/test_a_extF80_z_ui64_x.c \
++	source/test_a_extF80_z_i32_x.c \
++	source/test_a_extF80_z_i64_x.c \
++	source/test_a_extF80_z_f16.c \
++	source/test_a_extF80_z_f32.c \
++	source/test_a_extF80_z_f64.c \
++	source/test_a_extF80_z_f128.c \
++	source/test_az_extF80.c \
++	source/test_az_extF80_rx.c \
++	source/test_abz_extF80.c \
++	source/test_ab_extF80_z_bool.c \
++	source/test_a_f128_z_ui32_rx.c \
++	source/test_a_f128_z_ui64_rx.c \
++	source/test_a_f128_z_i32_rx.c \
++	source/test_a_f128_z_i64_rx.c \
++	source/test_a_f128_z_ui32_x.c \
++	source/test_a_f128_z_ui64_x.c \
++	source/test_a_f128_z_i32_x.c \
++	source/test_a_f128_z_i64_x.c \
++	source/test_a_f128_z_f16.c \
++	source/test_a_f128_z_f32.c \
++	source/test_a_f128_z_f64.c \
++	source/test_a_f128_z_extF80.c \
++	source/test_az_f128.c \
++	source/test_az_f128_rx.c \
++	source/test_abz_f128.c \
++	source/test_abcz_f128.c \
++	source/test_ab_f128_z_bool.c \
++       \
++	source/genCases_ui32.c \
++	source/genCases_ui64.c \
++	source/genCases_i32.c \
++	source/genCases_i64.c \
++	source/genCases_f16.c \
++	source/genCases_f32.c \
++	source/genCases_f64.c \
++	source/genCases_extF80.c \
++	source/genCases_f128.c
++
++
++PROGRAMS += tstTestFloat
++tstTestFloat_TEMPLATE = VBoxTestFloatExe
++tstTestFloat_SOURCES  = \
++	source/testfloat.c \
++	source/subjfloat_functions.c \
++	source/subj-C/subjfloat.c
++
++PROGRAMS += tstTestFloatVer
++tstTestFloatVer_TEMPLATE = VBoxTestFloatExe
++tstTestFloatVer_SOURCES  = \
++	source/testfloat_ver.c \
++	source/verLoops.c
++
++PROGRAMS += tstTestFloatGen
++tstTestFloatGen_TEMPLATE = VBoxTestFloatExe
++tstTestFloatGen_SOURCES  = \
++	source/testfloat_gen.c \
++       source/genLoops.c
++
++PROGRAMS += tstTestFloatTime
++tstTestFloatTime_TEMPLATE = VBoxTestFloatExe
++tstTestFloatTime_SOURCES  = \
++	source/timesoftfloat.c
++tstTestFloatTime_CFLAGS.win = -wd4459 # timesoftfloat.c(4201): warning C4459: declaration of 'exact' hides global declaration
++
++PROGRAMS += tstTestFloat2
++tstTestFloat2_TEMPLATE = VBoxTestFloatExe
++tstTestFloat2_SOURCES  = \
++	source/testsoftfloat.c \
++	source/slowfloat.c
++
++include $(FILE_KBUILD_SUB_FOOTER)
++
+diff -Nru TestFloat-3e-virgin/source/testfloat.c TestFloat-3e/source/testfloat.c
+--- TestFloat-3e-virgin/source/testfloat.c	2018-01-19 22:41:28.000000000 +0100
++++ TestFloat-3e/source/testfloat.c	2022-04-06 02:07:07.033310000 +0200
+@@ -1353,7 +1353,7 @@
+     bool standardFunctionHasFixedRounding;
+     int roundingCode;
+     bool exact;
+-    uint_fast8_t roundingPrecision, roundingMode;
++    uint_fast8_t roundingPrecision, roundingMode = 0;
+ 
+     functionCode = standardFunctionInfoPtr->functionCode;
+     functionAttribs = functionInfos[functionCode].attribs;
+diff -Nru TestFloat-3e-virgin/source/testsoftfloat.c TestFloat-3e/source/testsoftfloat.c
+--- TestFloat-3e-virgin/source/testsoftfloat.c	2018-01-18 18:19:08.000000000 +0100
++++ TestFloat-3e/source/testsoftfloat.c	2022-04-06 02:07:28.791453300 +0200
+@@ -793,7 +793,7 @@
+     int functionAttribs;
+     uint_fast8_t roundingPrecision;
+     int roundingCode;
+-    uint_fast8_t roundingMode;
++    uint_fast8_t roundingMode = 0;
+     int exactCode;
+     bool exact;
+     int tininessCode;
+diff -Nru TestFloat-3e-virgin/source/timesoftfloat.c TestFloat-3e/source/timesoftfloat.c
+--- TestFloat-3e-virgin/source/timesoftfloat.c	2018-01-18 18:19:08.000000000 +0100
++++ TestFloat-3e/source/timesoftfloat.c	2022-04-06 02:01:34.386232700 +0200
+@@ -4794,7 +4794,7 @@
+  )
+ {
+     int functionAttribs, exactCode;
+-    uint_fast8_t roundingMode, tininessMode;
++    uint_fast8_t roundingMode = softfloat_round_near_even, tininessMode;
+ 
+     functionNamePtr = functionInfos[functionCode].namePtr;
+     functionAttribs = functionInfos[functionCode].attribs;

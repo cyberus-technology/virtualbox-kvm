@@ -1,0 +1,78 @@
+=head1 NAME
+
+TPM_IO_Hash_Start   - indicate the beginging of a TPM TIS hash operation
+
+TPM_IO_Hash_Data    - hash the provided data
+
+TPM_IO_Hash_End     - indicate the end of a TPM TIS hash operation
+
+=head1 LIBRARY
+
+TPM library (libtpms, -ltpms)
+
+=head1 SYNOPSIS
+
+B<#include <libtpms/tpm_types.h>>
+
+B<#include <libtpms/tpm_tis.h>>
+
+B<#include <libtpms/tpm_error.h>>
+
+B<TPM_RESULT TPM_IO_Hash_Start(void);>
+
+B<TPM_RESULT TPM_IO_Hash_Data(const unsigned char> *I<data>B<,
+                            uint32_t> I<data_length>B<);>
+
+B<TPM_RESULT TPM_IO_Hash_End(void);>
+
+=head1 DESCRIPTION
+
+The B<TPM_IO_Hash_Start()> function can be used by an implementation of the
+TPM TIS hardware interface to indicate the beginning of a hash operation.
+Following the TPM TIS interface specification it resets several PCRs and
+terminates existing transport sessions. 
+The B<TPM_IO_Hash_Data()> function is used to send the data to be hashed to
+the TPM.
+The B<TPM_IO_Hash_End()> function calculates the final hash and stores it
+in the locality 4 PCR.
+The 3 functions must be called in the order they were explained.
+
+The implementation of the above functions handles all TPM-internal actions
+such as the setting and clearing of permanent flags and PCRs and the
+calculation of the hash. Any functionality related to the TPM's TIS interface
+and the handling of flags, locality and state has to be implemented by the
+caller.
+
+=head1 ERRORS
+
+=over 4
+
+=item B<TPM_SUCCESS>
+
+The function completed successfully.
+
+=item B<TPM_FAIL>
+
+General failure.
+
+=item B<TPM_INVALID_POSTINIT>
+
+The B<TPM_IO_Hash_Start()> function was called before the TPM received
+a TPM_Startup command.
+
+=item B<TPM_SHA_THREAD>
+
+The B<TPM_IO_Hash_Data()> or B<TPM_IO_Hash_End()> functions were called before
+the B<TPM_IO_Hash_Start()> function.
+
+=back
+
+For a complete list of TPM error codes please consult the include file
+B<libtpms/tpm_error.h>
+
+=head1 SEE ALSO
+
+B<TPMLIB_MainInit>(3), B<TPMLIB_Terminate>(3), B<TPMLIB_RegisterCallbacks>(3),
+B<TPMLIB_Process>(3)
+
+=cut

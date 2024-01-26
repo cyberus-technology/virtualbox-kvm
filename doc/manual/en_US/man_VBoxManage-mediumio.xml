@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage mediumio
+-->
+<!--
+    Copyright (C) 2018-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-mediumio" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage mediumio</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-mediumio</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-mediumio</refname>
+    <refpurpose>medium content access</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-mediumio-formatfat"> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage mediumio</command>
+      <group choice="req">
+        <arg choice="plain">--disk=<replaceable>uuid|filename</replaceable></arg>
+        <arg choice="plain">--dvd=<replaceable>uuid|filename</replaceable></arg>
+        <arg choice="plain">--floppy=<replaceable>uuid|filename</replaceable></arg>
+      </group>
+      <arg>--password-file=<replaceable>-|filename</replaceable></arg>
+      <arg choice="plain">formatfat</arg>
+      <arg>--quick</arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-mediumio-cat">
+      <command>VBoxManage mediumio</command>
+      <group choice="req">
+        <arg choice="plain">--disk=<replaceable>uuid|filename</replaceable></arg>
+        <arg choice="plain">--dvd=<replaceable>uuid|filename</replaceable></arg>
+        <arg choice="plain">--floppy=<replaceable>uuid|filename</replaceable></arg>
+      </group>
+      <arg>--password-file=<replaceable>-|filename</replaceable></arg>
+      <arg choice="plain">cat</arg>
+      <arg>--hex</arg>
+      <arg>--offset=<replaceable>byte-offset</replaceable></arg>
+      <arg>--size=<replaceable>bytes</replaceable></arg>
+      <arg>--output=<replaceable>-|filename</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-mediumio-stream">
+      <command>VBoxManage mediumio</command>
+      <group choice="req">
+        <arg choice="plain">--disk=<replaceable>uuid|filename</replaceable></arg>
+        <arg choice="plain">--dvd=<replaceable>uuid|filename</replaceable></arg>
+        <arg choice="plain">--floppy=<replaceable>uuid|filename</replaceable></arg>
+      </group>
+      <arg>--password-file=<replaceable>-|filename</replaceable></arg>
+      <arg choice="plain">stream</arg>
+      <arg>--format=<replaceable>image-format</replaceable></arg>
+      <arg>--variant=<replaceable>image-variant</replaceable></arg>
+      <arg>--output=<replaceable>-|filename</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <refsect2 id="vboxmanage-mediumio-common-options">
+      <title>Common options</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para>The subcommands of <command>mediumio</command> all operate on a medium which need to be specified, optionally
+        with an encryption password.  The following common options can be placed before or after the sub-command:</para>
+      <variablelist>
+        <varlistentry>
+          <term>--disk=<replaceable>uuid|filename</replaceable></term>
+          <listitem><para>Either the UUID or filename of a harddisk image, e.g. VDI, VMDK, VHD, ++.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--dvd=<replaceable>uuid|filename</replaceable></term>
+          <listitem><para>Either the UUID or filename of a DVD image, e.g. ISO, DMG, CUE.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--floppy=<replaceable>uuid|filename</replaceable></term>
+          <listitem><para>Either the UUID or filename of a floppy image, e.g. IMG.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--password-file=<replaceable>-|filename</replaceable></term>
+          <listitem><para>The name of a file containing the medium encryption password.  If <option>-</option>
+            is specified, the password will be read from stdin. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-mediumio-formatfat">
+      <title>mediumio formatfat</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Formats a floppy medium with the FAT file system. This will erase the
+        content of the medium.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--quick</option></term><listitem><para>Quickformat the medium.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-mediumio-cat">
+      <title>mediumio cat</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Dumps the medium content to stdout or the specified file.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--hex</option></term><listitem><para>Dump as hex bytes.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--offset</option></term><listitem><para>The byte offset in the medium to start.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--size</option></term><listitem><para>The number of bytes to dump.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--output</option></term>
+          <listitem><para>The output filename.  As usual <option>-</option> is take to mean stdout.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-mediumio-stream">
+      <title>mediumio stream</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Converts the medium to a streamable format and dumps it to the given output.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--format</option></term><listitem><para>The format of the destination image.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--variant</option></term><listitem><para>The medium variant for the destination.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--output</option></term>
+          <listitem><para>The output filename.  As usual <option>-</option> is take to mean stdout.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+  </refsect1>
+
+</refentry>
+

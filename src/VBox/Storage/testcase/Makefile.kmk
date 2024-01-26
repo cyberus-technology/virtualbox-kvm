@@ -1,0 +1,236 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the storage device & driver testcases.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Basic testcases for the VD code.
+#
+ifdef VBOX_WITH_TESTCASES
+ PROGRAMS += tstVD tstVD-2 tstVDSnap tstVDFill
+
+ tstVD_TEMPLATE = VBoxR3TstExe
+ tstVD_SOURCES = tstVD.cpp
+ tstVD_LIBS = $(LIB_DDU)
+
+ tstVD-2_TEMPLATE = VBoxR3TstExe
+ tstVD-2_SOURCES  = tstVD-2.cpp
+ tstVD-2_LIBS = $(LIB_DDU)
+
+ tstVDFill_TEMPLATE = VBoxR3TstExe
+ tstVDFill_SOURCES  = tstVDFill.cpp
+ tstVDFill_LIBS = $(LIB_DDU)
+
+ PROGRAMS += tstVDIo
+
+ #
+ # VD I/O test scripts to built in -> .cpp
+ #
+ TSTVDIO_BUILTIN_TESTS_FILE = $(tstVDIo_0_OUTDIR)/BuiltinTests.cpp
+ TSTVDIO_BUILTIN_TESTS := \
+ 	tstVDIo=tstVDIo.vd \
+ 	tstVDResize=tstVDResize.vd \
+ 	tstVDCompact=tstVDCompact.vd \
+ 	tstVDCopy=tstVDCopy.vd \
+ 	tstVDDiscard=tstVDDiscard.vd \
+ 	tstVDShareable=tstVDShareable.vd
+ TSTVDIO_BUILTIN_TEST_NAMES := $(foreach test,$(TSTVDIO_BUILTIN_TESTS),$(firstword $(subst =,$(SPACE) ,$(test))))
+ TSTVDIO_PATH_TESTS := $(PATH_SUB_CURRENT)
+
+ # 1=name, 2=filter
+ TSTVDIO_GEN_TEST_MACRO = 'TSTVDIOTESTENTRY const g_a$(1)[] =' '{' \
+ 	$(foreach testnm,$(filter $(2),$(TSTVDIO_BUILTIN_TEST_NAMES)), '    TSTVDIOTESTENTRY_GEN($(testnm), g_ab$(testnm)),') \
+ 	'};' 'unsigned const g_c$(1) = RT_ELEMENTS(g_a$(1));' '' ''
+
+ $$(TSTVDIO_BUILTIN_TESTS_FILE): $(MAKEFILE_CURRENT) \
+ 		$(foreach test,$(TSTVDIO_BUILTIN_TESTS),$(TSTVDIO_PATH_TESTS)/$(lastword $(subst =,$(SPACE) ,$(test)))) \
+ 		$(VBOX_BIN2C) \
+ 		| $$(dir $$@)
+	$(QUIET)$(RM) -f -- $@ $@.vd
+	$(QUIET)$(APPEND) -n "$@" \
+		'' \
+		'#include "BuiltinTests.h"' \
+		''
+	$(foreach test,$(TSTVDIO_BUILTIN_TESTS), $(NLTAB)$(VBOX_BIN2C) -ascii --append --no-size \
+		"$(firstword $(subst =,$(SP) ,$(test)))" \
+		"$(TSTVDIO_PATH_TESTS)/$(lastword $(subst =,$(SP) ,$(test)))" \
+		"$@")
+
+ # Generate test lists.
+	$(QUIET)$(APPEND) -n "$@" '' \
+               $(call TSTVDIO_GEN_TEST_MACRO,VDIoTests,%) \
+
+ tstVDIo_TEMPLATE = VBoxR3TstExe
+ tstVDIo_INCS := $(PATH_SUB_CURRENT)
+
+ ifdef VBOX_TSTVDIO_WITH_LOG_REPLAY
+  tstVDIo_DEFS += VBOX_TSTVDIO_WITH_LOG_REPLAY
+ endif
+
+ tstVDIo_SOURCES  = \
+ 	tstVDIo.cpp \
+ 	VDIoBackend.cpp \
+ 	VDIoBackendMem.cpp \
+ 	VDMemDisk.cpp \
+ 	VDIoRnd.cpp \
+ 	VDScript.cpp \
+ 	VDScriptAst.cpp \
+ 	VDScriptChecker.cpp \
+ 	VDScriptInterp.cpp \
+ 	$(TSTVDIO_BUILTIN_TESTS_FILE)
+ tstVDIo_LIBS = \
+ 	$(LIB_DDU)
+ tstVDIo_CLEAN = \
+ 	$(TSTVDIO_BUILTIN_TESTS_FILE)
+ tstVDSnap_TEMPLATE = VBoxR3TstExe
+ tstVDSnap_LIBS = $(LIB_DDU)
+ tstVDSnap_SOURCES  = tstVDSnap.cpp
+endif
+
+if defined(VBOX_WITH_TESTCASES) || defined(VBOX_WITH_VBOX_IMG)
+ PROGRAMS += vbox-img
+
+ #
+ # vbox-img - static because it might be used as a standalone tool.
+ #
+ ifneq ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH),solaris.sparc32 solaris.sparc64)
+  vbox-img_TEMPLATE := VBoxR3Exe
+  vbox-img_DEFS    := IN_VBOXDDU IN_VBOXDDU_STATIC VBOX_HDD_NO_DYNAMIC_BACKENDS
+ else
+  vbox-img_TEMPLATE := VBoxR3Static
+  vbox-img_DEFS    := IN_VBOXDDU IN_VBOXDDU_STATIC VBOX_HDD_NO_DYNAMIC_BACKENDS
+ endif
+ vbox-img_INCS     := \
+ 	../../Main/include
+ vbox-img_SOURCES  := \
+ 	vbox-img.cpp \
+ 	../VD.cpp \
+ 	../VDPlugin.cpp \
+ 	../VDVfs.cpp \
+ 	../VDI.cpp \
+ 	../VMDK.cpp \
+ 	../VHD.cpp \
+ 	../DMG.cpp \
+ 	../Parallels.cpp \
+ 	../ISCSI.cpp \
+ 	../RAW.cpp \
+ 	../QED.cpp \
+ 	../QCOW.cpp \
+ 	../VHDX.cpp \
+ 	../CUE.cpp \
+ 	../VISO.cpp \
+ 	../VCICache.cpp \
+ 	../VDIfVfs.cpp
+ vbox-img_SOURCES.win = \
+ 	vbox-img.rc
+ ifeq ($(vbox-img_TEMPLATE),VBoxR3Exe)
+  vbox-img_LIBS = \
+  	$(LIB_RUNTIME)
+  ifeq ($(KBUILD_TARGET),freebsd)
+   vbox-img_LIBS += geom bsdxml sbuf
+  else ifeq ($(KBUILD_TARGET),solaris)
+   vbox-img_LIBS += kstat efi
+  endif
+
+ else
+  vbox-img_LIBS = \
+  	$(VBOX_LIB_RUNTIME_STATIC)
+  if1of ($(KBUILD_TARGET), os2 win)
+   vbox-img_LIBS += \
+   	$(SDK_VBoxLzf_STATIC_LIBS) \
+   	$(SDK_VBoxZlibStatic_LIBS)
+  else
+   vbox-img_LIBS += \
+   	$(SDK_VBoxLzf_LIBS) \
+   	$(SDK_VBoxZlib_LIBS)
+  endif
+  ifeq ($(KBUILD_TARGET),linux)
+   ifdef SDK_VBoxLibXml2_LIBS
+    vbox-img_LIBS += xml2
+   endif
+  else ifeq ($(KBUILD_TARGET),freebsd)
+   vbox-img_LIBS += iconv geom bsdxml sbuf
+   ifdef SDK_VBoxLibXml2_LIBS
+    vbox-img_LIBS += xml2 lzma
+   endif
+  else ifeq ($(KBUILD_TARGET),darwin)
+   vbox-img_LIBS += iconv
+  else ifeq ($(KBUILD_TARGET),win)
+   vbox-img_SDKS.win = VBoxNtDll
+  else ifeq ($(KBUILD_TARGET),solaris)
+   vbox-img_LIBS += kstat efi
+   ifdef SDK_VBoxLibXml2_LIBS
+    vbox-img_LIBS += xml2
+   endif
+  endif
+ endif
+
+endif
+
+if   defined(VBOX_WITH_TESTCASES) && defined(VBOX_WITH_PLUGIN_CRYPT) \
+  && defined(VBOX_WITH_EXTPACK_PUEL) && defined(VBOX_WITH_EXTPACK_PUEL_BUILD) \
+  && defined(VBOX_WITH_VDKEYSTOREMGR)
+ PROGRAMS += vdkeystoremgr
+
+ #
+ # vdkeystoremgr - static because it might be used as a standalone tool.
+ #
+ vdkeystoremgr_TEMPLATE = VBoxR3Static
+ vdkeystoremgr_DEFS += IN_VBOXDDU IN_VBOXDDU_STATIC VBOX_HDD_NO_DYNAMIC_BACKENDS
+ vdkeystoremgr_SOURCES = \
+ 	vdkeystoremgr.cpp \
+ 	../VDKeyStore.cpp
+ vdkeystoremgr_SOURCES.win = \
+ 	vdkeystoremgr_SOURCES.rc
+ vdkeystoremgr_LIBS = \
+ 	$(VBOX_LIB_RUNTIME_STATIC) \
+ 	$(PATH_STAGE_LIB)/SUPR3$(VBOX_SUFF_LIB)
+ if1of ($(KBUILD_TARGET), os2 win)
+  vdkeystoremgr_LIBS += \
+  	$(SDK_VBoxLzf_STATIC_LIBS) \
+  	$(SDK_VBoxZlibStatic_LIBS)
+ else
+  vdkeystoremgr_LIBS += \
+  	$(SDK_VBoxLzf_LIBS) \
+  	$(SDK_VBoxZlib_LIBS)
+ endif
+ ifeq ($(KBUILD_TARGET),linux)
+  ifdef SDK_VBoxLibXml2_LIBS
+   vdkeystoremgr_LIBS += xml2
+  endif
+ else if1of ($(KBUILD_TARGET), darwin freebsd)
+  vdkeystoremgr_LIBS += iconv
+ else ifeq ($(KBUILD_TARGET),win)
+  vdkeystoremgr_SDKS.win = VBoxNtDll
+ else ifeq ($(KBUILD_TARGET),solaris)
+  vdkeystoremgr_LIBS += kstat
+ endif
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,561 @@
+# $Id: VCC142.kmk 3553 2022-01-29 02:59:56Z bird $
+## @file
+# kBuild Tool Config - Visual C++ 14.2 (aka Visual 2019 and MSC v19.20), default target.
+#
+
+#
+# Copyright (c) 2004-2020 knut st. osmundsen <bird-kBuild-spam-xx@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_VCC142 := Visual C++ 14.2 (aka Visual 2019 and MSC v19.20), targeting $(KBUILD_TARGET).
+
+ifndef INCLUDED_WIN_COMMON_KMK
+ include $(KBUILD_PATH)/win-common.kmk
+endif
+
+#
+# Tool Specific Properties
+#
+ifndef PATH_TOOL_VCC142
+ PATH_TOOL_VCC142 := $(firstfile $(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS)/win.amd64/vcc/v14.2*/Tools/MSVC/14.2?.*)))
+ ifeq ($(PATH_TOOL_VCC142),)
+  PATH_TOOL_VCC142 := $(firstfile $(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS)/win.x86/vcc/v14.2*/Tools/MSVC/14.2?.*)))
+ endif
+ ifeq ($(PATH_TOOL_VCC142),)
+  PATH_TOOL_VCC142 := $(PATH_TOOL_VCC142X86)
+ endif
+ ifeq ($(PATH_TOOL_VCC142),)
+  PATH_TOOL_VCC142 := $(PATH_TOOL_VCC142)
+ endif
+ ifeq ($(PATH_TOOL_VCC142),)
+  PATH_TOOL_VCC142 := $(firstfile $(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS)/win.x86/vcc/v14.2*/Tools/MSVC/14.2?.*)))
+  ifeq ($(PATH_TOOL_VCC142),)
+   PATH_TOOL_VCC142 := $(firstfile $(foreach ver,2019,$(foreachfile progfilesdir,$(WINCMN_PROGRAM_FILES_LIST)\
+   	, $(rversortfiles $(qwildcard ,$(progfilesdir)/Microsoft\ Visual\ Studio/$(ver)/BuildTools/VC/Tools/MSVC/14.2?.*)))))
+   ifeq ($(PATH_TOOL_VCC142),)
+    $(warning kBuild: PATH_TOOL_VCC142 cannot be determined!)
+    PATH_TOOL_VCC142 := $(KBUILD_DEVTOOLS)/win.x86/vcc/v142
+   endif
+  endif
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_TOOL_VCC142 := $(PATH_TOOL_VCC142)
+endif
+
+ifndef PATH_TOOL_VCC142_BASE_BIN
+PATH_TOOL_VCC142_BASE_BIN := $(PATH_TOOL_VCC142)/bin
+endif
+ifndef PATH_TOOL_VCC142_HOST_BIN
+PATH_TOOL_VCC142_HOST_BIN := $(PATH_TOOL_VCC142_BASE_BIN)/Host$(WINCMN_MAP_ARCH.$(KBUILD_HOST_ARCH))
+endif
+ifndef PATH_TOOL_VCC142_BIN
+PATH_TOOL_VCC142_BIN      := $(PATH_TOOL_VCC142_HOST_BIN)/$(WINCMN_MAP_ARCH.$(KBUILD_TARGET_ARCH))
+endif
+PATH_TOOL_VCC142_BIN_QSH  := $(requote sh,$(PATH_TOOL_VCC142_BIN))
+
+# A bunch of DLLs are only in the subdir matching the host one, so we need to add it to the PATH when cross compiling.
+ifndef PATH_TOOL_VCC142_HOST_DLL_BIN
+PATH_TOOL_VCC142_HOST_DLL_BIN := $(PATH_TOOL_VCC142_HOST_BIN)/$(WINCMN_MAP_ARCH.$(KBUILD_HOST_ARCH))
+endif
+ifndef PATH_TOOL_VCC142_DLL_BIN
+ ifneq ($(PATH_TOOL_VCC142_HOST_DLL_BIN),$(PATH_TOOL_VCC142_BIN))
+PATH_TOOL_VCC142_DLL_BIN      := $(PATH_TOOL_VCC142_HOST_DLL_BIN)
+ endif
+endif
+
+PATH_TOOL_VCC142_LIB.amd64         ?= $(PATH_TOOL_VCC142)/lib/x64
+PATH_TOOL_VCC142_LIB.arm32         ?= $(PATH_TOOL_VCC142)/lib/arm
+PATH_TOOL_VCC142_LIB.arm64         ?= $(PATH_TOOL_VCC142)/lib/arm64
+PATH_TOOL_VCC142_LIB.x86           ?= $(PATH_TOOL_VCC142)/lib/x86
+
+PATH_TOOL_VCC142_ONECORE_LIB.amd64 ?= $(PATH_TOOL_VCC142)/lib/onecore/x64
+PATH_TOOL_VCC142_ONECORE_LIB.arm32 ?= $(PATH_TOOL_VCC142)/lib/onecore/arm
+PATH_TOOL_VCC142_ONECORE_LIB.arm64 ?= $(PATH_TOOL_VCC142)/lib/onecore/arm64
+PATH_TOOL_VCC142_ONECORE_LIB.x86   ?= $(PATH_TOOL_VCC142)/lib/onecore/x86
+
+PATH_TOOL_VCC142_INC               ?= $(PATH_TOOL_VCC142)/include
+
+PATH_TOOL_VCC142_ATLMFC            ?= $(PATH_TOOL_VCC142)/atlmfc
+PATH_TOOL_VCC142_ATLMFC_INC        ?= $(PATH_TOOL_VCC142_ATLMFC)/include
+PATH_TOOL_VCC142_ATLMFC_LIB.x86    ?= $(PATH_TOOL_VCC142_ATLMFC)/lib/x86
+PATH_TOOL_VCC142_ATLMFC_LIB.amd64  ?= $(PATH_TOOL_VCC142_ATLMFC)/lib/x64
+
+TOOL_VCC142_CC      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/cl.exe
+TOOL_VCC142_CXX     ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/cl.exe
+ifeq ($(KBUILD_TARGET_ARCH),x86)
+TOOL_VCC142_AS      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/ml.exe
+else
+TOOL_VCC142_AS      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/ml64.exe
+endif
+#TOOL_VCC142_AR      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/lib.exe - just an exec wrapper for the below
+TOOL_VCC142_AR      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/link.exe /LIB
+TOOL_VCC142_LD      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/link.exe
+TOOL_VCC142_DUMPBIN ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/dumpbin.exe
+TOOL_VCC142_EDITBIN ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC142_BIN_QSH)/editbin.exe
+
+TOOL_VCC142_RC  ?= $(EXEC_X86_WIN32) $(call TOOL_VCC142_FN_FIND_SDK_TOOL,rc.exe,[Rr][Cc].[Ee][Xx][Ee],TOOL_VCC142_RC_CACHED)
+TOOL_VCC142_MT  ?= $(EXEC_X86_WIN32) $(call TOOL_VCC142_FN_FIND_SDK_TOOL,mt.exe,[Mm][Tt].[Ee][Xx][Ee],TOOL_VCC142_MT_CACHED)
+
+ifdef TOOL_VCC142_USE_KSUBMIT
+ ifeq ($(KBUILD_HOST),win)
+  ifeq ($(findstring /HostX86/,$(PATH_TOOL_VCC142AMD64_BIN)),/HostX86/)
+   TOOL_VCC142_KSUBMIT ?= kmk_builtin_kSubmit --32-bit
+  else
+   TOOL_VCC142_KSUBMIT ?= kmk_builtin_kSubmit --64-bit
+  endif
+  ifdef PATH_TOOL_VCC142_DLL_BIN
+   TOOL_VCC142_KSUBMIT := $(TOOL_VCC142_KSUBMIT) --prepend "PATH=$(requote shell-in-dq,$(PATH_TOOL_VCC142_DLL_BIN));"
+  endif
+  TOOL_VCC142_KSUBMIT_DD := $(TOOL_VCC142_KSUBMIT) --
+ endif
+endif
+ifdef PATH_TOOL_VCC142_DLL_BIN
+ TOOL_VCC142_SETUP_ENV   := $(REDIRECT) --prepend "PATH=$(requote shell-in-dq,$(PATH_TOOL_VCC142_DLL_BIN));" --$(SP)
+ ifndef TOOL_VCC142_KSUBMIT_DD
+  TOOL_VCC142_KSUBMIT_DD := $(TOOL_VCC142_SETUP_ENV)
+ endif
+endif
+
+
+## Helper for finding rc.exe and mt.exe in the SDK.
+TOOL_VCC142_FN_FIND_SDK_TOOL_SUB = $(eval $3 := $(qfirstfile sh,\
+       $(if-expr defined(PATH_SDK_WINSDK10_BIN) , $(qwildcard ,$(PATH_SDK_WINSDK10_BIN)/$2)) \
+       $(if-expr defined(PATH_SDK_WINPSDK71_BIN), $(qwildcard ,$(PATH_SDK_WINPSDK71_BIN)/$2)) \
+       $(if-expr defined(PATH_SDK_WINPSDK_BIN)  , $(qwildcard ,$(PATH_SDK_WINPSDK_BIN)/$2)) \
+	$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST)/sdk/*/[Bb][Ii][Nn]/$2)) \
+	$(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST_ALT)/sdk/*/[Bb][Ii][Nn]/$2)) \
+	$1))
+TOOL_VCC142_FN_FIND_SDK_TOOL = $(if-expr !defined($3),$(TOOL_VCC142_FN_FIND_SDK_TOOL_SUB),)$($3)
+
+## Constructs the correct .pdb name (the name is lowercased).
+# @param    $(1)        Base name, no extention.
+# @param    $(2)        The extension.
+TOOL_VCC142_PDB = $(dir $(1))$(tolower $(notdir $(1))).$(2)
+
+#
+# Try find the redist directory.  A little complicated as the build number
+# doesn't necessarily match that of the compiler.
+#
+ifeq ($(tolower $(substr $(qdir u,$(PATH_TOOL_VCC142)), -12)),/tools/msvc/)
+PATH_TOOL_VCC142_REDIST ?= $(firstfile $(qwildcard ,$(substr $(qdir ,$(PATH_TOOL_VCC142)), 1, -12)/Redist/MSVC/14.2*))
+else
+PATH_TOOL_VCC142_REDIST ?= $(qabspath ,$(firstfile $(qwildcard ,\
+	$(PATH_TOOL_VCC142)/Redist \
+	$(PATH_TOOL_VCC142)/../Redist \
+	$(PATH_TOOL_VCC142)/../../Redist \
+	$(PATH_TOOL_VCC142)/../../../Redist \
+	$(PATH_TOOL_VCC142)/../../../../Redist)))
+endif
+PATH_TOOL_VCC142_REDIST_DEBUG ?= $(PATH_TOOL_VCC142_REDIST)/debug_nonredist
+
+## Updates may add more msvcp140_[0-9].dll images as the product matures.
+# This helper locates them (can differ between archs).
+# @param 1 Redist subdirectory.
+# @param 2 The DLL basename (no suffix).
+# @param 3 The VCC architecture name (for constructing the path).
+FN_TOOL_VCC142_FIND_DLLS = $(2).dll \
+	$(versortfiles $(qnotdir ,$(qwildcard ,$(PATH_TOOL_VCC142_REDIST)/$(3)/$(1)/$(2)_?.dll)))
+
+TOOL_VCC142_REDIST_CRT_SUBDIR       := Microsoft.VC142.CRT
+TOOL_VCC142_REDIST_DEBUG_CRT_SUBDIR := Microsoft.VC142.DebugCRT
+
+TOOL_VCC142_REDIST_CRT_DLLS.x86      = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),vcruntime140,x86)
+TOOL_VCC142_REDIST_CRT_DLLS.amd64    = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),vcruntime140,x64)
+TOOL_VCC142_REDIST_CRT_DLLS.arm32    = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),vcruntime140,arm)
+TOOL_VCC142_REDIST_CRT_DLLS.arm64    = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),vcruntime140,arm64)
+TOOL_VCC142_REDIST_CRT_DLLS          = $(TOOL_VCC142_REDIST_CRT_DLLS.$(KBUILD_TARGET_ARCH))
+
+TOOL_VCC142_REDIST_CONCRT_DLLS.x86   = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),concrt140,x86)
+TOOL_VCC142_REDIST_CONCRT_DLLS.amd64 = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),concrt140,x64)
+TOOL_VCC142_REDIST_CONCRT_DLLS.arm32 = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),concrt140,arm)
+TOOL_VCC142_REDIST_CONCRT_DLLS.arm64 = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),concrt140,arm64)
+TOOL_VCC142_REDIST_CONCRT_DLLS       = $(TOOL_VCC142_REDIST_CONCRT_DLLS.$(KBUILD_TARGET_ARCH))
+
+TOOL_VCC142_REDIST_CPP_DLLS.x86      = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),msvcp140,x86)
+TOOL_VCC142_REDIST_CPP_DLLS.amd64    = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),msvcp140,x64)
+TOOL_VCC142_REDIST_CPP_DLLS.arm32    = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),msvcp140,arm)
+TOOL_VCC142_REDIST_CPP_DLLS.arm64    = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),msvcp140,arm64)
+TOOL_VCC142_REDIST_CPP_DLLS          = $(TOOL_VCC142_REDIST_CPP_DLLS.$(KBUILD_TARGET_ARCH))
+
+TOOL_VCC142_REDIST_WINRT_DLLS.x86    = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),vccorlib140,x86)
+TOOL_VCC142_REDIST_WINRT_DLLS.amd64  = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),vccorlib140,x64)
+TOOL_VCC142_REDIST_WINRT_DLLS.arm32  = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),vccorlib140,arm)
+TOOL_VCC142_REDIST_WINRT_DLLS.arm64  = $(call FN_TOOL_VCC142_FIND_DLLS,$(TOOL_VCC142_REDIST_CRT_SUBDIR),vccorlib140,arm64)
+TOOL_VCC142_REDIST_WINRT_DLLS        = $(TOOL_VCC142_REDIST_WINRT_DLLS.$(KBUILD_TARGET_ARCH))
+
+TOOL_VCC142_REDIST_CXXAMP_SUBDIR := Microsoft.VC142.CXXAMP
+TOOL_VCC142_REDIST_MFC_SUBDIR    := Microsoft.VC142.MFC
+TOOL_VCC142_REDIST_MFCLOC_SUBDIR := Microsoft.VC142.MFCLOC
+TOOL_VCC142_REDIST_OPENMP_SUBDIR := Microsoft.VC142.OpenMP
+
+
+#
+# Properties used by kBuild
+#
+TOOL_VCC142_COBJSUFF         ?= .obj
+TOOL_VCC142_CFLAGS           ?= -TC -nologo -Zi -ZH:SHA_256
+TOOL_VCC142_CFLAGS.debug     ?=
+TOOL_VCC142_CFLAGS.dbgopt    ?= -O2
+TOOL_VCC142_CFLAGS.release   ?= -O2
+TOOL_VCC142_CFLAGS.profile   ?= -O2
+TOOL_VCC142_CINCS            ?= $(PATH_TOOL_VCC142_INC)
+TOOL_VCC142_CDEFS            ?=
+
+TOOL_VCC142_CXXOBJSUFF       ?= .obj
+TOOL_VCC142_CXXFLAGS         ?= -TP -nologo -Zi -ZH:SHA_256
+TOOL_VCC142_CXXFLAGS.debug   ?=
+TOOL_VCC142_CXXFLAGS.dbgopt  ?= -O2
+TOOL_VCC142_CXXFLAGS.release ?= -O2
+TOOL_VCC142_CXXFLAGS.profile ?= -O2
+TOOL_VCC142_CXXINCS          ?= $(PATH_TOOL_VCC142_INC) $(PATH_TOOL_VCC142_ATLMFC_INC)
+TOOL_VCC142_CXXDEFS          ?=
+
+TOOL_VCC142_ASOBJSUFF        ?= .obj
+
+TOOL_VCC142_RCOBJSUFF        ?= .res
+TOOL_VCC142_RCINCS           ?= $(PATH_TOOL_VCC142_INC) $(PATH_TOOL_VCC142_ATLMFC_INC)
+
+TOOL_VCC142_ARFLAGS          ?= -nologo
+TOOL_VCC142_ARFLAGS.x86      ?= -machine:x86
+TOOL_VCC142_ARFLAGS.amd64    ?= -machine:amd64
+TOOL_VCC142_ARFLAGS.arm32    ?= -machine:arm
+TOOL_VCC142_ARLIBSUFF        ?= .lib
+
+TOOL_VCC142_LDFLAGS          ?= -nologo
+TOOL_VCC142_LDFLAGS.x86      ?= -machine:x86
+TOOL_VCC142_LDFLAGS.amd64    ?= -machine:amd64
+TOOL_VCC142_LDFLAGS.arm32    ?= -machine:arm
+TOOL_VCC142_LDFLAGS.debug    ?= -debug
+TOOL_VCC142_LDFLAGS.dbgopt   ?= -debug
+TOOL_VCC142_LDFLAGS.profile  ?= -debug
+TOOL_VCC142_LDFLAGS.release  ?=
+
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+# @note The -d1scalableinclude- option disables include directory caching as the cache goes
+#       stale in kWorker.  Besides, kWorker does it's own caching, so it is not necessary.
+TOOL_VCC142_COMPILE_C_DEPEND =
+TOOL_VCC142_COMPILE_C_DEPORD =
+TOOL_VCC142_COMPILE_C_OUTPUT =
+TOOL_VCC142_COMPILE_C_OUTPUT_MAYBE = $(call TOOL_VCC142_PDB, $(outbase)-obj,pdb) $(call TOOL_VCC142_PDB, $(outbase)-obj,idb)
+ifdef TOOL_VCC142_KSUBMIT
+ TOOL_VCC142_COMPILE_C_DONT_PURGE_OUTPUT := 1 # speed
+ define TOOL_VCC142_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VCC142_KSUBMIT) -P $(DEP_OBJ_INT) -f -s -q -o $(dep) -t $(obj) $(obj)\
+		-- $(TOOL_VCC142_CC) -c -d1scalableinclude-\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Fd$(outbase)-obj.pdb \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC142_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VCC142_SETUP_ENV)$(TOOL_VCC142_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Fd$(outbase)-obj.pdb \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q -o $(dep) -t $(obj) $(obj)
+ endef
+endif # !TOOL_VCC142_KSUBMIT
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+# @note The -d1scalableinclude- option disables include directory caching as the cache goes
+#       stale in kWorker.  Besides, kWorker does it's own caching, so it is not necessary.
+#       ('-d1' means it's passed to c1.dll/c1xx.dll and 'scalableinclude-' is the actual option.)
+TOOL_VCC142_COMPILE_CXX_DEPEND = $($(target)_1_VCC_PCH_FILE)
+TOOL_VCC142_COMPILE_CXX_DEPORD =
+TOOL_VCC142_COMPILE_CXX_OUTPUT =
+TOOL_VCC142_COMPILE_CXX_OUTPUT_MAYBE = $(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB)\
+	,,$(call TOOL_VCC142_PDB, $(outbase)-obj,pdb) $(call TOOL_VCC142_PDB, $(outbase)-obj,idb))
+ifdef TOOL_VCC142_KSUBMIT
+ TOOL_VCC142_COMPILE_CXX_DONT_PURGE_OUTPUT := 1 # speed
+ define TOOL_VCC142_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VCC142_KSUBMIT) -P $(DEP_OBJ_INT) -f -s -q -o $(dep) -t $(obj) $(obj)\
+		-- $(TOOL_VCC142_CXX) -c -d1scalableinclude-\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		$(if-expr defined($(target)_PCH_HDR)\
+		,-FI$($(target)_PCH_HDR) -Yu$($(target)_PCH_HDR) -Fp$($(target)_1_VCC_PCH_FILE) -FS,)\
+		-Fd$(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB),$($(target)_1_VCC_COMMON_OBJ_PDB),$(outbase)-obj.pdb) \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC142_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VCC142_SETUP_ENV)$(TOOL_VCC142_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		$(if-expr defined($(target)_PCH_HDR)\
+		,-FI$($(target)_PCH_HDR) -Yu$($(target)_PCH_HDR) -Fp$($(target)_1_VCC_PCH_FILE) -FS,)\
+		-Fd$(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB),$($(target)_1_VCC_COMMON_OBJ_PDB),$(outbase)-obj.pdb) \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q -o $(dep) -t $(obj) $(obj)
+ endef
+endif # !TOOL_VCC142_KSUBMIT
+
+
+#
+# Helper tool for creating the precompiled C++ header.
+#
+# It only have the C++ compile bits and it's purpose is to skip bits
+# related _1_VCC_PCH_FILE and add -Yc.
+#
+TOOL_VCC142-PCH                         := Helper for creating precompiled header using CXX handling.
+TOOL_VCC142-PCH_EXTENDS                 := VCC142
+TOOL_VCC142-PCH_CXXOBJSUFF              := .obj
+TOOL_VCC142-PCH_CXXINCS                  = $(TOOL_VCC142_CXXINCS)
+TOOL_VCC142-PCH_CXXFLAGS                 = $(TOOL_VCC142_CXXFLAGS) -FS
+TOOL_VCC142-PCH_CXXFLAGS.debug           = $(TOOL_VCC142_CXXFLAGS.debug)
+TOOL_VCC142-PCH_CXXFLAGS.dbgopt          = $(TOOL_VCC142_CXXFLAGS.dbgopt)
+TOOL_VCC142-PCH_CXXFLAGS.release         = $(TOOL_VCC142_CXXFLAGS.release)
+TOOL_VCC142-PCH_CXXFLAGS.profile         = $(TOOL_VCC142_CXXFLAGS.profile)
+TOOL_VCC142-PCH_COMPILE_CXX_DEPEND       = $(NO_SUCH_VARIABLE)
+TOOL_VCC142-PCH_COMPILE_CXX_DEPORD       = $(NO_SUCH_VARIABLE)
+TOOL_VCC142-PCH_COMPILE_CXX_OUTPUT       = $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+TOOL_VCC142-PCH_COMPILE_CXX_OUTPUT_MAYBE = $(NO_SUCH_VARIABLE)
+ifdef TOOL_VCC142_KSUBMIT
+ define TOOL_VCC142-PCH_COMPILE_CXX_CMDS
+	$(QUIET)$(RM) -f -- $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+	$(QUIET)$(TOOL_VCC142_KSUBMIT) --no-pch-caching -P $(DEP_OBJ_INT) -f -s -q -e .pch -o $(dep) -t $(obj) $(obj)\
+		-- $(TOOL_VCC142_CXX) -c -Yc -d1scalableinclude-\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+               -Fp$($(target)_1_VCC_PCH_FILE) \
+		-Fd$($(target)_1_VCC_COMMON_OBJ_PDB) \
+		-Fo$(obj)\
+               -TP \
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC142-PCH_COMPILE_CXX_CMDS
+	$(QUIET)$(RM) -f -- $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+	$(QUIET)$(TOOL_VCC142_SETUP_ENV)$(TOOL_VCC142_CXX) -c -Yc\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+               -Fp$($(target)_1_VCC_PCH_FILE) \
+		-Fd$($(target)_1_VCC_COMMON_OBJ_PDB) \
+		-Fo$(obj)\
+               -TP \
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q  -e .pch -o $(dep) -t $(obj) $(obj)
+
+ endef
+endif # !TOOL_VCC142_KSUBMIT
+
+
+## @todo configure the assembler template.
+
+## Compile resource source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC142_COMPILE_RC_DEPEND =
+TOOL_VCC142_COMPILE_RC_DEPORD =
+TOOL_VCC142_COMPILE_RC_OUTPUT =
+define TOOL_VCC142_COMPILE_RC_CMDS
+	$(QUIET)$(TOOL_VCC142_RC) \
+		$(flags) $(qaddprefix sh,/i, $(subst /,\\,$(incs))) $(qaddprefix sh,/d, $(defs))\
+		/fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+TOOL_VCC142_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_VCC142_LINK_LIBRARY_DEPORD =
+TOOL_VCC142_LINK_LIBRARY_OUTPUT = $(outbase).rsp
+TOOL_VCC142_LINK_LIBRARY_OUTPUT_MAYBE = $(outbase).lst $(outbase).exp $(outbase).pdb
+define TOOL_VCC142_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(qforeachfile u,arg, $(objs) $(filter-out %.def,$(othersrc)),$(quote-sh "$(subst /,\,$(arg))")) \
+		$(qforeachfile u,arg, $(filter %.def,$(othersrc)),$(quote-sh "/DEF:$(subst /,\,$(arg))"))
+	$(QUIET)$(TOOL_VCC142_KSUBMIT_DD) $(TOOL_VCC142_AR) $(flags) /OUT:$(out) @$(outbase).rsp
+endef
+
+
+## Link program
+# @param    $(target)       Normalized main target name.
+# @param    $(out)          Program name.
+# @param    $(objs)         Object files to link together.
+# @param    $(libs)         Libraries to search.
+# @param    $(libpath)      Library search paths.
+# @param    $(flags)        Flags.
+# @param    $(dirdep)       Directory creation dependency.
+# @param    $(deps)         Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)      Output basename (full). Use this for list files and such.
+#
+TOOL_VCC142_LINK_PROGRAM_DEPEND = $(foreachfile lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC142_LINK_PROGRAM_DEPORD =
+TOOL_VCC142_LINK_PROGRAM_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_VCC142_LINK_PROGRAM_OUTPUT_MAYBE = $(outbase).lib $(outbase).exp $(outbase).ilk $(out).manifest
+TOOL_VCC142_LINK_PROGRAM_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC142_LINK_PROGRAM_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC142_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(qforeachfile u,arg, $(objs) $(libs),$(quote-sh "$(subst /,\,$(arg))"))
+	$(QUIET)$(TOOL_VCC142_KSUBMIT_DD) $(TOOL_VCC142_LD) $(flags) \
+		/OUT:$(out) \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(qaddprefix sh,/LIBPATH:,$(libpath)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC142_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC142_MT) -manifest $(subst /,\\,$(out)).manifest -outputresource:$(subst /,\\,$(out))
+endif
+endef
+
+
+## Link DLL.
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      DLL name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VCC142_LINK_DLL_DEPEND = $(foreachfile lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC142_LINK_DLL_DEPORD = $(call DIRDEP,$(PATH_STAGE_LIB))
+TOOL_VCC142_LINK_DLL_OUTPUT = $(outbase).lib $(outbase).exp
+TOOL_VCC142_LINK_DLL_OUTPUT_MAYBE = $(outbase).ilk $(out).manifest $(PATH_STAGE_LIB)/$(notdir $(outbase)).exp
+TOOL_VCC142_LINK_DLL_OUTPUT_MAYBE_PRECIOUS = $(PATH_STAGE_LIB)/$(notdir $(outbase)).lib $(outbase).map $(outbase).rsp
+TOOL_VCC142_LINK_DLL_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC142_LINK_DLL_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC142_LINK_DLL_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(qforeachfile u,arg, $(objs) $(libs),$(quote-sh "$(subst /,\,$(arg))"))
+	$(QUIET)$(TOOL_VCC142_KSUBMIT_DD) $(TOOL_VCC142_LD) $(flags) \
+		/OUT:$(out) \
+		/IMPLIB:$(outbase).lib \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		/DLL \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(qaddprefix sh,/LIBPATH:,$(libpath)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC142_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC142_MT) -manifest $(subst /,\\,$(out)).manifest '-outputresource:$(subst /,\\,$(out));#2'
+endif
+	$(QUIET)$(TEST) -f $(outbase).lib -- $(KLIBTWEAKER_EXT) --clear-timestamps $(outbase).lib
+	$(QUIET)$(CP) --changed -v --ignore-non-existing $(outbase).exp $(outbase).lib $(PATH_STAGE_LIB)/
+$(eval _DIRS += $(PATH_STAGE_LIB))
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)       Normalized main target name.
+# @param    $(out)          System module name.
+# @param    $(objs)         Object files to link together.
+# @param    $(libs)         Libraries to search.
+# @param    $(libpath)      Library search paths.
+# @param    $(flags)        Flags.
+# @param    $(dirdep)       Directory creation dependency.
+# @param    $(deps)         Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VCC142_LINK_SYSMOD_DEPEND = $(foreachfile lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC142_LINK_SYSMOD_DEPORD =
+TOOL_VCC142_LINK_SYSMOD_OUTPUT_MAYBE = $(outbase).lib $(outbase).exp $(outbase).ilk $(out).manifest
+TOOL_VCC142_LINK_SYSMOD_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_VCC142_LINK_SYSMOD_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC142_LINK_SYSMOD_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC142_LINK_SYSMOD_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(qforeachfile u,arg, $(objs) $(libs),$(quote-sh "$(subst /,\,$(arg))"))
+	$(QUIET)$(TOOL_VCC142_KSUBMIT_DD) $(TOOL_VCC142_LD) $(flags) \
+		/OUT:$(out) \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(qaddprefix sh,/LIBPATH:,$(libpath)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC142_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC142_MT) -manifest $(subst /,\\,$(out)).manifest '-outputresource:$(subst /,\\,$(out));#2'
+endif
+endef
+

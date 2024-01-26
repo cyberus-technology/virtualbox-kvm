@@ -1,0 +1,71 @@
+# Transmogrification from prepared package directory layout to IPS
+set name=pkg.fmri value=$(VBOX_PKGNAME)@@VBOX_VERSION_STRING@,5.11-0.0.0.@VBOX_SVN_REV@.0.0.0
+set name=pkg.human-version value="@VBOX_VERSION_STRING@r@VBOX_SVN_REV@"
+set name=pkg.summary value="@VBOX_PRODUCT@"
+set name=pkg.description value="A powerful PC virtualization solution"
+set name=variant.arch value=@UNAME_P@
+set name=variant.opensolaris.zone value=global value=nonglobal
+set name=info.classification value=org.opensolaris.category.2008:System/Virtualization
+license LICENSE license="GPLv2 (virtualbox)"
+group groupname=vboxusers gid=86
+# The data-xkb was renamed to xkeyboard-config in S11.4, so adjust this when
+# we have moved our builds away from S11.3.
+depend fmri=pkg:/x11/keyboard/data-xkb type=require
+depend fmri=pkg:/system/font/xorg/xorg-core type=require
+depend fmri=pkg:/system/font/truetype/dejavu type=require
+
+# Drop system directories to not have conflicting permissions
+<transform dir path=etc$ -> drop>
+<transform dir path=opt$ -> drop>
+<transform dir path=platform.*$ -> drop>
+<transform dir path=usr.*$ -> drop>
+<transform dir path=var$ -> drop>
+<transform dir path=var/svc$ -> drop>
+<transform dir path=var/svc/manifest$ -> drop>
+<transform dir path=var/svc/manifest/application$ -> drop>
+
+# Drop all files in root, they are for packaging purposes
+<transform file path=[^/]*$ -> drop>
+<transform dir file path=vbox-repo.*$ -> drop>
+
+# Drop STREAMS based NetFilter driver, obsolete for Solaris 11
+<transform file path=platform/i86pc/kernel/drv/amd64/vboxflt$ -> drop>
+<transform file path=platform/i86pc/kernel/drv/vboxflt\.conf$ -> drop>
+
+# Drop all API helper libraries for python 2.x other than 2.7
+<transform file path=opt/VirtualBox/VBoxPython\.so.*$ -> drop>
+<transform file path=opt/VirtualBox/VBoxPython2\.so.*$ -> drop>
+<transform file path=opt/VirtualBox/VBoxPython2_[^7].*\.so.*$ -> drop>
+
+# Ignore dependencies of vboxshell.py
+<transform file path=opt/VirtualBox/vboxshell.py$ -> set pkg.depend.bypass-generate .*>
+
+# Ignore dependencies on libpython2.7.so* since it's getting phased out
+<transform file path=opt/VirtualBox/VBoxPython2_7.*\.so.*$ -> set pkg.depend.bypass-generate .*/libpython2\\.7\\.so.*>
+
+# Tweak: do not try to get the dependencies for libGL.so which is needed by Qt
+<transform file path=opt/VirtualBox/amd64/libQt5GuiVBox\.so\.5$ -> set pkg.depend.runpath /usr/lib/mesa/amd64:$PKGDEPEND_RUNPATH>
+<transform file path=opt/VirtualBox/amd64/libQt5PrintSupportVBox\.so\.5$ -> set pkg.depend.runpath /usr/lib/mesa/amd64:$PKGDEPEND_RUNPATH>
+<transform file path=opt/VirtualBox/amd64/libQt5WidgetsVBox\.so\.5$ -> set pkg.depend.runpath /usr/lib/mesa/amd64:$PKGDEPEND_RUNPATH>
+<transform file path=opt/VirtualBox/amd64/libQt5X11ExtrasVBox\.so\.5$ -> set pkg.depend.runpath /usr/lib/mesa/amd64:$PKGDEPEND_RUNPATH>
+<transform file path=opt/VirtualBox/amd64/libQt5XcbQpaVBox\.so\.5$ -> set pkg.depend.runpath /usr/lib/mesa/amd64:$PKGDEPEND_RUNPATH>
+<transform file path=opt/VirtualBox/amd64/plugins/platforms/libqxcb\.so$ -> set pkg.depend.runpath /usr/lib/mesa/amd64:$PKGDEPEND_RUNPATH>
+<transform file path=opt/VirtualBox/amd64/plugins/xcbglintegrations/libqxcb-glx-integration\.so$ -> set pkg.depend.runpath /usr/lib/mesa/amd64:$PKGDEPEND_RUNPATH>
+
+# Some binaries must be SUID.
+<transform file path=opt/VirtualBox/amd64/(VBoxNetAdpCtl|VBoxNetDHCP|VBoxNetNAT)$ -> set mode 4755>
+$(HARDENED_ONLY)<transform file path=opt/VirtualBox/amd64/(VirtualBoxVM|VBoxHeadless|VBoxSDL)$ -> set mode 4755>
+
+# Set the appropriate pkg variant for drivers (global zone only)
+<transform file path=platform/i86pc/kernel/drv/amd64/[^/]*$ -> add variant.opensolaris.zone global>
+<transform file path=platform/i86pc/kernel/drv/amd64/[^/]*$ -> set reboot-needed true>
+<transform file path=platform/i86pc/kernel/drv/amd64/vboxdrv$ -> emit driver name=vboxdrv perms="* 0600 root sys" perms="vboxdrvu 0666 root sys" devlink=type=ddi_pseudo;name=vboxdrv;minor=vboxdrv\t\D devlink=type=ddi_pseudo;name=vboxdrv;minor=vboxdrvu\t\M0>
+<transform file path=platform/i86pc/kernel/drv/amd64/vboxnet$ -> emit driver name=vboxnet>
+<transform file path=platform/i86pc/kernel/drv/amd64/vboxbow$ -> emit driver name=vboxbow>
+<transform file path=platform/i86pc/kernel/drv/amd64/vboxusbmon$ -> emit driver name=vboxusbmon perms="* 0660 root vboxusers" devlink=type=ddi_pseudo;name=vboxusbmon\t\D>
+<transform file path=platform/i86pc/kernel/drv/amd64/vboxusb$ -> emit driver name=vboxusb>
+<transform file path=platform/i86pc/kernel/drv/.*$ -> set group sys>
+
+# Handle SMF manifests
+<transform dir file path=var/svc/manifest/.*$ -> set group sys>
+<transform file path=var/svc/manifest/.*\.xml$ -> default restart_fmri svc:/system/manifest-import:default>

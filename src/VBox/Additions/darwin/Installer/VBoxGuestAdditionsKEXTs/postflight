@@ -1,0 +1,104 @@
+#!/bin/sh
+# $Id: postflight $
+## @file
+# Post flight installer script for the VirtualBox OS X kernel extensions.
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+set -e
+
+# Setup environment.
+export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
+
+unload_service()
+{
+    ITEM_ID=$1
+    ITEM_PATH=$2
+    FORCED_USER=$3
+
+    loaded="NO"
+    test -n "$(sudo -u "$FORCED_USER" launchctl list | grep $ITEM_ID)" && loaded="YES"
+    if [ "$loaded" = "YES" ] ; then
+        echo "Unloading previously installed service: $ITEM_ID"
+        sudo -u "$FORCED_USER" launchctl unload -F "$ITEM_PATH/$ITEM_ID.plist"
+    fi
+}
+
+load_service()
+{
+    ITEM_ID=$1
+    ITEM_PATH=$2
+    FORCED_USER=$3
+
+    echo "Loading newly installed service: $ITEM_ID"
+    sudo -u "$FORCED_USER" launchctl load -F "$ITEM_PATH/$ITEM_ID.plist"
+}
+
+unload_service "org.virtualbox.additions.vboxservice" "/Library/LaunchDaemons" "root"
+
+# Remove the old service for all users
+for user in $(dscl . -list /Users | grep -v -e'^_' -e'root'); do
+    system_user="YES"
+    test -n "$(dscl . -read /Users/$user NFSHomeDirectory | grep '/Users')" && system_user="NO"
+    if [ "$system_user" = "NO" ]; then
+        unload_service "org.virtualbox.additions.vboxclient" "/Library/LaunchAgents" "$user"
+    fi
+done
+
+items="VBoxGuest"
+for item in $items; do
+    kext_item="org.virtualbox.kext.$item"
+
+    loaded="NO"
+    test -n "$(kextstat | grep $kext_item)" && loaded="YES"
+    if [ "$loaded" = "YES" ] ; then
+        echo "Unloading $item kernel extension..."
+        kextunload -b $kext_item
+    fi
+done
+
+MACOS_VERS=$(sw_vers -productVersion)
+
+echo "Updating kernel cache (should trigger loading of new modules)."
+# /System/Library/Extensions is readonly in Catalina and later,
+# so touch returns always false on these systems
+if [[ ${MACOS_VERS} != 11.* ]] && [[ ${MACOS_VERS} != 10.15.* ]]; then
+    touch "/System/Library/Extensions/"
+fi
+kextcache -update-volume / || true
+
+load_service "org.virtualbox.additions.vboxservice" "/Library/LaunchDaemons" "root"
+# Add VBoxClient for all currently defined users
+for user in $(dscl . -list /Users | grep -v -e'^_' -e'root'); do
+    system_user="YES"
+    test -n "$(dscl . -read /Users/$user NFSHomeDirectory | grep '/Users')" && system_user="NO"
+    if [ "$system_user" = "NO" ]; then
+        load_service "org.virtualbox.additions.vboxclient" "/Library/LaunchAgents" "$user"
+    fi
+done
+
+echo "Warning: If VBoxService adjusts the time backwards (because of --biossystemtimeoffset), the installer may hang."
+echo "Done."
+
+exit 0;

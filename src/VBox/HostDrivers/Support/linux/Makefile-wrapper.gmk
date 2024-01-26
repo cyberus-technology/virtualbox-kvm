@@ -1,0 +1,166 @@
+# $Id: Makefile-wrapper.gmk $
+## @file
+# Makefile template for a wrapper module.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+# Check template parameters.
+ifndef WRAPPED_MODULE_NAME
+$(error WRAPPED_MODULE_NAME not defined)
+endif
+ifndef VBOXMOD_NAME
+$(error VBOXMOD_NAME not defined)
+endif
+
+
+# Linux kbuild sets this to our source directory if we are called from there
+ifndef VBOX_MODULE_SRC_DIR
+ VBOX_MODULE_SRC_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))/
+endif
+VBOXDRV_DIR          := $(abspath $(VBOX_MODULE_SRC_DIR)../vboxdrv/)/
+VBOX_VMMR0_DIR       := $(abspath $(VBOX_MODULE_SRC_DIR)../vbox_vmmr0/)/
+include $(VBOXDRV_DIR)Makefile-header.gmk
+
+# All of these wrappers depend on
+ifndef KBUILD_EXTRA_SYMBOLS
+KBUILD_EXTRA_SYMBOLS := $(VBOXDRV_DIR)Module.symvers
+ ifdef WRAPPER_NEED_VMMR0
+KBUILD_EXTRA_SYMBOLS += $(VBOX_VMMR0_DIR)Module.symvers
+ endif
+endif
+
+VBOXMOD_OBJS = \
+	SUPWrapperMod-linux.o \
+	$(WRAPPED_MODULE_NAME).o
+
+VBOXMOD_INCL  = \
+	$(VBOXDRV_DIR) \
+	$(VBOXDRV_DIR)include \
+	$(VBOXDRV_DIR)r0drv/linux
+
+VBOXMOD_DEFS += \
+	RT_OS_LINUX \
+	IN_RING0 \
+	IN_RT_R0 \
+	IN_SUP_R0 \
+	VBOX \
+       \
+	WRAPPED_MODULE_NAME=\"$(WRAPPED_MODULE_NAME).r0\" \
+	WRAPPED_MODULE_SYMBOL_INCLUDE=\"$(WRAPPED_MODULE_NAME)-symbols.h\"
+ifdef WRAPPED_MODULE_FLAGS
+VBOXMOD_DEFS += WRAPPED_MODULE_FLAGS="$(WRAPPED_MODULE_FLAGS)"
+endif
+ifdef WRAPPED_MODULE_LINUX_EXPORTS
+VBOXMOD_DEFS += WRAPPED_MODULE_LINUX_EXPORTS
+endif
+ifdef WRAPPED_MODULE_SRV_REQ_HANDLER
+VBOXMOD_DEFS += WRAPPED_MODULE_SRV_REQ_HANDLER="$(WRAPPED_MODULE_SRV_REQ_HANDLER)"
+endif
+ifdef WRAPPED_MODULE_IS_VMMR0
+VBOXMOD_DEFS += WRAPPED_MODULE_VMMR0_ENTRY_FAST=VMMR0EntryFast
+VBOXMOD_DEFS += WRAPPED_MODULE_VMMR0_ENTRY_EX=VMMR0EntryEx
+endif
+ifdef WRAPPED_MODULE_NO_INIT
+VBOXMOD_DEFS += WRAPPED_MODULE_INIT=NULL
+endif
+ifdef WRAPPED_MODULE_NO_TERM
+VBOXMOD_DEFS += WRAPPED_MODULE_TERM=NULL
+endif
+ifdef WRAPPED_MODULE_LICENSE_PROPRIETARY
+VBOXMOD_DEFS += WRAPPED_MODULE_LICENSE_PROPRIETARY
+endif
+
+VBOXMOD_CFLAGS = -include $(VBOXDRV_DIR)include/VBox/SUPDrvMangling.h \
+	-fno-omit-frame-pointer -fno-pie -Wno-declaration-after-statement
+
+## @todo cleanup
+
+include $(VBOXDRV_DIR)Makefile-footer.gmk
+
+
+#
+# Custom rules (some of this could later be done before install).
+#
+SUPWrapperMod-linux.c \
+$(VBOX_MODULE_SRC_DIR)SUPWrapperMod-linux.c \
+$(VBOX_MODULE_SRC_DIR)SUPWrapperMod-linux.o \
+: $(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME)-symbols.h
+
+$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME)-symbols.h: \
+		$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).r0 \
+		$(VBOX_MODULE_SRC_DIR)Makefile-wrapper.gmk \
+		$(VBOX_MODULE_SRC_DIR)Makefile
+	rm -f -- "$@" "$@-tmp1" "$@-tmp2"
+	objdump --syms "$<" > "$@-tmp1"
+	sed 	-e '/[[:space:]].hidden[[:space:]]/d' \
+		-e '/[[:space:]]\*UND\*[[:space:]]/d' \
+		-e '/[[:space:]]vboxr0mod_/d' \
+		-e '/^[[:xdigit:]][[:xdigit:]]*[[:space:]][gu]/!d' \
+		-e 's/^\([[:xdigit:]]*\)[[:space:]].*000[[:xdigit:]]*[[:space:]]\([_a-zA-Z].*\)$$/SYMBOL_ENTRY(\2)/' \
+		-e '/SYMBOL_ENTRY(ModuleInit)/d' \
+		-e '/SYMBOL_ENTRY(ModuleTerm)/d' \
+		"$@-tmp1" > "$@-tmp2"
+	sort "$@-tmp2" > "$@"
+	rm -f -- "$@-tmp1" "$@-tmp2"
+
+
+$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).mangle-symbols: \
+		$(VBOXDRV_DIR)Module.symvers \
+		$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME)-symbols.h \
+		$(VBOX_MODULE_SRC_DIR)Makefile-wrapper.gmk \
+		$(VBOX_MODULE_SRC_DIR)Makefile
+	sed	-e 's/SYMBOL_ENTRY(\([^)]*\))/\/\1 VBoxHost_\1\/d/' \
+		"$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME)-symbols.h" \
+               > "$@-ignore.sed"
+	sed	-e '/[[:space:]]VBoxHost_/!d' \
+		-e 's/^0x[[:xdigit:]]*[[:space:]]VBoxHost_\([^[:space:]]*\)[[:space:]].*$$/\1 VBoxHost_\1/' \
+		-f "$@-ignore.sed" \
+		"$<" \
+		> "$@"
+
+$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).o: \
+		$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).r0 \
+		$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).debug \
+		$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).mangle-symbols \
+		$(VBOX_MODULE_SRC_DIR)Makefile-wrapper.gmk \
+		$(VBOX_MODULE_SRC_DIR)Makefile \
+               $(if $(CONFIG_UNWINDER_ORC),$(objtool_dep),)
+	rm -f -- "$@" "$@-tmp"
+	eu-unstrip -o "$@-tmp" $(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).r0 $(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).debug
+	objcopy --redefine-syms=$(VBOX_MODULE_SRC_DIR)$(WRAPPED_MODULE_NAME).mangle-symbols "$@-tmp" "$@"
+	rm -f -- "$@-tmp"
+ifdef CONFIG_UNWINDER_ORC # Must generate the ORC sections.
+	$(__objtool_obj) $(objtool_args)  $@
+endif
+	touch $(VBOX_MODULE_SRC_DIR).$(WRAPPED_MODULE_NAME).o.cmd
+

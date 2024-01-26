@@ -1,0 +1,710 @@
+; $Id: CPUMInternal.mac $
+;; @file
+; CPUM - Internal header file (asm).
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; SPDX-License-Identifier: GPL-3.0-only
+;
+
+%include "VBox/asmdefs.mac"
+%include "VBox/vmm/cpum.mac"
+
+;; Check sanity.
+%ifdef VBOX_WITH_KERNEL_USING_XMM
+ %ifndef IN_RING0
+  %error "What? We've got code assuming VBOX_WITH_KERNEL_USING_XMM is only defined in ring-0!"
+ %endif
+%endif
+
+;; For numeric expressions
+%ifdef RT_ARCH_AMD64
+ %define CPUM_IS_AMD64      1
+%else
+ %define CPUM_IS_AMD64      0
+%endif
+
+
+;;
+; CPU info
+struc CPUMINFO
+    .cMsrRanges             resd 1                  ; uint32_t
+    .fMsrMask               resd 1                  ; uint32_t
+    .fMxCsrMask             resd 1                  ; uint32_t
+    .cCpuIdLeaves           resd 1                  ; uint32_t
+    .iFirstExtCpuIdLeaf     resd 1                  ; uint32_t
+    .enmUnknownCpuIdMethod  resd 1                  ; CPUMUNKNOWNCPUID
+    .DefCpuId               resb CPUMCPUID_size     ; CPUMCPUID
+    .uScalableBusFreq       resq 1                  ; uint64_t
+    .paMsrRangesR3          RTR3PTR_RES 1           ; R3PTRTYPE(PCPUMMSRRANGE)
+    .paCpuIdLeavesR3        RTR3PTR_RES 1           ; R3PTRTYPE(PCPUMCPUIDLEAF)
+    .aCpuIdLeaves           resb 256*32
+    .aMsrRanges             resb 8192*128
+endstruc
+
+
+%define CPUM_USED_FPU_HOST              RT_BIT(0)
+%define CPUM_USED_FPU_GUEST             RT_BIT(10)
+%define CPUM_USED_FPU_SINCE_REM         RT_BIT(1)
+%define CPUM_USED_MANUAL_XMM_RESTORE    RT_BIT(2)
+%define CPUM_USE_SYSENTER               RT_BIT(3)
+%define CPUM_USE_SYSCALL                RT_BIT(4)
+%define CPUM_USE_DEBUG_REGS_HOST        RT_BIT(5)
+%define CPUM_USED_DEBUG_REGS_HOST       RT_BIT(6)
+%define CPUM_USE_DEBUG_REGS_HYPER       RT_BIT(7)
+%define CPUM_USED_DEBUG_REGS_HYPER      RT_BIT(8)
+%define CPUM_USED_DEBUG_REGS_GUEST      RT_BIT(9)
+%define CPUM_USE_FFXSR_LEAKY            RT_BIT(19)
+%define CPUM_USE_SUPPORTS_LONGMODE      RT_BIT(20)
+
+
+struc CPUM
+    ;...
+    .fHostUseFlags              resd    1
+
+    ; CR4 masks
+    .CR4.AndMask                resd    1
+    .CR4.OrMask                 resd    1
+    .u8PortableCpuIdLevel       resb    1
+    .fPendingRestore            resb    1
+
+    alignb 8
+    .fXStateGuestMask           resq    1
+    .fXStateHostMask            resq    1
+
+    alignb 64
+    .HostFeatures               resb    48
+    .GuestFeatures              resb    48
+    .GuestInfo                  resb    CPUMINFO_size
+
+    ; Patch manager saved state compatability CPUID leaf arrays
+    .aGuestCpuIdPatmStd         resb    16*6
+    .aGuestCpuIdPatmExt         resb    16*10
+    .aGuestCpuIdPatmCentaur     resb    16*4
+
+    alignb 8
+    .cMsrWrites                 resq    1
+    .cMsrWritesToIgnoredBits    resq    1
+    .cMsrWritesRaiseGp          resq    1
+    .cMsrWritesUnknown          resq    1
+    .cMsrReads                  resq    1
+    .cMsrReadsRaiseGp           resq    1
+    .cMsrReadsUnknown           resq    1
+endstruc
+
+struc CPUMCPU
+    ;
+    ; Guest context state
+    ;
+    .Guest                      resq    0
+    .Guest.eax                  resq    1
+    .Guest.ecx                  resq    1
+    .Guest.edx                  resq    1
+    .Guest.ebx                  resq    1
+    .Guest.esp                  resq    1
+    .Guest.ebp                  resq    1
+    .Guest.esi                  resq    1
+    .Guest.edi                  resq    1
+    .Guest.r8                   resq    1
+    .Guest.r9                   resq    1
+    .Guest.r10                  resq    1
+    .Guest.r11                  resq    1
+    .Guest.r12                  resq    1
+    .Guest.r13                  resq    1
+    .Guest.r14                  resq    1
+    .Guest.r15                  resq    1
+    .Guest.es.Sel               resw    1
+    .Guest.es.PaddingSel        resw    1
+    .Guest.es.ValidSel          resw    1
+    .Guest.es.fFlags            resw    1
+    .Guest.es.u64Base           resq    1
+    .Guest.es.u32Limit          resd    1
+    .Guest.es.Attr              resd    1
+    .Guest.cs.Sel               resw    1
+    .Guest.cs.PaddingSel        resw    1
+    .Guest.cs.ValidSel          resw    1
+    .Guest.cs.fFlags            resw    1
+    .Guest.cs.u64Base           resq    1
+    .Guest.cs.u32Limit          resd    1
+    .Guest.cs.Attr              resd    1
+    .Guest.ss.Sel               resw    1
+    .Guest.ss.PaddingSel        resw    1
+    .Guest.ss.ValidSel          resw    1
+    .Guest.ss.fFlags            resw    1
+    .Guest.ss.u64Base           resq    1
+    .Guest.ss.u32Limit          resd    1
+    .Guest.ss.Attr              resd    1
+    .Guest.ds.Sel               resw    1
+    .Guest.ds.PaddingSel        resw    1
+    .Guest.ds.ValidSel          resw    1
+    .Guest.ds.fFlags            resw    1
+    .Guest.ds.u64Base           resq    1
+    .Guest.ds.u32Limit          resd    1
+    .Guest.ds.Attr              resd    1
+    .Guest.fs.Sel               resw    1
+    .Guest.fs.PaddingSel        resw    1
+    .Guest.fs.ValidSel          resw    1
+    .Guest.fs.fFlags            resw    1
+    .Guest.fs.u64Base           resq    1
+    .Guest.fs.u32Limit          resd    1
+    .Guest.fs.Attr              resd    1
+    .Guest.gs.Sel               resw    1
+    .Guest.gs.PaddingSel        resw    1
+    .Guest.gs.ValidSel          resw    1
+    .Guest.gs.fFlags            resw    1
+    .Guest.gs.u64Base           resq    1
+    .Guest.gs.u32Limit          resd    1
+    .Guest.gs.Attr              resd    1
+    .Guest.ldtr.Sel             resw    1
+    .Guest.ldtr.PaddingSel      resw    1
+    .Guest.ldtr.ValidSel        resw    1
+    .Guest.ldtr.fFlags          resw    1
+    .Guest.ldtr.u64Base         resq    1
+    .Guest.ldtr.u32Limit        resd    1
+    .Guest.ldtr.Attr            resd    1
+    .Guest.tr.Sel               resw    1
+    .Guest.tr.PaddingSel        resw    1
+    .Guest.tr.ValidSel          resw    1
+    .Guest.tr.fFlags            resw    1
+    .Guest.tr.u64Base           resq    1
+    .Guest.tr.u32Limit          resd    1
+    .Guest.tr.Attr              resd    1
+    alignb 8
+    .Guest.eip                  resq    1
+    .Guest.eflags               resq    1
+    .Guest.fExtrn               resq    1
+    .Guest.uRipInhibitInt       resq    1
+    .Guest.cr0                  resq    1
+    .Guest.cr2                  resq    1
+    .Guest.cr3                  resq    1
+    .Guest.cr4                  resq    1
+    .Guest.dr                   resq    8
+    .Guest.gdtrPadding          resw    3
+    .Guest.gdtr                 resw    0
+    .Guest.gdtr.cbGdt           resw    1
+    .Guest.gdtr.pGdt            resq    1
+    .Guest.idtrPadding          resw    3
+    .Guest.idtr                 resw    0
+    .Guest.idtr.cbIdt           resw    1
+    .Guest.idtr.pIdt            resq    1
+    .Guest.SysEnter.cs          resb    8
+    .Guest.SysEnter.eip         resb    8
+    .Guest.SysEnter.esp         resb    8
+    .Guest.msrEFER              resb    8
+    .Guest.msrSTAR              resb    8
+    .Guest.msrPAT               resb    8
+    .Guest.msrLSTAR             resb    8
+    .Guest.msrCSTAR             resb    8
+    .Guest.msrSFMASK            resb    8
+    .Guest.msrKERNELGSBASE      resb    8
+
+    alignb 32
+    .Guest.aPaePdpes            resq    4
+
+    alignb 8
+    .Guest.aXcr                 resq    2
+    .Guest.fXStateMask          resq    1
+    .Guest.fUsedFpuGuest        resb    1
+    alignb 8
+    .Guest.aoffXState           resw    64
+    alignb 256
+    .Guest.abXState             resb    0x4000-0x300
+    .Guest.XState               EQU     .Guest.abXState
+
+;;
+    alignb 4096
+    .Guest.hwvirt                           resb        0
+    .Guest.hwvirt.svm                       resb        0
+    .Guest.hwvirt.vmx                       resb        0
+
+    .Guest.hwvirt.svm.Vmcb                  EQU         .Guest.hwvirt.svm
+    .Guest.hwvirt.svm.abMsrBitmap           EQU         (.Guest.hwvirt.svm.Vmcb                   + 0x1000)
+    .Guest.hwvirt.svm.abIoBitmap            EQU         (.Guest.hwvirt.svm.abMsrBitmap            + 0x2000)
+    .Guest.hwvirt.svm.uMsrHSavePa           EQU         (.Guest.hwvirt.svm.abIoBitmap             + 0x3000)   ; resq        1
+    .Guest.hwvirt.svm.GCPhysVmcb            EQU         (.Guest.hwvirt.svm.uMsrHSavePa            + 8)        ; resq        1
+    alignb 8
+    .Guest.hwvirt.svm.HostState             EQU         (.Guest.hwvirt.svm.GCPhysVmcb             + 8)        ; resb        184
+    .Guest.hwvirt.svm.uPrevPauseTick        EQU         (.Guest.hwvirt.svm.HostState              + 184)      ; resq        1
+    .Guest.hwvirt.svm.cPauseFilter          EQU         (.Guest.hwvirt.svm.uPrevPauseTick         + 8)        ; resw        1
+    .Guest.hwvirt.svm.cPauseFilterThreshold EQU         (.Guest.hwvirt.svm.cPauseFilter           + 2)        ; resw        1
+    .Guest.hwvirt.svm.fInterceptEvents      EQU         (.Guest.hwvirt.svm.cPauseFilterThreshold  + 2)        ; resb        1
+
+    .Guest.hwvirt.vmx.Vmcs                  resb        0x1000
+    .Guest.hwvirt.vmx.ShadowVmcs            resb        0x1000
+    .Guest.hwvirt.vmx.abVmreadBitmap        resb        0x1000
+    .Guest.hwvirt.vmx.abVmwriteBitmap       resb        0x1000
+    .Guest.hwvirt.vmx.aEntryMsrLoadArea     resb        0x2000
+    .Guest.hwvirt.vmx.aExitMsrStoreArea     resb        0x2000
+    .Guest.hwvirt.vmx.aExitMsrLoadArea      resb        0x2000
+    .Guest.hwvirt.vmx.abMsrBitmap           resb        0x1000
+    .Guest.hwvirt.vmx.abIoBitmap            resb        0x1000+0x1000
+    alignb 8
+    .Guest.hwvirt.vmx.GCPhysVmxon           resq        1
+    .Guest.hwvirt.vmx.GCPhysVmcs            resq        1
+    .Guest.hwvirt.vmx.GCPhysShadowVmcs      resq        1
+    .Guest.hwvirt.vmx.enmDiag               resd        1
+    .Guest.hwvirt.vmx.enmAbort              resd        1
+    .Guest.hwvirt.vmx.uDiagAux              resq        1
+    .Guest.hwvirt.vmx.uAbortAux             resd        1
+    .Guest.hwvirt.vmx.fInVmxRootMode        resb        1
+    .Guest.hwvirt.vmx.fInVmxNonRootMode     resb        1
+    .Guest.hwvirt.vmx.fInterceptEvents      resb        1
+    .Guest.hwvirt.vmx.fNmiUnblockingIret    resb        1
+    .Guest.hwvirt.vmx.uFirstPauseLoopTick   resq        1
+    .Guest.hwvirt.vmx.uPrevPauseTick        resq        1
+    .Guest.hwvirt.vmx.uEntryTick            resq        1
+    .Guest.hwvirt.vmx.offVirtApicWrite      resw        1
+    .Guest.hwvirt.vmx.fVirtNmiBlocking      resb        1
+    alignb 8
+    .Guest.hwvirt.vmx.Msrs                  resb        224
+
+    alignb 8
+    .Guest.hwvirt.enmHwvirt                 resd        1
+    .Guest.hwvirt.fGif                      resb        1
+    alignb 4
+    .Guest.hwvirt.fSavedInhibit             resd        1
+    alignb 64
+
+    .GuestMsrs                  resq    0
+    .GuestMsrs.au64             resq    64
+
+    ;
+    ; Other stuff.
+    ;
+    .hNestedVmxPreemptTimer     resq    1
+
+    .fUseFlags                  resd    1
+    .fChanged                   resd    1
+    .u32RetCode                 resd    1
+    .fCpuIdApicFeatureVisible   resb    1
+
+    ;
+    ; Host context state
+    ;
+    alignb 64
+    .Host                       resb    0
+    .Host.abXState              resb    0x4000-0x300
+    .Host.XState                EQU     .Host.abXState
+    ;.Host.rax                   resq    1 - scratch
+    .Host.rbx                   resq    1
+    ;.Host.rcx                   resq    1 - scratch
+    ;.Host.rdx                   resq    1 - scratch
+    .Host.rdi                   resq    1
+    .Host.rsi                   resq    1
+    .Host.rbp                   resq    1
+    .Host.rsp                   resq    1
+    ;.Host.r8                    resq    1 - scratch
+    ;.Host.r9                    resq    1 - scratch
+    .Host.r10                   resq    1
+    .Host.r11                   resq    1
+    .Host.r12                   resq    1
+    .Host.r13                   resq    1
+    .Host.r14                   resq    1
+    .Host.r15                   resq    1
+    ;.Host.rip                   resd    1 - scratch
+    .Host.rflags                resq    1
+    .Host.ss                    resw    1
+    .Host.ssPadding             resw    1
+    .Host.gs                    resw    1
+    .Host.gsPadding             resw    1
+    .Host.fs                    resw    1
+    .Host.fsPadding             resw    1
+    .Host.es                    resw    1
+    .Host.esPadding             resw    1
+    .Host.ds                    resw    1
+    .Host.dsPadding             resw    1
+    .Host.cs                    resw    1
+    .Host.csPadding             resw    1
+
+    .Host.cr0Fpu:
+    .Host.cr0                   resq    1
+    ;.Host.cr2                   resq    1 - scratch
+    .Host.cr3                   resq    1
+    .Host.cr4                   resq    1
+    .Host.cr8                   resq    1
+
+    .Host.dr0                   resq    1
+    .Host.dr1                   resq    1
+    .Host.dr2                   resq    1
+    .Host.dr3                   resq    1
+    .Host.dr6                   resq    1
+    .Host.dr7                   resq    1
+
+    .Host.gdtr                  resb    10         ; GDT limit + linear address
+    .Host.gdtrPadding           resw    1
+    .Host.idtr                  resb    10         ; IDT limit + linear address
+    .Host.idtrPadding           resw    1
+    .Host.ldtr                  resw    1
+    .Host.ldtrPadding           resw    1
+    .Host.tr                    resw    1
+    .Host.trPadding             resw    1
+
+    .Host.SysEnter.cs           resq    1
+    .Host.SysEnter.eip          resq    1
+    .Host.SysEnter.esp          resq    1
+    .Host.FSbase                resq    1
+    .Host.GSbase                resq    1
+    .Host.efer                  resq    1
+    alignb 8
+    .Host.xcr0                  resq    1
+    .Host.fXStateMask           resq    1
+
+    ;
+    ; Hypervisor Context.
+    ;
+    alignb 64
+    .Hyper                      resq    0
+    .Hyper.dr                   resq    8
+    .Hyper.cr3                  resq    1
+    alignb 64
+
+%ifdef VBOX_WITH_CRASHDUMP_MAGIC
+    .aMagic                     resb    56
+    .uMagic                     resq    1
+%endif
+endstruc
+
+
+
+%if 0 ; Currently not used anywhere.
+;;
+; Macro for FXSAVE/FXRSTOR leaky behaviour on AMD CPUs, see cpumR3CheckLeakyFpu().
+;
+; Cleans the FPU state, if necessary, before restoring the FPU.
+;
+; This macro ASSUMES CR0.TS is not set!
+;
+; @param    xDX     Pointer to CPUMCPU.
+; @uses     xAX, EFLAGS
+;
+; Changes here should also be reflected in CPUMRCA.asm's copy!
+;
+%macro CLEANFPU 0
+        test    dword [xDX + CPUMCPU.fUseFlags], CPUM_USE_FFXSR_LEAKY
+        jz      .nothing_to_clean
+
+        xor     eax, eax
+        fnstsw  ax                      ; FSW -> AX.
+        test    eax, RT_BIT(7)          ; If FSW.ES (bit 7) is set, clear it to not cause FPU exceptions
+                                        ; while clearing & loading the FPU bits in 'clean_fpu' below.
+        jz      .clean_fpu
+        fnclex
+
+.clean_fpu:
+        ffree   st7                     ; Clear FPU stack register(7)'s tag entry to prevent overflow if a wraparound occurs.
+                                        ; for the upcoming push (load)
+        fild    dword [g_r32_Zero xWrtRIP] ; Explicit FPU load to overwrite FIP, FOP, FDP registers in the FPU.
+.nothing_to_clean:
+%endmacro
+%endif ; Unused.
+
+
+;;
+; Makes sure we don't trap (#NM) accessing the FPU.
+;
+; In ring-0 this is a bit of work since we may have try convince the host kernel
+; to do the work for us, also, we must report any CR0 changes back to HMR0VMX
+; via the VINF_CPUM_HOST_CR0_MODIFIED status code.
+;
+; If we end up clearing CR0.TS/EM ourselves in ring-0, we'll save the original
+; value in CPUMCPU.Host.cr0Fpu.  If we don't, we'll store zero there.  (See also
+; CPUMRZ_RESTORE_CR0_IF_TS_OR_EM_SET.)
+;
+; In raw-mode we will always have to clear TS and it will be recalculated
+; elsewhere and thus needs no saving.
+;
+; @param    %1          Register to return the return status code in.
+; @param    %2          Temporary scratch register.
+; @param    %3          Ring-0 only, register pointing to the CPUMCPU structure
+;                       of the EMT we're on.
+; @uses     EFLAGS, CR0, %1, %2
+;
+%macro CPUMRZ_TOUCH_FPU_CLEAR_CR0_FPU_TRAPS_SET_RC 3
+        ;
+        ; ring-0 - slightly complicated (than old raw-mode).
+        ;
+        xor     %1, %1                          ; 0 / VINF_SUCCESS. Wishing for no CR0 changes.
+        mov     [%3 + CPUMCPU.Host.cr0Fpu], %1
+
+        mov     %2, cr0
+        test    %2, X86_CR0_TS | X86_CR0_EM ; Make sure its safe to access the FPU state.
+        jz      %%no_cr0_change
+
+ %ifdef VMM_R0_TOUCH_FPU
+        ; Touch the state and check that the kernel updated CR0 for us.
+        movdqa  xmm0, xmm0
+        mov     %2, cr0
+        test    %2, X86_CR0_TS | X86_CR0_EM
+        jz      %%cr0_changed
+ %endif
+
+        ; Save CR0 and clear them flags ourselves.
+        mov     [%3 + CPUMCPU.Host.cr0Fpu], %2
+        and     %2, ~(X86_CR0_TS | X86_CR0_EM)
+        mov     cr0, %2
+
+%%cr0_changed:
+        mov     %1,  VINF_CPUM_HOST_CR0_MODIFIED
+%%no_cr0_change:
+%endmacro
+
+
+;;
+; Restore CR0 if CR0.TS or CR0.EM were non-zero in the original state.
+;
+; @param    %1      The original state to restore (or zero).
+;
+%macro CPUMRZ_RESTORE_CR0_IF_TS_OR_EM_SET 1
+        test    %1, X86_CR0_TS | X86_CR0_EM
+        jz      %%skip_cr0_restore
+        mov     cr0, %1
+%%skip_cr0_restore:
+%endmacro
+
+
+;;
+; Saves the host state.
+;
+; @uses     rax, rdx
+; @param    pCpumCpu    Define for the register containing the CPUMCPU pointer.
+; @param    pXState     Define for the register containing the extended state pointer.
+;
+%macro CPUMR0_SAVE_HOST 0
+        ;
+        ; Load a couple of registers we'll use later in all branches.
+        ;
+        lea     pXState, [pCpumCpu + CPUMCPU.Host.XState]
+        mov     eax, [pCpumCpu + CPUMCPU.Host.fXStateMask]
+
+        ;
+        ; XSAVE or FXSAVE?
+        ;
+        or      eax, eax
+        jz      %%host_fxsave
+
+        ; XSAVE
+        mov     edx, [pCpumCpu + CPUMCPU.Host.fXStateMask + 4]
+ %ifdef RT_ARCH_AMD64
+        o64 xsave [pXState]
+ %else
+        xsave   [pXState]
+ %endif
+        jmp     %%host_done
+
+        ; FXSAVE
+%%host_fxsave:
+ %ifdef RT_ARCH_AMD64
+        o64 fxsave [pXState]            ; Use explicit REX prefix. See @bugref{6398}.
+ %else
+        fxsave  [pXState]
+ %endif
+
+%%host_done:
+%endmacro ; CPUMR0_SAVE_HOST
+
+
+;;
+; Loads the host state.
+;
+; @uses     rax, rdx
+; @param    pCpumCpu    Define for the register containing the CPUMCPU pointer.
+; @param    pXState     Define for the register containing the extended state pointer.
+;
+%macro CPUMR0_LOAD_HOST 0
+        ;
+        ; Load a couple of registers we'll use later in all branches.
+        ;
+        lea     pXState, [pCpumCpu + CPUMCPU.Host.XState]
+        mov     eax, [pCpumCpu + CPUMCPU.Host.fXStateMask]
+
+        ;
+        ; XRSTOR or FXRSTOR?
+        ;
+        or      eax, eax
+        jz      %%host_fxrstor
+
+        ; XRSTOR
+        mov     edx, [pCpumCpu + CPUMCPU.Host.fXStateMask + 4]
+ %ifdef RT_ARCH_AMD64
+        o64 xrstor [pXState]
+ %else
+        xrstor  [pXState]
+ %endif
+        jmp     %%host_done
+
+        ; FXRSTOR
+%%host_fxrstor:
+ %ifdef RT_ARCH_AMD64
+        o64 fxrstor [pXState]           ; Use explicit REX prefix. See @bugref{6398}.
+ %else
+        fxrstor [pXState]
+ %endif
+
+%%host_done:
+%endmacro ; CPUMR0_LOAD_HOST
+
+
+
+;; Macro for XSAVE/FXSAVE for the guest FPU but tries to figure out whether to
+;  save the 32-bit FPU state or 64-bit FPU state.
+;
+; @param    %1      Pointer to CPUMCPU.
+; @param    %2      Pointer to XState.
+; @param    %3      Force AMD64
+; @param    %4      The instruction to use (xsave or fxsave)
+; @uses     xAX, xDX, EFLAGS, 20h of stack.
+;
+%macro SAVE_32_OR_64_FPU 4
+%if CPUM_IS_AMD64 || %3
+        ; Save the guest FPU (32-bit or 64-bit), preserves existing broken state. See @bugref{7138}.
+        test    dword [pCpumCpu + CPUMCPU.fUseFlags], CPUM_USE_SUPPORTS_LONGMODE
+        jnz     short %%save_long_mode_guest
+%endif
+        %4      [pXState]
+%if CPUM_IS_AMD64 || %3
+        jmp     %%save_done_32bit_cs_ds
+
+%%save_long_mode_guest:
+        o64 %4  [pXState]
+
+        xor     edx, edx
+        cmp     dword [pXState + X86FXSTATE.FPUCS], 0
+        jne     short %%save_done
+
+        sub     rsp, 20h                ; Only need 1ch bytes but keep stack aligned otherwise we #GP(0).
+        fnstenv [rsp]
+        movzx   eax, word [rsp + 10h]
+        mov     [pXState + X86FXSTATE.FPUCS], eax
+        movzx   eax, word [rsp + 18h]
+        add     rsp, 20h
+        mov     [pXState + X86FXSTATE.FPUDS], eax
+%endif
+%%save_done_32bit_cs_ds:
+        mov     edx, X86_FXSTATE_RSVD_32BIT_MAGIC
+%%save_done:
+        mov     dword [pXState + X86_OFF_FXSTATE_RSVD], edx
+%endmacro ; SAVE_32_OR_64_FPU
+
+
+;;
+; Save the guest state.
+;
+; @uses     rax, rdx
+; @param    pCpumCpu    Define for the register containing the CPUMCPU pointer.
+; @param    pXState     Define for the register containing the extended state pointer.
+;
+%macro CPUMR0_SAVE_GUEST 0
+        ;
+        ; Load a couple of registers we'll use later in all branches.
+        ;
+ %ifdef IN_RING0
+        lea     pXState, [pCpumCpu + CPUMCPU.Guest.XState]
+ %else
+  %error "Unsupported context!"
+ %endif
+        mov     eax, [pCpumCpu + CPUMCPU.Guest.fXStateMask]
+
+        ;
+        ; XSAVE or FXSAVE?
+        ;
+        or      eax, eax
+        jz      %%guest_fxsave
+
+        ; XSAVE
+        mov     edx, [pCpumCpu + CPUMCPU.Guest.fXStateMask + 4]
+ %ifdef VBOX_WITH_KERNEL_USING_XMM
+        and     eax, ~CPUM_VOLATILE_XSAVE_GUEST_COMPONENTS ; Already saved in HMR0A.asm.
+ %endif
+        SAVE_32_OR_64_FPU pCpumCpu, pXState, 0, xsave
+        jmp     %%guest_done
+
+        ; FXSAVE
+%%guest_fxsave:
+        SAVE_32_OR_64_FPU pCpumCpu, pXState, 0, fxsave
+
+%%guest_done:
+%endmacro ; CPUMR0_SAVE_GUEST
+
+
+;;
+; Wrapper for selecting 32-bit or 64-bit XRSTOR/FXRSTOR according to what SAVE_32_OR_64_FPU did.
+;
+; @param    %1      Pointer to CPUMCPU.
+; @param    %2      Pointer to XState.
+; @param    %3      Force AMD64.
+; @param    %4      The instruction to use (xrstor or fxrstor).
+; @uses     xAX, xDX, EFLAGS
+;
+%macro RESTORE_32_OR_64_FPU 4
+%if CPUM_IS_AMD64 || %3
+        ; Restore the guest FPU (32-bit or 64-bit), preserves existing broken state. See @bugref{7138}.
+        test    dword [pCpumCpu + CPUMCPU.fUseFlags], CPUM_USE_SUPPORTS_LONGMODE
+        jz      %%restore_32bit_fpu
+        cmp     dword [pXState + X86_OFF_FXSTATE_RSVD], X86_FXSTATE_RSVD_32BIT_MAGIC
+        jne     short %%restore_64bit_fpu
+%%restore_32bit_fpu:
+%endif
+        %4      [pXState]
+%if CPUM_IS_AMD64 || %3
+        ; TODO: Restore XMM8-XMM15!
+        jmp     short %%restore_fpu_done
+%%restore_64bit_fpu:
+        o64 %4  [pXState]
+%%restore_fpu_done:
+%endif
+%endmacro ; RESTORE_32_OR_64_FPU
+
+
+;;
+; Loads the guest state.
+;
+; @uses     rax, rdx
+; @param    pCpumCpu    Define for the register containing the CPUMCPU pointer.
+; @param    pXState     Define for the register containing the extended state pointer.
+;
+%macro CPUMR0_LOAD_GUEST 0
+        ;
+        ; Load a couple of registers we'll use later in all branches.
+        ;
+        lea     pXState, [pCpumCpu + CPUMCPU.Guest.XState]
+        mov     eax, [pCpumCpu + CPUMCPU.Guest.fXStateMask]
+
+        ;
+        ; XRSTOR or FXRSTOR?
+        ;
+        or      eax, eax
+        jz      %%guest_fxrstor
+
+        ; XRSTOR
+        mov     edx, [pCpumCpu + CPUMCPU.Guest.fXStateMask + 4]
+ %ifdef VBOX_WITH_KERNEL_USING_XMM
+        and     eax, ~CPUM_VOLATILE_XSAVE_GUEST_COMPONENTS ; Will be loaded by HMR0A.asm.
+ %endif
+        RESTORE_32_OR_64_FPU pCpumCpu, pXState, 0, xrstor
+        jmp     %%guest_done
+
+        ; FXRSTOR
+%%guest_fxrstor:
+        RESTORE_32_OR_64_FPU pCpumCpu, pXState, 0, fxrstor
+
+%%guest_done:
+%endmacro ; CPUMR0_LOAD_GUEST
+

@@ -1,0 +1,60 @@
+;SetupMgrTag
+[Data]
+    AutoPartition = 1
+    MsDosInitiated = "0"
+    UnattendedInstall = "Yes"
+
+[Unattended]
+    UnattendMode = FullUnattended
+    OemSkipEula = Yes
+    OemPreinstall = No
+    TargetPath = \WINDOWS
+    Repartition = Yes
+    UnattendSwitch = "Yes"
+    DriverSigningPolicy = Ignore
+    WaitForReboot = "No"
+
+[GuiUnattended]
+    AdminPassword = "@@VBOX_INSERT_ROOT_PASSWORD@@"
+    EncryptedAdminPassword = No
+    AutoLogon = Yes
+    OEMSkipRegional = 1
+    OemSkipWelcome = 1
+; TODO: Make timezone configurable?
+    TimeZone = @@VBOX_INSERT_TIME_ZONE_WIN_INDEX@@
+    OemSkipWelcome = 1
+
+[UserData]
+; ProductKey was introduced in XP, ProductID was used in 2K and earlier.
+    ProductKey = "@@VBOX_INSERT_PRODUCT_KEY@@"
+    ProductID = "@@VBOX_INSERT_PRODUCT_KEY@@"
+; ; TODO: we're currently setting this up as Administrator only. We should respect the --user too.
+; ;       Maybe consider: https://unattended.msfn.org/unattended.xp/view/web/27/SESSID=329e04d6824e220b0bb415d0665b1fe0/
+    FullName = "@@VBOX_INSERT_USER_LOGIN@@"
+    OrgName = ""
+    ComputerName = "@@VBOX_INSERT_HOSTNAME_WITHOUT_DOMAIN_MAX_15@@"
+
+[RegionalSettings]
+; ; TODO: If we implement locales below, we must also install the necessary language groups here. Fun.
+;   LanguageGroup=1,2,3,4,5,6 - installed by default with XP
+
+; ; TODO: Implement mapping locales to windows LCIDs.
+; 0409:00000409 is US.
+;    SystemLocale=00000419 - russian
+; ; TODO: Make Input locale configurable?
+;    InputLocale=0409:00000409,0419:00000419 - US,Russian
+
+[LicenseFilePrintData]
+; This section is used for server installs.
+    AutoMode = "PerServer"
+    AutoUsers = "5"
+
+[Identification]
+    JoinWorkgroup = WORKGROUP
+
+[Networking]
+    InstallDefaultComponents = Yes
+
+[GuiRunOnce]
+    Command0="A:\VBOXPOST.CMD --xp-or-older"
+

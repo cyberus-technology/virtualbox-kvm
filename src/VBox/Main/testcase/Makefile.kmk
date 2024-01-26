@@ -1,0 +1,351 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the VBox API testcases.
+#
+
+#
+# Copyright (C) 2004-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# Target and globals (small mess)
+#
+ifndef VBOX_ONLY_SDK
+ if defined(VBOX_WITH_TESTCASES)
+  PROGRAMS       += \
+  	tstAPI \
+  	tstVBoxAPI \
+  	tstVBoxAPIPerf \
+  	tstVBoxMultipleVM \
+  	$(if $(VBOX_OSE),,tstOVF) \
+  	$(if $(VBOX_WITH_XPCOM),tstVBoxAPIXPCOM,tstVBoxAPIWin msiDarwinDescriptorDecoder) \
+  	$(if $(VBOX_WITH_RESOURCE_USAGE_API),tstCollector,) \
+  	$(if $(VBOX_WITH_GUEST_CONTROL),tstGuestCtrlContextID,) \
+  	$(if $(VBOX_WITH_GUEST_CONTROL),tstGuestCtrlParseBuffer,) \
+  	$(if $(VBOX_WITH_GUEST_CONTROL),tstGuestCtrlPaths,) \
+  	tstMediumLock \
+  	tstSafeArray \
+  	tstBstr \
+  	tstGuid \
+  	tstUnattendedScript \
+  	tstVBoxCrypto
+  PROGRAMS.linux += \
+  	$(if $(VBOX_WITH_USB),tstUSBProxyLinux,)
+ endif # !VBOX_WITH_TESTCASES
+endif # !VBOX_ONLY_SDK
+if defined(VBOX_ONLY_SDK) || !defined(VBOX_WITH_XPCOM)
+ INSTALLS += samplesMSCOM
+endif
+if defined(VBOX_ONLY_SDK) || defined(VBOX_WITH_XPCOM)
+ INSTALLS += samplesXPCOM
+endif
+
+
+#
+# The samples
+#
+samplesMSCOM_MODE = a+r,u+w
+samplesMSCOM_INST = $(INST_SDK)bindings/mscom/samples/
+samplesMSCOM_SOURCES = tstVBoxAPIWin.cpp makefile.tstVBoxAPIWin=>Makefile
+
+samplesXPCOM_MODE = a+r,u+w
+samplesXPCOM_INST = $(INST_SDK)bindings/xpcom/samples/
+samplesXPCOM_SOURCES = tstVBoxAPIXPCOM.cpp makefile.tstVBoxAPIXPCOM=>Makefile
+
+#
+# tstVBoxMultipleVM
+#
+tstVBoxMultipleVM_TEMPLATE = VBoxMainClientTstExe
+tstVBoxMultipleVM_SOURCES  = tstVBoxMultipleVM.cpp
+
+#
+# tstAPI
+#
+tstAPI_TEMPLATE = VBoxMainClientTstExe
+#tstAPI_INST = $(INST_SDK)bindings/gluecom/samples/
+tstAPI_SOURCES  = tstAPI.cpp
+
+#
+# tstVBoxAPI
+#
+tstVBoxAPI_TEMPLATE = VBoxMainClientTstExe
+tstVBoxAPI_SOURCES  = \
+	tstVBoxAPI.cpp
+
+#
+# tstVBoxAPIPerf
+#
+tstVBoxAPIPerf_TEMPLATE = VBoxMainClientTstExe
+tstVBoxAPIPerf_SOURCES  = \
+	tstVBoxAPIPerf.cpp
+
+#
+# tstOVF
+#
+tstOVF_TEMPLATE = VBoxMainClientTstExe
+#tstOVF_INST = $(INST_SDK)bindings/gluecom/samples/
+tstOVF_SOURCES  = tstOVF.cpp
+
+ifndef VBOX_OSE
+ #
+ # OVF test data.
+ #
+ INSTALLS += ovf-testcases
+ ovf-testcases_MODE = a+r,u+w
+ ovf-testcases_INST = $(INST_TESTCASE)ovf-testcases/
+ ovf-testcases_SOURCES = \
+ 	ovf-dummy.vmdk \
+ 	ovf-joomla-0.9/joomla-1.1.4-ovf.ovf=>ovf-joomla-0.9/joomla-1.1.4-ovf.ovf \
+ 	ovf-winhost-audio-nodisks/WinXP.ovf=>ovf-winhost-audio-nodisks/WinXP.ovf \
+ 	ovf-winxp-vbox-sharedfolders/winxp.ovf=>ovf-winxp-vbox-sharedfolders/winxp.ovf
+endif
+
+
+#
+# tstVBoxAPIXPCOM
+#
+# We only build the testcase here to make sure it builds.
+# It comes with a custom makefile which should be tested as well!
+#
+# Use very generic template to make the build environment similar
+# to the standalone case, to detect if IPRT or glue use sneaks in.
+#
+tstVBoxAPIXPCOM_TEMPLATE = VBoxR3Exe
+tstVBoxAPIXPCOM_INST = $(INST_TESTCASE)
+tstVBoxAPIXPCOM_SOURCES  = tstVBoxAPIXPCOM.cpp
+tstVBoxAPIXPCOM_INCS = \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include/nsprpub \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include/string \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include/xpcom \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include/ipcd
+tstVBoxAPIXPCOM_LIBS = \
+	$(LIB_XPCOM) \
+	$(LIB_RUNTIME)
+tstVBoxAPIXPCOM_CXXFLAGS = -fshort-wchar
+ifdef VBOX_WITH_RUNPATH
+ tstVBoxAPIXPCOM_LDFLAGS = '$(VBOX_GCC_RPATH_OPT)$(VBOX_WITH_RUNPATH)' $(TEMPLATE_VBoxBldProg_LDFLAGS)
+else ifdef VBOX_WITH_RELATIVE_RUNPATH
+ tstVBoxAPIXPCOM_LDFLAGS = '$(VBOX_GCC_RPATH_OPT)$(VBOX_WITH_RELATIVE_RUNPATH)/..' $(TEMPLATE_VBoxBldProg_LDFLAGS)
+endif
+tstVBoxAPIXPCOM_INTERMEDIATES = \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include/VirtualBox_XPCOM.h
+ifdef VBOX_WITH_XPCOM_NAMESPACE_CLEANUP
+ tstVBoxAPIXPCOM_DEFS += VBOX_WITH_XPCOM_NAMESPACE_CLEANUP
+endif
+
+
+#
+# tstVBoxAPIWin
+#
+# Use very generic template to make the build environment similar
+# to the standalone case, to detect if IPRT or glue use sneaks in.
+#
+tstVBoxAPIWin_TEMPLATE = VBoxR3Exe
+tstVBoxAPIWin_INST = $(INST_TESTCASE)
+tstVBoxAPIWin_SOURCES  = \
+	tstVBoxAPIWin.cpp \
+	$(VBOX_PATH_SDK)/bindings/mscom/lib/VirtualBox_i.c
+tstVBoxAPIWin_INCS = \
+	$(VBOX_PATH_SDK)/bindings/mscom/include
+tstVBoxAPIWin_INTERMEDIATES = \
+	$(VBOX_PATH_SDK)/bindings/mscom/include/VirtualBox.h
+
+
+#
+# msiDarwinDescriptorDecoder
+#
+# Use very generic template to make the build environment similar
+# to the standalone case, to detect if IPRT or glue use sneaks in.
+#
+msiDarwinDescriptorDecoder_TEMPLATE = VBoxR3Exe
+msiDarwinDescriptorDecoder_INST = $(VBOX_INST_TOOLS)
+msiDarwinDescriptorDecoder_SOURCES  = \
+	msiDarwinDescriptorDecoder.cpp
+
+
+#
+# tstCollector
+#
+# Note! VBOX_MAIN_APIWRAPPER_GEN_HDRS is only defined if kmk is executed a
+#       parent directory.  Since the rules for generating the files listed by
+#       the variable lives in the parent makefile, this is not a problem.
+#
+tstCollector_TEMPLATE = VBoxMainClientTstExe
+tstCollector_SOURCES  = \
+	tstCollector.cpp \
+	../src-server/Performance.cpp
+tstCollector_INCS            = \
+	../include \
+	$(VBOX_MAIN_APIWRAPPER_INCS)
+tstCollector_INTERMEDIATES   = $(VBOX_MAIN_APIWRAPPER_GEN_HDRS)
+tstCollector_DEFS            = VBOX_COLLECTOR_TEST_CASE
+tstCollector_LDFLAGS.darwin  = -lproc
+tstCollector_LDFLAGS.solaris = -lkstat -lnvpair
+tstCollector_LDFLAGS.win     = psapi.lib powrprof.lib
+
+
+#
+# tstGuestCtrlContextID
+#
+tstGuestCtrlContextID_TEMPLATE = VBoxMainClientTstExe
+tstGuestCtrlContextID_INTERMEDIATES   = $(VBOX_MAIN_APIWRAPPER_GEN_HDRS)
+tstGuestCtrlContextID_DEFS    += VBOX_WITH_HGCM VBOX_WITH_GUEST_CONTROL VBOX_GUESTCTRL_TEST_CASE
+tstGuestCtrlContextID_SOURCES  = \
+	tstGuestCtrlContextID.cpp \
+	../src-client/GuestCtrlPrivate.cpp
+tstGuestCtrlContextID_INCS     = ../include \
+	$(VBOX_MAIN_APIWRAPPER_INCS)
+
+
+#
+# tstGuestCtrlParseBuffer
+#
+tstGuestCtrlParseBuffer_TEMPLATE = VBoxMainClientTstExe
+tstGuestCtrlParseBuffer_INTERMEDIATES   = $(VBOX_MAIN_APIWRAPPER_GEN_HDRS)
+tstGuestCtrlParseBuffer_DEFS    += VBOX_WITH_HGCM VBOX_WITH_GUEST_CONTROL VBOX_GUESTCTRL_TEST_CASE
+tstGuestCtrlParseBuffer_SOURCES  = \
+	tstGuestCtrlParseBuffer.cpp \
+	../src-client/GuestCtrlPrivate.cpp
+tstGuestCtrlParseBuffer_INCS     = ../include \
+	$(VBOX_MAIN_APIWRAPPER_INCS)
+
+
+#
+# tstGuestCtrlPaths
+#
+tstGuestCtrlPaths_TEMPLATE       = VBoxMainClientTstExe
+tstGuestCtrlPaths_INTERMEDIATES  = $(VBOX_MAIN_APIWRAPPER_GEN_HDRS)
+tstGuestCtrlPaths_DEFS          += VBOX_WITH_HGCM VBOX_WITH_GUEST_CONTROL VBOX_GUESTCTRL_TEST_CASE
+tstGuestCtrlPaths_SOURCES        = \
+	tstGuestCtrlPaths.cpp \
+	../src-client/GuestCtrlPrivate.cpp
+tstGuestCtrlPaths_INCS           = ../include \
+	$(VBOX_MAIN_APIWRAPPER_INCS)
+
+if 0 # Enable this if you want automatic runs after compilation.
+ $$(tstGuestCtrlPaths_0_OUTDIR)/tstGuestCtrlPaths.run: $$(tstGuestCtrlPaths_1_STAGE_TARGET)
+	export VBOX_LOG_DEST=nofile; $(tstGuestCtrlPaths_1_STAGE_TARGET) quiet
+	$(QUIET)$(APPEND) -t "$@" "done"
+ OTHERS += $(tstGuestCtrlPaths_0_OUTDIR)/tstGuestCtrlPaths.run
+endif
+
+
+#
+# tstUSBProxyLinux
+#
+tstUSBProxyLinux_TEMPLATE  = VBoxMainClientTstExe
+tstUSBProxyLinux_INTERMEDIATES = $(VBOX_MAIN_APIWRAPPER_GEN_HDRS)
+tstUSBProxyLinux_SOURCES   = \
+	tstUSBProxyLinux.cpp \
+	../src-server/linux/USBGetDevices.cpp
+tstUSBProxyLinux_INCS      = \
+	. \
+	../include \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include/nsprpub \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include/xpcom \
+	$(VBOX_MAIN_APIWRAPPER_INCS)
+tstUSBProxyLinux_DEFS      = \
+	UNIT_TEST \
+	VBOX_WITH_USB \
+	VBOX_USB_WITH_SYSFS \
+	VBOX_WITH_XPCOM
+tstUSBProxyLinux_DEPS     = \
+	$(VBOX_PATH_SDK)/bindings/xpcom/include/VirtualBox_XPCOM.h
+tstUSBProxyLinux_LIBS     += \
+	$(PATH_OUT)/lib/USBLib.a \
+	$(PATH_OUT)/lib/VBoxCOM.a
+
+
+#
+# tstMediumLock
+#
+tstMediumLock_TEMPLATE = VBoxMainClientTstExe
+tstMediumLock_SOURCES  = tstMediumLock.cpp
+
+
+#
+# tstSafeArray
+#
+tstSafeArray_TEMPLATE = VBoxMainClientTstExe
+tstSafeArray_SOURCES  = tstSafeArray.cpp
+
+
+#
+# tstBstr
+#
+tstBstr_TEMPLATE = VBoxMainClientTstExe
+tstBstr_SOURCES  = tstBstr.cpp
+
+
+#
+# tstGuid
+#
+tstGuid_TEMPLATE = VBoxMainClientTstExe
+tstGuid_SOURCES  = tstGuid.cpp
+
+
+#
+# tstUnattendedScript
+#
+tstUnattendedScript_TEMPLATE = VBoxMainClientTstExe
+tstUnattendedScript_DEFS     = VBOX_WITH_UNATTENDED IN_VBOXSVC IN_TST_UNATTENDED_SCRIPT
+tstUnattendedScript_INTERMEDIATES = \
+	$(VBOX_MAIN_APIWRAPPER_GEN_HDRS) \
+	$(VBOX_XML_SCHEMADEFS_H)
+tstUnattendedScript_INCS     = \
+	../include \
+	$(VBOX_MAIN_APIWRAPPER_INCS) \
+	$(dir $(VBOX_XML_SCHEMADEFS_H))
+tstUnattendedScript_SOURCES  = \
+	tstUnattendedScript.cpp \
+	../src-server/UnattendedScript.cpp \
+	../src-all/TextScript.cpp \
+	../src-all/VirtualBoxBase.cpp \
+	../src-all/VirtualBoxErrorInfoImpl.cpp \
+	../src-all/AutoCaller.cpp \
+	../src-all/GlobalStatusConversion.cpp
+tstUnattendedScript_LIBS     = \
+	$(PATH_STAGE_LIB)/VBoxAPIWrap$(VBOX_SUFF_LIB)
+
+INSTALLS += tstUnattendedScriptFiles
+tstUnattendedScriptFiles_TEMPLATE = VBoxMainTstExe
+tstUnattendedScriptFiles_SOURCES = \
+	tstUnattendedScript-1.template \
+	tstUnattendedScript-1.expected
+
+
+#
+# tstVBoxCrypto
+#
+tstVBoxCrypto_TEMPLATE = VBoxMainClientTstExe
+tstVBoxCrypto_SOURCES  = tstVBoxCrypto.cpp
+
+
+
+# generate rules.
+include $(FILE_KBUILD_SUB_FOOTER)
+

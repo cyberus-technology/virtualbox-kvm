@@ -1,0 +1,64 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for D3D test application.
+#
+
+#
+# Copyright (C) 2017-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+PROGRAMS += VBoxGaD3DTest
+VBoxGaD3DTest_TEMPLATE    = VBoxR3Static
+VBoxGaD3DTest_DEFS        = D3DTEST_STANDALONE
+VBoxGaD3DTest_LIBS        = d3d9.lib
+VBoxGaD3DTest_SOURCES     = \
+	d3d9main.cpp \
+	d3d9render.cpp \
+	d3dhlp.cpp
+
+#
+# 32-bit version of VBoxGaD3DTest.
+#
+PROGRAMS.amd64 += VBoxGaD3DTest-x86
+VBoxGaD3DTest-x86_EXTENDS = VBoxGaD3DTest
+VBoxGaD3DTest-x86_BLD_TRG_ARCH = x86
+
+
+PROGRAMS += VBoxD3D11
+VBoxD3D11_TEMPLATE    = VBoxR3Static
+VBoxD3D11_CXXFLAGS   += -wd4458 -wd4668 -wd4838 -wd5029 -wd5039
+VBoxD3D11_INCS       += $(PATH_ROOT)/src/VBox/Devices/Graphics/shaders
+VBoxD3D11_LIBS        = d3d11.lib
+VBoxD3D11_SOURCES     = \
+	d3d11main.cpp \
+	d3d11render.cpp
+
+#
+# 32-bit version of VBoxD3D11.
+#
+PROGRAMS.amd64 += VBoxD3D11-x86
+VBoxD3D11-x86_EXTENDS = VBoxD3D11
+VBoxD3D11-x86_BLD_TRG_ARCH = x86
+
+include $(FILE_KBUILD_SUB_FOOTER)

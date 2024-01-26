@@ -1,0 +1,58 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the VirtualBox Windows Guest Shared Folders Network Provider.
+#
+
+#
+# Copyright (C) 2012-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+DLLS += VBoxMRXNP
+VBoxMRXNP_TEMPLATE    = VBoxGuestR3Dll
+VBoxMRXNP_DEFS        = LOG_TO_BACKDOOR UNICODE WIN32_LEAN_AND_MEAN=1
+#VBoxMRXNP_DEFS       += LOG_ENABLED
+VBoxMRXNP_SDKS        = ReorderCompilerIncs $(VBOX_WINDDK_GST_W2K)
+
+VBoxMRXNP_SOURCES     = \
+	vboxmrxnp.cpp \
+	vboxmrxnp.rc \
+	vboxmrxnp.def
+
+VBoxMRXNP_LIBS     = \
+	$(VBOX_LIB_IPRT_GUEST_R3_SHARED) \
+	$(VBOX_LIB_VBGL_R3_SHARED) \
+	$(VBOX_LIB_IPRT_GUEST_R3_SHARED)
+
+#
+# VBoxMRXNP-x86 - x86 version of VBoxMRXNP built for amd64 build
+#
+DLLS.win.amd64 += VBoxMRXNP-x86
+VBoxMRXNP-x86_EXTENDS = VBoxMRXNP
+VBoxMRXNP-x86_BLD_TRG_ARCH = x86
+VBoxMRXNP-x86_LIBS = \
+	$(VBOX_LIB_IPRT_GUEST_R3_SHARED_X86) \
+	$(VBOX_LIB_VBGL_R3_SHARED_X86)
+VBoxMRXNP-x86_DEFS = $(VBoxMRXNP_DEFS) VBOX_WOW64
+
+include $(FILE_KBUILD_SUB_FOOTER)

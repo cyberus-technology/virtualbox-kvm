@@ -1,0 +1,109 @@
+; $Id: env-iprt-r3.mac $
+;; @file
+; Instruction Test Environment - IPRT, Ring-3, 32-bit and 64-bit.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; SPDX-License-Identifier: GPL-3.0-only
+;
+
+%ifndef ___env_iprt_r3_mac
+%define ___env_iprt_r3_mac
+
+;*******************************************************************************
+;*  Header Files                                                               *
+;*******************************************************************************
+%include "iprt/asmdefs.mac"
+
+
+;*******************************************************************************
+;*  Defined Constants And Macros                                               *
+;*******************************************************************************
+%define sAX xAX
+%define sBX xBX
+%define sCX xCX
+%define sDX xDX
+%define sSP xSP
+%define sBP xBP
+%define sSI xSI
+%define sDI xDI
+%define sCB xCB
+
+
+;; Same as BEGINPROC in asmdefs.mac.
+%macro VBINSTST_BEGINPROC 1
+BEGINPROC %1
+%endm
+
+;; Same as ENDPROC in asmdefs.mac.
+%macro VBINSTST_ENDPROC   1
+ENDPROC %1
+%endm
+
+;; Same as NAME in asmdefs.mac.
+%define VBINSTST_NAME(a_Name)   NAME(a_Name)
+
+;; Same as GLOBALNAME_EX in asmdefs.mac.
+%define VBINSTST_GLOBALNAME_EX  GLOBALNAME_EX
+
+;; Same as BEGINCODE in asmdefs.mac.
+%define VBINSTST_BEGINCODE      BEGINCODE
+
+;; Same as BEGINDATA in asmdefs.mac.
+%define VBINSTST_BEGINDATA      BEGINDATA
+
+
+;; Call RTTestISub like function.
+%define VBINSTST_CALL_FN_SUB_TEST   call IMP2(RTTestISub)
+EXTERN_IMP2 RTTestISub
+
+;; Call RTTestIFailure like function with simple message.
+%define VBINSTST_CALL_FN_FAILURE    call NAME(VBInsTstFailure)
+extern NAME(VBInsTstFailure)
+
+;; Call RTTestIFailure like function with format message + 1 arg.
+%define VBINSTST_CALL_FN_FAILURE_1  call NAME(VBInsTstFailure1)
+extern NAME(VBInsTstFailure1)
+
+;; Call RTTestIFailure like function with format message + 2 args.
+%define VBINSTST_CALL_FN_FAILURE_2  call NAME(VBInsTstFailure2)
+extern NAME(VBInsTstFailure2)
+
+;; Call RTTestIFailure like function with format message + 3 args.
+%define VBINSTST_CALL_FN_FAILURE_3  call NAME(VBInsTstFailure3)
+extern NAME(VBInsTstFailure3)
+
+;; Call RTTestIFailure like function with format message + 4 args.
+%define VBINSTST_CALL_FN_FAILURE_4  call NAME(VBInsTstFailure4)
+extern NAME(VBInsTstFailure4)
+
+
+;; Cannot do traps yet.
+%undef VBINSTST_CAN_DO_TRAPS
+
+
+;
+; Include the common bits (contains code using above macros)
+;
+%include "env-common.mac"
+
+%endif
+

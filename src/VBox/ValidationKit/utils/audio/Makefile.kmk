@@ -1,0 +1,220 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - Audio Utilities.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Make sure the ValKit config file is included when the additions build
+# is including just this makefile.
+#
+ifndef VBOX_VALIDATIONKIT_CONFIG_KMK_INCLUDED
+ include $(PATH_ROOT)/src/VBox/ValidationKit/Config.kmk
+endif
+
+
+#
+# Globals.
+#
+VBOX_PATH_SRC_DEVICES = $(PATH_ROOT)/src/VBox/Devices
+VKAT_PATH_AUDIO       = $(VBOX_PATH_SRC_DEVICES)/Audio
+
+
+#
+# Append what we build here to PROGRAMS (at the top because it's a bit messy).
+#
+ifn1of ($(KBUILD_TARGET), os2 freebsd netbsd openbsd)
+ if defined(VBOX_ONLY_VALIDATIONKIT) || !defined(VBOX_ONLY_BUILD)
+  PROGRAMS += vkat
+  if defined(VBOX_WITH_HOST_SHIPPING_AUDIO_TEST) && !defined(VBOX_ONLY_BUILD)
+   PROGRAMS += vkathost
+  endif
+ endif
+ if   defined(VBOX_WITH_ADDITIONS_SHIPPING_AUDIO_TEST) \
+   && defined(VBOX_WITH_ADDITIONS) \
+   && !defined(VBOX_WITH_ADDITIONS_FROM_BUILD_SERVER) \
+   && (defined(VBOX_ONLY_ADDITIONS) || !defined(VBOX_ONLY_BUILD))
+  PROGRAMS += vkatadd
+ endif
+endif
+
+
+#
+# Utility to play sine wave to Default Audio Device.
+#
+if 0 # Disabled for now; does not work without WinMM.dll import validator files.
+ PROGRAMS.win += ntPlayToneWaveX
+ ntPlayToneWaveX_TEMPLATE = VBoxValidationKitR3
+ ntPlayToneWaveX_SOURCES  = ntPlayToneWaveX.cpp
+ ntPlayToneWaveX_LIBS    += \
+ 	WinMM.Lib
+endif
+
+
+#
+# The Validation Kit Audio Test (VKAT) utility.
+#
+vkat_TEMPLATE = VBoxValidationKitR3
+vkat_VBOX_IMPORT_CHECKER.win.x86 = nt4
+vkat_DEFS     = VBOX_AUDIO_VKAT IN_VMM_R3 IN_VMM_STATIC
+vkat_INCS     = \
+	$(PATH_ROOT)/src/VBox/Devices/build \
+	$(PATH_ROOT)/src/VBox/Devices \
+	$(PATH_ROOT)/src/VBox/Devices/Audio
+vkat_SOURCES  = \
+	vkat.cpp \
+	vkatCommon.cpp \
+	vkatCmdGeneric.cpp \
+	vkatDriverStack.cpp \
+	$(VKAT_PATH_AUDIO)/AudioTest.cpp \
+	$(VKAT_PATH_AUDIO)/DrvAudio.cpp \
+	$(VKAT_PATH_AUDIO)/DrvHostAudioNull.cpp \
+	$(VKAT_PATH_AUDIO)/AudioMixer.cpp \
+	$(VKAT_PATH_AUDIO)/AudioMixBuffer.cpp \
+	$(VKAT_PATH_AUDIO)/AudioHlp.cpp
+
+# Debug stuff.
+ifdef VBOX_WITH_AUDIO_DEBUG
+ vkat_DEFS    += VBOX_WITH_AUDIO_DEBUG
+ vkat_SOURCES += \
+ 	$(VKAT_PATH_AUDIO)/DrvHostAudioDebug.cpp
+endif
+
+# Self-test stuff.
+vkat_DEFS     += VBOX_WITH_AUDIO_VALIDATIONKIT
+vkat_SOURCES  += \
+	vkatCmdSelfTest.cpp \
+	$(VKAT_PATH_AUDIO)/DrvHostAudioValidationKit.cpp \
+	$(VKAT_PATH_AUDIO)/AudioTestService.cpp \
+	$(VKAT_PATH_AUDIO)/AudioTestServiceClient.cpp \
+	$(VKAT_PATH_AUDIO)/AudioTestServiceProtocol.cpp \
+	$(VKAT_PATH_AUDIO)/AudioTestServiceTcp.cpp
+
+ifdef VBOX_WITH_AUDIO_PULSE
+ vkat_DEFS    += VBOX_WITH_AUDIO_PULSE
+ vkat_SOURCES += \
+ 	$(VKAT_PATH_AUDIO)/DrvHostAudioPulseAudioStubs.cpp \
+ 	$(VKAT_PATH_AUDIO)/DrvHostAudioPulseAudio.cpp
+endif
+
+ifdef VBOX_WITH_AUDIO_ALSA
+ vkat_DEFS    += VBOX_WITH_AUDIO_ALSA
+ vkat_SOURCES += \
+ 	$(VKAT_PATH_AUDIO)/DrvHostAudioAlsa.cpp \
+ 	$(VKAT_PATH_AUDIO)/DrvHostAudioAlsaStubs.cpp
+endif
+
+ifdef VBOX_WITH_AUDIO_OSS
+ vkat_DEFS    += VBOX_WITH_AUDIO_OSS
+ vkat_SOURCES += \
+ 	$(VKAT_PATH_AUDIO)/DrvHostAudioOss.cpp
+endif
+
+vkat_SOURCES.win += \
+	$(VKAT_PATH_AUDIO)/DrvHostAudioDSound.cpp \
+	$(VKAT_PATH_AUDIO)/DrvHostAudioWasApi.cpp
+ifdef VBOX_WITH_AUDIO_MMNOTIFICATION_CLIENT
+ vkat_DEFS.win    += VBOX_WITH_AUDIO_MMNOTIFICATION_CLIENT
+ vkat_SOURCES.win += \
+ 	$(VKAT_PATH_AUDIO)/DrvHostAudioDSoundMMNotifClient.cpp
+endif
+
+vkat_SOURCES.darwin = \
+	$(VKAT_PATH_AUDIO)/DrvHostAudioCoreAudio.cpp \
+	$(VKAT_PATH_AUDIO)/DrvHostAudioCoreAudioAuth.mm
+vkat_LDFLAGS.darwin = \
+	-framework CoreAudio \
+	-framework AudioUnit \
+	-framework AudioToolbox \
+	-framework Foundation
+ifn1of ($(VBOX_DEF_MACOSX_VERSION_MIN), 10.4 10.5 10.6)
+ vkat_LDFLAGS.darwin += \
+ 	-framework AVFoundation
+endif
+
+
+#
+# The additions variant of the audio test utility.
+#
+# We name it VBoxAudioTest though, to not clutter up Guest Additions
+# installations with cryptic binaries not sporting 'VBox' as prefix.
+#
+vkatadd_TEMPLATE       = VBoxGuestR3Exe
+vkatadd_EXTENDS        = vkat
+vkatadd_EXTENDS_BY     = appending
+vkatadd_NAME           = VBoxAudioTest
+vkatadd_SDKS           = VBoxZlibStatic
+vkatadd_LDFLAGS.darwin = -framework IOKit
+vkatadd_LIBS.solaris   = m
+
+
+#
+# Build the valkit vkat to bin as VBoxAudioTest, so that it can be shipped with
+# the host installer too.
+#
+# Note: We also need to have this as a signed binary, so don't just copy the
+#       vkat binary to bin/ directory but built this as an own binary.
+#
+vkathost_TEMPLATE  := VBoxR3Exe
+vkathost_EXTENDS   := vkat
+vkathost_INST      := $(INST_BIN)
+vkathost_NAME      := VBoxAudioTest
+vkathost_SOURCES    = \
+	$(vkat_SOURCES) \
+	$(VBOX_PATH_SRC_DEVICES)/build/VBoxDD.d
+vkathost_LIBS       = \
+	$(LIB_RUNTIME)
+
+
+if   defined(VBOX_WITH_TESTCASES) && !defined(VBOX_ONLY_ADDITIONS) && !defined(VBOX_ONLY_SDK) \
+  && 0 ## @todo r=bird: Disabled because nobody really wants or needs to run this during build other than Andy.
+ ##               And more importantly, it breaks the build (os2, bsd*).
+
+ PROGRAMS += tstVkatHostSelftest
+ tstVkatHostSelftest_EXTENDS    = vkat
+ tstVkatHostSelftest_EXTENDS_BY = appending
+ tstVkatHostSelftest_INST       = $(INST_TESTCASE)
+ tstVkatHostSelftest_DEFS.debug = VBOX_WITH_EF_WRAPS
+
+ TESTING  += $(tstVkatHostSelftest_0_OUTDIR)/tstVkatHostSelftest.run
+ $$(tstVkatHostSelftest_0_OUTDIR)/tstVkatHostSelftest.run: $$(tstVkatHostSelftest_1_TARGET)
+	export VKAT_RELEASE_LOG=-all; $(tstVkatHostSelftest_1_TARGET) selftest
+	$(QUIET)$(APPEND) -t "$@" "done"
+
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

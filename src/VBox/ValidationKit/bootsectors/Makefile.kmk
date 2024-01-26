@@ -1,0 +1,472 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - Bootsector Tests for Test Drivers or standalone testing.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# Make sure our Config.kmk gets included when kmk is running from a parent directory.
+#
+ifndef VBOX_BOOTSECTORS_CONFIG_KMK_INCLUDED
+ include $(PATH_SUB_CURRENT)/Config.kmk
+endif
+
+
+#
+# Include sub-makefile.
+#
+# The VBOX_WITH_BS3KIT feature requires NASM 2.12 and either MSVC or gcc
+# with ms_abi function attribute (gcc v4.4+, MSVC default).
+# Some 32-bit gcc compilers come without 64-bit support (e.g. EL5).
+#
+if defined(VBOX_WITH_OPEN_WATCOM)
+ if1of ($(KBUILD_TARGET), win)
+  VBOX_WITH_BS3KIT = 1
+ else if $(VBOX_GCC_VERSION_CC) >= 40400 # ms_abi was added in 4.4
+  if1of ($(KBUILD_TARGET), linux)
+   ifneq ($(VBOX_GCC_m64),)
+    VBOX_WITH_BS3KIT = 1
+   endif
+  endif
+ endif
+ ifdef VBOX_WITH_BS3KIT
+  include $(PATH_SUB_CURRENT)/bs3kit/Makefile.kmk
+ endif
+endif
+
+
+#
+# Boot Sector "Linker" tool.
+#
+TOOL_VBoxBootSectorLd      = Joins one or more BS2 object files into a floppy img.
+TOOL_VBoxBootSectorLd_LINK_MISCBIN_OUTPUT =
+TOOL_VBoxBootSectorLd_LINK_MISCBIN_DEPEND =
+TOOL_VBoxBootSectorLd_LINK_MISCBIN_DEPORD = $(VBoxBs2Linker_1_TARGET)
+define TOOL_VBoxBootSectorLd_LINK_MISCBIN_CMDS
+	$(VBoxBs2Linker_1_TARGET) -o $(out) $(objs) $(othersrc)
+endef
+
+BLDPROGS += VBoxBs2Linker
+VBoxBs2Linker_TEMPLATE = VBoxBldProg
+VBoxBs2Linker_SOURCES = VBoxBs2Linker.cpp
+
+
+#
+# Makes a boot sector test image.
+#
+TEMPLATE_VBoxBsTestImg = kBuild tool config for building boot sector stuff.
+TEMPLATE_VBoxBsTestImg_INST    = $(INST_VALIDATIONKIT)bootsectors/
+TEMPLATE_VBoxBsTestImg_BINSUFF = .img
+TEMPLATE_VBoxBsTestImg_MODE    = 0644
+TEMPLATE_VBoxBsTestImg_ASTOOL  = YASM
+TEMPLATE_VBoxBsTestImg_ASFLAGS = -f bin -P $(VBOX_PATH_BOOTSECTORS_SRC)/bootsector2-first.mac $(VBOX_YASM_Wno-segreg-in-64bit) --mapfile
+TEMPLATE_VBoxBsTestImg_ASDEFS  = ASM_FORMAT_BIN
+TEMPLATE_VBoxBsTestImg_INCS    = \
+	. \
+	../../VMM/testcase/Instructions
+TEMPLATE_VBoxBsTestImg_LDTOOL  = VBoxBootSectorLd
+
+
+#
+# The boot sector tests.
+#
+MISCBINS += bootsector-shutdown
+bootsector-shutdown_TEMPLATE = VBoxBsTestImg
+bootsector-shutdown_SOURCES = bootsector-shutdown.asm
+
+MISCBINS += bootsector-pae
+bootsector-pae_TEMPLATE = VBoxBsTestImg
+bootsector-pae_SOURCES = bootsector-pae.asm
+
+MISCBINS += bootsector-empty
+bootsector-empty_TEMPLATE = VBoxBsTestImg
+bootsector-empty_SOURCES = bootsector-empty.asm
+
+MISCBINS += bootsector2-test1
+bootsector2-test1_TEMPLATE = VBoxBsTestImg
+bootsector2-test1_SOURCES = bootsector2-test1.asm
+
+MISCBINS += bootsector2-cpu-hidden-regs-1
+bootsector2-cpu-hidden-regs-1_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-hidden-regs-1_SOURCES = bootsector2-cpu-hidden-regs-1.asm
+
+MISCBINS += bootsector2-cpu-instr-1
+bootsector2-cpu-instr-1_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-instr-1_SOURCES = bootsector2-cpu-instr-1.asm
+
+MISCBINS += bootsector2-cpu-pf-1
+bootsector2-cpu-pf-1_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-pf-1_SOURCES = bootsector2-cpu-pf-1.asm
+
+MISCBINS += bootsector2-cpu-xcpt-1
+bootsector2-cpu-xcpt-1_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-xcpt-1_SOURCES = bootsector2-cpu-xcpt-1.asm
+
+MISCBINS += bootsector2-cpu-xcpt-2
+bootsector2-cpu-xcpt-2_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-xcpt-2_SOURCES = bootsector2-cpu-xcpt-2.asm
+
+MISCBINS += bootsector2-cpu-a20-1
+bootsector2-cpu-a20-1_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-a20-1_SOURCES = bootsector2-cpu-a20-1.asm
+
+MISCBINS += bootsector2-cpu-basic-1
+bootsector2-cpu-basic-1_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-basic-1_SOURCES = bootsector2-cpu-basic-1.asm
+
+MISCBINS += bootsector2-cpu-ac-loop
+bootsector2-cpu-ac-loop_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-ac-loop_SOURCES = bootsector2-cpu-ac-loop.asm
+
+MISCBINS += bootsector2-cpu-db-loop
+bootsector2-cpu-db-loop_TEMPLATE = VBoxBsTestImg
+bootsector2-cpu-db-loop_SOURCES = bootsector2-cpu-db-loop.asm
+
+MISCBINS += bootsector2-boot-registers-1
+bootsector2-boot-registers-1_TEMPLATE = VBoxBsTestImg
+bootsector2-boot-registers-1_SOURCES = bootsector2-boot-registers-1.asm
+
+MISCBINS += bootsector2-triple-fault-1
+bootsector2-triple-fault-1_TEMPLATE = VBoxBsTestImg
+bootsector2-triple-fault-1_SOURCES = bootsector2-triple-fault-1.asm
+
+
+ifeq ($(USERNAME),birdxx)
+ if1of ($(KBUILD_HOST).$(KBUILD_HOST_ARCH), win.amd64)
+  #
+  # Generated instruction tests (work in progress).
+  #
+
+  VBOX_PATH_VBINSTST = $(PATH_ROOT)/src/VBox/VMM/testcase/Instructions
+  VBOX_VBINSTST_GEN = $(VBOX_PATH_VBINSTST)/InstructionTestGen.py
+  VBOX_BOOTSECTOR2_VBINSTST_AMD64_GEN = $(VBOX_BLD_PYTHON) $(VBOX_VBINSTST_GEN) \
+  	--split 3 --target bs2-r0-64 --output-base $(bootsectors_0_OUTDIR)/VBInsTst-64 --test-size tiny
+  VBOX_BOOTSECTOR2_VBINSTST_AMD64_FILES = $(shell $(VBOX_BOOTSECTOR2_VBINSTST_AMD64_GEN) --makefile-mode)
+
+  #$$(bootsectors_0_OUTDIR)/VBInsTst.ts + $$(VBOX_BOOTSECTOR2_VBINSTST_AMD64_FILES): $(VBOX_VBINSTST_GEN) | $$(dir $$@)
+  #	$(VBOX_BOOTSECTOR2_VBINSTST_AMD64_GEN)
+  #	$(APPEND) -t $@
+  #
+  #bootsectors_SOURCES += $(bootsectors_0_OUTDIR)/bootsector2-vbinstst-1.img
+  #bootsectors_CLEAN += $(VBOX_BOOTSECTOR2_VBINSTST_AMD64_FILES)
+  #
+  #$$(bootsectors_0_OUTDIR)/bootsector2-vbinstst-1.img: \
+  #		$(PATH_SUB_CURRENT)/bootsector2-vbinstst-64-1.asm \
+  #     		$$(bootsectors_0_OUTDIR)/VBInsTst-64.asm
+  #	$(TOOL_$(VBOX_ASTOOL)_AS) -f bin -D ASM_FORMAT_BIN -I $(dir $@) -I $(PATH_ROOT)/include -I $(VBOX_PATH_VBINSTST) -o $@ -L nasm -l $@.lst $<
+
+  MISCBINS += bootsector2-vbinstst-kernel
+  bootsector2-vbinstst-kernel_TEMPLATE = VBoxBsTestImg
+  bootsector2-vbinstst-kernel_SOURCES = \
+  	bootsector2-vbinstst-kernel.asm
+
+
+  MISCBINS += bootsector2-vbinstst-64-1
+  bootsector2-vbinstst-64-1_TEMPLATE = VBoxBsTestImg
+  bootsector2-vbinstst-64-1_DEFS = \
+  	BS2_BIG_IMAGE_LM64 \
+  	BS2_BIG_IMAGE_GEN_SOURCE_FILE=bs2-vbinstst-64-1.asm \
+  	BS2_BIG_IMAGE_GEN_TEST_NAME=\"bs2-vbinstst-64-1\"
+  bootsector2-vbinstst-64-1_INCS = $(bootsector2-vbinstst-64-1_0_OUTDIR)/
+  bootsector2-vbinstst-64-1_SOURCES = \
+  	bootsector2-vbinstst-kernel.asm \
+  	bootsector2-vbinstst-big-template.asm
+  bootsector2-vbinstst-64-1_INTERMEDIATES = \
+  	$(bootsector2-vbinstst-64-1_0_OUTDIR)/bs2-vbinstst-64-1.asm
+  bootsector2-vbinstst-64-1_CLEAN = \
+  	$(bootsector2-vbinstst-64-1_0_OUTDIR)/bs2-vbinstst-64-1.asm
+
+  $$(bootsector2-vbinstst-64-1_0_OUTDIR)/bs2-vbinstst-64-1.asm: $(VBOX_VBINSTST_GEN) | $$(dir $$@)
+	$(REDIRECT) -0 /dev/null -- $(VBOX_BLD_PYTHON) $(VBOX_VBINSTST_GEN) --target bs2-r0-64-big --output-base $(basename $@) --test-size medium
+
+  MISCBINS += bootsector2-vbinstst-32-1
+  bootsector2-vbinstst-32-1_TEMPLATE = VBoxBsTestImg
+  bootsector2-vbinstst-32-1_DEFS = \
+  	BS2_BIG_IMAGE_PP32 \
+  	BS2_BIG_IMAGE_GEN_SOURCE_FILE=bs2-vbinstst-32-1.asm \
+  	BS2_BIG_IMAGE_GEN_TEST_NAME=\"bs2-vbinstst-32-1\"
+  bootsector2-vbinstst-32-1_INCS = $(bootsector2-vbinstst-32-1_0_OUTDIR)/
+  bootsector2-vbinstst-32-1_SOURCES = \
+  	bootsector2-vbinstst-kernel.asm \
+  	bootsector2-vbinstst-big-template.asm
+  bootsector2-vbinstst-32-1_INTERMEDIATES = \
+  	$(bootsector2-vbinstst-32-1_0_OUTDIR)/bs2-vbinstst-32-1.asm
+  bootsector2-vbinstst-32-1_CLEAN = \
+  	$(bootsector2-vbinstst-32-1_0_OUTDIR)/bs2-vbinstst-32-1.asm
+
+  $$(bootsector2-vbinstst-32-1_0_OUTDIR)/bs2-vbinstst-32-1.asm: $(VBOX_VBINSTST_GEN) | $$(dir $$@)
+	$(REDIRECT) -0 /dev/null -- $(VBOX_BLD_PYTHON) $(VBOX_VBINSTST_GEN) --target bs2-r0-32-big --output-base $(basename $@) --test-size medium
+
+ endif
+endif # bird-only
+
+
+ifdef VBOX_WITH_BS3KIT
+ #
+ # Bs3kit
+ #
+
+ #
+ # APIC
+ #
+ MISCBINS += bs3-apic-1
+ bs3-apic-1_TEMPLATE = VBoxBS3KitImg
+ bs3-apic-1_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-apic-1.c \
+ 	bs3-apic-1-32.c32
+
+
+ # CPU basics #2 (first being bootsector2-cpu-basic-1).
+ MISCBINS += bs3-cpu-basic-2
+ bs3-cpu-basic-2_TEMPLATE = VBoxBS3KitImg
+ bs3-cpu-basic-2_INCS = .
+ bs3-cpu-basic-2_DEFS = BS3_CMN_INSTANTIATE_FILE1=bs3-cpu-basic-2-template.c
+ bs3-cpu-basic-2_DEFS += BS3_MODE_INSTANTIATE_FILE1=bs3-cpu-basic-2-template.c
+ bs3-cpu-basic-2_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-cpu-basic-2.c \
+ 	bs3-cpu-basic-2-x0.c \
+ 	bs3-cpu-basic-2-32.c32 \
+ 	bs3-cpu-basic-2-pf.c32 \
+ 	bs3-cpu-basic-2-asm.asm \
+ 	bs3kit/bs3-cmn-instantiate-x0.c16 \
+ 	bs3kit/bs3-cmn-instantiate.c32 \
+ 	bs3kit/bs3-cmn-instantiate.c64
+ bs3-cpu-basic-2-template.o:: \
+ 		$$(bs3-cpu-basic-2_0_OUTDIR)/bs3kit/bs3-cmn-instantiate-x0.o16 \
+ 		$$(bs3-cpu-basic-2_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o32 \
+ 		$$(bs3-cpu-basic-2_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o64 \
+ 		$$(bs3-cpu-basic-2_0_OUTDIR)/bs3-cpu-basic-2-asm.o16
+
+ #
+ # CPU weird stuff #1.
+ #
+ MISCBINS += bs3-cpu-weird-1
+ bs3-cpu-weird-1_TEMPLATE = VBoxBS3KitImg
+ bs3-cpu-weird-1_INCS = .
+ bs3-cpu-weird-1_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-cpu-weird-1.c \
+ 	bs3-cpu-weird-1-x0.c \
+ 	bs3-cpu-weird-1-asm.asm
+
+ #
+ # 64-bit CPU state #1.
+ #
+ MISCBINS += bs3-cpu-state64-1
+ bs3-cpu-state64-1_TEMPLATE = VBoxBS3KitImg
+ bs3-cpu-state64-1_INCS = .
+ bs3-cpu-state64-1_SOURCES = \
+ 	bs3kit/bs3-first-init-all-lm64.asm \
+ 	bs3-cpu-state64-1.c64 \
+ 	bs3-cpu-state64-1-asm.asm
+
+ #
+ # FPU state corruption checker.
+ #
+ MISCBINS += bs3-fpustate-1
+ bs3-fpustate-1_TEMPLATE = VBoxBS3KitImg
+ bs3-fpustate-1_INCS = .
+ bs3-fpustate-1_DEFS = BS3_CMN_INSTANTIATE_FILE1=bs3-fpustate-1-template.c
+ bs3-fpustate-1_DEFS += BS3_MODE_INSTANTIATE_FILE1=bs3-fpustate-1-template.c
+ bs3-fpustate-1_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-fpustate-1.c \
+ 	bs3kit/bs3-cmn-instantiate.c16 \
+ 	bs3kit/bs3-cmn-instantiate.c32 \
+ 	bs3kit/bs3-cmn-instantiate.c64 \
+ 	bs3-fpustate-1-asm.asm
+ bs3-fpustate-1-template.o:: \
+ 		$$(bs3-fpustate-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o16 \
+ 		$$(bs3-fpustate-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o32 \
+ 		$$(bs3-fpustate-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o64 \
+ 		$$(bs3-fpustate-1_0_OUTDIR)/bs3-fpustate-1-asm.o16
+
+ #
+ # CPU instruction decoding experiments.
+ #
+ MISCBINS += bs3-cpu-decoding-1
+ bs3-cpu-decoding-1_TEMPLATE = VBoxBS3KitImg
+ bs3-cpu-decoding-1_INCS = .
+ bs3-cpu-decoding-1_DEFS = BS3_CMN_INSTANTIATE_FILE1=bs3-cpu-decoding-1-template.c
+ bs3-cpu-decoding-1_DEFS += BS3_MODE_INSTANTIATE_FILE1=bs3-cpu-decoding-1-template.c
+ bs3-cpu-decoding-1_SOURCES = \
+ 	bs3kit/bs3-first-init-all-pp32.asm \
+ 	bs3-cpu-decoding-1.c32 \
+ 	bs3-cpu-decoding-1-asm.asm
+ #       bs3kit/bs3-cmn-instantiate.c16 \
+ #       bs3kit/bs3-cmn-instantiate.c32 \
+ #       bs3kit/bs3-cmn-instantiate.c64
+ bs3-cpu-decoding-1-template.o:: \
+ 		$$(bs3-cpu-decoding-1_0_OUTDIR)/bs3-cpu-decoding-1-asm.o16
+ #	$$(bs3-cpu-decoding-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o16 \
+ #	$$(bs3-cpu-decoding-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o32 \
+ #	$$(bs3-cpu-decoding-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o64 \
+
+
+ #
+ # CPU instructions #2 (first being bootsector2-cpu-instr-1).
+ #
+ MISCBINS += bs3-cpu-instr-2
+ bs3-cpu-instr-2_TEMPLATE = VBoxBS3KitImg
+ bs3-cpu-instr-2_INCS = .
+ bs3-cpu-instr-2_DEFS = BS3_CMN_INSTANTIATE_FILE1=bs3-cpu-instr-2-template.c
+ bs3-cpu-instr-2_DEFS += BS3_MODE_INSTANTIATE_FILE1=bs3-cpu-instr-2-template.c
+ bs3-cpu-instr-2_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-cpu-instr-2.c \
+ 	bs3-cpu-instr-2-asm.asm \
+ 	bs3kit/bs3-cmn-instantiate-x0.c16 \
+ 	bs3kit/bs3-cmn-instantiate.c32 \
+ 	bs3kit/bs3-cmn-instantiate.c64
+ bs3-cpu-instr-2-template.o:: \
+ 		$$(bs3-cpu-instr-2_0_OUTDIR)/bs3kit/bs3-cmn-instantiate-x0.o16 \
+ 		$$(bs3-cpu-instr-2_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o32 \
+ 		$$(bs3-cpu-instr-2_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o64 \
+ 		$$(bs3-cpu-instr-2_0_OUTDIR)/bs3-cpu-instr-2-asm.o16
+
+ #
+ # CPU instructions #3 - SSE, ++.
+ #
+ MISCBINS += bs3-cpu-instr-3
+ bs3-cpu-instr-3_TEMPLATE = VBoxBS3KitImg
+ bs3-cpu-instr-3_INCS = .
+ bs3-cpu-instr-3_SOURCES = \
+ 	bs3kit/bs3-first-init-all-pe32.asm \
+ 	bs3-cpu-instr-3.c32 \
+ 	bs3-cpu-instr-3-asm.asm
+ bs3-cpu-instr-3-template.o:: \
+ 		$$(bs3-cpu-instr-3_0_OUTDIR)/bs3-cpu-instr-3-asm.o16
+
+ #
+ # CPU generated instruction tests #1
+ #
+ MISCBINS += bs3-cpu-generated-1
+ bs3-cpu-generated-1_TEMPLATE = VBoxBS3KitImg
+ bs3-cpu-generated-1_INCS = .
+ bs3-cpu-generated-1_DEFS = BS3_CMN_INSTANTIATE_FILE1=bs3-cpu-generated-1-template.c
+ bs3-cpu-generated-1_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-cpu-generated-1.c \
+ 	bs3-cpu-generated-1-asm.asm \
+ 	bs3kit/bs3-cmn-instantiate-x0.c16 \
+ 	bs3kit/bs3-cmn-instantiate.c32 \
+ 	bs3kit/bs3-cmn-instantiate.c64 \
+ 	$(bs3-cpu-generated-1_0_OUTDIR)/bs3-cpu-generated-1-data.c16
+ bs3-cpu-generated-1_CLEAN = $(bs3-cpu-generated-1_0_OUTDIR)/bs3-cpu-generated-1-data.c16
+
+ bs3-cpu-generated-1-template.o:: \
+ 		$$(bs3-cpu-generated-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate-x0.o16 \
+ 		$$(bs3-cpu-generated-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o32 \
+ 		$$(bs3-cpu-generated-1_0_OUTDIR)/bs3kit/bs3-cmn-instantiate.o64 \
+ 		$$(bs3-cpu-generated-1_0_OUTDIR)/bs3-cpu-generated-1-asm.o16
+
+ $$(bs3-cpu-generated-1_0_OUTDIR)/bs3-cpu-generated-1-data.c16: \
+ 		$(PATH_SUB_CURRENT)/bs3-cpu-generated-1-data.py \
+ 		$(PATH_SUB_CURRENT)/../../VMM/VMMAll/IEMAllInstructionsPython.py \
+ 		$(PATH_SUB_CURRENT)/../../VMM/VMMAll/IEMAllInstructions*.cpp.h \
+ 		| $$(dir $$@)
+	$(REDIRECT) -0 /dev/null -- $(VBOX_BLD_PYTHON) $< $@
+
+ #
+ # Memory allocation.
+ #
+ MISCBINS += bs3-memalloc-1
+ bs3-memalloc-1_TEMPLATE = VBoxBS3KitImg
+ bs3-memalloc-1_INCS = .
+ bs3-memalloc-1_SOURCES = \
+ 	bs3kit/bs3-first-init-all-lm64.asm \
+ 	bs3-memalloc-1.c64
+
+
+ #
+ # Timer Interrupts
+ #
+ MISCBINS += bs3-timers-1
+ bs3-timers-1_TEMPLATE = VBoxBS3KitImg
+ bs3-timers-1_INCS = .
+ bs3-timers-1_DEFS = BS3_CMN_INSTANTIATE_FILE1=bs3-timers-1-template.c
+ bs3-timers-1_DEFS += BS3_MODE_INSTANTIATE_FILE1=bs3-timers-1-template.c
+ bs3-timers-1_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-timers-1.c \
+ 	bs3-timers-1-x0.c
+
+ #
+ # Timing
+ #
+ MISCBINS += bs3-timing-1
+ bs3-timing-1_TEMPLATE = VBoxBS3KitImg
+ bs3-timing-1_INCS = .
+ bs3-timing-1_DEFS = BS3_CMN_INSTANTIATE_FILE1=bs3-timing-1-template.c
+ bs3-timing-1_DEFS += BS3_MODE_INSTANTIATE_FILE1=bs3-timing-1-template.c
+ bs3-timing-1_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-timing-1.c \
+ 	bs3-timing-1-32.c32
+
+ #
+ # Lock contention and interruption.
+ #
+ MISCBINS += bs3-locking-1
+ bs3-locking-1_TEMPLATE = VBoxBS3KitImg
+ bs3-locking-1_INCS = .
+ bs3-locking-1_SOURCES = \
+ 	bs3kit/bs3-first-rm.asm \
+ 	bs3-locking-1.c
+
+endif # VBOX_WITH_BS3KIT
+
+
+#
+# Executable version of the bs3-timing-1 bootsector.
+#
+PROGRAMS += bs3-timing-1-exe
+bs3-timing-1-exe_TEMPLATE = VBoxValidationKitR3
+bs3-timing-1-exe_NAME     = bs3-timing-1
+bs3-timing-1-exe_SOURCES  = bs3-timing-1-exe.c
+
+
+#
+# pylint
+#
+VBOX_VALIDATIONKIT_PYTHON_SOURCES += $(wildcard $(PATH_SUB_CURRENT)/*.py)
+$(evalcall def_vbox_validationkit_process_python_sources)
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

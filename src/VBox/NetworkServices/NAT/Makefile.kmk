@@ -1,0 +1,162 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-makefile for NAT Networking
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+ifdef VBOX_WITH_LWIP_NAT # entire file
+
+ ifndef LWIP_SOURCES
+  include $(PATH_SUB_CURRENT)/../../Devices/Network/lwip-new/Config.kmk
+ endif
+
+ #
+ # Globals
+ #
+ VBOX_PATH_NAT_SRC := $(PATH_SUB_CURRENT)
+
+
+ #
+ # Hardened stub exe for VBoxNetNAT.
+ #
+ ifdef VBOX_WITH_HARDENING
+  PROGRAMS += VBoxNetNATHardened
+  VBoxNetNATHardened_TEMPLATE = VBoxR3HardenedExe
+  VBoxNetNATHardened_NAME   = VBoxNetNAT
+  ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+   VBoxNetNATHardened_DEFS  = SERVICE_NAME="VBoxNetNAT"
+  else
+   VBoxNetNATHardened_DEFS  = SERVICE_NAME=\"VBoxNetNAT\"
+  endif
+  VBoxNetNATHardened_SOURCES = VBoxNetNATHardened.cpp
+  VBoxNetNATHardened_LDFLAGS.win = /SUBSYSTEM:windows
+  $(call VBOX_SET_VER_INFO_EXE,VBoxNetNATHardened,VirtualBox NAT Engine,$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+ endif
+
+
+ #
+ # VBoxNetNAT.
+ #
+ ifdef VBOX_WITH_HARDENING
+  DLLS   += VBoxNetNAT
+ else
+  PROGRAMS += VBoxNetNAT
+ endif
+ VBoxNetNAT_TEMPLATE := $(if-expr defined(VBOX_WITH_HARDENING),VBoxMainDll,VBoxMainClientExe)
+ VBoxNetNAT_NAME    := VBoxNetNAT
+ VBoxNetNAT_DEFS     = \
+ 	IPv6 \
+ 	$(if $(VBOX_WITH_INTNET_SERVICE_IN_R3),VBOX_WITH_INTNET_SERVICE_IN_R3,)
+ # VBoxNetNAT_DEFS.linux = WITH_VALGRIND # instrument lwip memp.c
+ VBoxNetNAT_DEFS.win = VBOX_COM_OUTOFPROC_MODULE _WIN32_WINNT=0x501 # Windows XP
+ # Convince Solaris headers to expose socket stuff we need.
+ #
+ # Setting _XOPEN_SOURCE to either 500 or 600 would always work, but
+ # <sys/feature_tests.h> insists that 600 requires C99 and so it
+ # explodes for older g++.  It also insists that 500 is NOT to be used
+ # with C99.
+ #
+ # Newer g++ in C++11 mode (formerly known as C++0x) needs 600, so it
+ # employs sleight of hand to pretend it's C99 to keep feature test
+ # happy.
+ #
+ # Compile the C code with settings that match g++.  This probably
+ # should be centralized so that whole codebase uses consistent
+ # settings.
+ ifeq ($(KBUILD_TARGET),solaris)
+  ifneq ($(VBOX_GCC_VERSION_CXX),)
+   if $(VBOX_GCC_VERSION_CXX) >= 40600
+    # we compile C++ code with -std=c++0x / -std=c++11
+    VBoxNetNAT_CFLAGS.solaris += -std=c99
+    VBoxNetNAT_DEFS.solaris += _XOPEN_SOURCE=600
+   else
+    VBoxNetNAT_DEFS.solaris += _XOPEN_SOURCE=500
+   endif
+  endif
+  VBoxNetNAT_DEFS.solaris += __EXTENSIONS__=1
+ endif
+
+ # (current dir is for for lwipopts.h)
+ VBoxNetNAT_INCS += . $(addprefix ../../Devices/Network/lwip-new/,$(LWIP_INCS))
+
+ VBoxNetNAT_SOURCES = \
+ 	VBoxNetLwipNAT.cpp \
+ 	../NetLib/IntNetIf.cpp \
+ 	../NetLib/VBoxNetPortForwardString.cpp \
+ 	$(addprefix ../../Devices/Network/lwip-new/,$(LWIP_SOURCES)) \
+ 	proxy_pollmgr.c \
+ 	proxy_rtadvd.c \
+ 	proxy.c \
+ 	pxremap.c \
+ 	pxtcp.c \
+ 	pxudp.c \
+ 	pxdns.c \
+ 	fwtcp.c \
+ 	fwudp.c \
+ 	portfwd.c \
+ 	proxy_dhcp6ds.c \
+ 	proxy_tftpd.c
+
+ ifeq ($(KBUILD_TARGET),win)
+  VBoxNetNAT_SOURCES += pxping_win.c # unprivileged Icmp API
+ else
+  VBoxNetNAT_SOURCES      += pxping.c     # raw sockets
+  VBoxNetNAT_CFLAGS.linux += -Wno-address-of-packed-member # Needed for GCC 9.
+ endif
+
+ VBoxNetNAT_SOURCES.darwin += rtmon_bsd.c
+ VBoxNetNAT_SOURCES.freebsd += rtmon_bsd.c
+ VBoxNetNAT_SOURCES.linux  += rtmon_linux.c
+ VBoxNetNAT_SOURCES.solaris += rtmon_bsd.c
+ VBoxNetNAT_SOURCES.win    += \
+ 	rtmon_win.c \
+ 	RTWinPoll.cpp \
+ 	RTWinSocketPair.cpp
+
+ VBoxNetNAT_LIBS = \
+ 	$(LIB_RUNTIME)
+ VBoxNetNAT_LIBS.solaris += socket nsl
+
+ VBoxNetNAT_LDFLAGS.win = /SUBSYSTEM:windows
+
+ # ifeq ($(VBOX_WITH_HARDENING),)
+ #  ifn1of ($(KBUILD_TARGET), darwin win)
+ #   # helper for debugging unprivileged
+ #   VBoxNetNAT_DEFS += VBOX_RAWSOCK_DEBUG_HELPER
+ #   VBoxNetNAT_SOURCES += getrawsock.c
+ #  endif
+ # endif
+
+
+ ifdef VBOX_WITH_HARDENING
+  $(call VBOX_SET_VER_INFO_DLL,VBoxNetNAT,VirtualBox NAT Engine (dll),$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+ else
+  $(call VBOX_SET_VER_INFO_EXE,VBoxNetNAT,VirtualBox NAT Engine,$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+ endif
+
+endif # VBOX_WITH_LWIP_NAT
+include $(FILE_KBUILD_SUB_FOOTER)
+

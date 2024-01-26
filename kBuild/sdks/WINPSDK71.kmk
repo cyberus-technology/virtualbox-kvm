@@ -1,0 +1,161 @@
+# $Id: WINPSDK71.kmk 3418 2020-08-21 11:02:13Z bird $
+## @file
+# kBuild SDK - The Windows Platform SDK v7.1, targeting (KBUILD_TARGET).
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_WINPSDK71 := The Windows Platform SDK v7.1, targeting (KBUILD_TARGET).
+
+# SDK Specific Properties
+ifndef PATH_SDK_WINPSDK71
+ PATH_SDK_WINPSDK71 := $(wildcard $(KBUILD_DEVTOOLS_BLD)/sdk/v7.1*)
+ ifeq ($(PATH_SDK_WINPSDK71),)
+  PATH_SDK_WINPSDK71 := $(wildcard $(KBUILD_DEVTOOLS_TRG)/sdk/v7.1*)
+ endif
+ ifeq ($(PATH_SDK_WINPSDK71),)
+  PATH_SDK_WINPSDK71 := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/sdk/v7.1*)
+ endif
+ ifeq ($(PATH_SDK_WINPSDK71),)
+  PATH_SDK_WINPSDK71 := $(wildcard $(KBUILD_DEVTOOLS)/win.amd64/sdk/v7.1*)
+ endif
+ ifneq ($(PATH_SDK_WINPSDK71),)
+  PATH_SDK_WINPSDK71 := $(lastword $(sort $(PATH_SDK_WINPSDK71)))
+ else
+  $(warning kBuild: PATH_SDK_WINPSDK71 couldn't be determined!)
+  PATH_SDK_WINPSDK71 := $(KBUILD_DEVTOOLS_BLD)/sdk/v7.1-not-found
+ endif
+else
+ PATH_SDK_WINPSDK71 := $(PATH_SDK_WINPSDK71)
+endif
+
+ifndef PATH_SDK_WINPSDK71_INC
+PATH_SDK_WINPSDK71_INC := $(firstword $(wildcard $(PATH_SDK_WINPSDK71)/[Ii][Nn][Cc][Ll][Uu][Dd][Ee]) $(PATH_SDK_WINPSDK71)/Include)
+endif
+
+ifndef PATH_SDK_WINPSDK71_LIB.x86
+PATH_SDK_WINPSDK71_LIB.x86 := $(firstword $(wildcard $(PATH_SDK_WINPSDK71)/[Ll][Ii][Bb]) $(PATH_SDK_WINPSDK71)/Lib)
+endif
+ifndef PATH_SDK_WINPSDK71_LIB.amd64
+PATH_SDK_WINPSDK71_LIB.amd64 := $(firstword $(wildcard $(PATH_SDK_WINPSDK71)/[Ll][Ii][Bb]/[Aa][Mm][Dd]64 $(PATH_SDK_WINPSDK71)/[Ll][Ii][Bb]/[xX]64) $(PATH_SDK_WINPSDK71)/Lib/AMD64)
+endif
+ifndef PATH_SDK_WINPSDK71_LIB.ia64
+PATH_SDK_WINPSDK71_LIB.ia64 := $(firstword $(wildcard $(PATH_SDK_WINPSDK71)/[Ll][Ii][Bb]/[Ii][Aa]64) $(PATH_SDK_WINPSDK71)/Lib/IA64)
+endif
+PATH_SDK_WINPSDK71_LIB ?= $(PATH_SDK_WINPSDK71_LIB.$(KBUILD_TARGET_ARCH))
+
+ifndef PATH_SDK_WINPSDK71_BIN
+PATH_SDK_WINPSDK71_BIN := $(firstword $(wildcard $(PATH_SDK_WINPSDK71)/[Bb][Ii][Nn]) $(PATH_SDK_WINPSDK71)/Bin)
+endif
+ifndef PATH_SDK_WINPSDK71_BIN_AMD64
+PATH_SDK_WINPSDK71_BIN_AMD64 := $(firstword $(wildcard $(PATH_SDK_WINPSDK71_BIN)/[Ww][Ii][Nn]64/[Xx]86/[Aa][Mm][Dd]64 $(PATH_SDK_WINPSDK71_BIN)/[Ww][Ii][Nn]64/[Xx]86) $(PATH_SDK_WINPSDK71_BIN)/win64/AMD64)
+endif
+ifndef PATH_SDK_WINPSDK71_BIN_IA64
+PATH_SDK_WINPSDK71_BIN_IA64 := $(firstword $(wildcard $(PATH_SDK_WINPSDK71_BIN)/[Ww][Ii][Nn]64) $(PATH_SDK_WINPSDK71_BIN)/win64)
+endif
+
+
+# General Properties used by kBuild
+SDK_WINPSDK71_INCS ?= $(PATH_SDK_WINPSDK71_INC)
+SDK_WINPSDK71_LIBPATH.x86   ?= $(PATH_SDK_WINPSDK71_LIB.x86)
+SDK_WINPSDK71_LIBPATH.amd64 ?= $(PATH_SDK_WINPSDK71_LIB.amd64)
+SDK_WINPSDK71_LIBPATH.ia64  ?= $(PATH_SDK_WINPSDK71_LIB.ia64)
+SDK_WINPSDK71_LIBS.x86 ?= \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/Kernel32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/User32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/Gdi32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/AdvAPI32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/shell32.lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/ShLwApi.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/SetupAPI.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/Uuid.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/Version.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/WS2_32.Lib \
+	\
+	$(PATH_SDK_WINPSDK71_LIB.x86)/Ole32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/OleAut32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/OleDlg.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/RpcRT4.Lib \
+	\
+	$(PATH_SDK_WINPSDK71_LIB.x86)/DbgHelp.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/ImageHlp.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/IPHlpApi.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/ComCtl32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/ComDlg32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/WinSpool.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.x86)/WinMM.Lib
+SDK_WINPSDK71_LIBS.amd64 ?= \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/Kernel32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/User32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/Gdi32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/AdvAPI32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/Shell32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/ShLwApi.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/SetupAPI.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/Uuid.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/Version.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/WS2_32.Lib \
+	\
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/Ole32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/OleAut32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/OleDlg.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/RpcRT4.Lib \
+	\
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/DbgHelp.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/ImageHlp.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/IPHlpApi.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/ComCtl32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/ComDlg32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/WinSpool.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.amd64)/WinMM.Lib
+SDK_WINPSDK71_LIBS.ia64 ?= \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/Kernel32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/User32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/Gdi32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/AdvAPI32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/Shell32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/ShLwApi.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/SetupAPI.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/Uuid.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/Version.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/WS2_32.Lib \
+	\
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/Ole32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/OleAut32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/OleDlg.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/RpcRT4.Lib \
+	\
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/DbgHelp.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/ImageHlp.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/IPHlpApi.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/ComCtl32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/ComDlg32.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/WinSpool.Lib \
+	$(PATH_SDK_WINPSDK71_LIB.ia64)/WinMM.Lib
+

@@ -1,0 +1,155 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-makefile for the EFI VfrCompile build tool.
+#
+
+#
+# Copyright (C) 2013-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+BLDPROGS += VfrCompile
+VfrCompile_TEMPLATE = VBoxEfiBldProg
+VfrCompile_DEFS = PCCTS_USE_NAMESPACE_STD __USE_PROTOS
+#
+# Workaround a crash in the release version of VfrCompile on Windos
+# when parsing Tcg2Config.vfr, no time to investigate that deeper right now...
+#
+if "$(KBUILD_TARGET)" == "win" && "$(KBUILD_TYPE)" == "release"
+ VfrCompile_CXXFLAGS        += -noover -Od
+endif
+VfrCompile_INCS = \
+	. \
+	Pccts/h \
+	$(VfrCompile_0_OUTDIR)
+VfrCompile_SOURCES = \
+	VfrCompiler.cpp \
+	VfrFormPkg.cpp \
+	VfrError.cpp \
+	VfrUtilityLib.cpp \
+	Pccts/h/AParser.cpp \
+	Pccts/h/DLexerBase.cpp \
+	Pccts/h/ATokenBuffer.cpp \
+	$(VfrCompile_0_OUTDIR)/VfrSyntax.cpp \
+	$(VfrCompile_0_OUTDIR)/EfiVfrParser.cpp \
+	$(VfrCompile_0_OUTDIR)/VfrLexer.cpp
+VfrCompile_INTERMEDIATES = \
+	$(VfrCompile_0_OUTDIR)/VfrTokens.h \
+	$(VfrCompile_0_OUTDIR)/VfrLexer.h \
+	$(VfrCompile_0_OUTDIR)/EfiVfrParser.h
+VfrCompile_CLEAN = \
+	$(VfrCompile_0_OUTDIR)/VfrSyntax.cpp \
+	$(VfrCompile_0_OUTDIR)/EfiVfrParser.cpp \
+	$(VfrCompile_0_OUTDIR)/VfrLexer.cpp
+
+$$(VfrCompile_0_OUTDIR)/VfrSyntax.cpp \
++ $$(VfrCompile_0_OUTDIR)/EfiVfrParser.cpp \
++ $$(VfrCompile_0_OUTDIR)/EfiVfrParser.h \
++ $$(VfrCompile_0_OUTDIR)/VfrParser.dlg \
++ $$(VfrCompile_0_OUTDIR)/VfrTokens.h: \
+		$$(antlr_1_TARGET) \
+		$(PATH_SUB_CURRENT)/VfrSyntax.g
+	$(antlr_1_TARGET) -CC -e3 -ck 3 -k 2 \
+		-fl $(dir $@)/VfrParser.dlg \
+		-ft $(dir $@)/VfrTokens.h \
+		-o $(dir $@) \
+		$(VfrCompile_DEFPATH)/VfrSyntax.g
+
+$$(VfrCompile_0_OUTDIR)/VfrLexer.cpp \
++ $$(VfrCompile_0_OUTDIR)/VfrLexer.h: \
+		$$(dlg_1_TARGET) \
+		$$(VfrCompile_0_OUTDIR)/VfrParser.dlg
+	$(dlg_1_TARGET) -C2 -i -CC -cl VfrLexer \
+		-o $(dir $@) \
+		$(VfrCompile_0_OUTDIR)/VfrParser.dlg
+
+
+#
+# Antlr parser generator from the Purdue Compiler Construction Tool Set.
+#
+BLDPROGS += antlr
+antlr_TEMPLATE = VBoxEfiBldProg
+antlr_DEFS = \
+	USER_ZZSYN \
+	ZZLEXBUFSIZE=65536 \
+	__USE_PROTOS
+antlr_INCS = \
+	Pccts/antlr \
+	Pccts/support/set \
+	Pccts/h
+antlr_SOURCES = \
+	Pccts/antlr/antlr.c \
+	Pccts/antlr/bits.c \
+	Pccts/antlr/build.c \
+	Pccts/antlr/egman.c \
+	Pccts/antlr/err.c \
+	Pccts/antlr/fcache.c \
+	Pccts/antlr/fset.c \
+	Pccts/antlr/fset2.c \
+	Pccts/antlr/gen.c \
+	Pccts/antlr/globals.c \
+	Pccts/antlr/hash.c \
+	Pccts/antlr/lex.c \
+	Pccts/antlr/main.c \
+	Pccts/antlr/misc.c \
+	Pccts/antlr/mrhoist.c \
+	Pccts/antlr/pred.c \
+	Pccts/antlr/scan.c \
+	Pccts/support/set/set.c
+
+#
+# DFA lexical analyzer generator from the Purdue Compiler Construction Tool Set.
+#
+BLDPROGS += dlg
+dlg_TEMPLATE = VBoxEfiBldProg
+dlg_DEFS = \
+	USER_ZZSYN \
+	ZZLEXBUFSIZE=65536 \
+	__USE_PROTOS
+dlg_INCS = \
+	Pccts/dlg \
+	Pccts/support/set \
+	Pccts/h
+dlg_SOURCES = \
+	Pccts/dlg/automata.c \
+	Pccts/dlg/dlg_a.c \
+	Pccts/dlg/dlg_p.c \
+	Pccts/dlg/err.c \
+	Pccts/dlg/main.c \
+	Pccts/dlg/output.c \
+	Pccts/dlg/relabel.c \
+	Pccts/dlg/support.c \
+	Pccts/support/set/set.c
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

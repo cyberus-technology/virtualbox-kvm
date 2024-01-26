@@ -1,0 +1,549 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage storageattach
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-storageattach" lang="en">
+  <refentryinfo>
+    <pubdate>August 2019</pubdate>
+    <title>VBoxManage storageattach</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-storageattach</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-storageattach</refname>
+    <refpurpose>attach, remove, and modify storage media used by a virtual machine</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-storageattach">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage storageattach</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>vmname</replaceable></arg>
+      </group>
+      <arg choice="req">--storagectl=<replaceable>name</replaceable></arg>
+      <arg>--bandwidthgroup=<group choice="plain">
+          <arg choice="plain">name</arg>
+          <arg choice="plain">none</arg>
+        </group></arg>
+      <arg>--comment=<replaceable>text</replaceable></arg>
+      <arg>--device=<replaceable>number</replaceable></arg>
+      <arg>--discard=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--encodedlun=<replaceable>lun</replaceable></arg>
+      <arg>--forceunmount</arg>
+      <arg>--hotpluggable=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--initiator=<replaceable>initiator</replaceable></arg>
+      <arg>--intnet</arg>
+      <arg>--lun=<replaceable>lun</replaceable></arg>
+      <arg>--medium=<group choice="plain">
+          <arg choice="plain">none</arg>
+          <arg choice="plain">emptydrive</arg>
+          <arg choice="plain">additions</arg>
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>filename</replaceable></arg>
+          <arg choice="plain">host:<replaceable>drive</replaceable></arg>
+          <arg choice="plain">iscsi</arg>
+        </group></arg>
+      <arg>--mtype=<group choice="plain">
+          <arg choice="plain">normal</arg>
+          <arg choice="plain">writethrough</arg>
+          <arg choice="plain">immutable</arg>
+          <arg choice="plain">shareable</arg>
+          <arg choice="plain">readonly</arg>
+          <arg choice="plain">multiattach</arg>
+        </group></arg>
+      <arg>--nonrotational=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--passthrough=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--passwordfile=<replaceable>file</replaceable></arg>
+      <arg>--password=<replaceable>password</replaceable></arg>
+      <arg>--port=<replaceable>number</replaceable></arg>
+      <arg>--server=<group choice="plain">
+          <arg choice="plain"><replaceable>name</replaceable></arg>
+          <arg choice="plain"><replaceable>ip</replaceable></arg>
+        </group></arg>
+      <arg>--setparentuuid=<replaceable>uuid</replaceable></arg>
+      <arg>--setuuid=<replaceable>uuid</replaceable></arg>
+      <arg>--target=<replaceable>target</replaceable></arg>
+      <arg>--tempeject=<group choice="plain">
+          <arg choice="plain">on</arg>
+          <arg choice="plain">off</arg>
+        </group></arg>
+      <arg>--tport=<replaceable>port</replaceable></arg>
+      <arg>--type=<group choice="plain">
+          <arg choice="plain">dvddrive</arg>
+          <arg choice="plain">fdd</arg>
+          <arg choice="plain">hdd</arg>
+        </group></arg>
+      <arg>--username=<replaceable>username</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage storageattach</command> command enables
+      you to manage a storage medium that you connected to a storage
+      controller by using the <command>VBoxManage storagectl</command>
+      command.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>vmname</replaceable></term>
+        <listitem><para>
+            Specifies the Universally Unique Identifier (UUID) or the
+            name of the virtual machine (VM).
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--storagectl=<replaceable>name</replaceable></option></term>
+        <listitem><para>
+            Specifies the name of the storage controller. Use the
+            <command>VBoxManage showvminfo</command> command to list the
+            storage controllers that are attached to the VM.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--port=<replaceable>number</replaceable></option></term>
+        <listitem><para>
+            Specifies the port number of the storage controller to
+            modify. You must specify this option unless the storage
+            controller has only a single port.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--device=<replaceable>number</replaceable></option></term>
+        <listitem><para>
+            Specifies the port's device number to modify. You must
+            specify this option unless the storage controller has only
+            one device per port.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--type=dvddrive | fdd | hdd</option></term>
+        <listitem><para>
+            Specifies the drive type to which the medium is associated.
+            Only omit this option if the medium type can be determined
+            by using the <option>--medium</option> option or by
+            information provided by an earlier medium attachment
+            command.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--medium=none | emptydrive | additions | <replaceable>uuid</replaceable> | <replaceable>filename</replaceable> | host:<replaceable>drive</replaceable> | iscsi</option></term>
+        <listitem><para>
+            Specifies one of the following values:
+          </para><variablelist>
+            <varlistentry>
+              <term><literal>none</literal></term>
+              <listitem><para>
+                  Removes any existing device from the specified slot.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>emptydrive</literal></term>
+              <listitem><para>
+                  For a virtual DVD or floppy drive only.
+                </para><para>
+                  Makes the device slot behave like a removeable drive
+                  into which no media has been inserted.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>additions</literal></term>
+              <listitem><para>
+                  For a virtual DVD drive only.
+                </para><para>
+                  Attaches the VirtualBox Guest Additions image to the
+                  specified device slot.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><replaceable>uuid</replaceable></term>
+              <listitem><para>
+                  Specifies the UUID of a storage medium to attach to
+                  the specified device slot. The storage medium must
+                  already be known to &product-name;, such as a storage
+                  medium that is attached to another VM. Use the
+                  <command>VBoxManage list</command> command to list
+                  media.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><replaceable>filename</replaceable></term>
+              <listitem><para>
+                  Specifies the full path of an existing disk image to
+                  attach to the specified device slot. The disk image
+                  can be in ISO, RAW, VDI, VMDK, or other format.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>host:<replaceable>drive</replaceable></literal></term>
+              <listitem><para>
+                  For a virtual DVD or floppy drive only.
+                </para><para>
+                  Connects the specified device slot to the specified
+                  DVD or floppy drive on the host computer.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>iscsi</literal></term>
+              <listitem><para>
+                  For virtual hard disks only.
+                </para><para>
+                  Specifies an iSCSI target for which you must specify
+                  additional information. See
+                  <xref linkend="storage-iscsi" />.
+                </para></listitem>
+            </varlistentry>
+          </variablelist><para>
+            For removeable media such as floppies and DVDs, you can make
+            configuration changes while a VM is running. Changes to
+            devices or hard disk device slots require that the VM be
+            powered off.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--mtype=normal | writethrough | immutable | shareable | readonly | multiattach</option></term>
+        <listitem><para>
+            Specifies how this medium behaves with respect to snapshots
+            and write operations. See <xref linkend="hdimagewrites" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--comment=<replaceable>text</replaceable></option></term>
+        <listitem><para>
+            Specifies an optional description to store with the medium.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--setuuid=<replaceable>uuid</replaceable></option></term>
+        <listitem><para>
+            Modifies the UUID of a medium before attaching it to a VM.
+          </para><para>
+            This is an expert option. Inappropriate values might make
+            the medium unusable or lead to broken VM configurations if
+            another VM already refers to the same medium.
+          </para><para>
+            Using the <option>--setuuid=""</option> option
+            assigns a new random UUID to an image, which can resolve
+            duplicate UUID errors if you used a file copy utility to
+            duplicate an image.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--setparentuuid=<replaceable>uuid</replaceable></option></term>
+        <listitem><para>
+            Modifies the parent UUID of a medium before attaching it to
+            a VM.
+          </para><para>
+            This is an expert option. Inappropriate values might make
+            the medium unusable or lead to broken VM configurations if
+            another VM already refers to the same medium.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--passthrough=on | off</option></term>
+        <listitem><para>
+            For a virtual DVD drive only.
+          </para><para>
+            Enables writing to a DVD. This feature is experimental, see
+            <xref linkend="storage-cds" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--tempeject=on | off</option></term>
+        <listitem><para>
+            For a virtual DVD drive only.
+          </para><para>
+            Specifies whether to permit a temporary guest-triggered
+            medium eject operation. When set to <literal>on</literal>,
+            you can eject a medium. The ability for a guest-triggered
+            eject operation does not persist if the VM is powered off
+            and restarted. So, when you set this option to
+            <literal>on</literal> and the VM is restarted, the
+            originally configured medium is still in the drive.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--nonrotational=on | off</option></term>
+        <listitem><para>
+            Enables you to specify that the virtual hard disk is
+            non-rotational. Some guest OSes, such as Windows 7 or later,
+            treat such disks as solid state drives (SSDs) and do not
+            perform disk fragmentation on them.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--discard=on | off</option></term>
+        <listitem><para>
+            Specifies whether to enable the auto-discard feature for a
+            virtual hard disk. When set to <literal>on</literal>, a VDI
+            image is shrunk in response to a <command>trim</command>
+            command from the guest OS.
+          </para><para>
+            The virtual hard disk must meet the following requirements:
+          </para><itemizedlist>
+            <listitem><para>
+                The disk format must be VDI.
+              </para></listitem>
+            <listitem><para>
+                The size of the cleared area of the disk must be at
+                least 1 MB.
+              </para></listitem>
+            <listitem><para>
+                Ensure that the space being trimmed is at least a 1 MB
+                contiguous block at a 1 MB boundary.
+              </para></listitem>
+          </itemizedlist><para>
+            Consider running defragmentation commands as background cron
+            jobs to save space. On Windows, run the <command>defrag.exe
+            /D</command> command. On Linux, run the <command>btrfs
+            filesystem defrag</command> command.
+          </para><note>
+            <para>
+              When you configure the guest OS to issue the
+              <command>trim</command> command, the guest OS typically
+              sees the disk as an SSD.
+            </para>
+            <para>
+              Ext4 supports the <option>-o discard</option> mount
+              option. Mac OS X might require additional settings.
+              Windows 7, 8, and 10 automatically detect and support
+              SSDs. The Linux <command>exFAT</command> driver from
+              Samsung supports the <command>trim</command> command.
+            </para>
+          </note><para>
+            The Microsoft implementation of exFAT might not support this
+            feature.
+          </para><para>
+            You can use other methods to issue trim commands. The Linux
+            <command>fstrim</command> command is part of the
+            <filename>util-linux</filename> package. Earlier solutions
+            required you to zero out unused areas by using the
+            <command>zerofree</command> or a similar command, and then
+            to compact the disk. You can only perform these steps when
+            the VM is offline.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--bandwidthgroup=<replaceable>name</replaceable></option></term>
+        <listitem><para>
+            Specifies the bandwidth group to use for the device. See
+            <xref linkend="storage-bandwidth-limit" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--forceunmount</option></term>
+        <listitem><para>
+            For a virtual DVD or floppy drive only.
+          </para><para>
+            Forcibly unmounts the DVD, CD, or floppy or mounts a new
+            DVD, CD, or floppy even if the previous removable storage is
+            locked by the guest for reading. See
+            <xref linkend="storage-cds" />.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      The following options are applicable when you specify the
+      <option>--medium=iscsi</option> option:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><option>--server=<replaceable>hostname</replaceable> | <replaceable>IP-address</replaceable></option></term>
+        <listitem><para>
+            Specifies the host name or IP address of the iSCSI target.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--target=<replaceable>target</replaceable></option></term>
+        <listitem><para>
+            Specifies the target name string, which is determined by the
+            iSCSI target and is used to identify the storage resource.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--tport=<replaceable>port</replaceable></option></term>
+        <listitem><para>
+            Specifies the TCP/IP port number of the iSCSI service on the
+            target.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--lun=<replaceable>LUN</replaceable></option></term>
+        <listitem><para>
+            Specifies the logical unit number (LUN) of the target
+            resource. For a single disk drive, the value is zero.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--encodedlun=<replaceable>LUN</replaceable></option></term>
+        <listitem><para>
+            Specifies the hexadecimal-encoded of the target resource.
+            For a single disk drive, the value is zero.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--username=<replaceable>username</replaceable></option></term>
+        <listitem><para>
+            Specifies the user name to use for target authentication.
+          </para><note>
+            <para>
+              Unless you provide a settings password, the user name is
+              stored as clear text in the XML machine configuration
+              file.
+            </para>
+          </note></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--password=<replaceable>password</replaceable></option></term>
+        <listitem><para>
+            Specifies the password used for target authentication.
+          </para><note>
+            <para>
+              Unless you provide a settings password, this password is
+              stored as clear text in the XML machine configuration
+              file. When you specify a settings password for the first
+              time, the target authentication password is stored in
+              encrypted form.
+            </para>
+          </note><remark>
+            This design does not conform to Oracle's security
+            guidelines. You should not be able to specify a password on
+            the command line because the password can be seen in a
+            process listing.
+          </remark></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--passwordfile=<replaceable>password-filename</replaceable></option></term>
+        <listitem><para>
+            Specifies a file that contains the target authentication
+            password as clear text.
+          </para><note>
+            <para>
+              Use permission and ownership settings to ensure that the
+              contents of this file cannot be read by unauthorized
+              users.
+            </para>
+          </note></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--initiator=<replaceable>initiator</replaceable></option></term>
+        <listitem><para>
+            Specifies the iSCSI initiator.
+          </para><para>
+            The Microsoft iSCSI Initiator is a system, such as a server,
+            that attaches to an IP network and initiates requests and
+            receives responses from an iSCSI target. The SAN components
+            in the iSCSI initiator are largely analogous to Fibre
+            Channel SAN components, and they include the following:
+          </para><itemizedlist>
+            <listitem><para>
+                <emphasis role="bold">iSCSI driver.</emphasis>
+                Transports blocks of iSCSI commands over the IP network.
+                This iSCSI driver is installed on the iSCSI host and is
+                included with the Microsoft iSCSI Initiator.
+              </para></listitem>
+            <listitem><para>
+                <emphasis role="bold">Gigabit Ethernet
+                adapter.</emphasis> Connects to an iSCSI target. Use an
+                Ethernet adapter that can transmit 1000 megabits per
+                second (Mbps). Like standard 10/100 adapters, most
+                gigabit adapters use a preexisting Category 5 or
+                Category 6E cable. Each port on the adapter is
+                identified by a unique IP address.
+              </para></listitem>
+            <listitem><para>
+                <emphasis role="bold">iSCSI target.</emphasis> Is any
+                device that receives iSCSI commands. The device can be
+                an end node such as a storage device, or it can be an
+                intermediate device such as a network bridge between IP
+                and Fibre Channel devices. Each port on the storage
+                array controller or network bridge is identified by one
+                or more IP addresses.
+              </para></listitem>
+          </itemizedlist></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--intnet</option></term>
+        <listitem><para>
+            Specifies whether to connect to the iSCSI target that uses
+            internal networking. This configuration requires further
+            configuration. See <xref linkend="iscsi-intnet" />.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command attaches the <filename>o7.vdi</filename>
+      disk image to the specified SATA storage controller on the
+      <filename>ol7</filename> VM.
+    </para>
+<screen>$ storageattach ol7 --storagectl "SATA Controller" --port 0 --device 0 \
+--type hdd --medium /VirtualBox/ol7/ol7.vdi</screen>
+    <para>
+      The following command attaches the
+      <filename>o7-r6-dvd.iso</filename> DVD image to the specified IDE
+      storage controller on the <filename>ol7</filename> VM.
+    </para>
+<screen>$ VBoxManage storageattach ol7 --storagectl "IDE Controller" --port 0 --device 0 \
+--type dvddrive --medium ol7-r6-dvd.iso</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <xref linkend="vboxmanage-list" />,
+      <xref linkend="vboxmanage-showvminfo" />,
+      <xref linkend="vboxmanage-storagectl" />
+    </para>
+  </refsect1>
+</refentry>

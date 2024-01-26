@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage createvm
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-createvm" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage createvm</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-createvm</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-createvm</refname>
+    <refpurpose>создает новую виртуальную машину</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-createvm">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage createvm</command>
+      <arg choice="req">--name=<replaceable>имя-ВМ</replaceable></arg>
+      <arg>--basefolder=<replaceable>основная-папка</replaceable></arg>
+      <arg>--default</arg>
+      <arg>--group=<replaceable>ID-группы</replaceable>,...</arg>
+      <arg>--ostype=<replaceable>тип-ОС</replaceable></arg>
+      <arg>--register</arg>
+      <arg>--uuid=<replaceable>uuid</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage createvm</command> создает новый
+      XML-файл определения виртуальной машины (ВМ).
+    </para>
+    <para>
+      Необходимо указать имя ВМ, используя <option>--name
+      <replaceable>имя-ВМ</replaceable></option>. Это имя по умолчанию
+      используется как имя файла настроек, имеющего расширение
+      <filename>.vbox</filename>, а также как имя папки машины,
+      находящейся в директории <filename>$HOME/VirtualBox VMs</filename>.
+    </para>
+    <para>
+      Фактическое имя файла может не соответствовать имени ВМ если
+      оно нарушает требования к имени файла ОС хоста (например
+      использование разделителя пути или других зарезервированных
+      символов, все это будет заменено на символ подстановки). Если
+      ВМ будет позднее переименована, имена файла и папки будут
+      обновлены автоматически чтобы соответствовать новому имени.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Опции команды</title>
+    <para>
+      В дополнение к требуемому указанию имени или UUID ВМ, можно
+      указать следующие опции:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><option>--basefolder=<replaceable>основная-папка</replaceable></option></term>
+        <listitem><para>
+            Задает имя папки в которую сохранять файл конфигурации
+            машины для новой ВМ.
+          </para><para>
+            Обратите внимание, что имена файла и папки не изменяются если
+            переименовать ВМ.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--default</option></term>
+        <listitem><para>
+            Применяет аппаратную конфигурацию по умолчанию для указанной
+            гостевой ОС. По умолчанию, ВМ создается с минимальным
+            оборудованием.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--group=<replaceable>ID-группы</replaceable>,...</option></term>
+        <listitem><para>
+            Назначает ВМ на указанные группы. Если указывается более
+            чем одна группа, разделите их запятыми.
+          </para><para>
+            Заметим, что каждая группа идентифицируется через ID группы,
+            начинающаяся с символа слэш (<literal>/</literal>), поэтому
+            группы могут быть вложенные. По умолчанию, ВМ всегда
+            назначается на группу <literal>/</literal>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--ostype=<replaceable>тип-ОС</replaceable></option></term>
+        <listitem><para>
+            Указывает гостевую ОС для запуска в ВМ. Запустите команду
+            <command>VBoxManage list ostypes</command> для просмотра
+            доступных типов ОС.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--register</option></term>
+        <listitem><para>
+            Регистрирует ВМ в &product-name;. По умолчанию команда
+            <command>VBoxManage createvm</command> создает только
+            XML конфигурацию для ВМ но не регистрирует ВМ. Если не
+            регистрировать ВМ при создании, можно запустить команду
+            <command>VBoxManage registervm</command> после создания.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--uuid=<replaceable>uuid</replaceable></option></term>
+        <listitem><para>
+            Задает Универсальный Уникальный Идентификатор (UUID) ВМ.
+            Убедитесь что этот UUID уникален в пространстве имен
+            &product-name; хоста или его членства в группах ВМ, если
+            хотите зарегистрировать ВМ. По умолчанию &product-name;
+            предоставляет UUID.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда создает ВМ называемую <literal>vm2</literal>
+      где планируется запускать 64 битную версию Orace Linux.
+    </para>
+<screen>$ VBoxManage createvm --name "vm2" --ostype "Oracle_64"</screen>
+    <para>
+      Следующая команда создает и регистрирует ВМ называемую
+      <literal>vm3</literal>.
+    </para>
+<screen>$ VBoxManage createvm --name "vm3" --register</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>Смотрите также</title>
+    <para>
+      <xref linkend="vboxmanage-list" />,
+      <xref linkend="vboxmanage-registervm" />
+    </para>
+  </refsect1>
+</refentry>

@@ -1,0 +1,641 @@
+# $Id: footer-pass2-installs.kmk 3373 2020-06-10 11:01:43Z bird $
+## @file
+# kBuild - Footer - Target lists - Pass 2 - Installs.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version source of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+
+#
+# INSTALLS
+#
+
+##
+# Generate the staging rules.
+#
+define def_install_src_rule_staging
+$$(call KB_FN_ASSERT_ABSPATH, stagedst)
+$$(call KB_FN_ASSERT_ABSPATH, srcsrc)
+$(stagedst) : $(srcsrc) $(top_deps) | $(dir $(stagedst)) $(top_orderdeps)
+	%$$(call MSG_INST_FILE,$(srcsrc),$(stagedst))
+	$(top_pre_file_cmds)
+	$$(QUIET)$(stagecmd)
+	$(top_post_file_cmds)
+endef
+$(eval-opt-var def_install_src_rule_staging)
+
+define def_install_src_rule_installing
+$$(call KB_FN_ASSERT_ABSPATH, instdst)
+$$(call KB_FN_ASSERT_ABSPATH, srcsrc)
+$(instdst) : $(srcsrc) $(top_deps) | $(dir $(instdst)) $(top_orderdeps)
+	%$$(call MSG_INST_FILE,$(srcsrc),$(instdst))
+	$(top_pre_file_cmds)
+	$$(QUIET)$(instcmd)
+	$(top_post_file_cmds)
+endef
+$(eval-opt-var def_install_src_rule_installing)
+
+##
+# Install one file.
+#
+define def_install_src
+
+# deal with '=>' in the source file name.
+ifeq ($(src),=>)
+ $(error kBuild: Install target '$(target)' has a bad source specifier containing '=>' without any file names)
+endif
+ifeq ($(substr $(src),1,2),=>)
+ $(warning kBuild: Install target '$(target)' has a bad source specifier: $(src))
+endif
+ifeq ($(substr $(src),-2),=>)
+ $(warning kBuild: Install target '$(target)' has a bad source specifier: $(src))
+endif
+local srcdst    := $(subst =>, ,$(src))
+local srcsrc    := $(firstword $(srcdst))
+local srcdstdir := $(dir $(word 2,$(srcdst)))
+ifeq ($(srcdstdir),./)
+ local srcdstdir:=
+endif
+local srcdst    := $(word $(words $(srcdst)),$(srcdst))
+
+# instfun, mode, uid and gid.
+ifdef $(srcsrc)_INSTFUN
+ local instfun := $(srcsrc)_INSTFUN
+else
+ local instfun := $(top_instfun)
+endif
+local mode := $(firstword \
+	$($(target)_$(srcsrc)$(source_type_prefix)_MODE.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcsrc)$(source_type_prefix)_MODE.$(bld_trg)) \
+	$($(target)_$(srcsrc)$(source_type_prefix)_MODE) \
+	$($(target)_$(srcdst)$(source_type_prefix)_MODE.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcdst)$(source_type_prefix)_MODE.$(bld_trg)) \
+	$($(target)_$(srcdst)$(source_type_prefix)_MODE) \
+	$($(srcsrc)$(source_type_prefix)_MODE.$(bld_trg).$(bld_trg_arch)) \
+	$($(srcsrc)$(source_type_prefix)_MODE.$(bld_trg)) \
+	$($(srcsrc)$(source_type_prefix)_MODE) \
+	$($(srcdst)$(source_type_prefix)_MODE.$(bld_trg).$(bld_trg_arch)) \
+	$($(srcdst)$(source_type_prefix)_MODE.$(bld_trg)) \
+	$($(srcdst)$(source_type_prefix)_MODE) \
+	$(source_type_mode))
+local uid := $(firstword \
+	$($(target)_$(srcsrc)_UID.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcsrc)_UID.$(bld_trg)) \
+	$($(target)_$(srcsrc)_UID) \
+	$($(target)_$(srcdst)_UID.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcdst)_UID.$(bld_trg)) \
+	$($(target)_$(srcdst)_UID) \
+	$($(srcsrc)_UID.$(bld_trg).$(bld_trg_arch)) \
+	$($(srcsrc)_UID.$(bld_trg)) \
+	$($(srcsrc)_UID) \
+	$($(srcdst)_UID.$(bld_trg).$(bld_trg_arch)) \
+	$($(srcdst)_UID.$(bld_trg)) \
+	$($(srcdst)_UID) \
+	$(top_uid))
+local gid := $(firstword \
+	$($(target)_$(srcsrc)_GID.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcsrc)_GID.$(bld_trg)) \
+	$($(target)_$(srcsrc)_GID) \
+	$($(target)_$(srcdst)_GID.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcdst)_GID.$(bld_trg)) \
+	$($(target)_$(srcdst)_GID) \
+	$($(srcsrc)_GID.$(bld_trg).$(bld_trg_arch)) \
+	$($(srcsrc)_GID.$(bld_trg)) \
+	$($(srcsrc)_GID) \
+	$($(srcdst)_GID.$(bld_trg).$(bld_trg_arch)) \
+	$($(srcdst)_GID.$(bld_trg)) \
+	$($(srcdst)_GID) \
+	$(top_gid))
+local flags := \
+	$(top_ifflags) \
+	$($(srcdst)$(source_type_prefix)_IFFLAGS) \
+	$($(srcdst)$(source_type_prefix)_IFFLAGS.$(bld_trg)) \
+	$($(srcdst)$(source_type_prefix)_IFFLAGS.$(bld_trg).$(bld_trg_arch)) \
+	$($(srcsrc)$(source_type_prefix)_IFFLAGS) \
+	$($(srcsrc)$(source_type_prefix)_IFFLAGS.$(bld_trg)) \
+	$($(srcsrc)$(source_type_prefix)_IFFLAGS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcdst)$(source_type_prefix)_IFFLAGS) \
+	$($(target)_$(srcdst)$(source_type_prefix)_IFFLAGS.$(bld_trg)) \
+	$($(target)_$(srcdst)$(source_type_prefix)_IFFLAGS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcsrc)$(source_type_prefix)_IFFLAGS) \
+	$($(target)_$(srcsrc)$(source_type_prefix)_IFFLAGS.$(bld_trg)) \
+	$($(target)_$(srcsrc)$(source_type_prefix)_IFFLAGS.$(bld_trg).$(bld_trg_arch))
+clean_files += \
+	$($(srcdst)_CLEAN) \
+	$($(srcdst)_CLEAN.$(bld_trg)) \
+	$($(srcdst)_CLEAN.$(bld_trg).$(bld_trg_arch)) \
+	$($(srcsrc)_CLEAN) \
+	$($(srcsrc)_CLEAN.$(bld_trg)) \
+	$($(srcsrc)_CLEAN.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcdst)_CLEAN) \
+	$($(target)_$(srcdst)_CLEAN.$(bld_trg)) \
+	$($(target)_$(srcdst)_CLEAN.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(srcsrc)_CLEAN) \
+	$($(target)_$(srcsrc)_CLEAN.$(bld_trg)) \
+	$($(target)_$(srcsrc)_CLEAN.$(bld_trg).$(bld_trg_arch))
+
+
+# Adjust the source if we got a default PATH. (This must be done this late!)
+ifdef $(target)_DEFPATH
+local defpath := $($(target)_DEFPATH)
+else ifdef $(target)_PATH
+local defpath := $($(target)_PATH)
+else
+local defpath :=
+endif
+ifneq ($(defpath),)
+ local srcsrc := $(abspathex $(srcsrc),$(defpath))
+endif
+
+# Generate the staging rule (requires double evaluation).
+local stage      := $(strip $(firstdefined $(srcsrc)_STAGE $(srcsrc)_INST $(target)_1_STAGE,value))
+if "$(substr $(stage),-1)" != "/" && "$(stage)" != ""
+ $(warning kBuild: File $(srcsrc) in install target $(target) has a STAGE/INST property without a trailing slash: '$(stage)')
+ local stage     := $(stage)/
+endif
+local stage      := $(stage)$(dir $(srcdstdir))
+ifeq ($(root $(stage)),)
+ local stagedst  := $(call $(instfun),$(srcdst),$(target),$(stage),$(PATH_STAGE))
+else
+ local stage     := $(abspath $(stage))/
+ ifeq ($(pos $(PATH_OBJ),$(stage)),1)
+  local stage    := $(substr $(stage), $(expr $(length-var PATH_OBJ) + 2))
+  local stagedst := $(call $(instfun),$(srcdst),$(target),$(stage),$(PATH_OBJ))
+ else
+  $(error kBuild: File $(srcsrc) in install target $(target) has a STAGE/INST property with an absolute path outside PATH_OBJ: '$(stage)')
+ endif
+endif
+ifdef $(srcsrc)_INSTALLER
+ local stagecmd := $(call $(srcsrc)_INSTALLER,$(srcsrc),$(stagedst),$(target),$(flags),stage)
+else ifdef $(target)_INSTALLER
+ local stagecmd := $(call $(target)_INSTALLER,$(srcsrc),$(stagedst),$(target),$(flags),stage)
+else
+ local stagecmd := $$(INSTALL_STAGING)\
+		$(if $(uid),-o $(uid))\
+		$(if $(gid),-g $(gid))\
+		$(if $(mode),-m $(mode))\
+		$(flags) -- \
+		$(srcsrc) $(stagedst)
+endif
+$(eval $(def_install_src_rule_staging))
+$(target)_2_STAGE_TARGETS += $(stagedst)
+
+# Generate the install rule
+ifeq ($(insttype),both)
+ local inst     := $(strip $(firstdefined $(srcsrc)_INST $(target)_1_INST,value))
+ if "$(substr $(inst),-1)" != "/" && "$(inst)" != ""
+  $(warning kBuild: File $(srcsrc) in install target $(target) has a INST property without a trailing slash: '$(inst)')
+  local inst    := $(inst)/
+ endif
+ local inst     := $(inst)$(dir $(srcdstdir))
+ ifneq ($(root $(inst)),)
+  $(error kBuild: File $(srcsrc) in install target $(target) has a INST property with an absolute path: '$(inst)')
+ endif
+ local instdst  := $(call $(instfun),$(srcdst),$(target),$(inst),$(PATH_INS))
+
+ ifdef $(srcsrc)_INSTALLER
+  local instcmd := $(call $(srcsrc)_INSTALLER,$(srcsrc),$(instdst),$(target),$(flags),install)
+ else ifdef $(target)_INSTALLER
+  local instcmd := $(call $(target)_INSTALLER,$(srcsrc),$(instdst),$(target),$(flags),install)
+ else
+  local instcmd := $$(INSTALL)\
+  		$(if $(uid),-o $(uid))\
+  		$(if $(gid),-g $(gid))\
+  		$(if $(mode),-m $(mode))\
+  		$(flags) -- \
+  		$(srcsrc) $(instdst)
+ endif
+ $(eval $(def_install_src_rule_installing))
+ $(target)_2_INST_TARGETS += $(instdst)
+endif
+
+#$(warning instfun=$(instfun) srcdst=$(srcdst) target=$(target) inst=$(inst) => instdst=$(instdst); stage=$(stage) => stagedst=$(stagedst))
+endef # def_install_src
+$(eval-opt-var def_install_src)
+
+
+##
+# Generate the symlink rules.
+#
+define def_install_symlink_rule_staging
+$$(call KB_FN_ASSERT_ABSPATH, stagedst)
+$(stagedst) : $(top_deps) | $(dir $(stagedst)) $(top_orderdeps)
+	%$$(call MSG_INST_SYM,$(stagedst),$(symdst))
+	$$(QUIET)$$(RM) -f -- $$@
+	$(top_pre_sym_cmds)
+	$$(QUIET)$$(LN_SYMLINK) $(symdst) $(stagedst)
+	$(top_post_sym_cmds)
+endef
+$(eval-opt-var def_install_symlink_rule_staging)
+
+define def_install_symlink_rule_installing
+$$(call KB_FN_ASSERT_ABSPATH, instdst)
+$(instdst) : $(top_deps) | $(dir $(instdst)) $(top_orderdeps)
+	%$$(call MSG_INST_SYM,$(instdst),$(symdst))
+	$$(QUIET)$$(RM) -f -- $$@
+	$(top_pre_sym_cmds)
+	$$(QUIET)$$(LN_SYMLINK) $(symdst) $(instdst)
+	$(top_post_sym_cmds)
+endef
+$(eval-opt-var def_install_symlink_rule_installing)
+
+
+##
+# Create one symlink.
+#
+define def_install_symlink
+
+# deal with '=>' in the source file name.
+local symdst := $(subst =>, ,$(src))
+local symlnk := $(firstword $(symdst))
+local symdst := $(word $(words $(symdst)),$(symdst))
+local symlnkdir := $(dir $(symlnk))
+ifeq ($(symlnkdir),./)
+ local symlnkdir :=
+endif
+
+# Figure which install function to use below.
+ifdef $(symlnk)_INSTFUN
+ local instfun := $(symlnk)_INSTFUN
+else
+ local instfun := $(top_instfun)
+endif
+
+# Calc stage destination and generate the rule (requires double evaluation).
+local stage      := $(strip $(firstdefined $(symlnk)_STAGE $(symlnk)_INST $(target)_1_STAGE,value))
+if "$(substr $(stage),-1)" != "/" && "$(stage)" != ""
+ $(warning kBuild: Symlink $(symlnk) in install target $(target) has a STAGE/INST property without a trailing slash: '$(stage)')
+ local stage     := $(stage)/
+endif
+local stage      := $(stage)$(symlnkdir)
+ifeq ($(root $(stage)),)
+ local stagedst  := $(call $(instfun),$(symlnk),$(target),$(stage),$(PATH_STAGE))
+else
+ local stage     := $(abspath $(stage))/
+ ifeq ($(pos $(PATH_OBJ),$(stage)),1)
+  local stage    := $(substr $(stage), $(expr $(length-var PATH_OBJ) + 2))
+  local stagedst := $(call $(instfun),$(symlnk),$(target),$(stage),$(PATH_OBJ))
+ else
+  $(error kBuild: Symlink $(symlnk) in install target $(target) has a STAGE/INST property with an absolute path outside PATH_OBJ: '$(stage)')
+ endif
+endif
+
+$(eval $(def_install_symlink_rule_staging))
+$(target)_2_STAGE_TARGETS += $(stagedst)
+
+# Calcuate the install destiation and generate the rule (if necessary).
+ifeq ($(instmode),both)
+ local inst    := $(strip $(firstdefined $(symlnk)_INST $(target)_1_INST,value))
+ if "$(substr $(inst),-1)" != "/" && "$(inst)" != ""
+  $(warning kBuild: Symlink $(symlnk) in install target $(target) has a INST property without a trailing slash: '$(inst)')
+  local inst   := $(inst)/
+ endif
+ ifneq ($(root $(inst)),)
+  $(error kBuild: Symlink $(symlnk) in install target $(target) has a INST property with an absolute path: '$(inst)')
+ endif
+ local inst    := $(inst)$(symlnkdir)
+ local instdst := $(call $(instfun),$(symlnk),$(target),$(inst),$(PATH_INS))
+ $(eval $(def_install_symlink_rule_installing))
+ $(target)_2_INST_TARGETS += $(instdst)
+endif
+
+#$(warning symlnk=$(symlnk) symdst=$(symdst) instdst=$(instdst) stagedst=$(stagedst) instfun=$(instfun) inst=$(inst) stage='$(stage)')
+endef # def_install_symlink
+$(optmize def_install_symlink)
+
+
+##
+# Generate an directory installtion rule.
+# Note. Used both for staging and real install rules.
+#
+define def_install_directory_rule
+$$(call KB_FN_ASSERT_ABSPATH, insdst)
+$(insdst): $(top_deps) | $(top_orderdeps)
+	%$$(call MSG_INST_DIR,$(insdst))
+	$(top_pre_dir_cmds)
+	$$(QUIET)$$(INSTALL) -d \
+		$(if $(uid),-o $(uid))\
+		$(if $(gid),-g $(gid))\
+		$(if $(mode),-m $(mode))\
+		$(flags) -- \
+		$(insdst)
+	$(top_post_dir_cmds)
+
+endef # def_install_directory_rule
+$(eval-opt-var def_install_directory_rule)
+
+##
+# Create one directory.
+#
+define def_install_directory
+
+# gather common properties.
+local mode := $(firstword \
+	$($(target)_$(directory)_MODE.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(directory)_MODE.$(bld_trg)) \
+	$($(target)_$(directory)_MODE) \
+	$($(directory)_MODE.$(bld_trg).$(bld_trg_arch)) \
+	$($(directory)_MODE.$(bld_trg)) \
+	$($(directory)_MODE) \
+	$(top_mode) )
+local uid := $(firstword \
+	$($(target)_$(directory)_UID.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(directory)_UID.$(bld_trg)) \
+	$($(target)_$(directory)_UID) \
+	$($(directory)_UID.$(bld_trg).$(bld_trg_arch)) \
+	$($(directory)_UID.$(bld_trg)) \
+	$($(directory)_UID) \
+	$(top_uid) )
+local gid := $(firstword \
+	$($(target)_$(directory)_GID.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(directory)_GID.$(bld_trg)) \
+	$($(target)_$(directory)_GID) \
+	$($(directory)_GID.$(bld_trg).$(bld_trg_arch)) \
+	$($(directory)_GID.$(bld_trg)) \
+	$($(directory)_GID) \
+	$(top_gid) )
+local flags := \
+	$(top_idflags) \
+	$($(directory)_IDFLAGS) \
+	$($(directory)_IDFLAGS.$(bld_trg)) \
+	$($(directory)_IDFLAGS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_$(directory)_IDFLAGS) \
+	$($(target)_$(directory)_IDFLAGS.$(bld_trg)) \
+	$($(target)_$(directory)_IDFLAGS.$(bld_trg).$(bld_trg_arch)) \
+
+# The staging rule (requires double evaluation).
+local stage    := $(strip $(firstdefined $(directory)_STAGE $(directory)_INST $(target)_1_STAGE,value))
+if "$(substr $(stage),-1)" != "/" && "$(stage)" != ""
+ $(warning kBuild: Directory $(directory) in install target $(target) has a STAGE/INST property without a trailing slash: '$(stage)')
+ local stage   := $(stage)/
+endif
+ifeq ($(root $(stage)),)
+ local insdst  := $(PATH_STAGE)/$(stage)$(directory)/
+else
+ local stage   := $(abspath $(stage))/
+ ifeq ($(pos $(PATH_OBJ),$(stage)),1)
+  local insdst := $(stage)$(directory)/
+ else
+  $(error kBuild: Directory $(directory) in install target $(target) has a STAGE/INST property with an absolute path outside PATH_OBJ: '$(stage)')
+ endif
+endif
+
+$(target)_2_STAGE_DIR_TARGETS += $(insdst)
+$(eval $(def_install_directory_rule))
+
+# The install rule.
+ifeq ($(insttype),both)
+ local inst   := $(strip $(firstdefined $(directory)_INST $(target)_1_INST,value))
+ ifneq ($(substr $(inst),-1),/)
+  $(warning kBuild: Directory $(directory) in install target $(target) has a INST property without a trailing slash: '$(inst)')
+  local inst  := $(inst)/
+ endif
+ ifneq ($(root $(stage)),)
+  $(error kBuild: Directory $(directory) in install target $(target) has a INST property with an absolute path: '$(inst)')
+ endif
+ local insdst := $(PATH_INS)/$(inst)$(directory)/
+ $(target)_2_INST_DIR_TARGETS += $(insdst)
+ $(eval $(def_install_directory_rule))
+endif
+
+#$(warning directory=$(directory) inst=$(inst) stage=$(stage) mode=$(mode) gid=$(gid) uid=$(uid))
+endef # def_install_directory
+$(eval-opt-var def_install_directory)
+
+
+##
+# Process one install target.
+#
+define def_install
+# the basics.
+local bld_type     := $(firstword $($(target)_BLD_TYPE)     $(KBUILD_TYPE))
+local bld_trg      := $(firstword $($(target)_BLD_TRG)      $(KBUILD_TARGET))
+local bld_trg_arch := $(firstword $($(target)_BLD_TRG_ARCH) $(KBUILD_TARGET_ARCH))
+local bld_trg_cpu  := $(firstword $($(target)_BLD_TRG_CPU)  $(KBUILD_TARGET_CPU))
+local insttype     := $($(target)_1_INSTTYPE)
+
+ifneq ($(insttype),none)
+ $(target)_2_STAGE_TARGETS    := $($(target)_GOALS) $($(target)_STAGE_ONLY_GOALS)
+else
+ $(target)_2_STAGE_TARGETS    :=
+endif
+$(target)_2_STAGE_DIR_TARGETS :=
+
+ifeq ($(insttype),both)
+ $(target)_2_INST_TARGETS     := $($(target)_GOALS) $($(target)_INST_ONLY_GOALS)
+else
+ $(target)_2_INST_TARGETS     :=
+endif
+$(target)_2_INST_DIR_TARGETS  :=
+
+
+local outbase      := $(call TARGET_BASE,$(target),$(target))
+$(target)_0_OUTDIR := $(patsubst %/,%,$(dir $(outbase)))
+$(call KB_FN_ASSIGN_DEPRECATED,PATH_$(target),$($(target)_0_OUTDIR), $(target)_0_OUTDIR)
+
+ifneq ($(insttype),none)
+ # Cache top level target properties.
+ local top_mode := $(firstword \
+ 	$($(target)_MODE.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_MODE.$(bld_trg)) \
+ 	$($(target)_MODE) )
+ local top_exec_mode := $(firstword \
+ 	$($(target)_EXEC_MODE.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_EXEC_MODE.$(bld_trg)) \
+ 	$($(target)_EXEC_MODE) )
+ local top_uid := $(firstword \
+ 	$($(target)_UID.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_UID.$(bld_trg)) \
+ 	$($(target)_UID) )
+ local top_gid := $(firstword \
+ 	$($(target)_GID.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_GID.$(bld_trg)) \
+ 	$($(target)_GID) )
+ local top_ifflags := \
+ 	$($(target)_IFFLAGS) \
+ 	$($(target)_IFFLAGS.$(bld_trg)) \
+ 	$($(target)_IFFLAGS.$(bld_trg).$(bld_trg_arch))
+ local top_idflags := \
+ 	$($(target)_IDFLAGS) \
+ 	$($(target)_IDFLAGS.$(bld_trg)) \
+ 	$($(target)_IDFLAGS.$(bld_trg).$(bld_trg_arch))
+ ifdef $(target)_INSTFUN
+   local top_instfun := $(target)_INSTFUN
+ else
+   local top_instfun := _INSTALL_FILE
+ endif
+ local top_deps := \
+	$($(target)_DEPS.$(bld_trg_cpu)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_DEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_DEPS.$(bld_trg_arch)) \
+	$($(target)_DEPS.$(bld_trg)) \
+	$($(target)_DEPS.$(bld_type)) \
+	$($(target)_DEPS)
+ local top_orderdeps := \
+	$($(target)_ORDERDEPS.$(bld_trg_cpu)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_ORDERDEPS.$(bld_trg).$(bld_type)) \
+	$($(target)_ORDERDEPS.$(bld_trg_arch)) \
+	$($(target)_ORDERDEPS.$(bld_trg)) \
+	$($(target)_ORDERDEPS.$(bld_type)) \
+	$($(target)_ORDERDEPS)
+ ifdef $(target)_DEFPATH
+  local top_defpath := $($(target)_DEFPATH)
+ else ifdef $(target)_PATH
+  local top_defpath := $($(target)_PATH)
+ else
+  local top_defpath :=
+ endif
+ ifneq ($(top_defpath),)
+  local top_deps      := $(abspathex $(top_deps),$(top_defpath))
+  local top_orderdeps := $(abspathex $(top_orderdeps),$(top_defpath))
+ endif
+
+ # The user have to use double expansion and can only use the above locals. Not 100% optimal...
+ local top_pre_file_cmds  := $(evalcall def_fn_prop_get_first_defined,PRE_XFILE_CMDS)
+ local top_post_file_cmds := $(evalcall def_fn_prop_get_first_defined,POST_XFILE_CMDS)
+ local top_pre_sym_cmds   := $(evalcall def_fn_prop_get_first_defined,PRE_SYMLINK_CMDS)
+ local top_post_sym_cmds  := $(evalcall def_fn_prop_get_first_defined,POST_SYMLINK_CMDS)
+ local top_pre_dir_cmds   := $(evalcall def_fn_prop_get_first_defined,PRE_DIRECTORY_CMDS)
+ local top_post_dir_cmds  := $(evalcall def_fn_prop_get_first_defined,POST_DIRECTORY_CMDS)
+
+ $(foreach directory, \
+ 	$($(target)_DIRS) \
+ 	$($(target)_DIRS.$(bld_trg)) \
+ 	$($(target)_DIRS.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_DIRS.$(bld_trg_arch)) \
+ 	$($(target)_DIRS.$(bld_trg_cpu)) \
+ 	$($(target)_DIRS.$(bld_type)), \
+ 	$(evalval def_install_directory))
+
+ local clean_files  := \
+ 	$($(target)_CLEAN) \
+ 	$($(target)_CLEAN.$(bld_trg)) \
+ 	$($(target)_CLEAN.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_CLEAN.$(bld_trg_arch)) \
+ 	$($(target)_CLEAN.$(bld_trg_cpu)) \
+ 	$($(target)_CLEAN.$(bld_type))
+
+ local source_type_prefix :=
+ local source_type_mode := $(firstword $(top_mode) a+r,u+w)
+ $(foreach src,\
+ 	$($(target)_SOURCES) \
+ 	$($(target)_SOURCES.$(bld_trg)) \
+ 	$($(target)_SOURCES.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_SOURCES.$(bld_trg_arch)) \
+ 	$($(target)_SOURCES.$(bld_trg_cpu)) \
+ 	$($(target)_SOURCES.$(bld_type)), \
+ 	$(evalval def_install_src))
+
+ local source_type_prefix := EXEC_
+ local source_type_mode := $(firstword $(top_exec_mode) a+xr,u+w)
+ $(foreach src,\
+ 	$($(target)_EXEC_SOURCES) \
+ 	$($(target)_EXEC_SOURCES.$(bld_trg)) \
+ 	$($(target)_EXEC_SOURCES.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_EXEC_SOURCES.$(bld_trg_arch)) \
+ 	$($(target)_EXEC_SOURCES.$(bld_trg_cpu)) \
+ 	$($(target)_EXEC_SOURCES.$(bld_type)), \
+ 	$(evalval def_install_src))
+
+ $(foreach src,\
+ 	$($(target)_SYMLINKS) \
+ 	$($(target)_SYMLINKS.$(bld_trg)) \
+ 	$($(target)_SYMLINKS.$(bld_trg).$(bld_trg_arch)) \
+ 	$($(target)_SYMLINKS.$(bld_trg_arch)) \
+ 	$($(target)_SYMLINKS.$(bld_trg_cpu)) \
+ 	$($(target)_SYMLINKS.$(bld_type)), \
+ 	$(evalval def_install_symlink))
+else # none
+ local clean_files  :=
+endif
+
+# The collection targets (staging only).
+local clean_files  += $($(target)_1_TARGET)
+$($(target)_1_TARGET): $$($(target)_2_STAGE_TARGETS) | $$($(target)_2_STAGE_DIR_TARGETS) $$(dir $$@)
+	@$(QUIET2)$(APPEND) $@
+
+$(target): $$($(target)_1_TARGET)
+
+# Update Global lists.
+_INSTALLS       += $($(target)_1_TARGET)
+_STAGE_FILES    += $($(target)_2_STAGE_TARGETS)
+_STAGE_DIRS     += $($(target)_2_STAGE_DIR_TARGETS)
+_INSTALLS_FILES += $($(target)_2_INST_TARGETS)
+_INSTALLS_DIRS  += $($(target)_2_INST_DIR_TARGETS)
+_CLEAN_FILES    += $(clean_files)
+_DIRS           += \
+	$($(target)_0_OUTDIR) \
+	$($(target)_BLDDIRS) \
+	$($(target)_BLDDIRS.$(bld_trg)) \
+	$($(target)_BLDDIRS.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_BLDDIRS.$(bld_trg_arch)) \
+	$($(target)_BLDDIRS.$(bld_trg_cpu)) \
+	$($(target)_BLDDIRS.$(bld_type))
+
+# Deprecated properties.
+INSTARGET_$(target)      := $($(target)_2_STAGE_TARGETS)
+INSTARGET_DIRS_$(target) := $($(target)_2_STAGE_DIR_TARGETS)
+
+endef # def_install
+$(eval-opt-var def_install)
+
+## Do pass 1 on the implicit targets and add them to the list.
+$(foreach target, $(_ALL_INSTALLS_IMPLICIT), \
+	$(evalval def_pass1_install))
+_ALL_INSTALLS += $(_ALL_INSTALLS_IMPLICIT)
+
+## Do pass 2 on all install targets.
+$(foreach target, $(_ALL_INSTALLS), \
+	$(evalvalctx def_install))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done install targets)
+endif
+
+#
+# Some introspection targets that can be useful for package maintainers.
+#
+.PHONY: kbuild-show-install-files kbuild-show-install-dirs
+kbuild-show-install-files::
+	$(addprefix $(NL)$(TAB)$(QUIET)$(ECHO) , $(subst $(PATH_INS)/,,$(_INSTALLS_FILES)))
+
+kbuild-show-install-dirs::
+	$(addprefix $(NL)$(TAB)$(QUIET)$(ECHO) , $(subst $(PATH_INS)/,,$(_INSTALLS_DIRS)))
+
+kbuild-show-stage-files::
+	$(addprefix $(NL)$(TAB)$(QUIET)$(ECHO) , $(subst $(PATH_STAGE)/,,$(_STAGE_FILES)))
+
+kbuild-show-stage-dirs::
+	$(addprefix $(NL)$(TAB)$(QUIET)$(ECHO) , $(subst $(PATH_STAGE)/,,$(_STAGE_DIRS)))
+
+

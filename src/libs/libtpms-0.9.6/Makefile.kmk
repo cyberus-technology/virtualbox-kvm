@@ -1,0 +1,265 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the libtpms library.
+#
+
+#
+# Copyright (C) 2021-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+VBOX_PATH_LIBTPMS = $(PATH_ROOT)/src/libs/libtpms-0.9.6
+
+LIBRARIES += VBox-libtpms_tpm12 VBox-libtpms_tpm2 VBox-libtpms
+VBox-libtpms_tpm12_TEMPLATE       = VBoxR3DllNonPedantic
+VBox-libtpms_tpm12_SDKS           = VBoxOpenSsl
+VBox-libtpms_tpm12_DEFS           = \
+	TPM_PCCLIENT \
+	TPM_VOLATILE_LOAD \
+	TPM_ENABLE_ACTIVATE \
+	TPM_AES \
+	TPM_LIBTPMS_CALLBACKS \
+	TPM_NV_DISK \
+	TPM_NOMAINTENANCE_COMMANDS \
+	TPM_V12
+ifn1of ($(KBUILD_TARGET), win)
+ VBox-libtpms_tpm12_DEFS         += TPM_POSIX
+ VBox-libtpms_tpm12_CFLAGS       += -include tpm_library_conf.h
+else
+ VBox-libtpms_tpm12_DEFS         += TPM_WINDOWS
+ VBox-libtpms_tpm12_CFLAGS       += /FI tpm_library_conf.h
+endif
+VBox-libtpms_tpm12_CFLAGS.win    += -wd4701
+VBox-libtpms_tpm12_CFLAGS.win    += -wd4703
+VBox-libtpms_tpm12_INCS           = \
+	$(VBOX_PATH_LIBTPMS) \
+	$(VBOX_PATH_LIBTPMS)/include/libtpms \
+	$(VBOX_PATH_LIBTPMS)/src \
+	$(VBOX_PATH_LIBTPMS)/src/tpm12
+VBox-libtpms_tpm12_SOURCES        = \
+	src/tpm12/tpm_admin.c \
+	src/tpm12/tpm_audit.c \
+	src/tpm12/tpm_auth.c \
+	src/tpm12/tpm_cryptoh.c \
+	src/tpm12/tpm_counter.c \
+	src/tpm12/tpm_daa.c \
+	src/tpm12/tpm_delegate.c \
+	src/tpm12/tpm_digest.c \
+	src/tpm12/tpm_error.c \
+	src/tpm12/tpm_global.c \
+	src/tpm12/tpm_identity.c \
+	src/tpm12/tpm_init.c \
+	src/tpm12/tpm_libtpms_io.c \
+	src/tpm12/tpm_key.c \
+	src/tpm12/tpm_load.c \
+	src/tpm12/tpm_maint.c \
+	src/tpm12/tpm_migration.c \
+	src/tpm12/tpm_nonce.c \
+	src/tpm12/tpm_nvram.c \
+	src/tpm12/tpm_openssl_helpers.c \
+	src/tpm12/tpm_owner.c \
+	src/tpm12/tpm_pcr.c \
+	src/tpm12/tpm_permanent.c \
+	src/tpm12/tpm_platform.c \
+	src/tpm12/tpm_process.c \
+	src/tpm12/tpm_secret.c \
+	src/tpm12/tpm_session.c \
+	src/tpm12/tpm_sizedbuffer.c \
+	src/tpm12/tpm_startup.c \
+	src/tpm12/tpm_store.c \
+	src/tpm12/tpm_storage.c \
+	src/tpm12/tpm_ticks.c \
+	src/tpm12/tpm_time.c \
+	src/tpm12/tpm_transport.c \
+	src/tpm12/tpm_ver.c \
+	src/tpm12/tpm_svnrevision.c \
+	src/tpm12/tpm_crypto.c \
+	src/tpm_tpm12_interface.c \
+	src/tpm_tpm12_tis.c
+
+VBox-libtpms_tpm2_TEMPLATE       = VBoxR3DllNonPedantic
+VBox-libtpms_tpm2_SDKS           = VBoxOpenSsl
+VBox-libtpms_tpm2_DEFS           = \
+	TPM_LIBTPMS_CALLBACKS
+VBox-libtpms_2_DEFS            += \
+	USE_OPENSSL_FUNCTIONS_SYMMETRIC=1 \
+	USE_OPENSSL_FUNCTIONS_EC=1 \
+	USE_OPENSSL_FUNCTIONS_ECDSA=1 \
+	USE_OPENSSL_FUNCTIONS_RSA=1
+ifn1of ($(KBUILD_TARGET), win)
+ VBox-libtpms_tpm2_DEFS          += TPM_POSIX
+ VBox-libtpms_tpm2_CFLAGS        += -include tpm_library_conf.h
+else
+ VBox-libtpms_tpm2_DEFS          += TPM_WINDOWS
+ VBox-libtpms_tpm2_CFLAGS        += /FI tpm_library_conf.h
+endif
+VBox-libtpms_tpm2_CFLAGS.win     += -wd4701
+VBox-libtpms_tpm2_CFLAGS.win     += -wd4703
+VBox-libtpms_tpm2_CFLAGS.win     += -wd4005
+VBox-libtpms_tpm2_INCS           = \
+	$(VBOX_PATH_LIBTPMS) \
+	$(VBOX_PATH_LIBTPMS)/include/libtpms \
+	$(VBOX_PATH_LIBTPMS)/src \
+	$(VBOX_PATH_LIBTPMS)/src/tpm2 \
+	$(VBOX_PATH_LIBTPMS)/src/tpm2/crypto \
+	$(VBOX_PATH_LIBTPMS)/src/tpm2/crypto/openssl
+VBox-libtpms_tpm2_SOURCES        = \
+	src/tpm2/ACT_spt.c \
+	src/tpm2/ACTCommands.c \
+	src/tpm2/AlgorithmCap.c \
+	src/tpm2/AlgorithmTests.c \
+	src/tpm2/AsymmetricCommands.c \
+	src/tpm2/AttestationCommands.c \
+	src/tpm2/Attest_spt.c \
+	src/tpm2/AuditCommands.c \
+	src/tpm2/Bits.c \
+	src/tpm2/BnConvert.c \
+	src/tpm2/BnMath.c \
+	src/tpm2/BnMemory.c \
+	src/tpm2/Cancel.c \
+	src/tpm2/CapabilityCommands.c \
+	src/tpm2/Clock.c \
+	src/tpm2/ClockCommands.c \
+	src/tpm2/CommandAudit.c \
+	src/tpm2/CommandCodeAttributes.c \
+	src/tpm2/CommandDispatcher.c \
+	src/tpm2/ContextCommands.c \
+	src/tpm2/Context_spt.c \
+	src/tpm2/CryptEccData.c \
+	src/tpm2/CryptSelfTest.c \
+	src/tpm2/CryptUtil.c \
+	src/tpm2/DA.c \
+	src/tpm2/DebugHelpers.c \
+	src/tpm2/DictionaryCommands.c \
+	src/tpm2/DuplicationCommands.c \
+	src/tpm2/EACommands.c \
+	src/tpm2/EncryptDecrypt_spt.c \
+	src/tpm2/Entity.c \
+	src/tpm2/Entropy.c \
+	src/tpm2/EphemeralCommands.c \
+	src/tpm2/ExecCommand.c \
+	src/tpm2/Global.c \
+	src/tpm2/Handle.c \
+	src/tpm2/HashCommands.c \
+	src/tpm2/Hierarchy.c \
+	src/tpm2/HierarchyCommands.c \
+	src/tpm2/IntegrityCommands.c \
+	src/tpm2/IoBuffers.c \
+	src/tpm2/Locality.c \
+	src/tpm2/LocalityPlat.c \
+	src/tpm2/ManagementCommands.c \
+	src/tpm2/Manufacture.c \
+	src/tpm2/Marshal.c \
+	src/tpm2/MathOnByteBuffers.c \
+	src/tpm2/Memory.c \
+	src/tpm2/NVCommands.c \
+	src/tpm2/NVDynamic.c \
+	src/tpm2/NVMem.c \
+	src/tpm2/NVReserved.c \
+	src/tpm2/NV_spt.c \
+	src/tpm2/Object.c \
+	src/tpm2/ObjectCommands.c \
+	src/tpm2/Object_spt.c \
+	src/tpm2/PCR.c \
+	src/tpm2/PlatformACT.c \
+	src/tpm2/PlatformData.c \
+	src/tpm2/Policy_spt.c \
+	src/tpm2/Power.c \
+	src/tpm2/PowerPlat.c \
+	src/tpm2/PP.c \
+	src/tpm2/PPPlat.c \
+	src/tpm2/PrimeData.c \
+	src/tpm2/PropertyCap.c \
+	src/tpm2/RandomCommands.c \
+	src/tpm2/Response.c \
+	src/tpm2/ResponseCodeProcessing.c \
+	src/tpm2/RunCommand.c \
+	src/tpm2/Session.c \
+	src/tpm2/SessionCommands.c \
+	src/tpm2/SessionProcess.c \
+	src/tpm2/SigningCommands.c \
+	src/tpm2/StartupCommands.c \
+	src/tpm2/SymmetricCommands.c \
+	src/tpm2/TestingCommands.c \
+	src/tpm2/Ticket.c \
+	src/tpm2/Time.c \
+	src/tpm2/TpmAsn1.c \
+	src/tpm2/TpmSizeChecks.c \
+	src/tpm2/TPMCmdp.c \
+	src/tpm2/TpmFail.c \
+	src/tpm2/Unique.c \
+	src/tpm2/Unmarshal.c \
+	src/tpm2/Vendor_TCG_Test.c \
+	src/tpm2/X509_ECC.c \
+	src/tpm2/X509_RSA.c \
+	src/tpm2/X509_spt.c \
+	src/tpm2/BackwardsCompatibilityObject.c \
+	src/tpm2/LibtpmsCallbacks.c \
+	src/tpm2/NVMarshal.c \
+	src/tpm2/StateMarshal.c \
+	src/tpm2/Volatile.c \
+	src/tpm2/crypto/openssl/CryptCmac.c \
+	src/tpm2/crypto/openssl/CryptDes.c \
+	src/tpm2/crypto/openssl/CryptEccKeyExchange.c \
+	src/tpm2/crypto/openssl/CryptEccMain.c \
+	src/tpm2/crypto/openssl/CryptEccSignature.c \
+	src/tpm2/crypto/openssl/CryptHash.c \
+	src/tpm2/crypto/openssl/CryptPrime.c \
+	src/tpm2/crypto/openssl/CryptPrimeSieve.c \
+	src/tpm2/crypto/openssl/CryptRand.c \
+	src/tpm2/crypto/openssl/CryptRsa.c \
+	src/tpm2/crypto/openssl/CryptSmac.c \
+	src/tpm2/crypto/openssl/CryptSym.c \
+	src/tpm2/crypto/openssl/ExpDCache.c \
+	src/tpm2/crypto/openssl/Helpers.c \
+	src/tpm2/crypto/openssl/TpmToOsslDesSupport.c \
+	src/tpm2/crypto/openssl/TpmToOsslMath.c \
+	src/tpm2/crypto/openssl/TpmToOsslSupport.c \
+	src/tpm_tpm2_interface.c \
+	src/tpm_tpm2_tis.c
+
+VBox-libtpms_TEMPLATE       = VBoxR3DllNonPedantic
+ifn1of ($(KBUILD_TARGET), win)
+ VBox-libtpms_CFLAGS       += -include tpm_library_conf.h
+else
+ VBox-libtpms_CFLAGS       += /FI tpm_library_conf.h
+endif
+VBox-libtpms_DEFS           = \
+	WITH_TPM1 \
+	WITH_TPM2 \
+	TPM_LIBTPMS_CALLBACKS
+VBox-libtpms_INCS           = \
+	$(VBOX_PATH_LIBTPMS) \
+	$(VBOX_PATH_LIBTPMS)/include/libtpms \
+	$(VBOX_PATH_LIBTPMS)/src
+VBox-libtpms_SOURCES        = \
+	src/disabled_interface.c \
+	src/tpm_debug.c \
+	src/tpm_library.c \
+	src/tpm_memory.c \
+	src/tpm_nvfile.c \
+	$(PATH_STAGE_LIB)/VBox-libtpms_tpm12$(VBOX_SUFF_LIB) \
+	$(PATH_STAGE_LIB)/VBox-libtpms_tpm2$(VBOX_SUFF_LIB)
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

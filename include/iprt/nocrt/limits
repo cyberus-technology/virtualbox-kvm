@@ -1,0 +1,494 @@
+/** @file
+ * IPRT / No-CRT - C++ limits header.
+ */
+
+/*
+ * Copyright (C) 2022-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+#ifndef VBOX_INCLUDED_SRC_nocrt_limits
+#define VBOX_INCLUDED_SRC_nocrt_limits
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#include <iprt/nocrt/limits.h>
+#include <iprt/nocrt/float.h>
+
+namespace std
+{
+    enum float_denorm_style
+    {
+        denorm_indeterminate = -1,
+        denorm_absent,
+        denorm_present,
+    };
+
+    enum float_round_style
+    {
+        round_indeterminate = -1,
+        round_toward_zero,
+        round_to_nearest,
+        round_toward_infinity,
+        round_toward_neg_infinity,
+    };
+
+    struct rtNoCrtLimitNumericBase
+    {
+        static const bool is_specialized    = false;
+        static const bool is_integer        = false;
+        static const bool is_signed         = false;
+        static const bool is_exact          = false;
+        static const bool is_bounded        = false;
+
+        static const bool has_infinity      = false;
+        static const bool has_quiet_NaN     = false;
+        static const bool has_signaling_NaN = false;
+        static const bool has_denorm_loss   = false;
+        static const bool is_iec559         = false;
+        static const bool is_modulo         = false;
+        static const bool traps             = false;
+        static const bool tinyness_before   = false;
+
+        static const int digits             = 0;
+        static const int digits10           = 0;
+        static const int max_digits10       = 0;
+        static const int radix              = 0;
+        static const int min_exponent       = 0;
+        static const int min_exponent10     = 0;
+        static const int max_exponent       = 0;
+        static const int max_exponent10     = 0;
+
+        static const float_denorm_style has_denorm = denorm_absent;
+        static const float_round_style round_style = round_toward_zero;
+    };
+
+    struct rtNoCrtLimitNumericIntBase : public rtNoCrtLimitNumericBase
+    {
+        static const bool is_specialized    = true;
+        static const bool is_integer        = true;
+        static const bool is_exact          = true;
+        static const bool is_bounded        = true;
+        static const int radix              = 2;
+    };
+
+    struct rtNoCrtLimitNumericFloatBase : public rtNoCrtLimitNumericBase
+    {
+        static const bool is_specialized    = true;
+        static const bool is_signed         = true;
+        static const bool is_bounded        = true;
+        static const bool has_infinity      = false;
+        static const bool has_quiet_NaN     = false;
+        static const bool has_signaling_NaN = false;
+        static const bool is_iec559         = false;
+        static const int radix              = FLT_RADIX;
+        static const float_denorm_style has_denorm = denorm_present;
+        static const float_round_style round_style = round_to_nearest;
+    };
+
+    /*
+     * Generic template.
+     */
+    template<typename a_Type>
+    struct numeric_limits : public rtNoCrtLimitNumericBase
+    {
+        /** @todo need a RT_CONSTEXPR_FN etc   */
+        static constexpr a_Type(min)() RT_NOEXCEPT          { return a_Type(); }
+        static constexpr a_Type(max)() RT_NOEXCEPT          { return a_Type(); }
+        static constexpr a_Type lowest() RT_NOEXCEPT        { return a_Type(); }
+        static constexpr a_Type epsilon() RT_NOEXCEPT       { return a_Type(); }
+        static constexpr a_Type round_error() RT_NOEXCEPT   { return a_Type(); }
+        static constexpr a_Type infinity() RT_NOEXCEPT      { return a_Type(); }
+        static constexpr a_Type quiet_NaN() RT_NOEXCEPT     { return a_Type(); }
+        static constexpr a_Type signaling_NaN() RT_NOEXCEPT { return a_Type(); }
+        static constexpr a_Type denorm_min() RT_NOEXCEPT    { return a_Type(); }
+    };
+
+    /* const and volatile trickery:  */
+    template<typename a_Type> struct numeric_limits<const a_Type>          : public numeric_limits<a_Type> {};
+    template<typename a_Type> struct numeric_limits<volatile a_Type>       : public numeric_limits<a_Type> {};
+    template<typename a_Type> struct numeric_limits<const volatile a_Type> : public numeric_limits<a_Type> {};
+
+    /*
+     * Integer specializations.
+     */
+    template<>
+    struct numeric_limits<bool> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr bool(min)() RT_NOEXCEPT          { return false; }
+        static constexpr bool(max)() RT_NOEXCEPT          { return true; }
+        static constexpr bool lowest() RT_NOEXCEPT        { return false; }
+        static constexpr bool epsilon() RT_NOEXCEPT       { return false; }
+        static constexpr bool round_error() RT_NOEXCEPT   { return false; }
+        static constexpr bool infinity() RT_NOEXCEPT      { return false; }
+        static constexpr bool quiet_NaN() RT_NOEXCEPT     { return false; }
+        static constexpr bool signaling_NaN() RT_NOEXCEPT { return false; }
+        static constexpr bool denorm_min() RT_NOEXCEPT    { return false; }
+        static const int digits             = 1;
+    };
+
+    template<>
+    struct numeric_limits<char> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr char(min)() RT_NOEXCEPT          { return CHAR_MIN; }
+        static constexpr char(max)() RT_NOEXCEPT          { return CHAR_MAX; }
+        static constexpr char lowest() RT_NOEXCEPT        { return CHAR_MIN; }
+        static constexpr char epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr char round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr char infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr char quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr char signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr char denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_signed         = (char)(-1) < 0;
+        static const bool is_modulo         = (char)(-1) > 0;
+        static const int digits             = (char)(-1) < 0 ? CHAR_BIT - 1 : CHAR_BIT;
+        static const int digits10           = 2;
+    };
+
+    template<>
+    struct numeric_limits<signed char> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr signed char(min)() RT_NOEXCEPT          { return SCHAR_MIN; }
+        static constexpr signed char(max)() RT_NOEXCEPT          { return SCHAR_MAX; }
+        static constexpr signed char lowest() RT_NOEXCEPT        { return SCHAR_MIN; }
+        static constexpr signed char epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr signed char round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr signed char infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr signed char quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr signed char signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr signed char denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_signed         = true;
+        static const int digits             = CHAR_BIT - 1;
+        static const int digits10           = 2;
+    };
+
+    template<>
+    struct numeric_limits<unsigned char> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr unsigned char(min)() RT_NOEXCEPT          { return 0; }
+        static constexpr unsigned char(max)() RT_NOEXCEPT          { return UCHAR_MAX; }
+        static constexpr unsigned char lowest() RT_NOEXCEPT        { return 0; }
+        static constexpr unsigned char epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr unsigned char round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr unsigned char infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr unsigned char quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr unsigned char signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr unsigned char denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_modulo         = true;
+        static const int digits             = CHAR_BIT;
+        static const int digits10           = 2;
+    };
+
+    /** @todo wchar_t, char8_t, char16_t, char32_t   */
+
+    template<>
+    struct numeric_limits<short> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr short(min)() RT_NOEXCEPT          { return SHRT_MIN; }
+        static constexpr short(max)() RT_NOEXCEPT          { return SHRT_MAX; }
+        static constexpr short lowest() RT_NOEXCEPT        { return SHRT_MIN; }
+        static constexpr short epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr short round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr short infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr short quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr short signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr short denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_signed         = true;
+        static const int digits             = CHAR_BIT * sizeof(short) - 1;
+        static const int digits10           = 4;
+    };
+
+    template<>
+    struct numeric_limits<unsigned short> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr unsigned short(min)() RT_NOEXCEPT          { return 0; }
+        static constexpr unsigned short(max)() RT_NOEXCEPT          { return USHRT_MAX; }
+        static constexpr unsigned short lowest() RT_NOEXCEPT        { return 0; }
+        static constexpr unsigned short epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr unsigned short round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr unsigned short infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr unsigned short quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr unsigned short signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr unsigned short denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_modulo         = true;
+        static const int digits             = CHAR_BIT * sizeof(unsigned short);
+        static const int digits10           = 4;
+    };
+
+# if !defined(_MSC_VER) || defined(_NATIVE_WCHAR_T_DEFINED)
+    template<>
+    struct numeric_limits<wchar_t> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr wchar_t(min)() RT_NOEXCEPT          { return WCHAR_MIN; }
+        static constexpr wchar_t(max)() RT_NOEXCEPT          { return WCHAR_MAX; }
+        static constexpr wchar_t lowest() RT_NOEXCEPT        { return WCHAR_MIN; }
+        static constexpr wchar_t epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr wchar_t round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr wchar_t infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr wchar_t quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr wchar_t signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr wchar_t denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_modulo         = true;
+        static const int digits             = CHAR_BIT * sizeof(wchar_t);
+        static const int digits10           = sizeof(wchar_t) == 2 ? 4 : 9; /** @todo ASSUMES wchar_t is either 16 or 32 bits */
+    };
+# endif
+
+    template<>
+    struct numeric_limits<char16_t> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr char16_t(min)() RT_NOEXCEPT          { return 0; }
+        static constexpr char16_t(max)() RT_NOEXCEPT          { return USHRT_MAX; }
+        static constexpr char16_t lowest() RT_NOEXCEPT        { return 0; }
+        static constexpr char16_t epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr char16_t round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr char16_t infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr char16_t quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr char16_t signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr char16_t denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_modulo         = true;
+        static const int digits             = CHAR_BIT * sizeof(char16_t);
+        static const int digits10           = 4;
+    };
+
+    template<>
+    struct numeric_limits<int> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr int(min)() RT_NOEXCEPT          { return INT_MIN; }
+        static constexpr int(max)() RT_NOEXCEPT          { return INT_MAX; }
+        static constexpr int lowest() RT_NOEXCEPT        { return INT_MIN; }
+        static constexpr int epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr int round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr int infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr int quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr int signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr int denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_signed         = true;
+        static const int digits             = CHAR_BIT * sizeof(int) - 1;
+        static const int digits10           = 9;
+    };
+
+    template<>
+    struct numeric_limits<unsigned int> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr unsigned int(min)() RT_NOEXCEPT          { return 0; }
+        static constexpr unsigned int(max)() RT_NOEXCEPT          { return UINT_MAX; }
+        static constexpr unsigned int lowest() RT_NOEXCEPT        { return 0; }
+        static constexpr unsigned int epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr unsigned int round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr unsigned int infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr unsigned int quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr unsigned int signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr unsigned int denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_modulo         = true;
+        static const int digits             = CHAR_BIT * sizeof(unsigned int);
+        static const int digits10           = 9;
+    };
+
+    template<>
+    struct numeric_limits<char32_t> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr char32_t(min)() RT_NOEXCEPT          { return 0; }
+        static constexpr char32_t(max)() RT_NOEXCEPT          { return UINT_MAX; }
+        static constexpr char32_t lowest() RT_NOEXCEPT        { return 0; }
+        static constexpr char32_t epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr char32_t round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr char32_t infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr char32_t quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr char32_t signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr char32_t denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_modulo         = true;
+        static const int digits             = CHAR_BIT * sizeof(char32_t);
+        static const int digits10           = 9;
+    };
+
+    template<>
+    struct numeric_limits<long> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr long(min)() RT_NOEXCEPT          { return LONG_MIN; }
+        static constexpr long(max)() RT_NOEXCEPT          { return LONG_MAX; }
+        static constexpr long lowest() RT_NOEXCEPT        { return LONG_MIN; }
+        static constexpr long epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr long round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr long infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr long quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr long signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr long denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_signed         = true;
+        static const int digits             = CHAR_BIT * sizeof(long) - 1;
+        static const int digits10           = sizeof(long) == sizeof(int) ? 9 : 18;
+    };
+
+    template<>
+    struct numeric_limits<unsigned long> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr unsigned long(min)() RT_NOEXCEPT          { return 0; }
+        static constexpr unsigned long(max)() RT_NOEXCEPT          { return ULONG_MAX; }
+        static constexpr unsigned long lowest() RT_NOEXCEPT        { return 0; }
+        static constexpr unsigned long epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr unsigned long round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr unsigned long infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr unsigned long quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr unsigned long signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr unsigned long denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_modulo         = true;
+        static const int digits             = CHAR_BIT * sizeof(unsigned long);
+        static const int digits10           = sizeof(unsigned long) == sizeof(unsigned int) ? 9 : 19;
+    };
+
+    template<>
+    struct numeric_limits<long long> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr long long(min)() RT_NOEXCEPT          { return LLONG_MIN; }
+        static constexpr long long(max)() RT_NOEXCEPT          { return LLONG_MAX; }
+        static constexpr long long lowest() RT_NOEXCEPT        { return LLONG_MIN; }
+        static constexpr long long epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr long long round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr long long infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr long long quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr long long signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr long long denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_signed         = true;
+        static const int digits             = CHAR_BIT * sizeof(long long) - 1;
+        static const int digits10           = 18;
+    };
+
+    template<>
+    struct numeric_limits<unsigned long long> : public rtNoCrtLimitNumericIntBase
+    {
+        static constexpr unsigned long long(min)() RT_NOEXCEPT          { return 0; }
+        static constexpr unsigned long long(max)() RT_NOEXCEPT          { return ULLONG_MAX; }
+        static constexpr unsigned long long lowest() RT_NOEXCEPT        { return 0; }
+        static constexpr unsigned long long epsilon() RT_NOEXCEPT       { return 0; }
+        static constexpr unsigned long long round_error() RT_NOEXCEPT   { return 0; }
+        static constexpr unsigned long long infinity() RT_NOEXCEPT      { return 0; }
+        static constexpr unsigned long long quiet_NaN() RT_NOEXCEPT     { return 0; }
+        static constexpr unsigned long long signaling_NaN() RT_NOEXCEPT { return 0; }
+        static constexpr unsigned long long denorm_min() RT_NOEXCEPT    { return 0; }
+
+        static const bool is_modulo         = true;
+        static const int digits             = CHAR_BIT * sizeof(unsigned long long);
+        static const int digits10           = 19;
+    };
+
+
+    /*
+     * Floating point.
+     */
+    template<>
+    struct numeric_limits<float> : public rtNoCrtLimitNumericFloatBase
+    {
+        static constexpr float(min)() RT_NOEXCEPT          { return FLT_MIN; }
+        static constexpr float(max)() RT_NOEXCEPT          { return FLT_MAX; }
+        static constexpr float lowest() RT_NOEXCEPT        { return -(FLT_MAX); }
+        static constexpr float epsilon() RT_NOEXCEPT       { return FLT_EPSILON; }
+        static constexpr float round_error() RT_NOEXCEPT   { return 0.5F; }
+        static constexpr float infinity() RT_NOEXCEPT      { return __builtin_huge_valf(); }
+        static constexpr float quiet_NaN() RT_NOEXCEPT     { return __builtin_nanf("0"); }
+        static constexpr float signaling_NaN() RT_NOEXCEPT { return __builtin_nansf("1"); }
+        static constexpr float denorm_min() RT_NOEXCEPT    { return FLT_TRUE_MIN; }
+
+        static const int digits             = FLT_MANT_DIG;
+        static const int digits10           = FLT_DIG;
+        static const int max_digits10       = FLT_DECIMAL_DIG;
+        static const int max_exponent       = FLT_MAX_EXP;
+        static const int max_exponent10     = FLT_MAX_10_EXP;
+        static const int min_exponent       = FLT_MIN_EXP;
+        static const int min_exponent10     = FLT_MIN_10_EXP;
+    };
+
+    template<>
+    struct numeric_limits<double> : public rtNoCrtLimitNumericFloatBase
+    {
+        static constexpr double(min)() RT_NOEXCEPT          { return DBL_MIN; }
+        static constexpr double(max)() RT_NOEXCEPT          { return DBL_MAX; }
+        static constexpr double lowest() RT_NOEXCEPT        { return -(DBL_MAX); }
+        static constexpr double epsilon() RT_NOEXCEPT       { return DBL_EPSILON; }
+        static constexpr double round_error() RT_NOEXCEPT   { return 0.5; }
+        static constexpr double infinity() RT_NOEXCEPT      { return __builtin_huge_val(); }
+        static constexpr double quiet_NaN() RT_NOEXCEPT     { return __builtin_nan("0"); }
+        static constexpr double signaling_NaN() RT_NOEXCEPT { return __builtin_nans("1"); }
+        static constexpr double denorm_min() RT_NOEXCEPT    { return DBL_TRUE_MIN; }
+
+        static const int digits             = DBL_MANT_DIG;
+        static const int digits10           = DBL_DIG;
+        static const int max_digits10       = DBL_DECIMAL_DIG;
+        static const int max_exponent       = DBL_MAX_EXP;
+        static const int max_exponent10     = DBL_MAX_10_EXP;
+        static const int min_exponent       = DBL_MIN_EXP;
+        static const int min_exponent10     = DBL_MIN_10_EXP;
+    };
+
+    template<>
+    struct numeric_limits<long double> : public rtNoCrtLimitNumericFloatBase
+    {
+        static constexpr long double(min)() RT_NOEXCEPT          { return LDBL_MIN; }
+        static constexpr long double(max)() RT_NOEXCEPT          { return LDBL_MAX; }
+        static constexpr long double lowest() RT_NOEXCEPT        { return -(LDBL_MAX); }
+        static constexpr long double epsilon() RT_NOEXCEPT       { return LDBL_EPSILON; }
+        static constexpr long double round_error() RT_NOEXCEPT   { return 0.5L; }
+#if LDBL_DIG == DBL_DIG
+        static constexpr long double infinity() RT_NOEXCEPT      { return __builtin_huge_val(); }
+        static constexpr long double quiet_NaN() RT_NOEXCEPT     { return __builtin_nan("0"); }
+        static constexpr long double signaling_NaN() RT_NOEXCEPT { return __builtin_nans("1"); }
+#else
+        static constexpr long double infinity() RT_NOEXCEPT      { return __builtin_huge_vall(); }
+        static constexpr long double quiet_NaN() RT_NOEXCEPT     { return __builtin_nanl("0"); }
+        static constexpr long double signaling_NaN() RT_NOEXCEPT { return __builtin_nansl("1"); }
+#endif
+        static constexpr long double denorm_min() RT_NOEXCEPT    { return LDBL_TRUE_MIN; }
+
+        static const int digits             = LDBL_MANT_DIG;
+        static const int digits10           = LDBL_DIG;
+        static const int max_digits10       = LDBL_DECIMAL_DIG;
+        static const int max_exponent       = LDBL_MAX_EXP;
+        static const int max_exponent10     = LDBL_MAX_10_EXP;
+        static const int min_exponent       = LDBL_MIN_EXP;
+        static const int min_exponent10     = LDBL_MIN_10_EXP;
+    };
+
+    /** @todo  more types  */
+}
+
+#endif /* !VBOX_INCLUDED_SRC_nocrt_limits */
+

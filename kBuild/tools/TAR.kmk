@@ -1,0 +1,75 @@
+# $Id: TAR.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild Tool Config - tar unpacker.
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_TAR := tar unpacker.
+
+# Tool Specific Properties
+ifndef TOOL_TAR_TAR
+ TOOL_TAR_TAR := $(wildcard $(KBUILD_DEVTOOLS_HST)/tar/v*/tar$(HOSTSUFF_EXE))
+ ifeq ($(TOOL_TAR_TAR),)
+  TOOL_TAR_TAR := $(wildcard $(KBUILD_DEVTOOLS_HST)/bin/tar$(HOSTSUFF_EXE))
+ endif
+ ifneq ($(TOOL_TAR_TAR),)
+  TOOL_TAR_TAR := $(lastword $(sort $(TOOL_TAR_TAR)))
+ else
+  TOOL_TAR_TAR := tar$(HOSTSUFF_EXE)
+ endif
+else
+ TOOL_TAR_TAR := $(TOOL_TAR_TAR)
+endif
+TOOL_TAR_UNPACK ?= $(TOOL_TAR_TAR)
+
+# General Properties used by kBuild
+TOOL_TAR_UNPACKFLAGS ?=
+
+## UNPACK one file.
+# @param    $(target)   Normalized main target name.
+# @param    $(archive)  The file to unpack.
+# @param    $(flags)    Flags.
+# @param	$(inst)		Where to unpack it.
+# @param	$(out)		Where to write the file list.
+TOOL_TAR_UNPACK_OUTPUT =
+TOOL_TAR_UNPACK_DEPEND =
+TOOL_TAR_UNPACK_DEPORD =
+ifeq ($(KBUILD_HOST),win) # hacking with buggy unxutils on windows. it doesn't like driver letters.
+define TOOL_TAR_UNPACK_CMDS
+	$(QUIET)$(TOOL_TAR_UNPACK) -x $(flags) -C $(subst G:,,$(inst)) -f $(archive)
+	$(QUIET)$(TOOL_TAR_UNPACK) -t $(filter-out -v --verbose,$(flags)) -f $(archive) > $(out)
+endef
+else
+define TOOL_TAR_UNPACK_CMDS
+	$(QUIET)$(TOOL_TAR_UNPACK) -x $(flags) -C $(inst) -f $(archive)
+	$(QUIET)$(TOOL_TAR_UNPACK) -t $(filter-out -v --verbose,$(flags)) -f $(archive) > $(out)
+endef
+endif
+

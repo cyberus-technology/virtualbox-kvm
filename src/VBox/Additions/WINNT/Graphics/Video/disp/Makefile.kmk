@@ -1,0 +1,282 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for the Windows guest display driver.
+#
+
+#
+# Copyright (C) 2011-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+ifdef VBOX_WITH_MESA3D
+ ifndef VBOX_MESA3D_CONFIG_KMK_INCLUDED
+  include $(PATH_ROOT)/src/VBox/Additions/3D/Config.kmk
+ endif
+endif
+
+#
+# VBoxDisp - Windows Guest Additions XPDM Display Driver
+#
+# Note. This has to run on NT4! (*_NT4 => *_W2K3 when targeting 64-bit.)
+#
+SYSMODS += VBoxDisp
+VBoxDisp_TEMPLATE      = VBoxGuestR0Drv
+VBoxDisp_SYSSUFF       = .dll
+VBoxDisp_SDKS          = ReorderCompilerIncs $(VBOX_WINDDK_GST_NT4)
+VBoxDisp_DEFS.x86      = _WIN32_WINNT=0x0501
+VBoxDisp_DEFS          = VBOX_WITH_DDRAW
+VBoxDisp_DEFS         += LOG_TO_BACKDOOR #LOG_ENABLED
+ifdef VBOX_WITH_VIDEOHWACCEL
+ VBoxDisp_DEFS        += VBOX_WITH_VIDEOHWACCEL
+endif
+#VBoxDisp_DEFS         += VBOX_VBVA_ADJUST_RECT
+VBoxDisp_INCS          = \
+	../../../include \
+	.. \
+	$(VBOX_GRAPHICS_INCS)
+VBoxDisp_LDFLAGS.x86   = /Entry:DrvEnableDriver@12
+VBoxDisp_LDFLAGS.amd64 = /Entry:DrvEnableDriver
+VBoxDisp_SOURCES     = \
+	xpdm/VBoxDispDriver.cpp \
+	xpdm/VBoxDispMini.cpp \
+	xpdm/VBoxDispMouse.cpp \
+	xpdm/VBoxDispPalette.cpp \
+	xpdm/VBoxDispVBVA.cpp \
+	xpdm/VBoxDispDrawCmd.cpp \
+	xpdm/VBoxDispVRDP.cpp \
+	xpdm/VBoxDispVrdpBmp.cpp \
+	xpdm/VBoxDispVrdpTxt.cpp \
+	xpdm/VBoxDispDriverDDraw.cpp \
+	xpdm/VBoxDispDDraw.cpp \
+	xpdm/VBoxDisp.def \
+	xpdm/VBoxDisp.rc \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIBase.cpp \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIBuffers.cpp \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/HGSMIHostCmd.cpp \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/VBVABase.cpp \
+	$(PATH_ROOT)/src/VBox/Additions/common/VBoxVideo/Modesetting.cpp
+ifdef VBOX_WITH_VIDEOHWACCEL
+ VBoxDisp_SOURCES += \
+ 	xpdm/VBoxDispVHWA.cpp \
+ 	xpdm/VBoxDispDDrawVHWA.cpp
+endif
+
+
+VBoxDisp_LIBS = \
+	$(VBOX_LIB_IPRT_GUEST_R0_NT4) \
+	$(VBOX_PATH_ADDITIONS_LIB)/HGSMIGuestR0Lib$(VBOX_SUFF_LIB) \
+	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/win32k.lib # Linker needs newer win32k.lib (for x86 at least); incompatible loadcfg.obj in the WDK 7.1 one.
+ifneq ($(VBOX_VCC_CC_GUARD_CF),)
+ VBoxDisp_LIBS += \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/BufferOverflowGDI.lib # for ___security_cookie
+endif
+VBoxDisp_USES.win += vboximportchecker
+VBoxDisp_VBOX_IMPORT_CHECKER.win.x86 = nt4/r0
+VBoxDisp_VBOX_IMPORT_CHECKER.win.amd64 = xp64/r0
+
+# Signing requires both miniport and display drivers so it'll be dealt with in the parent makefile.
+if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+ VBoxDisp_INSTTYPE           := none
+ VBoxDisp_DEBUG_INSTTYPE     := both
+ ifdef VBOX_WITH_WDDM
+  VBoxDispD3D_INSTTYPE       := none
+  VBoxDispD3D_DEBUG_INSTTYPE := both
+  ifdef VBOX_WITH_WDDM_DX
+   VBoxDX_INSTTYPE           := none
+   VBoxDX_DEBUG_INSTTYPE     := both
+  endif
+ endif
+endif
+
+ifdef VBOX_WITH_WDDM
+ #
+ # VBoxDispD3D - Windows Guest Additions WDDM R3 Display Driver
+ #
+ DLLS += VBoxDispD3D
+ VBoxDispD3D_TEMPLATE = VBoxGuestR3DllMinVista
+ VBoxDispD3D_SDKS    = ReorderCompilerIncs $(VBOX_WINDDK_GST_WLH)
+ VBoxDispD3D_DEFS    = UNICODE _UNICODE VBOX_WITH_WDDM VBOXWDDMDISP LOG_TO_BACKDOOR LOG_TO_BACKDOOR_DRV VBOX_WITH_HGCM
+ ifdef DEBUG_misha
+  VBoxDispD3D_DEFS  += LOG_ENABLED
+ endif
+ ifdef VBOXWDDM_WITH_VBVA
+  VBoxDispD3D_DEFS  += VBOXWDDM_WITH_VBVA
+ endif
+ ifdef VBOX_WITH_VIDEOHWACCEL
+  VBoxDispD3D_DEFS  += VBOX_WITH_VIDEOHWACCEL
+ endif
+ # Avoid "src\VBox\Additions\3D\mesa\mesa-21.3.8\include\c99_compat.h(99): warning C4668: '__STDC_VERSION__'
+ # is not defined as a preprocessor macro, replacing with '0' for '#if/#elif'"
+ VBoxDispD3D_DEFS   += __STDC_VERSION__=0
+ VBoxDispD3D_INCS    = \
+ 	../../../include \
+ 	.. \
+ 	$(PATH_ROOT)/src/VBox/Additions/WINNT/Graphics/Video/disp/wddm/shared \
+ 	$(VBOX_GRAPHICS_INCS)
+ VBoxDispD3D_SOURCES = \
+ 	wddm/VBoxDispD3D.cpp \
+ 	wddm/VBoxDispD3DIf.cpp \
+ 	wddm/VBoxDispDbg.cpp \
+ 	wddm/VBoxD3DIf.cpp \
+ 	wddm/VBoxDispD3D.rc \
+ 	wddm/VBoxDispD3D.def
+ VBoxDispD3D_LIBS    = \
+ 	$(VBOX_LIB_IPRT_GUEST_R3) \
+ 	$(VBOX_LIB_VBGL_R3) \
+ 	Psapi.lib \
+ 	$(VBOX_PATH_ADDITIONS_LIB)/VBoxDispMpLogger$(VBOX_SUFF_LIB) \
+ 	$(VBOX_PATH_ADDITIONS_LIB)/VBoxWddmUmKmt$(VBOX_SUFF_LIB)
+
+ ifdef VBOX_WITH_VMSVGA
+  VBoxDispD3D_DEFS   += VBOX_WITH_VMSVGA
+  VBoxDispD3D_INCS   += \
+  	$(PATH_ROOT)/src/VBox/Additions/3D/win/include \
+  	$(PATH_ROOT)/src/VBox/Devices/Graphics/vmsvga_include
+ endif
+
+ ifdef VBOX_WITH_MESA3D
+  VBoxDispD3D_DEFS   += VBOX_WITH_MESA3D
+  VBoxDispD3D_INCS   += \
+  	$(VBOX_PATH_MESA)/src/gallium/include \
+  	$(VBOX_PATH_MESA)/src \
+  	$(VBOX_PATH_MESA)/include/c99 \
+  	$(VBOX_PATH_MESA)/include
+  VBoxDispD3D_SOURCES += \
+  	wddm/gallium/GaDxva.cpp \
+  	wddm/gallium/GaDrvEnvWddm.cpp \
+  	wddm/gallium/GaWddm.cpp \
+  	wddm/gallium/GaDdi.cpp \
+  	wddm/gallium/Present.cpp \
+  	wddm/gallium/VBoxGallium.cpp \
+  	wddm/gallium/VBoxGaD3DDevice9Ex.cpp \
+  	wddm/gallium/VBoxD3DAdapter9.c
+
+  ifdef VBOX_WITH_VMSVGA3D_DX
+   VBoxDispD3D_DEFS  += VBOX_WITH_VMSVGA3D_DX9
+  endif
+
+  ifdef VBOX_WITH_MESA3D_D3DTEST
+   VBoxDispD3D_DEFS  += VBOX_WITH_MESA3D_D3DTEST
+   VBoxDispD3D_SOURCES += \
+   	wddm/gallium/test/d3dhlp.cpp \
+   	wddm/gallium/test/d3d9render.cpp \
+   	wddm/gallium/GaDrvTest.cpp
+  endif
+ endif
+
+ #
+ # 64-bit systems needs a 32-bit version of VBoxDispD3D.
+ #
+ DLLS.amd64 += VBoxDispD3D-x86
+ VBoxDispD3D-x86_EXTENDS = VBoxDispD3D
+ VBoxDispD3D-x86_BLD_TRG_ARCH = x86
+ VBoxDispD3D-x86_LIBS = \
+ 	$(VBOX_LIB_IPRT_GUEST_R3_X86) \
+ 	$(VBOX_LIB_VBGL_R3_X86) \
+ 	Psapi.lib \
+ 	$(VBOX_PATH_ADDITIONS_LIB)/VBoxDispMpLogger-x86$(VBOX_SUFF_LIB) \
+ 	$(VBOX_PATH_ADDITIONS_LIB)/VBoxWddmUmKmt-x86$(VBOX_SUFF_LIB)
+ VBoxDispD3D-x86_DEFS = $(VBoxDispD3D_DEFS) VBOX_WDDM_WOW64
+
+ #
+ # VGPU10 driver VBoxDX
+ #
+ ifdef VBOX_WITH_VMSVGA3D_DX
+  DLLS += VBoxDX
+  VBoxDX_TEMPLATE = VBoxGuestR3DllMinVista
+  VBoxDX_DEFS   = UNICODE _UNICODE VBOX_WITH_VMSVGA VBOX_WITH_VMSVGA3D_DX
+  VBoxDX_DEFS  += D3D_UMD_INTERFACE_VERSION=D3D_UMD_INTERFACE_VERSION_WIN8
+  VBoxDX_DEFS  += DXGKDDI_INTERFACE_VERSION=DXGKDDI_INTERFACE_VERSION_WIN8
+  VBoxDX_INCS   = \
+  	$(PATH_ROOT)/src/VBox/Additions/WINNT/Graphics/Video/disp/wddm/shared \
+  	$(PATH_ROOT)/src/VBox/Additions/WINNT/Graphics/Video/common/wddm \
+  	$(PATH_ROOT)/src/VBox/Additions/3D/win/include \
+  	$(PATH_ROOT)/src/VBox/Additions/3D/win/VBoxWddmUmHlp \
+  	$(PATH_ROOT)/src/VBox/Devices/Graphics/vmsvga_include \
+  	$(VBOX_GRAPHICS_INCS)
+  VBoxDX_SOURCES = \
+  	wddm/dx/VBoxDXDDI.cpp \
+  	wddm/dx/VBoxDX.cpp \
+  	wddm/dx/VBoxDXCmd.cpp \
+  	wddm/dx/VBoxDX.rc \
+  	wddm/dx/VBoxDX.def
+  VBoxDX_LIBS   = \
+  	$(VBOX_LIB_IPRT_GUEST_R3) \
+  	Psapi.lib \
+  	$(VBOX_PATH_ADDITIONS_LIB)/VBoxWddmUmHlp$(VBOX_SUFF_LIB)
+
+  # 64-bit systems need a 32-bit version of VBoxDX
+  DLLS.amd64 += VBoxDX-x86
+  VBoxDX-x86_EXTENDS = VBoxDX
+  VBoxDX-x86_BLD_TRG_ARCH = x86
+  VBoxDX-x86_LIBS = \
+  	$(VBOX_LIB_IPRT_GUEST_R3_X86) \
+  	$(VBOX_LIB_VBGL_R3_X86) \
+  	Psapi.lib \
+  	$(VBOX_PATH_ADDITIONS_LIB)/VBoxWddmUmHlp-x86$(VBOX_SUFF_LIB)
+  VBoxDX-x86_DEFS = $(VBoxDX_DEFS) VBOX_WDDM_WOW64
+ endif # VBOX_WITH_VMSVGA3D_DX
+
+ include $(PATH_SUB_CURRENT)/wddm/shared/Makefile.kmk
+
+endif #ifdef VBOX_WITH_WDDM
+
+
+ifdef VBOX_WITH_VBOXVIDEOWINDBG
+ #
+ # A windbg extension and a few test programs.
+ #
+
+ DLLS += vbvdbg
+ vbvdbg_TEMPLATE = VBoxR3StaticDll
+ vbvdbg_SDKS    = ReorderCompilerIncs $(VBOX_WINDDK_GST_WLH)
+ vbvdbg_DEFS    = UNICODE _UNICODE
+ vbvdbg_SOURCES = \
+ 	wddm/dbg/VBoxVideoWinDbg.cpp \
+ 	wddm/dbg/VBoxVideoWinDbg.def
+
+ PROGRAMS += tstMvWnd
+ tstMvWnd_TEMPLATE = VBoxR3Static
+ tstMvWnd_DEFS    = UNICODE _UNICODE
+ tstMvWnd_SOURCES = wddm/dbg/tstMvWnd.cpp
+ #tstMvWnd_LIBS     = $(VBOX_LIB_IPRT_GUEST_R3) - Use guest template if this is wanted! duh!
+ #tstMvWnd_LDFLAGS  = /SUBSYSTEM:windows
+
+ PROGRAMS += DumpD3DCaps9
+ DumpD3DCaps9_TEMPLATE = VBoxR3Exe
+ DumpD3DCaps9_SDKS    = ReorderCompilerIncs $(VBOX_WINDDK_GST_WLH)
+ DumpD3DCaps9_DEFS    = UNICODE _UNICODE
+ DumpD3DCaps9_SOURCES = wddm/dbg/DumpD3DCaps9.cpp
+ DumpD3DCaps9_LIBS    = d3d9.lib
+
+ PROGRAMS += D3DFeatureLevel
+ D3DFeatureLevel_TEMPLATE = VBoxR3Static
+ D3DFeatureLevel_SDKS    = ReorderCompilerIncs $(VBOX_WINDDK_GST_WLH)
+ D3DFeatureLevel_SOURCES = wddm/dbg/D3DFeatureLevel.cpp
+ D3DFeatureLevel_LIBS    = d3d11.lib
+ #D3DFeatureLevel_LIBS     = $(VBOX_LIB_IPRT_GUEST_R3) d3d11.lib - Use guest template if this is wanted! duh!
+ #D3DFeatureLevel_LDFLAGS.win = /SUBSYSTEM:CONSOLE
+
+endif # VBOX_WITH_VBOXVIDEOWINDBG
+
+include $(FILE_KBUILD_SUB_FOOTER)

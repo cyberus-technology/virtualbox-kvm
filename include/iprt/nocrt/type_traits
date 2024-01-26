@@ -1,0 +1,88 @@
+/** @file
+ * IPRT / No-CRT - Minimal type_traits C++ header.
+ */
+
+/*
+ * Copyright (C) 2022-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+#ifndef VBOX_INCLUDED_SRC_nocrt_type_traits
+#define VBOX_INCLUDED_SRC_nocrt_type_traits
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#include <iprt/cdefs.h>
+
+namespace std
+{
+    /*
+     * std::integral_constant
+     */
+    template<typename a_Type, a_Type a_Value>
+    struct integral_constant
+    {
+        static constexpr a_Type                     value = a_Value;
+        typedef a_Type                              value_type;
+        typedef integral_constant<a_Type, a_Value>  type;
+        constexpr operator value_type() const RT_NOEXCEPT { return value; }
+        /** @todo operator()() for 2014+   */
+    };
+    template<typename a_Type, a_Type a_Value> constexpr a_Type integral_constant<a_Type, a_Value>::value;
+
+    /* Helper: */
+    template<bool a_Value> using bool_constant = integral_constant<bool, a_Value>;
+
+    /* Specializations: */
+    typedef integral_constant<bool, true>           true_type;
+    typedef integral_constant<bool, false>          false_type;
+
+
+    /*
+     * std::is_enum
+     */
+    template<typename a_Type> struct is_enum
+        : integral_constant<bool, __is_enum(a_Type) /* compiler (clan, gcc, msc) builtin */ >
+    { };
+
+    /*
+     * std::underlying_type
+     */
+    template<typename a_Type> struct underlying_type
+    {
+        using type = __underlying_type(a_Type); /* compiler (clan, gcc, msc) builtin */
+    };
+
+    template<typename a_Type> using underlying_type_t = typename underlying_type<a_Type>::type;
+
+}
+
+#endif /* !VBOX_INCLUDED_SRC_nocrt_type_traits */
+

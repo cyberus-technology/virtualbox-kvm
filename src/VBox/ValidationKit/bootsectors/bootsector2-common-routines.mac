@@ -1,0 +1,246 @@
+; $Id: bootsector2-common-routines.mac $
+;; @file
+; Common bootsector routines.
+;
+; This is just a bit file with common code that can be included at the end of
+; a bootsector2-xxx.asm file.  Conventions (used elsewhere as well):
+;    - _rm    - real-mode function suffix.
+;    - _r86   - common real and virtual 8086 mode suffix.
+;    - _p16   - common 16-bit protected mode suffix.
+;    - _p32   - common 32-bit protected mode suffix.
+;    - _p64   - common 64-bit long mode suffix.
+;    - _pe16  - 16-bit unpaged protected mode suffix.
+;    - _pe32  - 32-bit unpaged protected mode suffix.
+;    - _pev86 - v8086 unpaged protected mode suffix.
+;    - _pp16  - 16-bit paged protected mode suffix.
+;    - _pp32  - 32-bit paged protected mode suffix.
+;    - _ppv86 - v8086 paged protected mode suffix.
+;    - _pae16 - 16-bit pae protected mode suffix.
+;    - _pae32 - 32-bit pae protected mode suffix.
+;    - _paev86- v8086 pae protected mode suffix.
+;    - _lm16  - 16-bit long mode suffix.
+;    - _lm32  - 32-bit long mode suffix.
+;    - _lm64  - 64-bit long mode suffix.
+;
+; The routines uses a custom register based calling convention for all cpu
+; modes so that the users can template multi mode code.  To make life easy for
+; the programmer all registers are preserved with the exception of rflags and
+; any return registers that may be used.  Routines that does not return
+; anything will only clobber eflags.
+;
+; The parameter register allocation order:
+;       rax, rdx, rcx, rbx, rsi, rdi(, r8, r9, r10, r11)
+;
+; When pointers are passed by 16-bit code, segments registers are allocated in
+; the following order:
+;       ds, es, fs, gs.
+;
+; The return register allocations are:
+;       - edx:eax for 64-bit values in 16 and 32-bit mode,
+;       - eax for 32-bit,
+;       - ax for 16-bit,
+;       - al for 8-bit.
+;
+; Routines may use other calling convensions will be named differently.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+;*******************************************************************************
+;*      Structures and Typedefs                                                *
+;*******************************************************************************
+
+
+;*******************************************************************************
+;*      Global Variables                                                       *
+;*******************************************************************************
+BEGINCODELOW
+ALIGNDATA(32)
+;; Indicates whether the VMMDev is operational.
+GLOBALNAME g_fbBs2VMMDevTesting
+        db 1
+        db 0                            ; padding
+
+;; The test name (DS16:xxx).
+g_npszBs2Test:
+        dd 0
+;; The number of tests that have failed.
+g_uscBs2TestErrors:
+        dw 0
+;; The subtest name (DS16:xxx).
+g_npszBs2SubTest
+        dd 0
+;; The start error count of the current subtest.
+g_uscBs2SubTestAtErrors:
+        dw 0
+;; Whether we've reported the sub-test result or not.
+g_fbBs2SubTestReported:
+        db 0
+        db 0                            ; padding
+;; The number of sub tests.
+g_uscBs2SubTests:
+        dw 0
+;; The number of sub tests that failed.
+g_uscBs2SubTestsFailed:
+        dw 0
+
+
+;; VMMDEV_TESTING_UNIT_XXX -> string
+g_aszBs2TestUnitNames:
+        db 'i','n','v',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db '%',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'b','y','t','e','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'b','y','t','e','s','/','s',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'K','B',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'K','B','/','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'M','B',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'M','B','/','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','a','c','k','e','t','s',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','a','c','k','e','t','s','/','s',  0,  0,  0,  0,  0,  0,  0
+        db 'f','r','a','m','e','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'f','r','a','m','e','s','/',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'o','c','c',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'o','c','c','/','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'r','n','d','t','r','p',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'c','a','l','l','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'c','a','l','l','s','/','s',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 's',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'm','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'n','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'n','s','/','c','a','l','l',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'n','s','/','f','r','a','m','e',  0,  0,  0,  0,  0,  0,  0,  0
+        db 'n','s','/','o','c','c',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'n','s','/','p','a','c','k','e','t',  0,  0,  0,  0,  0,  0,  0
+        db 'n','s','/','r','n','d','t','r','p',  0,  0,  0,  0,  0,  0,  0
+        db 'i','n','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'i','n','s','/','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 ; none
+        db 'p','p','1','k',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','p','1','0','k',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','p','m',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','p','b',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 't','i','c','k','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 't','i','c','k','s','/','c','a','l','l',  0,  0,  0,  0,  0,  0
+        db 't','i','c','k','s','/','o','c','c',  0,  0,  0,  0,  0,  0,  0
+        db 'p','a','g','e','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','a','g','e','s','/','s',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 't','i','c','k','s','/','p','a','g','e',  0,  0,  0,  0,  0,  0
+        db 'n','s','/','p','a','g','e',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','s',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','s','/','c','a','l','l',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','s','/','f','r','a','m','e',  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','s','/','o','c','c',  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        db 'p','s','/','p','a','c','k','e','t',  0,  0,  0,  0,  0,  0,  0
+        db 'p','s','/','r','n','d','t','r','p',  0,  0,  0,  0,  0,  0,  0
+        db 'p','s','/','p','a','g','e',  0,  0,  0,  0,  0,  0,  0,  0,  0
+        ;    0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  a,  b,  c,  d,  e,  f
+
+
+;
+; Instantiate the common template code.
+;
+%ifdef BS2_INC_CMN_R86
+ %define TMPL_RM
+ %include "bootsector2-common-routines-template-1.mac"
+%endif
+%ifdef BS2_INC_CMN_P16
+ %define TMPL_PE16
+ %include "bootsector2-common-routines-template-1.mac"
+%endif
+%ifdef BS2_INC_CMN_P32
+ %define TMPL_PE32
+ %include "bootsector2-common-routines-template-1.mac"
+%endif
+%ifdef BS2_INC_LM64
+ %define TMPL_LM64
+ %include "bootsector2-common-routines-template-1.mac"
+%endif
+
+;
+; Instantiate the mode specific code.
+;
+%ifdef BS2_INC_RM
+ %define TMPL_RM
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PE16
+ %define TMPL_PE16
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PE32
+ %define TMPL_PE32
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PEV86
+ %define TMPL_PEV86
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PP16
+ %define TMPL_PP16
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PP32
+ %define TMPL_PP32
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PPV86
+ %define TMPL_PPV86
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PAE16
+ %define TMPL_PAE16
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PAE32
+ %define TMPL_PAE32
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_PAEV86
+ %define TMPL_PAEV86
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_LM16
+ %define TMPL_LM16
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_LM32
+ %define TMPL_LM32
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+%ifdef BS2_INC_LM64
+ %define TMPL_LM64
+ %include "bootsector2-common-routines-template-2.mac"
+%endif
+
+BEGINCODELOW
+

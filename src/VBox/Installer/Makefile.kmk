@@ -1,0 +1,92 @@
+# $Id: Makefile.kmk $
+## @file
+# Install misc stuff and create dist packages.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Make sure our Config.kmk is included.
+#
+ifndef VBOX_INSTALLER_CONFIG_KMK_INCLUDED
+ include $(PATH_SUB_CURRENT)/Config.kmk
+endif
+
+#
+# Include Sub-Makefiles.
+#
+ifndef VBOX_ONLY_SDK
+ if "$(KBUILD_TARGET)" == "darwin" && "$(KBUILD_HOST)" == "darwin"
+  include $(PATH_SUB_CURRENT)/darwin/Makefile.kmk
+ endif
+ if "$(KBUILD_TARGET)" == "linux" && "$(KBUILD_HOST)" == "linux"
+  include $(PATH_SUB_CURRENT)/linux/Makefile.kmk
+ endif
+ if "$(KBUILD_TARGET)" == "solaris" && "$(KBUILD_HOST)" == "solaris"
+  include $(PATH_SUB_CURRENT)/solaris/Makefile.kmk
+ endif
+ if "$(KBUILD_TARGET)" == "win" && "$(KBUILD_HOST)" == "win"
+  include $(PATH_SUB_CURRENT)/win/Makefile.kmk
+ endif
+ if "$(KBUILD_TARGET)" == "freebsd" && "$(KBUILD_HOST)" == "freebsd"
+  include $(PATH_SUB_CURRENT)/freebsd/Makefile.kmk
+ endif
+endif
+
+include $(PATH_SUB_CURRENT)/common/Makefile.kmk
+
+if defined(VBOX_ONLY_SDK) || defined(VBOX_WITH_SDK)
+ #
+ # Package the VirtualBox SDK.
+ #
+ VBOX_SDK_ZIP  = $(PATH_STAGE_BIN)/VirtualBoxSDK-$(VBOX_VERSION_STRING)-r$(VBOX_SVN_REV).zip
+ PACKING      += $(VBOX_SDK_ZIP)
+ OTHER_CLEANS += $(VBOX_SDK_ZIP) \
+ 	$(wildcard $(PATH_STAGE_BIN)/VirtualBoxSDK-*-r*.zip)
+
+ # @todo: wrong, it must depend on everything included in SDK
+ $(VBOX_SDK_ZIP): \
+ 		$(PATH_STAGE_BIN)/sdk \
+ 		$(VBOX_VERSION_STAMP)
+	$(call MSG_L1,Making SDK delivery $@)
+ ifdef VBOX_ONLY_SDK_ON_HOST
+	$(QUIET)$(RM) -f -- "$@"
+  if defined(VBOX_WITH_SDK_PACKING.linux.amd64) && "$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)" != "linux.amd64"
+	$(REDIRECT) -C "$(PATH_OUT_BASE)/linux.amd64/$(KBUILD_TYPE)/bin/" -- $(VBOX_ZIP) -r9Xv "$@" sdk
+  endif
+  if defined(VBOX_WITH_SDK_PACKING.win.amd64) && "$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)" != "win.amd64"
+	$(REDIRECT) -C "$(PATH_OUT_BASE)/win.amd64/$(KBUILD_TYPE)/bin/"   -- $(VBOX_ZIP) -r9Xv "$@" sdk
+  endif
+	$(REDIRECT) -C "$(PATH_STAGE_BIN)/"                               -- $(VBOX_ZIP) -r9Xv "$@" sdk
+	$(call MSG_L1, Ready: $@)
+ else  # !VBOX_ONLY_SDK_ON_HOST
+	$(QUIET)$(REDIRECT) $(if $(QUIET),-wo /dev/null,) -C $(PATH_STAGE_BIN) -- $(VBOX_ZIP) -r9 "$@" sdk
+ endif # !VBOX_ONLY_SDK_ON_HOST
+endif
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage modifymedium
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-modifymedium" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage modifymedium</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-modifymedium</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-modifymedium</refname>
+    <refpurpose>change the characteristics of an existing disk image</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-modifymedium">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage modifymedium</command>
+      <group>
+        <arg choice="plain">disk</arg>
+        <arg choice="plain">dvd</arg>
+        <arg choice="plain">floppy</arg>
+      </group>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>filename</replaceable></arg>
+      </group>
+      <arg>--autoreset=on | off</arg>
+      <arg>--compact</arg>
+      <arg>--description=<replaceable>description</replaceable></arg>
+      <arg>--move=<replaceable>pathname</replaceable></arg>
+      <arg>--property=<replaceable>name</replaceable>=[<replaceable>value</replaceable>]</arg>
+      <arg>--resize=<replaceable>megabytes</replaceable> | --resizebyte=<replaceable>bytes</replaceable></arg>
+      <arg>--setlocation=<replaceable>pathname</replaceable></arg>
+      <arg>--type=normal | writethrough | immutable | shareable | readonly | multiattach</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage modifymedium</command> command enables you
+      to change the characteristics of an existing disk image.
+    </para>
+    <note>
+      <para>
+        For compatibility with earlier versions of &product-name;, you
+        can use the <command>modifyvdi</command> and
+        <command>modifyhd</command> commands.
+      </para>
+    </note>
+    <variablelist>
+      <varlistentry>
+        <term>disk | dvd | floppy</term>
+        <listitem><para>
+            Specifies the media type of the image.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><replaceable>filename</replaceable></term>
+        <listitem><para>
+            Specifies the Universally Unique Identifier (UUID) or path
+            name of the disk image on the host file system. You can
+            specify the UUID only if the medium is registered. Use the
+            <command>VBoxManage list hdds</command> command to list the
+            registered images. You can specfy an absolute or relative
+            path to the medium.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--autoreset=on | off</option></term>
+        <listitem><para>
+            Specifies whether to automatically reset an immutable hard
+            disk on every virtual machine (VM) startup. This option is
+            only for immutable hard disks and the default value is
+            <literal>on</literal>. See <xref linkend="hdimagewrites" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--compact</option></term>
+        <listitem><para>
+            Compresses disk images by removing blocks that contain only
+            zeroes. This option shrinks a dynamically allocated image
+            and reduces the <emphasis>physical</emphasis> size of the
+            image without affecting the logical size of the virtual
+            disk.
+          </para><para>
+            You can use this option for base images and for differencing
+            images that are created as part of a snapshot.
+          </para><note>
+            <para>
+              Before you compress the image, you must use a suitable
+              software tool to zero out free space in the guest system.
+              For example:
+            </para>
+            <itemizedlist>
+              <listitem><para>
+                  <emphasis role="bold">Windows guests.</emphasis> Run
+                  the <command>sdelete -z</command> command.
+                </para></listitem>
+              <listitem><para>
+                  <emphasis role="bold">Linux guests.</emphasis> Use the
+                  <command>zerofree</command> utility, which supports
+                  <literal>ext2</literal> and <literal>ext3</literal>
+                  file systems.
+                </para></listitem>
+              <listitem><para>
+                  <emphasis role="bold">Mac OS X guests.</emphasis> Use
+                  the <command>diskutil secureErase freespace 0
+                  /</command> command.
+                </para></listitem>
+            </itemizedlist>
+          </note><para>
+            Note that you can only use this option to compress VDI
+            images. To compress non-VID images, you can zero out free
+            blocks and then clone the disk to any other dynamically
+            allocated format.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--description=<replaceable>description</replaceable></option></term>
+        <listitem><para>
+            Specifies a text description of the medium.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--move=<replaceable>pathname</replaceable></option></term>
+        <listitem><para>
+            Specifies a relative or absolute path to a medium on the
+            host system. Use this option to relocate a medium to a
+            different location on the host system.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--property=<replaceable>name</replaceable>=<replaceable>value</replaceable></option></term>
+        <listitem><para>
+            Specifies a property name and value for the medium.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--resize=<replaceable>size</replaceable></option></term>
+        <listitem><para>
+            Specifes the new capacity of an existing image in MB. You
+            can use this option only to expand the capacity of an image.
+            You can cannot shrink the capacity of an image.
+          </para><para>
+            Note that you can resize only dynamically allocated disk
+            images that use the VDI and VHD formats. This option adjusts
+            the <emphasis>logical</emphasis> size of a virtual disk and
+            has only a minor affect on the physical size.
+          </para><para>
+            For example, if your dynamically allocated 10 GB disk is
+            full, you can use the <option>--resize 15360</option> option
+            to increase the capacity of the existing disk to 15 GB
+            (15,360 MB). This operation enables you to avoid having to
+            create a new image and copy all data from within a VM.
+          </para><para>
+            Note that using this option only changes the capacity of the
+            drive. So, you might need to subsequently use a partition
+            management tool in the guest to adjust the main partition to
+            fill the drive.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--resizebyte=<replaceable>size</replaceable></option></term>
+        <listitem><para>
+            Specifes the new capacity of an existing image in bytes.
+            This option is similar to the <option>--resize</option>
+            option, but you specify the size in bytes instead of
+            megabytes.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--setlocation=<replaceable>pathname</replaceable></option></term>
+        <listitem><para>
+            Specifies the new location of the medium on the host system
+            after the medium has been moved. The path name can be
+            relative to the current directory or be absolute to the
+            root.
+          </para><para>
+            Note that the <command>VBoxManage modifymedium</command>
+            command does not perform any sanity checks on the path name
+            you specify. Ensure that the path name is valid.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--type</option></term>
+        <listitem><para>
+            Specifies the new mode type of an existing image. Valid
+            values are <literal>normal</literal>,
+            <literal>immutable</literal>,
+            <literal>writethrough</literal>,
+            <literal>multi-attach</literal>,
+            <literal>shareable</literal>, and
+            <literal>readonly</literal>. For descriptions of these mode
+            types, see <xref linkend="hdimagewrites" />.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command modifies the description for the disk image
+      file called <filename>disk01.vdi</filename>.
+    </para>
+<screen>$ VBoxManage modifymedium disk disk01.vdi --description "Oracle Linux 7 image"</screen>
+    <para>
+      The following command modifies the write mode for the disk image
+      file called <filename>disk01.vdi</filename>.
+    </para>
+<screen>$ VBoxManage modifymedium disk disk01.vdi --type writethrough</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <xref linkend="vboxmanage-list" />
+    </para>
+  </refsect1>
+</refentry>

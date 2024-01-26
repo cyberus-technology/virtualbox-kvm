@@ -1,0 +1,62 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Shared Folders Host Service.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefile(s).
+include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+
+#
+# The shared folder service DLL.
+#
+DLLS += VBoxSharedFolders
+VBoxSharedFolders_TEMPLATE  = VBoxR3Dll
+VBoxSharedFolders_NAME.os2  = VBoxSFld
+VBoxSharedFolders_DEFS      = VBOX_WITH_HGCM RTSHFL
+VBoxSharedFolders_INCS.win  = \
+	$(VBOX_PATH_SDK)
+
+VBoxSharedFolders_LDFLAGS.darwin = \
+	-framework Carbon \
+	-install_name $(VBOX_DYLD_EXECUTABLE_PATH)/VBoxSharedFolders.dylib
+
+VBoxSharedFolders_SOURCES = \
+	VBoxSharedFoldersSvc.cpp \
+	shflhandle.cpp \
+	vbsf.cpp \
+	vbsfpath.cpp \
+	vbsfpathabs.cpp \
+	mappings.cpp
+VBoxSharedFolders_SOURCES.win = \
+	VBoxSharedFoldersSvc.rc
+
+VBoxSharedFolders_LIBS = \
+	$(LIB_RUNTIME)
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

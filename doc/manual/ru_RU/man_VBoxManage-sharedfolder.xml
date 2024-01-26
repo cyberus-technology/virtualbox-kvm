@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage sharedfolder
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-sharedfolder" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage sharedfolder</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-sharedfolder</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-sharedfolder</refname>
+    <refpurpose>добавление или удаление общих папок</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-sharedfolder-add">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage sharedfolder add</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="req">--name=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--hostpath=<replaceable>путь-в-хост-системе</replaceable></arg>
+      <arg>--readonly</arg>
+      <arg>--transient</arg>
+      <arg>--automount</arg>
+      <arg>--auto-mount-point=<replaceable>путь</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-sharedfolder-remove">
+      <command>VBoxManage sharedfolder remove</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="req">--name=<replaceable>имя</replaceable></arg>
+      <arg>--transient</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Общие папки позволяют предоставить совместный доступ к данным
+      между хост-системой и гостевыми системами. Для использования
+      общих папок, сначала надо установить Дополнения Гостевой ОС
+      &product-name; в гостевой ОС.
+    </para>
+    <para>
+      Общая папка связана с именем разделяемого ресурса и полным
+      путем к папке или директории в хост-системе. Имя разделяемого
+      ресурса - это уникальное имя в пространстве имен ОС хоста.
+    </para>
+    <refsect2 id="vboxmanage-sharedfolder-add">
+      <title>Добавить общую папку</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage sharedfolder add</command> создает
+        общую папку. Папка указывается в хост-системе. Когда папка
+        настроена, к содержимому папки в хост-системе может быть
+        предоставлен совместный доступ в гостевых ОС.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable>|<replaceable>имя-ВМ</replaceable></term>
+          <listitem><para>
+              Задает имя или UUID гостевой ВМ, которая разделяет папку
+              с хост-системой.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--name=<replaceable>имя</replaceable></term>
+          <listitem><para>
+              Задает имя разделяемого ресурса, который имеет
+              уникальное имя в пространстве имен ОС хоста.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--hostpath=<replaceable>путь-в-хост-системе</replaceable></term>
+          <listitem><para>
+              Задает абсолютный путь к папке или директории в ОС хоста
+              для предоставления доступа гостевым ОС.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--readonly</term>
+          <listitem><para>
+              Указывает, что разделяемый ресурс имеет доступ только
+              для чтения к файлам хоста.
+            </para><para>
+              По умолчанию, общие папки имеют доступ на чтение и на
+              запись к файлам хоста. Однако, в дистрибутивах Linux,
+              общие папки монтируются с файловыми разрешениями 770,
+              пользователем <literal>root</literal> и группой
+              <literal>vboxsf</literal>. Эта опция устанавливает
+              файловые разрешения в 700.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--transient</term>
+          <listitem><para>
+              Задает что разделяемый ресурс временный, что означает, что
+              он может быть добавлен и удален в время выполнения и не
+              сохраняется после выключения ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--automount</term>
+          <listitem><para>
+              Указывает, что разделяемый ресурс монтируется автоматически.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+           <term>--auto-mount-point=<replaceable>путь</replaceable></term>
+           <listitem><para>
+               Задает точку монтирования разделяемого ресурса. Зависит от гостевой ОС.
+             </para><para>
+               Для гостевых систем Windows и OS/2 она должна быть неиспользуемой
+               буквой диска. Если оставить пустым (или указать используемую
+               букву диска), будет использована последняя неиспользуемая буква
+               диска вместо указанной (то есть ищется буква с <literal>Z:</literal>
+               по <literal>A:</literal>).
+             </para><para>
+               Для Linux, Solaris и других гостевых систем UNIX, он должен быть
+               абсолютным путем, например <filename>/mnt/mysharedfolder</filename>.
+               Если оставить пустым, расположение по умолчанию будет
+               <filename>/media/sf_<replaceable>имя-общей-папки</replaceable></filename>.
+             </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-sharedfolder-remove">
+      <title>Удалить общую папку</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage sharedfolder remove</command>
+        удаляет общую папку.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable>|<replaceable>имя-ВМ</replaceable></term>
+          <listitem><para>
+              Задает имя или UUID гостевой ВМ, которая разделяет папку
+              с хост-системой.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--name=<replaceable>имя</replaceable></term>
+          <listitem><para>
+              Задает имя удаляемого разделяемого ресурса.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--transient</term>
+          <listitem><para>
+              Указывает, что папка временная, что означает что она
+              может быть добавлена и удалена во время выполнения и не
+              сохраняется после выключения ВМ.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда создает общую папку, называемую
+      <filename>o7share</filename> для ВМ <filename>ol7</filename>.
+      Папка монтируется автоматически при старте ВМ.
+    </para>
+<screen>$ VBoxManage sharedfolder add ol7 --name ol7share --hostpath "/home/user/ol7share" --automount</screen>
+    <para>
+      Следующая команда удаляет общую папку, называемую
+      <filename>o7share</filename> из ВМ <filename>ol7</filename>.
+    </para>
+<screen>$ VBoxManage sharedfolder remove ol7 --name ol7share</screen>
+  </refsect1>
+</refentry>

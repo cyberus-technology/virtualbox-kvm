@@ -1,0 +1,286 @@
+# $Id: Makefile.kmk $
+## @file
+# Some hacks to allow syntax and prerequisite include checking of headers.
+# This makefile doesn't and shouldn't build successfully.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ..
+include $(KBUILD_PATH)/subheader.kmk
+
+LIBRARIES += SyntaxVBoxIncludeR3 SyntaxVBoxIncludeR0
+
+# Omit headers that are using C++ features and upsets gcc.
+VBOX_HDRS_CPP_FEATURES := \
+	VBox/vmm/hm.h \
+	VBox/vmm/hm_vmx.h \
+	VBox/vmm/pdmaudioinline.h \
+	VBox/vmm/pdmaudiohostenuminline.h \
+	VBox/HostServices/GuestControlSvc.h \
+	VBox/HostServices/DragAndDropSvc.h \
+	VBox/HostServices/Service.h \
+	VBox/GuestHost/GuestControl.h \
+	VBox/GuestHost/DragAndDrop.h \
+	VBox/GuestHost/SharedClipboard-transfers.h \
+	VBox/dbus.h \
+	VBox/xrandr.h \
+	VBox/VBoxCrHgsmi.h \
+	VBox/VBoxGuestLibSharedFoldersInline.h \
+	VBox/VBoxPktDmp.h \
+	VBox/VBoxUhgsmi.h \
+	iprt/cpp/%
+
+# Omit headers that are C++ and ring-3.
+VBOX_HDRS_R3_CPP := \
+	VBox/dbggui.h \
+	VBox/settings.h \
+	VBox/com/Guid.h \
+	VBox/vmm/vmmr3vtable.h \
+	iprt/cpp/% \
+	VBox/com/% \
+	$(subst $(PATH_SUB_CURRENT)/,,$(wildcard $(PATH_SUB_CURRENT)/iprt/*_cpp.h))
+
+# Ring-3 only headers.
+VBOX_HDRS_R3_ONLY := \
+	VBox/vrdpapi.h \
+	VBox/vrdpusb.h \
+	VBox/VBoxHDD.h \
+	VBox/VBoxHDD-Plugin.h \
+	VBox/VBoxCrHgsmi.h \
+	VBox/VBoxUhgsmi.h \
+	VBox/VBoxNetCfg-win.h \
+	VBox/VBoxDrvCfg-win.h \
+	VBox/dbus.h \
+	VBox/xrandr.h \
+	$(if-expr "$(KBUILD_TARGET)" == "win",VBox/usblib.h,) \
+	VBox/usblib-win.h \
+	VBox/vd.h \
+	VBox/vd-cache-backend.h \
+	VBox/vd-ifs.h \
+	VBox/vd-ifs-internal.h \
+	VBox/vd-image-backend.h \
+	VBox/vd-plugin.h \
+	VBox/vd-filter-backend.h \
+	VBox/vddbg.h \
+	VBox/vmm/uvm.h \
+	VBox/vmm/dbgfflowtrace.h \
+	VBox/vscsi.h \
+	VBox/ExtPack/% \
+	VBox/GuestHost/SharedClipboard-transfers.h \
+	VBox/GuestHost/SharedClipboard-win.h \
+	VBox/GuestHost/SharedClipboard-x11.h \
+	VBox/GuestHost/DragAndDrop.h \
+	VBox/HostServices/Service.h \
+	iprt/win/% \
+	iprt/alloca.h \
+	iprt/tcp.h \
+	iprt/localipc.h \
+	iprt/linux/sysfs.h \
+	iprt/socket.h \
+	iprt/udp.h \
+	iprt/fuzz.h \
+	iprt/linux/symvers.h
+
+# Ring-0 driver only headers.
+VBOX_HDRS_R0DRV_ONLY := \
+	VBox/VBoxGuestLibSharedFolders.h \
+	VBox/VBoxGuestLibSharedFoldersInline.h \
+	iprt/linux/version.h
+
+# GCC only headers.
+VBOX_HDRS_GCC_ONLY := \
+	iprt/nocrt/fenv.h \
+	iprt/nocrt/math.h
+
+# Headers to omit all together.
+VBOX_HDRS_OMIT := \
+	VBox/HostServices/glext.h \
+	VBox/HostServices/glxext.h \
+	VBox/HostServices/wglext.h \
+	VBox/VBoxGL2D.h \
+	$(if-expr "$(KBUILD_TARGET)" != "linux", \
+	VBox/GuestHost/SharedClipboard-x11.h \
+	,) \
+	$(if-expr "$(KBUILD_TARGET)" != "solaris", \
+	VBox/usblib-solaris.h \
+	,) \
+	VBox/VDEPlug.h \
+	VBox/VDEPlugSymDefs.h \
+	VBox/VBoxNetCmn-win.h \
+	$(if-expr "$(KBUILD_TARGET)" != "win", \
+	VBox/com/microatl.h \
+	VBox/GuestHost/SharedClipboard-win.h \
+	VBox/usblib-win.h \
+	VBox/VBoxDrvCfg-win.h \
+	VBox/VBoxNetCfg-win.h \
+	iprt/sanitized/intrin.h \
+	,$(VBOX_HDRS_GCC_ONLY)) \
+	\
+	VBox/dbus-calls.h \
+	VBox/xrandr-calls.h \
+	VBox/VBoxKeyboard.h \
+	VBox/vmm/pdmpcidevint.h \
+	VBox/vmm/vmmr3vtable-def.h \
+	iprt/runtime-loader.h \
+	iprt/mangling.h \
+	$(subst $(PATH_SUB_CURRENT)/,,$(wildcard $(PATH_SUB_CURRENT)/iprt/asm*watcom*.h)) \
+	iprt/asn1-generator% \
+	iprt/win/% \
+	iprt/nt/% \
+	\
+	$(foreach os,$(filter-out $(KBUILD_TARGET),$(KBUILD_OSES)),iprt/$(os)/% VBox/$(os)/%) \
+	$(foreach arch,$(KBUILD_ARCHES),iprt/nocrt/$(arch)/%)
+
+# AMD64 only headers.
+ifneq ($(KBUILD_TARGET_ARCH),amd64)
+ VBOX_HDRS_OMIT += \
+ 	VBox/vmm/cpumctx.h \
+ 	VBox/vmm/cpumctx-v1_6.h \
+ 	VBox/vmm/dbgfcorefmt.h
+endif
+# ARM only headers.
+ifn1of ($(KBUILD_TARGET_ARCH), arm32 arm64)
+ VBOX_HDRS_OMIT += \
+ 	iprt/asm-arm.h
+endif
+
+
+# We omit a few headers which have platform specific issues or are templates.
+VBOX_HDRS_ALL := $(filter-out $(VBOX_HDRS_OMIT), \
+	$(subst $(PATH_SUB_CURRENT)/,,$(wildcard \
+	$(PATH_SUB_CURRENT)/VBox/*.h \
+	$(PATH_SUB_CURRENT)/VBox/*/*.h \
+	$(PATH_SUB_CURRENT)/iprt/*.h \
+	$(PATH_SUB_CURRENT)/iprt/*/*.h \
+	)))
+
+# ring-3, ring-0 and raw-mode context specific exclusions.
+VBOX_HDRS_ALL_R3      := $(filter-out $(VBOX_HDRS_R0DRV_ONLY), $(VBOX_HDRS_ALL))
+if "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" == ""
+ ifeq ($(KBUILD_TARGET),win)
+  VBOX_HDRS_ALL_R3    := $(filter-out VBox/com/VirtualBox.h VBox/com/listeners.h VBox/settings.h,$(VBOX_HDRS_ALL_R3))
+ else
+  VBOX_HDRS_ALL_R3    := $(filter-out VBox/com/% VBox/settings.h,$(VBOX_HDRS_ALL_R3))
+ endif
+endif
+VBOX_HDRS_ALL_R3_C    := $(filter-out $(VBOX_HDRS_CPP_FEATURES) $(VBOX_HDRS_R3_CPP), $(VBOX_HDRS_ALL_R3))
+VBOX_HDRS_ALL_R0      := $(filter-out $(VBOX_HDRS_R3_CPP) $(VBOX_HDRS_R3_ONLY) $(VBOX_HDRS_R0DRV_ONLY), $(VBOX_HDRS_ALL))
+VBOX_HDRS_ALL_R0_C    := $(filter-out $(VBOX_HDRS_CPP_FEATURES), $(VBOX_HDRS_ALL_R0))
+VBOX_HDRS_ALL_R0DRV   := $(filter-out $(VBOX_HDRS_R3_CPP) $(VBOX_HDRS_R3_ONLY), $(VBOX_HDRS_ALL))
+VBOX_HDRS_ALL_R0DRV_C := $(filter-out $(VBOX_HDRS_CPP_FEATURES), $(VBOX_HDRS_ALL_R0DRV))
+VBOX_HDRS_ALL_RC      := $(filter-out \
+	VBox/VBoxGuestLib.h \
+	VBox/vmm/gvm.h \
+	iprt/thread.h \
+	iprt/mem.h \
+	iprt/memsafer.h \
+	iprt/alloc.h \
+	iprt/vector.h \
+	$(VBOX_HDRS_R3_CPP) \
+	$(VBOX_HDRS_R3_ONLY) \
+	$(VBOX_HDRS_R0DRV_ONLY) \
+	, $(VBOX_HDRS_ALL))
+VBOX_HDRS_ALL_RC_C := $(filter-out $(VBOX_HDRS_CPP_FEATURES), $(VBOX_HDRS_ALL_RC))
+#$(error $(subst $(SP),$(NLTAB),$(strip $(sort $(VBOX_HDRS_ALL_RC_C)))))
+
+if1of ($(KBUILD_TARGET_ARCH), $(VBOX_SUPPORTED_HOST_ARCHS))
+ SyntaxVBoxIncludeR3_TEMPLATE = VBoxMainExe
+ SyntaxVBoxIncludeR3_DEFS = VBOX_WITH_HGCM
+else
+ SyntaxVBoxIncludeR3_TEMPLATE = VBoxR3Exe
+ SyntaxVBoxIncludeR3_SDKS.win = ReorderCompilerIncs $(VBOX_WINPSDK) $(VBOX_WINDDK)
+endif
+SyntaxVBoxIncludeR3_DEFS += USING_VMM_COMMON_DEFS
+SyntaxVBoxIncludeR3_CDEFS = IPRT_WITHOUT_NAMED_UNIONS_AND_STRUCTS
+SyntaxVBoxIncludeR3_SOURCES := \
+	$(addprefix $(PATH_OBJ)/include/c/,  $(addsuffix .c,  $(basename $(VBOX_HDRS_ALL_R3_C)))) \
+	$(addprefix $(PATH_OBJ)/include/cpp/,$(addsuffix .cpp,$(basename $(VBOX_HDRS_ALL_R3))))
+SyntaxVBoxIncludeR3_CLEAN = $(SyntaxVBoxIncludeR3_SOURCES)
+#$(error $(subst $(SP),$(NLTAB),$(strip $(sort $(SyntaxVBoxIncludeR3_SOURCES)))))
+
+SyntaxVBoxIncludeR0_TEMPLATE = VBoxR0
+SyntaxVBoxIncludeR0_DEFS = VBOX_WITH_HGCM USING_VMM_COMMON_DEFS
+SyntaxVBoxIncludeR0_CDEFS = IPRT_WITHOUT_NAMED_UNIONS_AND_STRUCTS
+SyntaxVBoxIncludeR0_SOURCES := \
+	$(addprefix $(PATH_OBJ)/include/c/,  $(addsuffix .c,  $(basename $(VBOX_HDRS_ALL_R0_C)))) \
+	$(addprefix $(PATH_OBJ)/include/cpp/,$(addsuffix .cpp,$(basename $(VBOX_HDRS_ALL_R0))))
+SyntaxVBoxIncludeR0_CLEAN = $(SyntaxVBoxIncludeR0_SOURCES)
+
+if1of ($(KBUILD_TARGET), darwin os2 solaris win)
+ LIBRARIES += SyntaxVBoxIncludeR0Drv
+ SyntaxVBoxIncludeR0Drv_TEMPLATE = VBoxR0DrvLib
+ SyntaxVBoxIncludeR0Drv_SDKS.win = ReorderCompilerIncs $(VBOX_WINDDK) $(VBOX_WINPSDK_INCS)
+ SyntaxVBoxIncludeR0Drv_DEFS = VBOX_WITH_HGCM USING_VMM_COMMON_DEFS
+ SyntaxVBoxIncludeR0Drv_CDEFS = IPRT_WITHOUT_NAMED_UNIONS_AND_STRUCTS
+ SyntaxVBoxIncludeR0Drv_SOURCES := \
+ 	$(addprefix $(PATH_OBJ)/include/c/,  $(addsuffix .c,  $(basename $(VBOX_HDRS_ALL_R0DRV_C)))) \
+ 	$(addprefix $(PATH_OBJ)/include/cpp/,$(addsuffix .cpp,$(basename $(VBOX_HDRS_ALL_R0DRV))))
+ SyntaxVBoxIncludeR0Drv_CLEAN = $(SyntaxVBoxIncludeR0Drv_SOURCES)
+endif
+
+ifdef VBOX_WITH_RAW_MODE
+ LIBRARIES += SyntaxVBoxIncludeRC
+ SyntaxVBoxIncludeRC_TEMPLATE = VBoxRc
+ SyntaxVBoxIncludeRC_DEFS = VBOX_WITH_HGCM USING_VMM_COMMON_DEFS
+ SyntaxVBoxIncludeRC_CDEFS = IPRT_WITHOUT_NAMED_UNIONS_AND_STRUCTS
+ SyntaxVBoxIncludeRC_SOURCES := \
+ 	$(addprefix $(PATH_OBJ)/include/c/,  $(addsuffix .c,  $(basename $(VBOX_HDRS_ALL_RC_C)))) \
+ 	$(addprefix $(PATH_OBJ)/include/cpp/,$(addsuffix .cpp,$(basename $(VBOX_HDRS_ALL_RC))))
+ SyntaxVBoxIncludeRC_CLEAN = $(SyntaxVBoxIncludeRC_SOURCES)
+endif
+
+
+# Headers that must only be included once.
+VBOX_HDRS_ONLY_ONCE := \
+	iprt/bldprog-strtab-template.cpp.h
+
+
+# Generate the files we compile.
+define def_hdr
+ $(eval functioname := $(translate $(basename $(hdr)),-./,___))
+
+ $$(PATH_OBJ)/include/c/$(basename $(hdr)).c: | $$$$(dir $$$$@)
+	$(QUIET)$$(APPEND) -t -n $$@ \
+		'#include <$(hdr)>' \
+		$(if-expr $(intersects $(hdr),$(VBOX_HDRS_ONLY_ONCE)),, '#include <$(hdr)>') \
+		'extern int $(functioname)_c(void);' \
+		'int $(functioname)_c(void) { return 0;}'
+
+ $$(PATH_OBJ)/include/cpp/$(basename $(hdr)).cpp: | $$$$(dir $$$$@)
+	$(QUIET)$$(APPEND) -t -n $$@ \
+		'#include <$(hdr)>' \
+		$(if-expr $(intersects $(hdr),$(VBOX_HDRS_ONLY_ONCE)),, '#include <$(hdr)>') \
+		'extern int $(functioname)_cpp(void);' \
+		'int $(functioname)_cpp(void) { return 0;}'
+
+endef
+
+$(foreach hdr,$(VBOX_HDRS_ALL), $(eval $(def_hdr)))
+
+# Tell kBuild to generate rules for making the directories for the generated files.
+VBOX_HDR_DIRS := $(sort $(dir $(VBOX_HDRS_ALL)))
+BLDDIRS += $(addprefix $(PATH_OBJ)/include/c/,$(VBOX_HDR_DIRS)) $(addprefix $(PATH_OBJ)/include/cpp/,$(VBOX_HDR_DIRS))
+
+
+include $(FILE_KBUILD_SUB_FOOTER)

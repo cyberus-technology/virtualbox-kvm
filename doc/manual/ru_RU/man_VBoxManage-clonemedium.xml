@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage clonemedium
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-clonemedium" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage clonemedium</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-clonemedium</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-clonemedium</refname>
+    <refpurpose>создание клона носителя</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-clonemedium">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage clonemedium</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>носитель-источник</replaceable></arg>
+      </group>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>носитель-назначения</replaceable></arg>
+      </group>
+      <group>
+        <arg choice="plain">disk</arg>
+        <arg choice="plain">dvd</arg>
+        <arg choice="plain">floppy</arg>
+      </group>
+      <arg>--existing</arg>
+      <arg>--format=<group choice="plain">
+          <arg choice="plain">VDI</arg>
+          <arg choice="plain">VMDK</arg>
+          <arg choice="plain">VHD</arg>
+          <arg choice="plain">RAW</arg>
+          <arg choice="plain"><replaceable>другие</replaceable></arg>
+        </group></arg>
+      <arg>--variant=Standard,Fixed,Split2G,Stream,ESX</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage clonemedium</command> позволяет клонировать
+      существующий носитель (виртуальный диск, DVD, или флоппи). В основном,
+      это файл образа. Оригинальный образ от клонированного отличаются
+      только Уникальным Универсальным Идентификатором (UUID).
+    </para>
+    <para>
+      Можно использовать Менеджер Виртуальных Носителей для передачи
+      клонированного носителя на другой хост или импортировать его в &product-name;.
+      Смотрите <xref linkend="virtual-media-manager" /> и <xref linkend="cloningvdis" />.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>носитель-источник</replaceable></term>
+        <listitem><para>
+            Указывает UUID или абсолютное или относительное имя файла
+            носителя-источника для клонирования. UUID можно указать
+            только если он зарегистрирован. Используйте команду <command>VBoxManage
+            list hdds</command> для отображения зарегистрированных образов.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>носитель-назначения</replaceable></term>
+        <listitem><para>
+            Указывает UUID или абсолютное или относительное имя файла
+            носителя назначения (клонированного носителя). UUID можно
+            указать только если он зарегистрирован. Используйте
+            команду <command>VBoxManage list hdds</command> для отображения
+            зарегистрированных образов.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>disk</literal> | <literal>dvd</literal> | <literal>floppy</literal></term>
+        <listitem><para>
+            Указывает тип носителя для клонирования. Допустимые значения:
+            <literal>disk</literal>, <literal>dvd</literal> и
+            <literal>floppy</literal>. <literal>disk</literal> используется
+            по умолчанию.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--existing</option></term>
+        <listitem><para>
+            Производит операцию клонирования путем перезаписывания
+            носителя назначения. В результате записывается только
+            та часть носителя-источника, которая умещается в
+            существующий носитель назначения.
+          </para><para>
+            Если носитель назначения меньше источника, копируется
+            только порция источника размером с носитель назначения.
+          </para><para>
+            Если носитель назначения больше источника, оставшаяся
+            часть носителя назначения остается неизменной.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--format</option></term>
+        <listitem><para>
+            Указывает формат файла носителя назначения, если он
+            отличается от источника. Допустимые значения:
+            <literal>VDI</literal>, <literal>VMDK</literal>,
+            <literal>VHD</literal>, <literal>RAW</literal> и
+            <replaceable>другие</replaceable>.
+          </para><remark>
+            Какие могут быть быть <replaceable>другие</replaceable>
+            форматы файлов?
+          </remark></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--variant=Standard,Fixed,Split2G,Stream,ESX</option></term>
+        <listitem><para>
+            Указывает варианты формата файла носителя назначения,
+            указанные через запятую. Допустимы следующие значения:
+          </para><itemizedlist>
+            <listitem><para>
+                <literal>Standard</literal> является типом образа диска
+                по умолчанию с динамически изменяемым размером файла.
+              </para></listitem>
+            <listitem><para>
+                <literal>Fixed</literal> использует образ диска
+                фиксированного размера.
+              </para></listitem>
+            <listitem><para>
+                <literal>Split2G</literal> показывает, что образ диска
+                делится на сегменты по 2 ГБ. Это значение только для
+                VMDK.
+              </para></listitem>
+            <listitem><para>
+                <literal>Stream</literal> оптимизирует образ диска
+                для загрузки. Это значение только для VMDK.
+              </para></listitem>
+            <listitem><para>
+                <literal>ESX</literal> используется на некоторых
+                продуктах VMWare. Это значение только для VMDK.
+              </para></listitem>
+          </itemizedlist><para>
+            Заметим, что не все комбинации вариантов допустимы.
+            Указание неполного списка вариантов приводит к сообщению
+            об ошибке.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+    <note>
+      <para>
+        Для совместимости с ранними версиями &product-name;, можно
+        использовать команды <command>clonevdi</command> и
+        <command>clonehd</command> вместо команды
+        <command>clonemedium</command>.
+      </para>
+    </note>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда создает клон файла образа диска
+      <filename>disk01.vdi</filename>. Клон называется
+      <filename>disk02.vdi</filename>.
+    </para>
+<screen>$ VBoxManage clonemedium disk01.vdi disk02.vdi</screen>
+    <para>
+      Следующая команда создает клон файла образа диска
+      <filename>disk01.vdi</filename>. Клон имеет формат
+      VMDK и называется <filename>disk02.vmdk</filename>.
+    </para>
+<screen>$ VBoxManage clonemedium disk01.vdi disk02.vmdk --format VMDK</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>Смотрите также</title>
+    <para>
+      <xref linkend="vboxmanage-list" />
+    </para>
+  </refsect1>
+</refentry>

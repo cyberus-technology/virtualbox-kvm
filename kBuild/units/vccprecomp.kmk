@@ -1,0 +1,66 @@
+# $Id: vccprecomp.kmk 3415 2020-08-20 23:43:33Z bird $
+## @file
+# kBuild Unit - Target Level Precompiled Headers for Visual C++.
+#
+
+#
+# Copyright (c) 2016-2019 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+
+UNIT_vccprecomp = Target level precompiled Headers for Visual C++
+
+#
+# Early target processing pass #1.
+#
+# This set the internal _VCC_PCH_FILE and VCC_COMMON_OBJ_PDB properties,
+# which will be picked up by the VCCxxx tool.
+#
+define def_unit_vccprecomp_target_pre
+ $(target)_1_VCC_PCH_FILE       := $(outbase)-pch.pch
+ $(target)_1_VCC_COMMON_OBJ_PDB := $(outbase)-common-obj.pdb
+endef
+
+#
+# Early target processing pass #2.
+#
+# This sets up a rule for creating the .pch file after qt5 and similar units
+# are done modifying INCS, DEFS and company.  The '-PCH' variant of the VCC
+# tool, is defined together with $(pchtool) and allow us to bypass the options
+# and dependencies triggered by _1_VCC_PCH_FILE, _1_VCC_COMMON_OBJ_PDB and
+# _PCH_HDR, and also make sure we  don't get circular dependencies by way of
+# kDepObj and the debug info.
+#
+define def_unit_vccprecomp_target_pre_2
+ local pchtool  := $(call _TARGET_TOOL,$(target),PCH)
+ local source   := $($(target)_PCH_HDR)
+ $(source)_TOOL := $(pchtool)-PCH
+ local suff     := $(suffix $(source))
+ local type     := CXX
+ $(kb-src-one 4)
+endef
+

@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage usbfilter
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-usbfilter" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage usbfilter</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-usbfilter</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-usbfilter</refname>
+    <refpurpose>manage USB filters</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+    <cmdsynopsis id="synopsis-vboxmanage-usbfilter-add">
+      <command>VBoxManage usbfilter add</command>
+      <arg choice="req"><replaceable>index</replaceable>,0-<replaceable>N</replaceable></arg>
+      <arg choice="req">--target=<group choice="req">
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>vmname</replaceable></arg>
+          <arg choice="plain">global</arg>
+        </group></arg>
+      <arg choice="req">--name=<replaceable>string</replaceable></arg>
+      <arg choice="req">--action=ignore | hold</arg>
+      <arg>--active=yes | no</arg>
+      <arg>--vendorid=<replaceable>XXXX</replaceable></arg>
+      <arg>--productid=<replaceable>XXXX</replaceable></arg>
+      <arg>--revision=<replaceable>IIFF</replaceable></arg>
+      <arg>--manufacturer=<replaceable>string</replaceable></arg>
+      <arg>--product=<replaceable>string</replaceable></arg>
+      <arg>--port=<replaceable>hex</replaceable></arg>
+      <arg>--remote=yes | no</arg>
+      <arg>--serialnumber=<replaceable>string</replaceable></arg>
+      <arg>--maskedinterfaces=<replaceable>XXXXXXXX</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-usbfilter-modify">
+      <command>VBoxManage usbfilter modify</command>
+      <arg choice="req"><replaceable>index</replaceable>,0-<replaceable>N</replaceable></arg>
+      <arg choice="req">--target=<group choice="req">
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>vmname</replaceable></arg>
+          <arg choice="plain">global</arg>
+        </group></arg>
+      <arg>--name=<replaceable>string</replaceable></arg>
+      <arg>--action=ignore | hold</arg>
+      <arg>--active=yes | no</arg>
+      <arg>--vendorid=<replaceable>XXXX</replaceable> | ""</arg>
+      <arg>--productid=<replaceable>XXXX</replaceable> | ""</arg>
+      <arg>--revision=<replaceable>IIFF</replaceable> | ""</arg>
+      <arg>--manufacturer=<replaceable>string</replaceable> | ""</arg>
+      <arg>--product=<replaceable>string</replaceable> | ""</arg>
+      <arg>--port=<replaceable>hex</replaceable></arg>
+      <arg>--remote=yes | no</arg>
+      <arg>--serialnumber=<replaceable>string</replaceable> | ""</arg>
+      <arg>--maskedinterfaces=<replaceable>XXXXXXXX</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-usbfilter-remove">
+      <command>VBoxManage usbfilter remove</command>
+      <arg choice="req"><replaceable>index</replaceable>,0-<replaceable>N</replaceable></arg>
+      <arg choice="req">--target=<group choice="req">
+          <arg choice="plain"><replaceable>uuid</replaceable></arg>
+          <arg choice="plain"><replaceable>vmname</replaceable></arg>
+          <arg choice="plain">global</arg>
+        </group></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage usbfilter</command> command enables you to
+      manage USB filters for a specific virtual machine (VM), or global
+      USB filters that affect the entire &product-name; configuration.
+    </para>
+    <para>
+      Global filters are applied before VM-specific filters. This means
+      that you can use a global filter to prevent devices from being
+      captured by any VM.
+    </para>
+    <para>
+      Global filters are applied in a particular order. Only the first
+      filter that fits a device is applied. For example, the first
+      global filter makes a specific Kingston memory stick device
+      available while the second filter ignores all Kingston devices.
+      The result of applying these filters is that the specific Kingston
+      memory stick is made available to any machine that has the
+      appropriate filter, but no other Kingston devices are made
+      available.
+    </para>
+    <refsect2>
+      <title>Common Operand and Options</title>
+      <variablelist>
+        <varlistentry>
+          <term>index,0-<replaceable>N</replaceable></term>
+          <listitem><para>
+              Specifies a single integer that indicates the position of
+              the filter in the list. Zero (<literal>0</literal>)
+              represents the first position in the list. If a filter
+              already exists at the specified position, the existing
+              filter and any existing filters that follow are moved down
+              the list. Otherwise, the new filter is appended to the
+              list.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--action=ignore | hold</option></term>
+          <listitem><para>
+              Specifies whether to permit VMs access to devices that fit
+              the filter description (<literal>hold</literal>) or to
+              deny them access (<literal>ignore</literal>). This option
+              applies only to global filters.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--active=yes | no</option></term>
+          <listitem><para>
+              Specifies whether the USB filter is active or temporarily
+              disabled. Valid values are <literal>yes</literal>, which
+              activates the filter, and <literal>no</literal>, which
+              disables the filter. The default value is
+              <literal>yes</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--manufacturer=<replaceable>string</replaceable></option></term>
+          <listitem><para>
+              Specifies a manufacturer ID filter as a string. The
+              default value is an empty string (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--maskedinterfaces=<replaceable>XXXXXXXX</replaceable></option></term>
+          <listitem><para>
+              Specifies a masked interface filter that is used to hide
+              one or more USB interfaces from the guest. The value is a
+              bit mask where the set bits correspond to the USB
+              interfaces to hide, or mask off. This feature is supported
+              on Linux host systems only.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--name=<replaceable>filter-name</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the filter.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--port=<replaceable>hex</replaceable></option></term>
+          <listitem><para>
+              Specifies a hub port number filter as a string. The default
+              value is an empty string (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--product=<replaceable>string</replaceable></option></term>
+          <listitem><para>
+              Specifies a product ID filter as a string. The default
+              value is an empty string (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--productid=<replaceable>XXXX</replaceable></option></term>
+          <listitem><para>
+              Specifies a product ID filter. The string representation
+              for an exact match has the form
+              <replaceable>XXXX</replaceable>, where
+              <replaceable>X</replaceable> is a hexadecimal digit
+              including leading zeroes. The default value is an empty string
+              (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--remote=yes | no</option></term>
+          <listitem><para>
+              Specifies a remote filter that indicates whether the
+              device is physically connected to a remote VRDE client or
+              to a local host system. This option applies to VM filters
+              only. The default value is an empty string
+              (<literal>""</literal>).
+            </para><remark>
+              Why is the default value an empty string when valid values
+              are <literal>yes</literal> or <literal>no</literal>?
+            </remark></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--revision=<replaceable>IIFF</replaceable></option></term>
+          <listitem><para>
+              Specifies a revision ID filter. The string representation
+              for an exact match has the form
+              <replaceable>IIFF</replaceable>.
+              <replaceable>I</replaceable> is a decimal digit of the
+              integer part of the revision. <replaceable>F</replaceable>
+              is a decimal digit of its fractional part that includes
+              leading and trailing zeros. The default value is an empty
+              string (<literal>""</literal>).
+            </para><para>
+              To specify a range of revision IDs, ensure that you use
+              the hexadecimal form so that the revision is stored as a
+              16-bit packed BCD value. For example, the
+              <literal>int:0x0100-0x0199</literal> expression matches
+              any revision from 1.0 to 1.99, inclusive.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--serialnumber=<replaceable>string</replaceable></option></term>
+          <listitem><para>
+              Specifies a serial number filter as a string. The default
+              value is an empty string (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--target=<replaceable>uuid</replaceable> | <replaceable>vmname</replaceable> | global</option></term>
+          <listitem><para>
+              Specifies the VM that the filter is attached to. You can
+              specify the Universally Unique Identifier (UUID) or the
+              name of the VM. To apply the filter description to all
+              VMs, specify <literal>global</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vendorid=<replaceable>XXXX</replaceable></option></term>
+          <listitem><para>
+              Specifies a vendor ID filter, which is a string
+              representation of a four-digit hexadecimal number.
+              <replaceable>X</replaceable> is the hexadecimal digit
+              including leading zeroes. The default value is an empty
+              string (<literal>""</literal>).
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-usbfilter-add">
+      <title>Add a USB Filter or a Global Filter</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Use the <command>VBoxManage usbfilter add</command> command to
+        create a new USB filter.
+      </para>
+      <para>
+        In addition, specify parameters by which to filter. You can use
+        the <command>VBoxManage list usbhost</command> command to view
+        the parameters for devices that are attached to your system.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-usbfilter-modify">
+      <title>Modify a USB Filter or a Global Filter</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Use the <command>VBoxManage usbfilter modify</command> command
+        to modify a USB filter. You can use the <command>VBoxManage list
+        usbfilters</command> command to list global filter indexes and
+        the <command>VBoxManage showvminfo</command> command to list
+        indexes for a specific machine.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-usbfilter-remove">
+      <title>Remove a USB Filter or a Global Filter</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Use the <command>VBoxManage usbfilter remove</command> command
+        to remove a USB filter entry.
+      </para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command lists the available USB devices on the host
+      system.
+    </para>
+<screen>$ VBoxManage list usbhost</screen>
+    <para>
+      The following command adds a USB filter called
+      <filename>filter01</filename> to the <filename>ol7</filename> VM.
+      The filter specifies a Kingston DataTraveler memory stick and is
+      placed first in the list of USB filters for the VM.
+    </para>
+<screen>$ VBoxManage usbfilter add 0 --target ol7 --name filter01 --vendorid 0x0930 --productid 0x6545</screen>
+    <para>
+      The following command removes the USB filter that is second in the
+      list for the <filename>ol7</filename> VM.
+    </para>
+<screen>$ VBoxManage usbfilter remove 1 --target ol7</screen>
+  </refsect1>
+</refentry>

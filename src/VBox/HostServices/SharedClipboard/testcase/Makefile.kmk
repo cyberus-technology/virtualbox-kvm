@@ -1,0 +1,147 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Shared Clipboard Host Service testcases.
+#
+
+#
+# Copyright (C) 2011-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+if defined(VBOX_WITH_TESTCASES) && !defined(VBOX_ONLY_ADDITIONS) && !defined(VBOX_ONLY_SDK)
+
+ #
+ # Testcase which mocks HGCM to also test the VbglR3-side of Shared Clipboard.
+ #
+ # Goal is to use and test as much guest side code as possible as a self-contained
+ # binary on the host here.
+ #
+ # Note: No #ifdef TESTCASE hacks or similar allowed, has to run
+ #       without #ifdef modifications to the core code!
+ #
+ tstClipboardMockHGCM_TEMPLATE = VBoxR3TstExe
+ tstClipboardMockHGCM_DEFS    = VBOX_WITH_HGCM VBOX_WITH_SHARED_CLIPBOARD
+ tstClipboardMockHGCM_SOURCES = \
+ 	../VBoxSharedClipboardSvc.cpp \
+ 	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-common.cpp \
+ 	$(PATH_ROOT)/src/VBox/Additions/common/VBoxGuest/lib/VBoxGuestR3LibClipboard.cpp \
+ 	$(PATH_ROOT)/src/VBox/HostServices/common/message.cpp \
+ 	tstClipboardMockHGCM.cpp
+ tstClipboardMockHGCM_LIBS    = $(LIB_RUNTIME)
+
+ if1of ($(KBUILD_TARGET), linux solaris)
+  PROGRAMS += tstClipboardMockHGCM
+  tstClipboardMockHGCM_SOURCES += \
+  	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-x11.cpp \
+  	../VBoxSharedClipboardSvc-x11.cpp
+  tstClipboardMockHGCM_LIBPATH = \
+  	$(VBOX_LIBPATH_X11)
+  tstClipboardMockHGCM_LIBS   += \
+  	Xt \
+  	X11
+ endif
+ if1of ($(KBUILD_TARGET), win)
+  PROGRAMS += tstClipboardMockHGCM
+  tstClipboardMockHGCM_SOURCES += \
+  	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-win.cpp \
+  	../VBoxSharedClipboardSvc-win.cpp
+ endif
+
+ tstClipboardMockHGCM_CLEAN = $(tstClipboardMockHGCM_0_OUTDIR)/tstClipboardMockHGCM.run
+
+ if defined(VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS)
+  tstClipboardMockHGCM_DEFS   += VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+  tstClipboardMockHGCM_SOURCES += \
+  	../VBoxSharedClipboardSvc-transfers.cpp \
+  	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-transfers.cpp
+ endif
+
+ if 0 # Enable this if you want automatic runs after compilation.
+  $$(tstClipboardMockHGCM_0_OUTDIR)/tstClipboardMockHGCM.run: $$(tstClipboardMockHGCM_1_STAGE_TARGET)
+	export VBOX_LOG_DEST=nofile; $(tstClipboardMockHGCM_1_STAGE_TARGET) quiet
+	$(QUIET)$(APPEND) -t "$@" "done"
+  OTHERS += $(tstClipboardMockHGCM_0_OUTDIR)/tstClipboardMockHGCM.run
+ endif
+
+ #
+ #
+ #
+ PROGRAMS += tstClipboardServiceHost
+ tstClipboardServiceHost_TEMPLATE = VBoxR3TstExe
+ tstClipboardServiceHost_DEFS     = VBOX_WITH_HGCM UNIT_TEST
+ tstClipboardServiceHost_SOURCES  = \
+ 	../VBoxSharedClipboardSvc.cpp \
+ 	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-common.cpp \
+ 	$(PATH_ROOT)/src/VBox/HostServices/common/message.cpp \
+ 	tstClipboardServiceHost.cpp
+ tstClipboardServiceHost_LIBS     = $(LIB_RUNTIME)
+ tstClipboardServiceHost_CLEAN    = $(tstClipboardServiceHost_0_OUTDIR)/tstClipboardServiceHost.run
+
+ if defined(VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS)
+  tstClipboardServiceHost_DEFS    += VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+  tstClipboardServiceHost_SOURCES += \
+  	../VBoxSharedClipboardSvc-transfers.cpp \
+  	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-transfers.cpp
+ endif
+
+ #
+ #
+ #
+ PROGRAMS += tstClipboardServiceImpl
+ tstClipboardServiceImpl_TEMPLATE = VBoxR3TstExe
+ tstClipboardServiceImpl_DEFS     = VBOX_WITH_HGCM UNIT_TEST
+ tstClipboardServiceImpl_SOURCES  = \
+ 	../VBoxSharedClipboardSvc.cpp \
+ 	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-common.cpp \
+ 	$(PATH_ROOT)/src/VBox/HostServices/common/message.cpp \
+ 	tstClipboardServiceImpl.cpp
+ tstClipboardServiceImpl_SOURCES.win = \
+ 	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-win.cpp
+ tstClipboardServiceImpl_LIBS     = $(LIB_RUNTIME)
+ tstClipboardServiceImpl_CLEAN    = $(tstClipboardServiceImpl_0_OUTDIR)/tstClipboardServiceImpl.run
+
+ if defined(VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS)
+  #
+  #
+  #
+  PROGRAMS += tstClipboardTransfers
+  tstClipboardTransfers_TEMPLATE = VBoxR3TstExe
+  tstClipboardTransfers_DEFS     = VBOX_WITH_HGCM UNIT_TEST VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+  tstClipboardTransfers_SOURCES  = \
+  	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-common.cpp \
+  	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-transfers.cpp \
+  	tstClipboardTransfers.cpp
+ endif
+endif
+
+#
+# List of above testcases that will be included in the ValKit.
+#
+ifdef VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+ if1of ($(KBUILD_TARGET), linux solaris win)
+  VALKIT_UNITTESTS_WHITELIST_GUEST_ADDITIONS += \
+  	tstClipboardMockHGCM
+ endif
+endif # VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+
+include $(FILE_KBUILD_SUB_FOOTER)

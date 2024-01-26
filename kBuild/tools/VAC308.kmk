@@ -1,0 +1,206 @@
+# $Id: VAC308.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild Tool Config - VisualAge for C++ v3.08.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_VAC308 := VisualAge for C++ v3.08
+
+# Determin VAC308 location.
+ifndef PATH_TOOL_VAC308
+ PATH_TOOL_VAC308 := $(wildcard $(KBUILD_DEVTOOLS_HST)/vac/v3.0.8*)
+ ifeq ($(PATH_TOOL_VAC308),)
+  PATH_TOOL_VAC308 := $(wildcard $(KBUILD_DEVTOOLS_HST)/vac/v308*)
+ endif
+ ifeq ($(PATH_TOOL_VAC308),)
+  PATH_TOOL_VAC308 := $(wildcard $(KBUILD_DEVTOOLS_TRG)/vac/v3.0.8*)
+  ifeq ($(PATH_TOOL_VAC308),)
+   PATH_TOOL_VAC308 := $(wildcard $(KBUILD_DEVTOOLS_TRG)/vac/v308*)
+  endif
+ endif
+ ifeq ($(PATH_TOOL_VAC308),)
+  PATH_TOOL_VAC308 := $(firstword $(rsort $(PATH_TOOL_VAC308)))
+ endif
+ # if not found, we'll enter 'pathless' mode.
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_TOOL_VAC308 := $(PATH_TOOL_VAC308)
+endif
+ifneq ($(PATH_TOOL_VAC308),)
+ TOOL_VAC308_PATHLESS :=
+
+ PATH_TOOL_VAC308_BIN    ?= $(PATH_TOOL_VAC308)/bin
+ PATH_TOOL_VAC308_LIB    ?= $(PATH_TOOL_VAC308)/lib
+ PATH_TOOL_VAC308_INC    ?= $(PATH_TOOL_VAC308)/include
+ PATH_TOOL_VAC308_DLL    ?= $(PATH_TOOL_VAC308)/dll
+ PATH_TOOL_VAC308_HELP   ?= $(PATH_TOOL_VAC308)/help
+ PATH_TOOL_VAC308_LOCALE ?= $(PATH_TOOL_VAC308)/locale
+
+ TOOL_VAC308_ENV_SETUP ?= $(REDIRECT) \
+	-E 'BEGINLIBPATH=$(PATH_TOOL_VAC308_DLL);$(BEGINLIBPATH)' \
+	-E 'DPATH=$(PATH_TOOL_VAC308_LOCALE);$(PATH_TOOL_VAC308_HELP);$(DPATH)' \
+	-E 'LIB=$1' \
+	-E 'INCLUDE=' \
+	$2 \
+	--
+ TOOL_VAC308_CC  ?= $(PATH_TOOL_VAC308_BIN)/icc$(HOSTSUFF_EXE)
+ TOOL_VAC308_CXX ?= $(PATH_TOOL_VAC308_BIN)/icc$(HOSTSUFF_EXE)
+ TOOL_VAC308_AR  ?= $(PATH_TOOL_VAC308_BIN)/ilib$(HOSTSUFF_EXE)
+ TOOL_VAC308_LD  ?= $(PATH_TOOL_VAC308_BIN)/icc$(HOSTSUFF_EXE)
+ TOOL_VAC308_RC  ?= $(PATH_TOOL_VAC308_BIN)/rc$(HOSTSUFF_EXE)
+
+else
+ # Pathless, relies on the environment.
+ TOOL_VAC308_PATHLESS := yes
+ TOOL_VAC308_ENV_SETUP ?= $(REDIRECT) \
+	-E 'LIB=$1' \
+	-E 'INCLUDE=' \
+	$2 \
+	--
+ TOOL_VAC308_CC  ?= icc$(HOSTSUFF_EXE)
+ TOOL_VAC308_CXX ?= icc$(HOSTSUFF_EXE)
+ TOOL_VAC308_AR  ?= ilib$(HOSTSUFF_EXE)
+ TOOL_VAC308_LD  ?= icc$(HOSTSUFF_EXE)
+ TOOL_VAC308_RC  ?= rc$(HOSTSUFF_EXE)
+
+endif
+
+# More tool specific properties.
+# Note: implib isn't really a part of VAC308.
+TOOL_VAC308_IMP              ?= implib$(HOSTSUFF_EXE)
+TOOL_VAC308_IMPFLAGS         ?= /nologo /noignorecase
+
+# General Properties used by kBuild
+TOOL_VAC308_COBJSUFF         ?= .obj
+TOOL_VAC308_CFLAGS           ?= -Q+
+TOOL_VAC308_CFLAGS.debug     ?= -Ti+
+TOOL_VAC308_CFLAGS.release   ?= -O
+TOOL_VAC308_CINCS            ?= $(PATH_TOOL_VAC308_INC)
+TOOL_VAC308_CDEFS            ?=
+
+TOOL_VAC308_CXXOBJSUFF       ?= .obj
+TOOL_VAC308_CXXFLAGS         ?= -Q+
+TOOL_VAC308_CXXFLAGS.debug   ?= -Ti
+TOOL_VAC308_CXXFLAGS.release ?= -O
+TOOL_VAC308_CXXINCS          ?= $(PATH_TOOL_VAC308_INC)
+TOOL_VAC308_CXXDEFS          ?=
+
+TOOL_VAC308_RCOBJSUFF        ?= .res
+TOOL_VAC308_RCFLAGS          ?= -n
+TOOL_VAC308_RCINCS           ?=
+TOOL_VAC308_RCDEFS           ?=
+
+TOOL_VAC308_ARFLAGS          ?= /nologo /noignorecase
+TOOL_VAC308_ARLIBSUFF        ?= .lib
+
+TOOL_VAC308_LDFLAGS          ?= -Q+
+TOOL_VAC308_LDFLAGS.debug    ?= -Ti+
+
+
+
+TOOL_VAC308_COMPILE_C_DEPEND =
+TOOL_VAC308_COMPILE_C_DEPORD =
+TOOL_VAC308_COMPILE_C_OUTPUT = $(obj).ii
+define TOOL_VAC308_COMPILE_C_CMDS
+	$(QUIET) $(call TOOL_VAC308_ENV_SETUP) $(TOOL_VAC308_CC) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Fo$(obj)\
+		$(abspath $(source))
+	$(QUIET) $(call TOOL_VAC308_ENV_SETUP,,-wo $(obj).ii) $(TOOL_VAC308_CC) -P+ -Pd+ \
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		$(abspath $(source)) 
+	$(QUIET)$(DEP_PRE) -f -s -o $(dep) -t $(obj) $(obj).ii
+endef
+
+TOOL_VAC308_COMPILE_CXX_DEPEND =
+TOOL_VAC308_COMPILE_CXX_DEPORD =
+TOOL_VAC308_COMPILE_CXX_OUTPUT = $(obj).ii
+define TOOL_VAC308_COMPILE_CXX_CMDS
+	$(QUIET) $(call TOOL_VAC308_ENV_SETUP) $(TOOL_VAC308_CXX) -c\
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		-Fo$(obj)\
+		$(abspath $(source))
+	$(QUIET) $(call TOOL_VAC308_ENV_SETUP,,-wo $(obj).ii) $(TOOL_VAC308_CXX) -P+ -Pd+ \
+		$(flags) $(addprefix -I, $(incs)) $(addprefix -D, $(defs))\
+		$(abspath $(source))
+	$(QUIET)$(DEP_PRE) -f -s -o $(dep) -t $(obj) $(obj).ii
+endef
+
+TOOL_VAC308_COMPILE_RC_OUTPUT =
+TOOL_VAC308_COMPILE_RC_DEPEND =
+TOOL_VAC308_COMPILE_RC_DEPORD =
+define TOOL_VAC308_COMPILE_RC_CMDS
+	$(QUIET) $(call TOOL_VAC308_ENV_SETUP) $(TOOL_VAC308_RC) -r\
+		$(flags) $(addprefix -i, $(subst /,\\,$(incs))) $(addprefix -D, $(defs))\
+		$(subst /,\\,$(abspath $(source))) \
+		$(obj)
+endef
+
+TOOL_VAC308_LINK_LIBRARY_OUTPUT = ## @todo $(outbase).rsp
+TOOL_VAC308_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_VAC308_LINK_LIBRARY_DEPORD =
+define TOOL_VAC308_LINK_LIBRARY_CMDS
+	$(if $(strip $(othersrc)),\
+		$(QUIET)$(call TOOL_VAC308_ENV_SETUP) \
+		$(TOOL_VAC308_IMP) $(TOOL_VAC308_IMPFLAGS) $(subst /,\\,$(out)) $(subst /,\\,$(othersrc)) )
+	$(if $(strip $(objs)),$(QUIET)$(call TOOL_VAC308_ENV_SETUP) \
+		$(TOOL_VAC308_AR) $(flags) $(subst /,\\,$(out)) $(foreach obj,$(subst /,\\,$(objs)),+"$(obj)") ";" )
+endef
+
+TOOL_VAC308_LINK_PROGRAM_OUTPUT = $(outbase).map
+TOOL_VAC308_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VAC308_LINK_PROGRAM_DEPORD =
+define TOOL_VAC308_LINK_PROGRAM_CMDS
+	$(QUIET)$(call TOOL_VAC308_ENV_SETUP,$(subst ;$(SP),;,$(foreach one,$(libpath),$(one);))) \
+		$(TOOL_VAC308_LD) $(flags) -Fe$(out) -Fm$(outbase).map $(filter-out %.res,$(objs)) $(libs) $(othersrc)
+	$(if $(filter %.res,$(objs)), $(QUIET)$(call TOOL_VAC308_ENV_SETUP) \
+		$(TOOL_VAC308_RC) $(filter %.res,$(objs)) $(out))
+endef
+
+TOOL_VAC308_LINK_DLL_OUTPUT = $(outbase).map
+TOOL_VAC308_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VAC308_LINK_DLL_DEPORD =
+define TOOL_VAC308_LINK_DLL_CMDS
+	$(QUIET)$(call TOOL_VAC308_ENV_SETUP,$(subst ;$(SP),;,$(foreach one,$(libpath),$(one);))) \
+		$(TOOL_VAC308_LD) /B"/DLL" $(flags) -Fe$(out) -Fm$(outbase).map $(filter-out %.res,$(objs)) $(libs) $(othersrc)
+	$(if $(filter %.res,$(objs)), $(QUIET)$(call TOOL_VAC308_ENV_SETUP) \
+		$(TOOL_VAC308_RC) $(filter %.res,$(objs)) $(out))
+endef
+
+TOOL_VAC308_LINK_SYSMOD_OUTPUT = $(outbase).map
+TOOL_VAC308_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VAC308_LINK_SYSMOD_DEPORD =
+define TOOL_VAC308_LINK_SYSMOD_CMDS
+	$(QUIET)$(call TOOL_VAC308_ENV_SETUP,$(subst ;$(SP),;,$(foreach one,$(libpath),$(one);))) \
+		$(TOOL_VAC308_LD) $(flags) -Fe$(out) -Fm$(outbase).map $(filter-out %.res,$(objs)) $(libs) $(othersrc)
+	$(if $(filter %.res,$(objs)), $(QUIET)$(call TOOL_VAC308_ENV_SETUP) \
+		$(TOOL_VAC308_RC) $(filter %.res,$(objs)) $(out))
+endef
+

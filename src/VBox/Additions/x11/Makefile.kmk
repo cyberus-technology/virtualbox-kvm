@@ -1,0 +1,43 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the X11 Guest Additions.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefiles.
+if1of ($(KBUILD_TARGET), freebsd linux netbsd openbsd solaris)
+ include $(PATH_SUB_CURRENT)/VBoxClient/Makefile.kmk
+ ifndef VBOX_NO_LEGACY_XORG_X11
+  include $(PATH_SUB_CURRENT)/vboxvideo/Makefile.kmk
+  ifn1of ($(KBUILD_TARGET), netbsd solaris)
+   include $(PATH_SUB_CURRENT)/vboxmouse/Makefile.kmk
+  endif
+ endif
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

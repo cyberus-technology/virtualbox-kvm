@@ -1,0 +1,1973 @@
+; $Id: bootsector2-cpu-xcpt-1-template.mac $
+;; @file
+; Bootsector test for basic exceptions - multi mode template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+%include "bootsector2-template-header.mac"
+
+
+;*******************************************************************************
+;*  Defined Constants And Macros                                               *
+;*******************************************************************************
+;;
+; Some 32/64 macros.
+;
+%if TMPL_BITS == 32
+ %define bs2Idt_BP      bs2Idt32bit_BP
+ %define MY_R0_CS       BS2_SEL_CS32
+ %define MY_R1_CS       BS2_SEL_R1_CS32
+ %define MY_R2_CS       BS2_SEL_R2_CS32
+ %define MY_R3_CS       BS2_SEL_R3_CS32
+
+ %define MY_R0_DS       BS2_SEL_DS32
+ %define MY_R1_DS       BS2_SEL_R1_DS32
+ %define MY_R2_DS       BS2_SEL_R2_DS32
+ %define MY_R3_DS       BS2_SEL_R3_DS32
+
+ %define MY_R0_SS       BS2_SEL_SS32
+ %define MY_R1_SS       BS2_SEL_R1_SS32
+ %define MY_R2_SS       BS2_SEL_R2_SS32
+ %define MY_R3_SS       BS2_SEL_R3_SS32
+
+%else
+ %define bs2Idt_BP      bs2Idt64bit_BP
+ %define MY_R0_CS       BS2_SEL_CS64
+ %define MY_R1_CS       BS2_SEL_R1_CS64
+ %define MY_R2_CS       BS2_SEL_R2_CS64
+ %define MY_R3_CS       BS2_SEL_R3_CS64
+
+ %define MY_R0_DS       BS2_SEL_DS64
+ %define MY_R1_DS       BS2_SEL_R1_DS64
+ %define MY_R2_DS       BS2_SEL_R2_DS64
+ %define MY_R3_DS       BS2_SEL_R3_DS64
+
+ %define MY_R0_SS       BS2_SEL_SS64
+ %define MY_R1_SS       BS2_SEL_R1_SS64
+ %define MY_R2_SS       BS2_SEL_R2_SS64
+ %define MY_R3_SS       BS2_SEL_R3_SS64
+%endif
+
+%ifdef TMPL_64BIT
+ %assign MY_IS_64BIT 1
+%else
+ %assign MY_IS_64BIT 0
+%endif
+
+
+;*******************************************************************************
+;*      Global Variables                                                       *
+;*******************************************************************************
+%ifndef CPU_XCPT_1_GLOBALS
+ %define CPU_XCPT_1_GLOBALS
+ g_szWrongIfStateFmt:
+        db 'Wrong IF state (0x%RX32) on line 0x%RX32', 0
+ g_szWrongHandlerCsFmt:
+        db 'Wrong handler CS=%RX16, expected %RX16 (line 0x%RX32)', 0
+ g_szWrongCurCsFmt:
+        db 'Wrong CS=%RX16, expected %RX16 (line 0x%RX32)', 0
+ g_szWrongCurSRegFmt_fs:
+        db 'Wrong FS=%RX16, expected %RX16 (line 0x%RX32)', 0
+ g_szWrongCurSRegFmt_ss:
+        db 'Wrong SS=%RX16, expected %RX16 (line 0x%RX32)', 0
+
+
+;;
+; Asserts a test.
+;
+; @param    %1  First cmp operand.
+; @param    %2  First cmp operand.
+; @param    %3  Which kind of conditional jump to make
+; @param    %4  The message to print (format string, no arguments please).
+;
+%macro ASSERT_SIMPLE 4
+        cmp     %1, %2
+        %3      %%.ok
+        push    dword __LINE__
+ %ifdef TMPL_16BIT
+        push    ds
+ %endif
+        push    %%.s_szMsg
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, sCB*2
+        jmp     %%.ok
+%%.s_szMsg: db %4, " (0x%RX32)", 0
+%%.ok:
+%endmacro
+
+
+ ;;
+ ; Asserts that the IF flag is set or clear when the trap handler was called.
+ ;
+ ; @param 1      jnz or jz.
+ ;
+ ; @uses         rax, flags, and stack.
+ ;
+ %macro ASSERT_TRAP_EFLAGS_IF 1
+        test    word [g_u64LastTrapHandlerRFlags xWrtRIP], X86_EFL_IF
+        %1      %%.ok
+  %ifdef TMPL_LM64
+        push    __LINE__
+        push    qword [g_u64LastTrapHandlerRFlags xWrtRIP]
+        lea     rax, [g_szWrongIfStateFmt wrt RIP]
+        push    rax
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 24
+  %elifdef TMPL_16
+        push    dword __LINE__
+        push    dword [g_u64LastTrapHandlerRFlags]
+        push    cs
+        push    g_szWrongIfStateFmt
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 12
+  %else
+        push    __LINE__
+        push    dword [g_u64LastTrapHandlerRFlags]
+        push    g_szWrongIfStateFmt
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 12
+  %endif
+ %%.ok:
+ %endmacro
+
+
+ ;;
+ ; Asserts that a certain CS value when the trap handler was called.
+ ;
+ ; @param 1     The CS value.
+ ;
+ ; @uses        rax, flags, and stack.
+ ;
+ %macro ASSERT_TRAP_CS_VALUE 1
+        cmp     word [g_u16LastTrapHandlerCS xWrtRIP], (%1)
+        je      %%.ok
+  %ifdef TMPL_LM64
+        push    __LINE__
+        push    (%1)
+        movzx   eax, word [g_u16LastTrapHandlerCS xWrtRIP]
+        push    rax
+        lea     rax, [g_szWrongHandlerCsFmt wrt RIP]
+        push    rax
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 32
+  %elifdef TMPL_16
+        push    dword __LINE__
+        push    word (%1)
+        push    word [g_u16LastTrapHandlerCS]
+        push    cs
+        push    g_szWrongHandlerCsFmt
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 12
+  %else
+        push    __LINE__
+        push    (%1)
+        movzx   eax, word [g_u16LastTrapHandlerCS]
+        push    eax
+        push    g_szWrongHandlerCsFmt
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 16
+  %endif
+ %%.ok:
+ %endmacro
+
+ ;;
+ ; Asserts that a certain CS value right now, CS being loaded in BX.
+ ;
+ ; @param bx    The CS value.
+ ; @param 1     The expected CS value.
+ ;
+ ; @uses        rax, flags, and stack.
+ ;
+ %macro ASSERT_CUR_CS_VALUE_IN_BX 1
+        cmp     bx, (%1)
+        je      %%.ok
+  %ifdef TMPL_LM64
+        push    __LINE__
+        push    (%1)
+        push    rbx
+        lea     rax, [g_szWrongCurCsFmt wrt RIP]
+        push    rax
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 32
+  %elifdef TMPL_16
+        push    dword __LINE__
+        push    word (%1)
+        push    bx
+        push    g_szWrongCurCsFmt
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 12
+  %else
+        push    __LINE__
+        push    (%1)
+        push    ebx
+        push    g_szWrongCurCsFmt
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 16
+  %endif
+ %%.ok:
+ %endmacro
+
+ ;;
+ ; Asserts that the given segment register has a certain value right now.
+ ;
+ ; @param 1     The segment register
+ ; @param 2     The value.
+ ;
+ ; @uses        rax, flags, and stack.
+ ;
+ %macro ASSERT_CUR_SREG_VALUE 2
+        mov     ax, %1
+        cmp     ax, (%2)
+        je      %%.ok
+  %ifdef TMPL_LM64
+        push    __LINE__
+        push    (%2)
+        push    rax
+        lea     rax, [g_szWrongCurSRegFmt_ %+ %1 wrt RIP]
+        push    rax
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 32
+  %elifdef TMPL_16
+        push    dword __LINE__
+        push    word (%2)
+        push    ax
+        push    g_szWrongCurSRegFmt_ %+ %1
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 12
+  %else
+        push    __LINE__
+        push    (%2)
+        push    eax
+        push    g_szWrongCurSRegFmt_ %+ %1
+        call    TMPL_NM_CMN(TestFailedF)
+        add     xSP, 16
+  %endif
+ %%.ok:
+ %endmacro
+
+
+%endif
+
+
+;;
+; Checks different gate types.
+;
+BEGINPROC TMPL_NM(TestGateType)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+
+        ;
+        ; Check that int3 works and save the IDTE before making changes.
+        ;
+        ; We'll be changing X86DESCGATE.u4Type, which starts at bit 0x28 (that
+        ; is byte 5) and is 4-bit wide, and X86DESCGATE.u1DescType, which is
+        ; at bit 2c.
+        ;
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3 ; check that int3 works before we start messing around...
+
+%ifdef TMPL_LM64
+        push    qword [bs2Idt_BP     xWrtRIP]
+        push    qword [bs2Idt_BP + 8 xWrtRIP]
+%else
+        push    dword [bs2Idt_BP     xWrtRIP]
+        push    dword [bs2Idt_BP + 4 xWrtRIP]
+%endif
+        mov     xDI, xSP                ; for catching stack errors
+
+        ;
+        ; Check all kinds of none system selectors first (they should all GP(3+IDT))
+        ;
+%assign u4Type 0
+%rep 16
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], RT_BIT(4) | u4Type
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+ %assign u4Type (u4Type + 1)
+%endrep
+
+        ;
+        ; Illegal system types.
+        ;
+%ifdef TMPL_LM64
+ %assign u4Type 0
+ %rep 14
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], u4Type
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+  %assign u4Type (u4Type + 1)
+ %endrep
+%else
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_UNDEFINED
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_286_TSS_AVAIL
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_LDT
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_286_TSS_BUSY
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_286_CALL_GATE
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_UNDEFINED2
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_386_TSS_AVAIL
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_UNDEFINED3
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_386_TSS_BUSY
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_UNDEFINED4
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_386_CALL_GATE
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+%endif
+
+        ;
+        ; Legal types.
+        ;
+        pushf
+        sti                             ; make sure interrupts are enabled.
+
+%ifdef TMPL_LM64
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], AMD64_SEL_TYPE_SYS_INT_GATE
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_EFLAGS_IF jz
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], AMD64_SEL_TYPE_SYS_TRAP_GATE
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_EFLAGS_IF jnz
+%else
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_386_INT_GATE
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_EFLAGS_IF jz
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_386_TRAP_GATE
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_EFLAGS_IF jnz
+
+        ;; @todo X86_SEL_TYPE_SYS_TASK_GATE, X86_SEL_TYPE_SYS_286_INT_GATE, X86_SEL_TYPE_SYS_286_TRAP_GATE, X86_SEL_TYPE_SYS_386_CALL_GATE
+%endif
+
+        popf
+
+        ;
+        ; Check that a not-present gate GPs. The not-present bit is 0x2f.
+        ;
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+%ifdef TMPL_LM64
+        or      byte [bs2Idt_BP + 5  xWrtRIP], AMD64_SEL_TYPE_SYS_INT_GATE
+%else
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_386_TRAP_GATE
+%endif
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 07fh
+        BS2_TRAP_INSTR X86_XCPT_NP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        ;
+        ; Restore the descriptor and make sure it works.
+        ;
+        ASSERT_SIMPLE xDI, xSP, je, "Someone busted xSP during this test."
+%ifdef TMPL_LM64
+        pop     qword [bs2Idt_BP + 8 xWrtRIP]
+        pop     qword [bs2Idt_BP     xWrtRIP]
+%else
+        pop     dword [bs2Idt_BP + 4 xWrtRIP]
+        pop     dword [bs2Idt_BP     xWrtRIP]
+%endif
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', IDTE type checks', 0
+ENDPROC   TMPL_NM(TestGateType)
+
+
+;;
+; Checks different code selector types.
+;
+; @uses No registers, but BS2_SEL_SPARE0 is trashed.
+;
+BEGINPROC TMPL_NM(TestCodeSelector)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+
+        ;
+        ; Modify the first extra selector to be various kinds of invalid code
+        ; selectors.
+        ;
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3 ; check that int3 works before we start messing around...
+
+%ifdef TMPL_LM64
+        push    qword [bs2Idt_BP     xWrtRIP]
+        push    qword [bs2Idt_BP + 8 xWrtRIP]
+%else
+        push    dword [bs2Idt_BP     xWrtRIP]
+        push    dword [bs2Idt_BP + 4 xWrtRIP]
+%endif
+
+        mov     ecx, [bs2Gdt + MY_R0_CS  xWrtRIP]
+        mov     [bs2GdtSpare0  xWrtRIP], ecx
+        mov     ecx, [bs2Gdt + MY_R0_CS + 4  xWrtRIP]
+        mov     [bs2GdtSpare0 + 4  xWrtRIP], ecx ; GdtSpare0 is a copy of the CS descriptor now.
+
+        mov     word [bs2Idt_BP + 2  xWrtRIP], BS2_SEL_SPARE0
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3 ; check again to make sure the CS copy is fine.
+
+
+        ; Data selector (u4Type starts at bit 0x28, that is byte 5) .
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RO
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RO_ACC
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RW
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RW_ACC
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RO_DOWN
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RO_DOWN_ACC
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RW_DOWN
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RW_DOWN_ACC
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        ; Executable selector types (works fine).
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_EO
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_EO_ACC
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_ACC
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_EO_CONF
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_EO_CONF_ACC
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_CONF
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_CONF_ACC
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        ;
+        ; Test with the code selector set to NULL.
+        ;
+        mov     word [bs2Idt_BP + 2  xWrtRIP], 0
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, int3
+
+        mov     word [bs2Idt_BP + 2  xWrtRIP], 1
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, int3
+
+        mov     word [bs2Idt_BP + 2  xWrtRIP], 2
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, int3
+
+        mov     word [bs2Idt_BP + 2  xWrtRIP], 3
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, int3
+
+        mov     word [bs2Idt_BP + 2  xWrtRIP], BS2_SEL_SPARE0 ; restore our CS
+
+        ;
+        ; Test with the code selector marked as not present but otherwise valid.
+        ;
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_ACC
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 07fh
+        BS2_TRAP_INSTR X86_XCPT_NP, BS2_SEL_SPARE0, int3
+
+        ;
+        ; Invalid CS selector and not present, we should get a GP.
+        ; Intel states that the present bit is checked after the type.
+        ;
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 070h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RW_DOWN_ACC
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+%ifdef TMPL_LM64
+        ; Long mode variations on invalid (L and D bits) pitted against NP.
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 070h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_ACC
+        and     byte [bs2GdtSpare0 + 6  xWrtRIP], ~(RT_BIT(5) | RT_BIT(6))      ; (0x35=u1Long, 0x36=u1DefBig) = (0, 0)
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        or      byte [bs2GdtSpare0 + 6  xWrtRIP], RT_BIT(6)                     ; (0x35=u1Long, 0x36=u1DefBig) = (0, 1)
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        or      byte [bs2GdtSpare0 + 6  xWrtRIP], RT_BIT(5)                     ; (0x35=u1Long, 0x36=u1DefBig) = (1, 1)
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 6  xWrtRIP], ~(RT_BIT(5) | RT_BIT(6))
+        or      byte [bs2GdtSpare0 + 6  xWrtRIP], RT_BIT(5)                     ; restored
+%endif
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 070h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_ACC | 080h    ; restore CS to present & valid.
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3                                     ; make sure this is so.
+
+        ;
+        ; Check the CS DPL vs IDTE DPL.
+        ; X86DESCGENERIC.u2Dpl is at bit 0x2d (i.e. in byte 5).
+        ;
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], ~(RT_BIT(5) | RT_BIT(6))
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], 0                             ; CS.DPL == 0 == CPL
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], ~(RT_BIT(5) | RT_BIT(6))
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], 1 << 5                        ; CS.DPL == 1 < CPL
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], ~(RT_BIT(5) | RT_BIT(6))
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], 2 << 5                        ; CS.DPL == 2 < CPL
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], ~(RT_BIT(5) | RT_BIT(6))
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], 3 << 5                        ; CS.DPL == 3 < CPL
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        ; Restore.
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 010h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_ACC | 080h    ; restore CS to present, valid and DPL=0
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3                                     ; make sure it's restored.
+
+        ;
+        ; Is RPL is ignored? Yes, it is.
+        ;
+        and     word [bs2Idt_BP + 2  xWrtRIP], X86_SEL_MASK_OFF_RPL             ; RPL = 0
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0
+
+        and     word [bs2Idt_BP + 2  xWrtRIP], X86_SEL_MASK_OFF_RPL
+        or      byte [bs2Idt_BP + 2  xWrtRIP], 1                                ; RPL = 1
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0
+
+        and     word [bs2Idt_BP + 2  xWrtRIP], X86_SEL_MASK_OFF_RPL
+        or      byte [bs2Idt_BP + 2  xWrtRIP], 2                                ; RPL = 2
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0
+
+        and     word [bs2Idt_BP + 2  xWrtRIP], X86_SEL_MASK_OFF_RPL
+        or      byte [bs2Idt_BP + 2  xWrtRIP], 3                                ; RPL = 3
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0
+
+        ;
+        ; Conforming CS.
+        ;
+        or      byte [bs2Idt_BP + 5  xWrtRIP], (3 << 5)                         ; IDTE.DPL = 3
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 090h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_CONF_ACC      ; CS.DPL=0, code, read, conforming
+
+        call    TMPL_NM_CMN(Bs2ToRing1)
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        call    TMPL_NM_CMN(Bs2ToRing0)
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0 | 1
+
+        call    TMPL_NM_CMN(Bs2ToRing2)
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        call    TMPL_NM_CMN(Bs2ToRing0)
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0 | 2
+
+        call    TMPL_NM_CMN(Bs2ToRing3)
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        call    TMPL_NM_CMN(Bs2ToRing0)
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0 | 3
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0 | 0
+
+        ; RPL is ignored. Only CPL matters.
+        or      byte [bs2Idt_BP + 2  xWrtRIP], (3 << 5)                         ; IDTE.CS.RPL=3
+        call    TMPL_NM_CMN(Bs2ToRing2)
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        call    TMPL_NM_CMN(Bs2ToRing0)
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0 | 2
+
+        and     word [bs2Idt_BP + 2  xWrtRIP], X86_SEL_MASK_OFF_RPL
+        or      byte [bs2Idt_BP + 2  xWrtRIP], (1 << 5)                         ; IDTE.CS.RPL=1
+        call    TMPL_NM_CMN(Bs2ToRing2)
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        call    TMPL_NM_CMN(Bs2ToRing0)
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0 | 2
+
+        and     word [bs2Idt_BP + 2  xWrtRIP], X86_SEL_MASK_OFF_RPL
+        or      byte [bs2Idt_BP + 2  xWrtRIP], (2 << 5)                         ; IDTE.CS.RPL=2
+        call    TMPL_NM_CMN(Bs2ToRing2)
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        call    TMPL_NM_CMN(Bs2ToRing0)
+        ASSERT_TRAP_CS_VALUE BS2_SEL_SPARE0 | 2
+
+        ; Change the CS.DPL to 1 and try it from ring-0.
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 09fh
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], (1 << 5)                      ; CS.DPL=1
+        BS2_TRAP_INSTR X86_XCPT_GP, BS2_SEL_SPARE0, int3
+
+        ; Restore.
+        and     word [bs2Idt_BP + 2  xWrtRIP], X86_SEL_MASK_OFF_RPL
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0x9f                             ; IDTE.DPL=0
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 010h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_ER_ACC | 080h    ; restore CS to present, valid and DPL=0
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3                                     ; make sure it's restored.
+
+        ;
+        ; Limit / canonical checks.
+        ;
+        ; Messing with X86DESCGENERIC.u16LimitLow which is at bit 0,
+        ; X86DESCGENERIC.u4LimitHigh which is at bit 0x30, and
+        ; X86DESCGENERIC.u1Granularity which is at bit 0x37.
+        ;
+        mov     word [bs2GdtSpare0      xWrtRIP], 0010h
+        and     byte [bs2GdtSpare0 + 6  xWrtRIP], 070h                  ; setting limit to 0x10, ASSUMES IDTE.off > 0x10
+%ifdef TMPL_LM64
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+%else
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, int3
+%endif
+
+%ifdef TMPL_LM64
+        or      dword [bs2Idt_BP + 8  xWrtRIP], 0x007f7f33
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, int3
+%endif
+
+        ; Who takes precedence? CS NP or the above GP? NP does.
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 07fh
+        BS2_TRAP_INSTR X86_XCPT_NP, BS2_SEL_SPARE0, int3
+
+
+%ifdef TMPL_LM64
+        ; Who takes precedence? IDTE NP or the not canoncial GP? NP does.
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], 80h
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 07fh
+        BS2_TRAP_INSTR X86_XCPT_NP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+%endif
+
+        ;
+        ; Restore the descriptor and make sure it works.
+        ;
+%ifdef TMPL_LM64
+        pop     qword [bs2Idt_BP + 8 xWrtRIP]
+        pop     qword [bs2Idt_BP     xWrtRIP]
+%else
+        pop     dword [bs2Idt_BP + 4 xWrtRIP]
+        pop     dword [bs2Idt_BP     xWrtRIP]
+%endif
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', IDTE CS checks', 0
+ENDPROC   TMPL_NM(TestCodeSelector)
+
+
+;;
+; Checks that the IDTE type is checked before the CS type.
+;
+; @uses No registers, but BS2_SEL_SPARE0 is trashed.
+;
+BEGINPROC TMPL_NM(TestCheckOrderCsTypeVsIdteType)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+
+        ;
+        ; Check the int3 and save its IDTE.
+        ;
+        ; We'll be changing X86DESCGATE.u4Type, which starts at bit 0x28 (that
+        ; is byte 5) and is 4-bit wide, and X86DESCGATE.u1DescType, which is
+        ; at bit 2c.
+        ;
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3 ; check that int3 works before we start messing around...
+
+%ifdef TMPL_LM64
+        push    qword [bs2Idt_BP     xWrtRIP]
+        push    qword [bs2Idt_BP + 8 xWrtRIP]
+%else
+        push    dword [bs2Idt_BP     xWrtRIP]
+        push    dword [bs2Idt_BP + 4 xWrtRIP]
+%endif
+
+        ;
+        ; Make a copy of our CS descriptor into spare one and make INT3 use it.
+        ;
+        mov     ecx, [bs2Gdt + MY_R0_CS  xWrtRIP]
+        mov     [bs2GdtSpare0  xWrtRIP], ecx
+        mov     ecx, [bs2Gdt + MY_R0_CS + 4  xWrtRIP]
+        mov     [bs2GdtSpare0 + 4  xWrtRIP], ecx ; GdtSpare0 is a copy of the CS descriptor now.
+
+        mov     word [bs2Idt_BP + 2  xWrtRIP], BS2_SEL_SPARE0
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3 ; check again to make sure the CS copy is fine.
+
+        ;
+        ; Make both the IDTE type and CS invalid, we should end up with a IDT GP not the CS one.
+        ; CS = data selector and IDTE invalid 0 type.
+        ;
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 0f0h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_RO
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0e0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_UNDEFINED
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        ;
+        ; Make the IDTE not-present but otherwise fine, keeping CS invalid.
+        ;
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 070h
+%ifdef TMPL_LM64
+        or      byte [bs2Idt_BP + 5  xWrtRIP], AMD64_SEL_TYPE_SYS_INT_GATE
+%else
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_386_TRAP_GATE
+%endif
+        BS2_TRAP_INSTR X86_XCPT_NP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        ;
+        ; Make the CS not present as well.
+        ;
+        and     byte [bs2GdtSpare0 + 5  xWrtRIP], 070h
+        or      byte [bs2GdtSpare0 + 5  xWrtRIP], X86_SEL_TYPE_EO
+        BS2_TRAP_INSTR X86_XCPT_NP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        ;
+        ; CS not present, IDTE invalid but present.
+        ;
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 0f0h
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_UNDEFINED | 0x80
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        ;
+        ; CS NULL, IDTE invalid but present.
+        ;
+        mov     word [bs2Idt_BP + 2  xWrtRIP], 0
+        BS2_TRAP_INSTR X86_XCPT_GP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        ;
+        ; CS NULL, IDTE valid but not present.
+        ;
+        and     byte [bs2Idt_BP + 5  xWrtRIP], 070h
+%ifdef TMPL_LM64
+        or      byte [bs2Idt_BP + 5  xWrtRIP], AMD64_SEL_TYPE_SYS_INT_GATE
+%else
+        or      byte [bs2Idt_BP + 5  xWrtRIP], X86_SEL_TYPE_SYS_386_TRAP_GATE
+%endif
+        BS2_TRAP_INSTR X86_XCPT_NP, (3 << X86_TRAP_ERR_SEL_SHIFT) | X86_TRAP_ERR_IDT, int3
+
+        ;
+        ; Restore the descriptor and make sure it works.
+        ;
+%ifdef TMPL_LM64
+        pop     qword [bs2Idt_BP + 8 xWrtRIP]
+        pop     qword [bs2Idt_BP     xWrtRIP]
+%else
+        pop     dword [bs2Idt_BP + 4 xWrtRIP]
+        pop     dword [bs2Idt_BP     xWrtRIP]
+%endif
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', IDTE.type before CS.type', 0
+ENDPROC   TMPL_NM(TestCheckOrderCsTypeVsIdteType)
+
+
+;;
+; Checks stack switching behavior.
+;
+; @uses none
+;
+BEGINPROC TMPL_NM(TestStack)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+        pushf
+        cli
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+
+        ;
+        ; Check the int3, save its IDTE, then make it ring-3 accessible.
+        ;
+        ; X86DESCGENERIC.u2Dpl is at bit 0x2d (i.e. in byte 5).
+        ;
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3 ; check that int3 works before we start messing around...
+
+%ifdef TMPL_LM64
+        push    qword [bs2Idt_BP     xWrtRIP]
+        push    qword [bs2Idt_BP + 8 xWrtRIP]
+%else
+        push    dword [bs2Idt_BP     xWrtRIP]
+        push    dword [bs2Idt_BP + 4 xWrtRIP]
+%endif
+
+        and     byte [bs2Idt_BP + 5  xWrtRIP], ~(RT_BIT(5) | RT_BIT(6))
+        or      byte [bs2Idt_BP + 5  xWrtRIP], 3 << 5       ; DPL == 3
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+
+        ;
+        ; In ring-0 no stack switching is performed.
+        ;
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        mov     xBX, [g_u64LastTrapHandlerRSP]
+%ifdef TMPL_64BIT
+        mov     rax, rsp
+        and     rax, ~15
+        sub     rax, 7*8
+%else
+        lea     eax, [esp - 5*4]
+%endif
+        ASSERT_SIMPLE sAX, xBX, je, "Wrong xSP value for ring-0 -> ring-0 int3."
+        mov     bx, [g_u16LastTrapHandlerSS]
+        mov     ax, ss
+        ASSERT_SIMPLE ax, bx, je, "Wrong SS value for ring-0 -> ring-0 int3."
+
+        ;
+        ; Switch to ring-1 and watch stack switching take place.
+        ;
+        call    TMPL_NM_CMN(Bs2ToRing1)
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        mov     xBX, [g_u64LastTrapHandlerRSP]
+        mov     sAX, BS2_R0_STACK_ADDR
+%ifdef TMPL_64BIT
+        and     rax, ~15
+        sub     rax, 7*8
+%else
+        sub     eax, 7*4
+%endif
+        ASSERT_SIMPLE sAX, xBX, je, "Wrong xSP value for ring-1 -> ring-0 int3."
+        mov     bx, [g_u16LastTrapHandlerSS]
+%ifdef TMPL_64BIT
+        mov     ax, 0
+%else
+        mov     ax, MY_R0_SS
+%endif
+        ASSERT_SIMPLE ax, bx, je, "Wrong SS value for ring-1 -> ring-0 int3."
+
+        call    TMPL_NM_CMN(Bs2ToRing0)
+
+        ;
+        ; Missaligned stack, ring-0 -> ring-0.
+        ;
+        mov     xDI, xSP                ; save the stack pointer.
+%rep 15
+        sub     xSP, 1h
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        mov     xBX, [g_u64LastTrapHandlerRSP]
+%ifdef TMPL_64BIT
+        mov     rax, rsp
+        and     rax, ~15
+        sub     rax, 7*8
+%else
+        lea     eax, [esp - 5*4]
+%endif
+        ASSERT_SIMPLE sAX, xBX, je, "Wrong xSP value for ring-0 -> ring-0 int3, w/ unaligned stack."
+        mov     bx, [g_u16LastTrapHandlerSS]
+        mov     ax, ss
+        ASSERT_SIMPLE ax, bx, je, "Wrong SS value for ring-0 -> ring-0 int3, w/ unaligned stack."
+
+%endrep
+        mov     xSP, xDI                ; restore the stack pointer.
+
+        ;
+        ; Missaligned stack, ring-1 -> ring-0.
+        ;
+        call    TMPL_NM_CMN(Bs2ToRing1)
+
+        mov     sSI, BS2_R0_STACK_ADDR - 16
+%rep 16
+        add     sSI, 1
+%ifdef TMPL_64BIT
+        mov     [bs2Tss64Bit + 4], sSI
+%else
+        mov     [bs2Tss32Bit + 4], sSI
+%endif
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        mov     xBX, [g_u64LastTrapHandlerRSP]
+        mov     sAX, sSI
+%ifdef TMPL_64BIT
+        and     rax, ~15
+        sub     rax, 7*8
+%else
+        sub     eax, 7*4
+%endif
+        ASSERT_SIMPLE sAX, xBX, je, "Wrong xSP value for ring-1 -> ring-0 int3, w/ unaligned ring-0 stack."
+        mov     bx, [g_u16LastTrapHandlerSS]
+%ifdef TMPL_64BIT
+        mov     ax, 0
+%else
+        mov     ax, MY_R0_SS
+%endif
+        ASSERT_SIMPLE sAX, xBX, je, "Wrong SS value for ring-1 -> ring-0 int3, w/ unaligned ring-0 stack."
+
+%endrep
+        call    TMPL_NM_CMN(Bs2ToRing0)
+
+
+%ifdef TMPL_64BIT
+        ;
+        ; Stack table (AMD64 only), ring-0 -> ring-0.
+        ;
+        and     byte [bs2Idt_BP + 4], ~7
+        or      byte [bs2Idt_BP + 4], 3             ; IDTE.IST=3
+
+        mov     rdi, [bs2Tss64Bit + X86TSS64.ist3]
+        mov     rsi, BS2_R0_STACK_ADDR - 128
+ %rep 16
+        sub     rsi, 1h
+        mov     [bs2Tss64Bit + X86TSS64.ist3], rsi
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        mov     rbx, [g_u64LastTrapHandlerRSP]
+        mov     rax, rsi
+        and     rax, ~15
+        sub     rax, 7*8
+        ASSERT_SIMPLE rax, rbx, je, "Wrong xSP value for ring-0 -> ring-0 int3, w/ unaligned IST."
+        mov     bx, [g_u16LastTrapHandlerSS]
+        mov     ax, ss
+        ASSERT_SIMPLE ax, bx, je, "Wrong SS value for ring-0 -> ring-0 int3, w/ unaligned IST."
+
+ %endrep
+
+        ; Continue in ring-1,2,3.
+ %assign uCurRing 1
+ %rep 3
+        call    TMPL_NM_CMN(Bs2ToRing %+ uCurRing)
+  %rep 16
+        sub     rsi, 1h
+        mov     [bs2Tss64Bit + X86TSS64.ist3], rsi
+
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        mov     rbx, [g_u64LastTrapHandlerRSP]
+        mov     rax, rsi
+        and     rax, ~15
+        sub     rax, 7*8
+        ASSERT_SIMPLE rax, rbx, je, "Wrong xSP value for ring-X -> ring-0 int3, w/ unaligned IST."
+        mov     bx, [g_u16LastTrapHandlerSS]
+        mov     ax, 0
+        ASSERT_SIMPLE ax, bx, je, "Wrong SS value for ring-X -> ring-0 int3, w/ unaligned IST."
+  %endrep
+        call    TMPL_NM_CMN(Bs2ToRing0)
+  %assign uCurRing (uCurRing + 1)
+ %endrep
+
+        mov     [bs2Tss64Bit + X86TSS64.ist3], rdi  ; restore original value
+        and     byte [bs2Idt_BP + 4], ~7            ; IDTE.IST=0
+
+
+        ;
+        ; Check SS handling when interrupting 32-bit code with a 64-bit handler.
+        ;
+        call    Bs2Thunk_lm64_lm32
+        BITS 32
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        mov     bx, [g_u16LastTrapHandlerSS]
+        mov     ax, ss
+        call    Bs2Thunk_lm32_lm64
+        BITS 64
+        ASSERT_SIMPLE ax, bx, je, "Wrong SS value for ring-0-32 -> ring-0-64 int3, w/ 32-bit stack."
+
+        call    Bs2Thunk_lm64_lm32
+        BITS 32
+        mov     cx, ss
+        mov     ax, BS2_SEL_SS16
+        mov     ss, ax
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+        mov     bx, [g_u16LastTrapHandlerSS]
+        mov     ss, cx
+        call    Bs2Thunk_lm32_lm64
+        BITS 64
+        ASSERT_SIMPLE ax, bx, je, "Wrong SS value for ring-0-32 -> ring-0-64 int3, w/ 16-bit stack."
+
+%endif ; TMPL_64BIT
+
+
+        ;
+        ; Restore the descriptor and make sure it works.
+        ;
+%ifdef TMPL_LM64
+        pop     qword [bs2Idt_BP + 8 xWrtRIP]
+        pop     qword [bs2Idt_BP     xWrtRIP]
+%else
+        pop     dword [bs2Idt_BP + 4 xWrtRIP]
+        pop     dword [bs2Idt_BP     xWrtRIP]
+%endif
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+
+        popf
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', Stack switching', 0
+ENDPROC   TMPL_NM(TestStack)
+
+
+
+;;
+; Loads MY_R0_CS into CS.
+;
+; @uses stack, cs, flags
+;
+BEGINPROC TMPL_NM(TestLoadMyCS)
+        push    0
+        push    xAX
+
+        ; Make it a far return with MY_R0_CS + CPL.
+        mov     xAX, [xSP + xCB*2]
+        mov     [xSP + xCB*1], xAX
+        mov     xAX, ss
+%ifdef TMPL_64BIT
+        sub     xAX, BS2_SEL_GRP_SS64 - BS2_SEL_GRP_CS64
+%elifdef TMPL_32BIT
+        sub     xAX, BS2_SEL_GRP_SS32 - BS2_SEL_GRP_CS32
+%elifdef TMPL_16BIT
+        sub     xAX, BS2_SEL_GRP_SS16 - BS2_SEL_GRP_CS16
+%else
+        TMPL_xxBIT is not defined
+%endif
+        mov     [xSP + xCB*2], xAX
+
+        pop     xAX
+        retf
+ENDPROC   TMPL_NM(TestLoadMyCS)
+
+
+;;
+; Checks our understanding of how conforming segments are handled.
+;
+; @uses No registers, but BS2_SEL_SPARE0 is trashed.
+;
+BEGINPROC TMPL_NM(TestConforming)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+        ;
+        ; Check the int3.
+        ;
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3 ; check that int3 works before we start messing around...
+
+        mov     xDI, xSP                ; save the stack pointer.
+        sub     xSP, 20h
+
+        ;
+        ; In this test we will do various experiments with code using a
+        ; conforming CS. The main purpose is to check that CS.RPL is always the
+        ; same as CPL, despite earlier beliefs to the contrary.  Because if it
+        ; is different, iret cannot dermine the CPL to return to among other
+        ; interesting problems.
+        ;
+        mov     ecx, [bs2Gdt + MY_R0_CS  xWrtRIP]
+        mov     [bs2GdtSpare0  xWrtRIP], ecx
+        mov     ecx, [bs2Gdt + MY_R0_CS + 4  xWrtRIP]
+        mov     [bs2GdtSpare0 + 4  xWrtRIP], ecx ; GdtSpare0 is a copy of the CS descriptor now.
+        and     byte [bs2GdtSpare0 + 5], 0x90 ; DPL = 0
+        or      byte [bs2GdtSpare0 + 5], X86_SEL_TYPE_ER_CONF_ACC
+
+%assign uCurRing 0
+%rep 4
+        ; Far jumps.
+ %assign uSpecifiedRpl 0
+ %rep 4
+        call    TMPL_NM_CMN(Bs2ToRing %+ uCurRing)
+        lea     xAX, [.far_jmp_target_ %+ uSpecifiedRpl %+ uCurRing]
+  %ifdef TMPL_64BIT ; AMD doesn't have an jmp far m16:m64 instruction, it ignores REX.W apparently. Intel does though.
+                    ; Tested on: Bulldozer
+        mov     dword [xSP + 4], BS2_SEL_SPARE0 | uSpecifiedRpl
+        mov     [xSP], eax
+        jmp     far dword [xSP]
+  %else
+        mov     dword [xSP + xCB], BS2_SEL_SPARE0 | uSpecifiedRpl
+        mov     [xSP], xAX
+        jmp     far xPRE [xSP]
+  %endif
+.far_jmp_target_ %+ uSpecifiedRpl %+ uCurRing:
+        mov     bx, cs
+        call    TMPL_NM(TestLoadMyCS)
+        call    TMPL_NM_CMN(Bs2ToRing0)
+        ASSERT_CUR_CS_VALUE_IN_BX BS2_SEL_SPARE0 | uCurRing
+  %assign uSpecifiedRpl uSpecifiedRpl + 1
+ %endrep
+
+        ; Far calls.
+ %assign uSpecifiedRpl 0
+ %rep 4
+        call    TMPL_NM_CMN(Bs2ToRing %+ uCurRing)
+        mov     xSI, xSP
+        lea     xAX, [.far_call_target_ %+ uSpecifiedRpl %+ uCurRing]
+  %ifdef TMPL_64BIT ; AMD doesn't have an call far m16:m64 instruction, it ignores REX.W apparently. Intel does though.
+                    ; Tested on: Bulldozer
+        mov     dword [xSP + 4], BS2_SEL_SPARE0 | uSpecifiedRpl
+        mov     [xSP], eax
+        call    far dword [xSP]
+  %else
+        mov     dword [xSP + xCB], BS2_SEL_SPARE0 | uSpecifiedRpl
+        mov     [xSP], xAX
+        call    far xPRE [xSP]
+  %endif
+.far_call_target_ %+ uSpecifiedRpl %+ uCurRing:
+        mov     bx, cs
+  %ifdef TMPL_64BIT
+        add     xSP, 4 * 2
+  %else
+        add     xSP, xCB * 2
+  %endif
+        call    TMPL_NM(TestLoadMyCS)
+        call    TMPL_NM_CMN(Bs2ToRing0)
+        ASSERT_CUR_CS_VALUE_IN_BX BS2_SEL_SPARE0 | uCurRing
+  %assign uSpecifiedRpl uSpecifiedRpl + 1
+ %endrep
+
+ %assign uCurRing uCurRing + 1
+%endrep
+
+        ;
+        ; While at it, lets check something about RPL and non-conforming
+        ; segments.  The check when loading is supposed to be RPL >= DPL,
+        ; except for when loading SS, where RPL = DPL = CPL.
+        ;
+
+        ; ring-0
+        mov     dx, MY_R0_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R0_DS | 0
+        mov     dx, MY_R0_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+
+        ; ring-0 - Lower DPL isn't an issue, only RPL vs DPL.
+        mov     dx, MY_R1_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R1_DS | 0
+        mov     dx, MY_R1_DS | 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R1_DS | 1
+        mov     dx, MY_R1_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   fs, dx
+
+        mov     dx, MY_R2_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R2_DS | 0
+        mov     dx, MY_R2_DS | 2
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R2_DS | 2
+        mov     dx, MY_R2_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   fs, dx
+
+        mov     dx, MY_R3_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 0
+        mov     dx, MY_R3_DS | 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 1
+        mov     dx, MY_R3_DS | 2
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 2
+        mov     dx, MY_R3_DS | 3
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 3
+
+        ; ring-0 - What works above doesn't work with ss.
+        mov     dx, MY_R1_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   ss, dx
+        mov     dx, MY_R1_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   ss, dx
+        mov     dx, MY_R1_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   ss, dx
+        mov     dx, MY_R2_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+
+
+        ; ring-1
+        call    TMPL_NM_CMN(Bs2ToRing1)
+
+        mov     dx, MY_R1_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R1_DS | 0
+        mov     dx, MY_R1_DS | 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R1_DS | 1
+        mov     dx, MY_R1_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   fs, dx
+        mov     dx, MY_R1_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   fs, dx
+
+        mov     dx, MY_R0_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+
+        ; ring-1 - Lower DPL isn't an issue, only RPL vs DPL.
+        mov     dx, MY_R2_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R2_DS | 0
+        mov     dx, MY_R2_DS | 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R2_DS | 1
+        mov     dx, MY_R2_DS | 2
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R2_DS | 2
+        mov     dx, MY_R2_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   fs, dx
+
+        mov     dx, MY_R3_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 0
+        mov     dx, MY_R3_DS | 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 1
+        mov     dx, MY_R3_DS | 2
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 2
+        mov     dx, MY_R3_DS | 3
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 3
+
+        ; ring-1 - What works above doesn't work with ss.
+        mov     dx, MY_R1_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   ss, dx
+        mov     dx, MY_R1_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   ss, dx
+        mov     dx, MY_R2_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+
+
+        ; ring-2
+        call    TMPL_NM_CMN(Bs2ToRing2)
+
+        mov     dx, MY_R2_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R2_DS | 0
+        mov     dx, MY_R2_DS | 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R2_DS | 1
+        mov     dx, MY_R2_DS | 2
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R2_DS | 2
+        mov     dx, MY_R2_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   fs, dx
+
+        mov     dx, MY_R0_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R1_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   fs, dx
+        mov     dx, MY_R1_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   fs, dx
+
+        ; ring-2 - Lower DPL isn't an issue, only RPL vs DPL.
+        mov     dx, MY_R3_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 0
+        mov     dx, MY_R3_DS | 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 1
+        mov     dx, MY_R3_DS | 2
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 2
+        mov     dx, MY_R3_DS | 3
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 3
+
+        ; ring-2 - What works above doesn't work with ss.
+        mov     dx, MY_R2_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   ss, dx
+        mov     dx, MY_R2_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+
+
+        ; ring-3
+        call    TMPL_NM_CMN(Bs2ToRing3)
+
+        mov     dx, MY_R3_DS | 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 0
+        mov     dx, MY_R3_DS | 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 1
+        mov     dx, MY_R3_DS | 2
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 2
+        mov     dx, MY_R3_DS | 3
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, MY_R3_DS | 3
+
+        mov     dx, MY_R0_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+        mov     dx, MY_R0_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R0_DS, mov   fs, dx
+
+        mov     dx, MY_R1_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   fs, dx
+        mov     dx, MY_R1_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R1_DS, mov   fs, dx
+
+        mov     dx, MY_R2_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   fs, dx
+        mov     dx, MY_R2_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   fs, dx
+        mov     dx, MY_R2_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   fs, dx
+        mov     dx, MY_R2_DS | 3
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R2_DS, mov   fs, dx
+
+        ; ring-0 - What works above doesn't work with ss.
+        mov     dx, MY_R3_DS | 0
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 1
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+        mov     dx, MY_R3_DS | 2
+        BS2_TRAP_INSTR X86_XCPT_GP, MY_R3_DS, mov   ss, dx
+
+        call    TMPL_NM_CMN(Bs2ToRing0)
+
+
+        ;
+        ; One more odd thing, NULL selectors and RPL.
+        ;
+        pushf
+        cli
+
+%assign uCurRing 0
+%rep 4
+        ; Null sectors.
+        call    TMPL_NM_CMN(Bs2ToRing %+ uCurRing)
+        mov     si, ss
+
+        mov     dx, 0
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, 0
+ %if MY_IS_64BIT == 0 || uCurRing != 0
+  %ifdef TMPL_64BIT ; AMD is doing something inconsistent.
+   %if uCurRing != 3
+        test    byte [g_fCpuAmd], 1
+        jz      .null_0_not_amd_ %+ uCurRing
+        mov     ss, dx
+        ASSERT_CUR_SREG_VALUE ss, 0
+        jmp     .null_0_next_ %+ uCurRing
+.null_0_not_amd_ %+ uCurRing:
+   %endif
+  %endif
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, mov   ss, dx
+.null_0_next_ %+ uCurRing:
+ %else
+        mov     ss, dx
+        ASSERT_CUR_SREG_VALUE ss, 0
+ %endif
+        mov     ss, si
+
+        mov     dx, 1
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, 1
+ %if MY_IS_64BIT == 0 || uCurRing != 1
+  %ifdef TMPL_64BIT ; AMD is doing something inconsistent.
+   %if uCurRing != 3
+        test    byte [g_fCpuAmd], 1
+        jz      .null_1_not_amd_ %+ uCurRing
+        mov     ss, dx
+        ASSERT_CUR_SREG_VALUE ss, 1
+        jmp     .null_1_next_ %+ uCurRing
+.null_1_not_amd_ %+ uCurRing:
+   %endif
+  %endif
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, mov   ss, dx
+.null_1_next_ %+ uCurRing:
+ %else
+        mov     ss, dx
+        ASSERT_CUR_SREG_VALUE ss, 1
+ %endif
+        mov     ss, si
+
+        mov     dx, 2
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, 2
+ %if MY_IS_64BIT == 0 || uCurRing != 2
+  %ifdef TMPL_64BIT ; AMD is doing something inconsistent.
+   %if uCurRing != 3
+        test    byte [g_fCpuAmd], 1
+        jz      .null_2_not_amd_ %+ uCurRing
+        mov     ss, dx
+        ASSERT_CUR_SREG_VALUE ss, 2
+        jmp     .null_2_next_ %+ uCurRing
+.null_2_not_amd_ %+ uCurRing:
+   %endif
+  %endif
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, mov   ss, dx
+.null_2_next_ %+ uCurRing:
+ %else
+        mov     ss, dx
+        ASSERT_CUR_SREG_VALUE ss, 2
+ %endif
+        mov     ss, si
+
+        mov     dx, 3
+        mov     fs, dx
+        ASSERT_CUR_SREG_VALUE fs, 3
+ %ifdef TMPL_64BIT ; AMD is doing something inconsistent.
+  %if uCurRing != 3
+        test    byte [g_fCpuAmd], 1
+        jz      .null_3_not_amd_ %+ uCurRing
+        mov     ss, dx
+        ASSERT_CUR_SREG_VALUE ss, 3
+        jmp     .null_3_next_ %+ uCurRing
+.null_3_not_amd_ %+ uCurRing:
+  %endif
+ %endif
+        BS2_TRAP_INSTR X86_XCPT_GP, 0, mov   ss, dx
+.null_3_next_ %+ uCurRing:
+        mov     ss, si
+
+ %assign uCurRing uCurRing + 1
+%endrep
+        call    TMPL_NM_CMN(Bs2ToRing0)
+
+        ; Restore the selectors.
+        mov     dx, MY_R0_DS
+        mov     ds, dx
+        mov     es, dx
+        mov     fs, dx
+        mov     gs, dx
+        popf
+
+
+        ;
+        ; Restore the descriptor and make sure it works.
+        ;
+        mov     xSP, xDI                ; restore the stack pointer.
+        BS2_TRAP_INSTR X86_XCPT_BP, 0, int3
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', Conforming CS, ++', 0
+ENDPROC   TMPL_NM(TestConforming)
+
+
+
+;;
+; Returning from interrupt/trap/whatever handlers.
+;
+; @uses No registers, but BS2_SEL_SPARE0 is trashed.
+;
+BEGINPROC TMPL_NM(TestReturn)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+        sub     xSP, 80h                ; iret stack frame space.
+        mov     xSI, xSP                ; Save the stack register.
+
+        mov     xAX, .s_szSubTestName
+        call    TMPL_NM_CMN(TestSub)
+
+%ifdef TMPL_64BIT
+        pushfq
+        pop     rdi                     ; rdi contains good flags register value.
+
+        ;
+        ; 64-bit mode: IRETQ unconditional pop of SS:RSP.
+        ;
+        mov     qword [rsp + 20h], MY_R0_SS
+        mov     [rsp + 18h], rsp
+        mov     [rsp + 10h], rdi
+        mov     qword [rsp + 08h], MY_R0_CS
+        lea     rax, [.resume1 wrt rip]
+        mov     [rsp + 00h], rax
+        iretq
+
+.resume1:
+        pushfq
+        pop     rbx
+        ASSERT_SIMPLE rsp, rsi, je, "Wrong RSP after IRETQ."
+        mov     rsp, rsi
+        ASSERT_SIMPLE rbx, rdi, je, "Wrong flags after IRETQ."
+        mov     ax, ss
+        ASSERT_SIMPLE ax, MY_R0_SS, je, "Wrong SS after IRETQ."
+        mov     ax, cs
+        ASSERT_SIMPLE ax, MY_R0_CS, je, "Wrong CS after IRETQ."
+
+        ; 64-bit mode: The NT flag causes #GP(0)
+        mov     qword [rsp + 20h], MY_R0_SS
+        lea     rax, [rsp - 100h]
+        mov     [rsp + 18h], rax
+        mov     [rsp + 10h], rdi
+        mov     qword [rsp + 08h], MY_R0_CS
+        lea     rax, [.resume2 wrt rip]
+        mov     [rsp + 00h], rax
+        push    rdi
+        or      dword [rsp], X86_EFL_NT
+        popfq
+        BS2_TRAP_BRANCH_INSTR X86_XCPT_GP, 0, .resume2, iretq
+        pushfq
+        pop     rbx
+        push    rdi
+        popfq
+        ASSERT_SIMPLE rsp, rsi, je, "Wrong RSP after IRETQ."
+        mov     rsp, rsi
+        mov     rax, rdi
+        or      rax, X86_EFL_NT
+        ASSERT_SIMPLE rbx, rax, je, "Wrong flags after IRETQ GP(0)-NT."
+        mov     ax, ss
+        ASSERT_SIMPLE ax, MY_R0_SS, je, "Wrong SS after IRETQ."
+        mov     ax, cs
+        ASSERT_SIMPLE ax, MY_R0_CS, je, "Wrong CS after IRETQ."
+
+        ; 64-bit mode: The VM flag is disregarded.
+        mov     qword [rsp + 20h], MY_R0_SS
+        lea     rax, [rsp - 88h]
+        mov     [rsp + 18h], rax
+        mov     [rsp + 10h], rdi
+        or      dword [rsp + 10h], X86_EFL_VM
+        mov     qword [rsp + 08h], MY_R0_CS
+        lea     rax, [.resume3 wrt rip]
+        mov     [rsp + 00h], rax
+        iretq
+.resume3:
+        pushfq
+        pop     rbx
+        add     rsp, 88h
+        ASSERT_SIMPLE rsp, rsi, je, "Wrong RSP after IRETQ."
+        mov     rsp, rsi
+        mov     rax, rdi
+        ASSERT_SIMPLE rbx, rax, je, "Wrong flags after IRETQ GP(0)-NT."
+        mov     ax, ss
+        ASSERT_SIMPLE ax, MY_R0_SS, je, "Wrong SS after IRETQ."
+        mov     ax, cs
+        ASSERT_SIMPLE ax, MY_R0_CS, je, "Wrong CS after IRETQ."
+
+        ;
+        ; 64-bit mode: IRETD unconditionally pops SS:ESP as well.
+        ;
+        mov     dword [rsp + 10h], MY_R0_SS
+        lea     eax, [esp - 18h]
+        mov     [rsp + 0ch], eax
+        mov     [rsp + 08h], edi
+        mov     dword [rsp + 04h], MY_R0_CS
+        lea     eax, [.resume20 wrt rip]
+        mov     [rsp + 00h], eax
+        iretd
+.resume20:
+        pushfq
+        pop     rbx
+        add     rsp, 18h
+        ASSERT_SIMPLE rsp, rsi, je, "Wrong RSP after IRETD."
+        mov     rsp, rsi
+        ASSERT_SIMPLE rbx, rdi, je, "Wrong flags after IRETD."
+        mov     ax, ss
+        ASSERT_SIMPLE ax, MY_R0_SS, je, "Wrong SS after IRETD."
+        mov     ax, cs
+        ASSERT_SIMPLE ax, MY_R0_CS, je, "Wrong CS after IRETD."
+
+        ;
+        ; 64-bit mode: IRET unconditionally pops SS:SP as well.
+        ;
+        mov     word [rsp + 08h], MY_R0_SS
+        lea     eax, [esp - 1ah]
+        mov     [rsp + 06h], ax
+        mov     [rsp + 04h], di
+        mov     word [rsp + 02h], MY_R0_CS
+        mov     word [rsp + 00h], .resume30
+        o16 iret
+BEGINCODELOW
+.resume30:
+        jmp     .high1
+BEGINCODEHIGH
+.high1:
+        pushfq
+        pop     rbx
+        add     rsp, 1ah
+        ASSERT_SIMPLE rsp, rsi, je, "Wrong RSP after IRET."
+        mov     rsp, rsi
+        ASSERT_SIMPLE rbx, rdi, je, "Wrong flags after IRET."
+        mov     ax, ss
+        ASSERT_SIMPLE ax, MY_R0_SS, je, "Wrong SS after IRET."
+        mov     ax, cs
+        ASSERT_SIMPLE ax, MY_R0_CS, je, "Wrong CS after IRET."
+
+
+%elifdef TMPL_32BIT
+        ; later...
+%endif
+
+        ;
+        ; Returning to 16-bit code, what happens to upper ESP bits?
+        ;
+        cli
+        mov     xBX, xSP                ; save the current stack address
+
+        mov     sAX, BS2_SEL_R3_SS16 | 3
+        push    sAX                     ; Return SS
+        movzx   edi, bx
+        or      edi, 0xdead0000
+        push    sDI                     ; Return sSP
+%ifdef TMPL_64BIT
+        pushfq
+%else
+        pushfd
+%endif
+        mov     sAX, BS2_SEL_R3_CS16 | 3
+        push    sAX                     ; Return CS
+        lea     sAX, [.resume100 xWrtRIP]
+        push    sAX                     ; Return sIP
+%ifdef TMPL_64BIT
+        iretq
+%else
+        iretd
+%endif
+
+BEGINCODELOW
+BITS 16
+.resume100:
+        xchg    ebx, esp
+        call    Bs2ToRing0_p16
+        call    TMPL_NM(Bs2Thunk_p16)
+BITS TMPL_BITS
+        jmp     .high100
+BEGINCODEHIGH
+.high100:
+        and     edi, 0ffffh
+        ASSERT_SIMPLE ebx, edi, je, "IRET to 16-bit didn't restore ESP as expected [#1]."
+
+%ifndef TMPL_16BIT
+        ;
+        ; Take two on 16-bit return, does the high word of ESP leak?
+        ;
+        cli
+        mov     sBX, sSP                ; save the current stack address
+        mov     xSP, BS2_MUCK_ABOUT_BASE + 1000h
+
+        mov     sAX, BS2_SEL_R3_SS16 | 3
+        push    sAX                     ; Return SS
+        mov     sDI, sBX
+        push    sDI                     ; Return sSP
+ %ifdef TMPL_64BIT
+        pushfq
+ %else
+        pushfd
+ %endif
+        mov     sAX, BS2_SEL_R3_CS16 | 3
+        push    sAX                     ; Return CS
+        lea     sAX, [.resume101 xWrtRIP]
+        push    sAX                     ; Return sIP
+ %ifdef TMPL_64BIT
+        iretq
+ %else
+        iretd
+ %endif
+
+BEGINCODELOW
+BITS 16
+.resume101:
+        xchg    ebx, esp
+        call    Bs2ToRing0_p16
+        call    TMPL_NM(Bs2Thunk_p16)
+BITS TMPL_BITS
+        jmp     .high101
+BEGINCODEHIGH
+.high101:
+        or      edi, (BS2_MUCK_ABOUT_BASE + 1000h) & 0ffff0000h
+        ASSERT_SIMPLE ebx, edi, je, "IRET to 16-bit didn't restore ESP as expected [#2]."
+%endif ; Not 16-bit.
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+
+        mov     xSP, xSI
+        add     xSP, 80h
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szSubTestName:
+        db      TMPL_MODE_STR, ', IRET', 0
+ENDPROC   TMPL_NM(TestReturn)
+
+;;
+; Do the tests for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(DoTestsForMode_rm)
+        push    bp
+        mov     bp, sp
+        push    ax
+
+        ;
+        ; Check if the mode and NX is supported, do the switch.
+        ;
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+
+        ;
+        ; Test exception handler basics using INT3 and #BP.
+        ;
+
+        call    TMPL_NM(TestGateType)
+        call    TMPL_NM(TestCodeSelector)
+        call    TMPL_NM(TestCheckOrderCsTypeVsIdteType)
+        call    TMPL_NM(TestStack)
+        call    TMPL_NM(TestConforming)
+        call    TMPL_NM(TestReturn)
+
+        ;
+        ; Back to real mode.
+        ;
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+        call    Bs2DisableNX_r86
+
+.done:
+        pop     ax
+        leave
+        ret
+ENDPROC TMPL_NM(DoTestsForMode_rm)
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+%include "bootsector2-template-footer.mac"
+

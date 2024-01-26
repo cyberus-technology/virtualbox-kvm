@@ -1,0 +1,80 @@
+# $Id: .scm-settings $
+## @file
+# Source code massager settings for Runtime.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+--license-ose-dual
+
+/common/asn1/oiddb.cfg: --treat-as Makefile
+/common/err/errmsg.cpp: --no-fix-err-h
+
+# Skip test certificates.
+--filter-out-files /testcase/tstRTCrX509*.pem
+--filter-out-files /testcase/tstRTCrX509*.der
+
+# Skip test binaries and other output/input files.
+--filter-out-files /testcase/*.bin
+--filter-out-files /testcase/*.o
+--filter-out-files /testcase/tstRTLdrMachORelocs-1.o
+--filter-out-files /testcase/tstRTLdrMachORelocs-1.S
+--filter-out-files /testcase/tstRTLdrMachORelocs-1.disas
+
+# Small C and ASM headers, no copyright, license text or header guards.
+/r3/win/vcc-fakes-kernel32-*.h: --external-copyright --no-update-license --no-fix-header-guards
+
+# external code
+/r0drv/os2/os2imports.imp                      : --external-copyright --treat-as .def
+
+/r3/win/VBoxRT-msvcp100-win32.def              : --external-copyright
+/r3/win/VBoxRT-msvcr100-win32.def              : --external-copyright
+
+/common/math/x86/fenv-x86.c                    : --external-copyright --no-convert-tabs
+
+/common/math/gcc/*                             : --external-copyright --no-convert-tabs --dont-set-svn-keywords
+/common/math/gcc/divmoddi4.c                   : --no-external-copyright --convert-tabs --set-svn-keywords
+/common/math/gcc/udivmoddi4.c                  : --no-external-copyright --convert-tabs --set-svn-keywords
+
+# No header guard for these:
+/testcase/tstRTBigNum-uint128-div-test-data.h  : --no-fix-header-guards
+/testcase/tstRTBigNum-div-test-data.h          : --no-fix-header-guards
+/common/time/timesupref.h                      : --no-fix-header-guards
+/common/asn1/*-template.h                      : --no-fix-header-guards
+/common/asn1/*-template2.h                     : --no-fix-header-guards
+/common/crypto/*-template.h                    : --no-fix-header-guards
+/common/math/gcc/quad.h                        : --no-fix-header-guards
+/common/misc/sanity.h                          : --no-fix-header-guards
+/include/internal/openssl-p*.h                 : --no-fix-header-guards
+/*.h: --guard-relative-to-dir . --guard-prefix IPRT_INCLUDED_SRC_
+/include/internal/*.h: --guard-relative-to-dir include/internal --guard-prefix IPRT_INCLUDED_INTERNAL_
+

@@ -1,0 +1,157 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the device testcases.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Globals
+#
+VBOX_PATH_DEVICES_SRC ?= $(PATH_ROOT)/src/VBox/Devices
+VBOX_PATH_VMM_DEVICES_SRC ?= $(PATH_ROOT)/src/VBox/VMM/include
+VBOX_DEVICES_TEST_OUT_DIR := $(PATH_TARGET)/Devices/testcase
+BLDDIRS += $(VBOX_DEVICES_TEST_OUT_DIR)
+
+VBOX_DEVICES_TESTS_FEATURES = \
+	$(if $(VBOX_WITH_AHCI),VBOX_WITH_AHCI,) \
+	$(if $(VBOX_WITH_BUSLOGIC),VBOX_WITH_BUSLOGIC,) \
+	$(if $(VBOX_WITH_E1000),VBOX_WITH_E1000,) \
+	$(if $(VBOX_WITH_EHCI_IMPL),VBOX_WITH_EHCI_IMPL,) \
+	$(if $(VBOX_WITH_HGSMI),VBOX_WITH_HGSMI,) \
+	$(if $(VBOX_WITH_HP_HDA),VBOX_WITH_HP_HDA,) \
+	$(if $(VBOX_WITH_INTEL_HDA),VBOX_WITH_INTEL_HDA,) \
+	$(if $(VBOX_WITH_NVIDIA_HDA),VBOX_WITH_NVIDIA_HDA,) \
+	$(if $(VBOX_WITH_LSILOGIC),VBOX_WITH_LSILOGIC,) \
+	$(if $(VBOX_WITH_NVME_IMPL),VBOX_WITH_NVME_IMPL,) \
+	$(if $(VBOX_WITH_PCI_PASSTHROUGH_IMPL),VBOX_WITH_PCI_PASSTHROUGH_IMPL,) \
+	$(if $(VBOX_WITH_RAW_MODE),VBOX_WITH_RAW_MODE,) \
+	$(if $(VBOX_WITH_SCSI),VBOX_WITH_SCSI,) \
+	$(if $(VBOX_WITH_USB),VBOX_WITH_USB,) \
+	$(if $(VBOX_WITH_VDMA),VBOX_WITH_VDMA,) \
+	$(if $(VBOX_WITH_VIDEOHWACCEL),VBOX_WITH_VIDEOHWACCEL,) \
+	$(if $(VBOX_WITH_VIRTIO),VBOX_WITH_VIRTIO,) \
+	$(if $(VBOX_WITH_VMSVGA),VBOX_WITH_VMSVGA,) \
+	$(if $(VBOX_WITH_WDDM),VBOX_WITH_WDDM,) \
+	$(if $(VBOX_WITH_XHCI_IMPL),VBOX_WITH_XHCI_IMPL,) \
+	$(if $(VBOX_WITH_IOMMU_AMD),VBOX_WITH_IOMMU_AMD,) \
+	$(if $(VBOX_WITH_IOMMU_INTEL),VBOX_WITH_IOMMU_INTEL,) \
+	$(VBOX_AUDIO_DEFS) \
+	$(VMM_COMMON_DEFS)
+
+#
+# We setup one 'other' target for executing the structure & alignment
+# validation testcases. Perhaps a bit hackish, but extremely useful.
+#
+ifeq ($(KBUILD_TARGET),$(KBUILD_HOST))
+ ifeq ($(filter-out x86.x86 amd64.amd64 x86.amd64, $(KBUILD_TARGET_ARCH).$(KBUILD_HOST_ARCH)),)
+  OTHERS += \
+  	$(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+ endif
+endif
+
+# The normal testing pass.
+TESTING += \
+	$(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+
+ifdef VBOX_WITH_RAW_MODE
+ #
+ # The testcase generator.
+ #
+ PROGRAMS += tstDeviceStructSizeRC
+ tstDeviceStructSizeRC_TEMPLATE  = VBoxRcExe
+ tstDeviceStructSizeRC_DEFS      = $(VBOX_DEVICES_TESTS_FEATURES)
+ tstDeviceStructSizeRC_SOURCES   = tstDeviceStructSizeRC.cpp
+ tstDeviceStructSizeRC_INCS      = \
+ 	$(VBOX_PATH_DEVICES_SRC)/build \
+ 	$(VBOX_PATH_DEVICES_SRC)/Bus \
+ 	$(VBOX_DEVICES_TEST_OUT_DIR) \
+ 	$(VBOX_GRAPHICS_INCS)
+ tstDeviceStructSizeRC_INCS     += $(VBOX_PATH_VMM_DEVICES_SRC)
+endif # VBOX_WITH_RAW_MODE
+
+#
+# The testcase it self.
+#
+PROGRAMS += tstDeviceStructSize
+if "$(KBUILD_TARGET)" != "win" && $(VBOX_GCC_VERSION_CXX) < 40600
+ #
+ # Disable "ISO C++ prohibits anonymous structs [-Werror=pedantic]" caused by Mesa VMSVGA driver headers
+ # For GCC >= 4.6.0 the warning is disabled in DevVGA_SVGA.h
+ #
+ # Template used for gcc older than 4.6.  (Strips away compiler options.)
+ #
+ TEMPLATE_tstDeviceStructSizeOldGCC         := tstDeviceStructSizeOldGCC
+ TEMPLATE_tstDeviceStructSizeOldGCC_EXTENDS := VBoxR3AutoTest
+ TEMPLATE_tstDeviceStructSizeOldGCC_CXXFLAGS = $(filter-out -pedantic,$(TEMPLATE_$(TEMPLATE_tstDeviceStructSizeOldGCC_EXTENDS)_CXXFLAGS))
+
+ tstDeviceStructSize_TEMPLATE = tstDeviceStructSizeOldGCC
+else
+ tstDeviceStructSize_TEMPLATE = VBoxR3AutoTest
+endif
+tstDeviceStructSize_DEFS     = $(VBOX_DEVICES_TESTS_FEATURES)
+tstDeviceStructSize_INCS     = \
+	$(VBOX_PATH_DEVICES_SRC)/build \
+	$(VBOX_PATH_DEVICES_SRC)/Bus \
+	$(VBOX_DEVICES_TEST_OUT_DIR) \
+	$(VBOX_GRAPHICS_INCS) \
+	$(VBOX_PATH_VMSVGA_DEVICE_INC)
+tstDeviceStructSize_SOURCES  = tstDeviceStructSize.cpp
+tstDeviceStructSize_CLEAN    = \
+	$(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSizeRC.h \
+	$(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+ifdef VBOX_WITH_RAW_MODE
+ tstDeviceStructSize.cpp_DEPS = $(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSizeRC.h
+endif
+tstDeviceStructSize_INCS      += $(VBOX_PATH_VMM_DEVICES_SRC)
+
+#
+# Run rule for tstDeviceStructSize.
+#
+
+# 1. Dump selected structure in the VMMRC.rc debug info.
+# 2. Generate a testcase from the dump
+## future
+
+ifdef VBOX_WITH_RAW_MODE
+ # 1&2. Manually dump selected structures and members.
+ $(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSizeRC.h: $$(tstDeviceStructSizeRC_1_STAGE_TARGET) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@)
+	$(QUIET)$(REDIRECT) -wo $@ -- $^
+endif
+
+# 3. run it.
+$(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run: $$(tstDeviceStructSize_1_STAGE_TARGET) | $$(dir $$@)
+	$(QUIET)$(RM) -f $@
+	$^
+	$(QUIET)$(APPEND) "$@" "done"
+
+# alias for the struct test.
+run-struct-tests: $(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

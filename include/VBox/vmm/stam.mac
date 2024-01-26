@@ -1,0 +1,392 @@
+;; @file
+; STAM - Statistics Manager.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___VBox_vmm_stam_mac__
+%define ___VBox_vmm_stam_mac__
+
+
+%ifndef VBOX_WITH_STATISTICS
+ %ifdef DEBUG
+  %define VBOX_WITH_STATISTICS
+ %endif
+%endif
+
+
+
+;;
+; Counter sample - STAMTYPE_COUNTER.
+struc STAMCOUNTER
+    .c              resd 2
+endstruc
+
+;;
+; Increments a counter sample by one.
+; @param   %1   Pointer to the STAMCOUNTER structure to operate on.
+%macro STAM32_COUNTER_INC 1
+%ifdef VBOX_WITH_STATISTICS
+    push    ebx
+    mov     ebx, %1
+    inc     dword [ebx + STAMCOUNTER.c]
+    adc     dword [ebx + STAMCOUNTER.c + 1], byte 0
+    pop     ebx
+%endif
+%endmacro
+
+%macro STAM64_COUNTER_INC 1
+%ifdef VBOX_WITH_STATISTICS
+    push    rbx
+    mov     rbx, %1
+    inc     qword [rbx + STAMCOUNTER.c]
+    pop     rbx
+%endif
+%endmacro
+
+%macro STAM_COUNTER_INC 1
+%ifdef VBOX_WITH_STATISTICS
+ %ifdef RT_ARCH_AMD64
+    STAM64_COUNTER_INC %1
+ %else
+    STAM32_COUNTER_INC %1
+ %endif
+%endif
+%endmacro
+
+
+;;
+; Increments a counter sample by a value.
+;
+; @param   %1   Pointer to the STAMCOUNTER structure to operate on.
+; @param   %2   The value to add to the counter.
+%macro STAM32_COUNTER_ADD 2
+%ifdef VBOX_WITH_STATISTICS
+    push    ebx
+    mov     ebx, %1
+    push    eax
+    mov     eax, %2
+
+    add     [ebx + STAMCOUNTER.c], eax
+    adc     dword [ebx + STAMCOUNTER.c], byte 0
+
+    pop     eax
+    pop     ebx
+%endif
+%endmacro
+
+%macro STAM64_COUNTER_ADD 2
+%ifdef VBOX_WITH_STATISTICS
+    push    rbx
+    mov     rbx, %1
+    push    rax
+    mov     rax, %2
+
+    add     [rbx + STAMCOUNTER.c], rax
+
+    pop     rax
+    pop     rbx
+%endif
+%endmacro
+
+%macro STAM_COUNTER_ADD 2
+%ifdef VBOX_WITH_STATISTICS
+ %ifdef RT_ARCH_AMD64
+     STAM64_COUNTER_ADD %1, %2
+ %else
+     STAM32_COUNTER_ADD %1, %2
+ %endif
+%endif
+%endmacro
+
+
+;;
+; Profiling sample - STAMTYPE_PROFILE.
+struc STAMPROFILE
+    .cPeriods        resd 2
+    .cTicks          resd 2
+    .cTicksMax       resd 2
+    .cTicksMin       resd 2
+endstruc
+
+
+;;
+; Samples the start time of a profiling period.
+;
+; @param   %1    Pointer to somewhere one can store a 64-bit timestamp until STAM_PROFILE_STOPP
+%macro STAM32_PROFILE_START 1
+%ifdef VBOX_WITH_STATISTICS
+    push    ebx
+    mov     ebx, %1
+    push    eax
+    push    edx
+
+    rdtsc
+    mov     [ebx], eax
+    mov     [ebx + 4], edx
+
+    pop     edx
+    pop     eax
+    pop     ebx
+%endif
+%endmacro
+
+%macro STAM64_PROFILE_START 1
+%ifdef VBOX_WITH_STATISTICS
+    push    rbx
+    mov     rbx, %1
+    push    rax
+    push    rdx
+
+    rdtsc
+    mov     [rbx], eax
+    mov     [rbx + 4], edx
+
+    pop     rdx
+    pop     rax
+    pop     rbx
+%endif
+%endmacro
+
+%macro STAM_PROFILE_START 1
+%ifdef VBOX_WITH_STATISTICS
+ %ifdef RT_ARCH_AMD64
+    STAM64_PROFILE_START %1
+ %else
+    STAM32_PROFILE_START %1
+ %endif
+%endif
+%endmacro
+
+
+;;
+; Samples the stop time of a profiling period and updates the sample.
+;
+; @param   %1    Pointer to the STAMPROFILE structure to operate on.
+; @param   %2    Pointer to where the 64-bit timestamp from STAM_PROFILE_START was stored.
+%macro STAM32_PROFILE_STOP 2
+%ifdef VBOX_WITH_STATISTICS
+    push    ebx
+    mov     ebx, %1
+    push    eax
+    push    edx
+
+    ; calc cTicks
+    push    ecx
+    mov     ecx, %2
+    rdtsc
+    sub     eax, [ecx]
+    sbb     edx, [ecx + 4]
+    pop     ecx
+
+    ; update STAMPROFILE.cTicks
+    add     [ebx + STAMPROFILE.cTicks], eax
+    adc     [ebx + STAMPROFILE.cTicks + 4], edx
+    ; update STAMPROFILE.cPeriods
+    inc     dword [ebx + STAMPROFILE.cPeriods]
+    adc     dword [ebx + STAMPROFILE.cPeriods + 4], byte 0
+
+    ; update max?
+    cmp     edx, [ebx + STAMPROFILE.cTicksMax + 4]
+    jb short %%not_update_max
+    ja short %%update_max
+    cmp     eax, [ebx + STAMPROFILE.cTicksMax]
+    jbe short %%not_update_max
+%%update_max:
+    mov     [ebx + STAMPROFILE.cTicksMax], eax
+    mov     [ebx + STAMPROFILE.cTicksMax + 4], edx
+%%not_update_max:
+
+    ; update min?
+    cmp     edx, [ebx + STAMPROFILE.cTicksMin + 4]
+    ja short %%not_update_min
+    jb short %%update_min
+    cmp     eax, [ebx + STAMPROFILE.cTicksMin]
+    jae short %%not_update_min
+%%update_min:
+    mov     [ebx + STAMPROFILE.cTicksMin], eax
+    mov     [ebx + STAMPROFILE.cTicksMin + 4], edx
+%%not_update_min:
+
+    pop     edx
+    pop     eax
+    pop     ebx
+%endif
+%endmacro
+
+%macro STAM64_PROFILE_STOP 2
+%ifdef VBOX_WITH_STATISTICS
+    push    rbx
+    mov     rbx, %1
+    push    rax
+    push    rdx
+
+    ; calc cTicks
+    push    rcx
+    mov     rcx, %2
+    rdtsc
+    sub     rax, [ecx]
+    sbb     rdx, [ecx + 4]
+    pop     rcx
+
+    ; update STAMPROFILE.cTicks
+    shl     rdx, 32
+    or      rdx, rax
+    add     [rbx + STAMPROFILE.cTicks], rdx
+    ; update STAMPROFILE.cPeriods
+    inc     qword [rbx + STAMPROFILE.cPeriods]
+
+    ; update max?
+    cmp     rdx, [rbx + STAMPROFILE.cTicksMax]
+    jbe short %%not_update_max
+    mov     [rbx + STAMPROFILE.cTicksMax], rdx
+%%not_update_max:
+
+    ; update min?
+    cmp     rdx, [rbx + STAMPROFILE.cTicksMin]
+    jae short %%not_update_min
+    mov     [rbx + STAMPROFILE.cTicksMin], rax
+%%not_update_min:
+
+    pop     rdx
+    pop     rax
+    pop     rbx
+%endif
+%endmacro
+
+%macro STAM_PROFILE_STOP 2
+%ifdef VBOX_WITH_STATISTICS
+ %ifdef RT_ARCH_AMD64
+    STAM64_PROFILE_STOP %1, %2
+ %else
+    STAM32_PROFILE_STOP %1, %2
+ %endif
+%endif
+%endmacro
+
+
+
+struc STAMPROFILEADV
+    .cPeriods       resd 2
+    .cTicks         resd 2
+    .cTicksMax      resd 2
+    .cTicksMin      resd 2
+    .tsStart        resd 2
+endstruc
+
+
+;;
+; Samples the start time of a profiling period.
+;
+; @param   %1   Pointer to the STAMPROFILEADV structure to operate on.
+%macro STAM32_PROFILE_ADV_START 1
+%ifdef VBOX_WITH_STATISTICS
+    push    ecx
+    mov     ecx, %1
+    lea     ecx, [ecx + STAMPROFILEADV.tsStart]
+    STAM32_PROFILE_START ecx
+    pop     ecx
+%endif
+%endmacro
+
+%macro STAM64_PROFILE_ADV_START 1
+%ifdef VBOX_WITH_STATISTICS
+    push    rcx
+    mov     rcx, %1
+    lea     rcx, [rcx + STAMPROFILEADV.tsStart]
+    STAM64_PROFILE_START rcx
+    pop     rcx
+%endif
+%endmacro
+
+%macro STAM_PROFILE_ADV_START 1
+%ifdef VBOX_WITH_STATISTICS
+ %ifdef RT_ARCH_AMD64
+    STAM64_PROFILE_ADV_START %1
+ %else
+    STAM32_PROFILE_ADV_START %1
+ %endif
+%endif
+%endmacro
+
+
+;;
+; Samples the stop time of a profiling period and updates the sample.
+;
+; @param   %1   Pointer to the STAMPROFILEADV structure to operate on.
+
+%macro STAM32_PROFILE_ADV_STOP 1
+%ifdef VBOX_WITH_STATISTICS
+    push    ecx
+    mov     ecx, %1
+    lea     ecx, [ecx + STAMPROFILEADV.tsStart]
+    cmp     dword [ecx], byte 0
+    jnz short %%doit
+    cmp     dword [ecx + 4], byte 0
+    jz short %%dont
+%%doit:
+    STAM32_PROFILE_STOP %1, ecx
+%%dont:
+    mov     dword [ecx], 0
+    mov     dword [ecx + 4], 0
+    pop     ecx
+%endif
+%endmacro
+
+%macro STAM64_PROFILE_ADV_STOP 1
+%ifdef VBOX_WITH_STATISTICS
+    push    rcx
+    mov     rcx, %1
+    lea     rcx, [rcx + STAMPROFILEADV.tsStart]
+    cmp     qword [rcx], byte 0
+    jz short %%dont
+%%doit:
+    STAM64_PROFILE_STOP %1, rcx
+%%dont:
+    mov     qword [rcx], 0
+    pop     rcx
+%endif
+%endmacro
+
+%macro STAM_PROFILE_ADV_STOP 1
+%ifdef VBOX_WITH_STATISTICS
+ %ifdef RT_ARCH_AMD64
+    STAM64_PROFILE_ADV_STOP %1
+ %else
+    STAM32_PROFILE_ADV_STOP %1
+ %endif
+%endif
+%endmacro
+
+
+
+%endif

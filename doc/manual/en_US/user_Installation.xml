@@ -1,0 +1,1535 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<chapter id="installation">
+
+  <title>Installation Details</title>
+
+  <para>
+    As installation of &product-name; varies depending on your host
+    operating system, the following sections provide installation
+    instructions for Windows, macOS, Linux, and Oracle Solaris.
+  </para>
+
+  <sect1 id="installation_windows">
+
+    <title>Installing on Windows Hosts</title>
+
+    <sect2 id="install-win-prereq">
+
+      <title>Prerequisites</title>
+
+      <para>
+        For the various versions of Windows that are supported as host
+        operating systems, please refer to
+        <xref linkend="hostossupport" />.
+      </para>
+
+      <para>
+        In addition, Windows Installer must be present on your system.
+        This should be the case for all supported Windows platforms.
+      </para>
+
+    </sect2>
+
+    <sect2 id="install-win-performing">
+
+      <title>Performing the Installation</title>
+
+      <para>
+        The &product-name; installation can be started in either of the
+        following ways:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            By double-clicking on the executable file.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            By entering the following command:
+          </para>
+
+<screen>VirtualBox-&lt;version&gt;-&lt;revision&gt;-Win.exe -extract</screen>
+
+          <para>
+            This will extract the installer into a temporary directory,
+            along with the .MSI file. Run the following command to
+            perform the installation:
+          </para>
+
+<screen>msiexec /i VirtualBox-&lt;version&gt;-&lt;revision&gt;-Win.msi</screen>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        Using either way displays the installation
+        <emphasis role="bold">Welcome</emphasis> dialog and enables you
+        to choose where to install &product-name;, and which components
+        to install. In addition to the &product-name; application, the
+        following components are available:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">USB support.</emphasis> This package
+            contains special drivers for your Windows host that
+            &product-name; requires to fully support USB devices inside
+            your virtual machines.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Networking.</emphasis> This package
+            contains extra networking drivers for your Windows host that
+            &product-name; needs to support Bridged Networking. This
+            enables your VM's virtual network cards to be accessed from
+            other machines on your physical network.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            <emphasis role="bold">Python support.</emphasis> This
+            package contains Python scripting support for the
+            &product-name; API, see <xref linkend="VirtualBoxAPI" />.
+            For this to work, an already working Windows Python
+            installation on the system is required.
+          </para>
+
+          <para>
+            See, for example:
+            <ulink url="http://www.python.org/download/windows/" />.
+          </para>
+
+          <note>
+            <para>
+              Python version at least 2.6 is required. Python 3 is also
+              supported.
+            </para>
+          </note>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        Depending on your Windows configuration, you may see warnings
+        about unsigned drivers, or similar. Click
+        <emphasis role="bold">Continue</emphasis> for these warnings, as
+        otherwise &product-name; might not function correctly after
+        installation.
+      </para>
+
+      <para>
+        The installer will create an &product-name; group in the Windows
+        <emphasis role="bold">Start</emphasis> menu, which enables you
+        to launch the application and access its documentation.
+      </para>
+
+      <para>
+        With standard settings, &product-name; will be installed for all
+        users on the local system. If this is not wanted, you must
+        invoke the installer by first extracting as follows:
+      </para>
+
+<screen>VirtualBox.exe -extract</screen>
+
+      <para>
+        Then, run either of the following commands on the extracted .MSI
+        file. This will install &product-name; only for the current
+        user.
+      </para>
+
+<screen>VirtualBox.exe -msiparams ALLUSERS=2</screen>
+
+<screen>msiexec /i VirtualBox-&lt;version&gt;-Win.msi ALLUSERS=2</screen>
+
+      <para>
+        If you do not want to install all features of &product-name;,
+        you can set the optional <literal>ADDLOCAL</literal> parameter
+        to explicitly name the features to be installed. The following
+        features are available:
+      </para>
+
+      <variablelist>
+
+        <varlistentry>
+          <term>
+            VBoxApplication
+          </term>
+
+          <listitem>
+            <para>
+              Main binaries of &product-name;.
+            </para>
+
+            <note>
+              <para>
+                This feature must not be absent, since it contains the
+                minimum set of files to have working &product-name;
+                installation.
+              </para>
+            </note>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            VBoxUSB
+          </term>
+
+          <listitem>
+            <para>
+              USB support.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            VBoxNetwork
+          </term>
+
+          <listitem>
+            <para>
+              All networking support. This includes the VBoxNetworkFlt
+              and VBoxNetworkAdp features.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            VBoxNetworkFlt
+          </term>
+
+          <listitem>
+            <para>
+              Bridged networking support.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            VBoxNetworkAdp
+          </term>
+
+          <listitem>
+            <para>
+              Host-only networking support
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            VBoxPython
+          </term>
+
+          <listitem>
+            <para>
+              Python support
+            </para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+
+      <para>
+        For example, to only install USB support along with the main
+        binaries, run either of the following commands:
+      </para>
+
+<screen>VirtualBox.exe -msiparams ADDLOCAL=VBoxApplication,VBoxUSB</screen>
+
+<screen>msiexec /i VirtualBox-&lt;version&gt;-Win.msi ADDLOCAL=VBoxApplication,VBoxUSB</screen>
+
+      <para>
+        The user is able to choose between NDIS5 and NDIS6 host network
+        filter drivers during the installation. This is done using a
+        command line parameter, <literal>NETWORKTYPE</literal>. The
+        NDIS6 driver is the default for most supported Windows hosts.
+        For some legacy Windows versions, the installer will
+        automatically select the NDIS5 driver and this cannot be
+        changed.
+      </para>
+
+      <para>
+        You can force an install of the legacy NDIS5 host network filter
+        driver by specifying <literal>NETWORKTYPE=NDIS5</literal>. For
+        example, to install the NDIS5 driver on Windows 7 use either of
+        the following commands:
+      </para>
+
+<screen>VirtualBox.exe -msiparams NETWORKTYPE=NDIS5</screen>
+
+<screen>msiexec /i VirtualBox-&lt;version&gt;-Win;.msi NETWORKTYPE=NDIS5</screen>
+
+    </sect2>
+
+    <sect2 id="install-win-uninstall">
+
+      <title>Uninstallation</title>
+
+      <para>
+        As &product-name; uses the standard Microsoft Windows installer,
+        &product-name; can be safely uninstalled at any time. Click the
+        program entry in the <emphasis role="bold">Add/Remove
+        Programs</emphasis> list in the Windows Control Panel.
+      </para>
+
+    </sect2>
+
+    <sect2 id="install-win-unattended">
+
+      <title>Unattended Installation</title>
+
+      <para>
+        Unattended installations can be performed using the standard MSI
+        support.
+      </para>
+
+    </sect2>
+
+    <sect2 id="install-win-public-props">
+
+      <title>Public Properties</title>
+
+      <para>
+        Public properties can be specified with the MSI API, to control
+        additional behavior and features of the Windows host installer.
+        Use either of the following commands:
+      </para>
+
+<screen>VirtualBox.exe -msiparams NAME=VALUE [...]</screen>
+
+<screen>msiexec /i VirtualBox-&lt;version&gt;-Win.msi NAME=VALUE [...]</screen>
+
+      <para>
+        The following public properties are available.
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            VBOX_INSTALLDESKTOPSHORTCUT
+          </para>
+
+          <para>
+            Specifies whether or not an &product-name; icon on the
+            desktop should be created.
+          </para>
+
+          <para>
+            Set to <literal>1</literal> to enable, <literal>0</literal>
+            to disable. Default is 1.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            VBOX_INSTALLQUICKLAUNCHSHORTCUT
+          </para>
+
+          <para>
+            Specifies whether or not an &product-name; icon in the Quick
+            Launch Bar should be created.
+          </para>
+
+          <para>
+            Set to <literal>1</literal> to enable, <literal>0</literal>
+            to disable. Default is 1.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            VBOX_REGISTERFILEEXTENSIONS
+          </para>
+
+          <para>
+            Specifies whether or not the file extensions .vbox,
+            .vbox-extpack, .ovf, .ova, .vdi, .vmdk, .vhd and .vdd should
+            be associated with &product-name;. Files of these types then
+            will be opened with &product-name;.
+          </para>
+
+          <para>
+            Set to <literal>1</literal> to enable, <literal>0</literal>
+            to disable. Default is 1.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            VBOX_START
+          </para>
+
+          <para>
+            Specifies whether to start &product-name; right after
+            successful installation.
+          </para>
+
+          <para>
+            Set to <literal>1</literal> to enable, <literal>0</literal>
+            to disable. Default is 1.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="installation-mac">
+
+    <title>Installing on macOS Hosts</title>
+
+    <sect2 id="install-mac-performing">
+
+      <title>Performing the Installation</title>
+
+      <para>
+        For macOS hosts, &product-name; ships in a
+        <filename>dmg</filename> disk image file. Perform the following
+        steps to install on a macOS host:
+      </para>
+
+      <orderedlist>
+
+        <listitem>
+          <para>
+            Double-click on the <filename>dmg</filename> file, to mount
+            the contents.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            A window opens, prompting you to double-click on the
+            <filename>VirtualBox.pkg</filename> installer file displayed
+            in that window.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            This starts the installer, which enables you to select where
+            to install &product-name;.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            An &product-name; icon is added to the
+            <filename>Applications</filename> folder in the Finder.
+          </para>
+        </listitem>
+
+      </orderedlist>
+
+    </sect2>
+
+    <sect2 id="install-mac-uninstall">
+
+      <title>Uninstallation</title>
+
+      <para>
+        To uninstall &product-name;, open the disk image
+        <filename>dmg</filename> file and double-click on the uninstall
+        icon shown.
+      </para>
+
+    </sect2>
+
+    <sect2 id="install-mac-unattended">
+
+      <title>Unattended Installation</title>
+
+      <para>
+        To perform a non-interactive installation of &product-name; you
+        can use the command line version of the installer application.
+      </para>
+
+      <para>
+        Mount the <filename>dmg</filename> disk image file, as described
+        in the installation procedure, or use the following command
+        line:
+      </para>
+
+<screen>hdiutil attach /path/to/VirtualBox-xyz.dmg</screen>
+
+      <para>
+        Open a terminal session and run the following command:
+      </para>
+
+<screen>sudo installer -pkg /Volumes/VirtualBox/VirtualBox.pkg -target /Volumes/Macintosh\ HD</screen>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="install-linux-host">
+
+    <title>Installing on Linux Hosts</title>
+
+    <sect2 id="install-linux-prereq">
+
+      <title>Prerequisites</title>
+
+      <para>
+        For the various versions of Linux that are supported as host
+        operating systems, see <xref linkend="hostossupport" />.
+      </para>
+
+      <para>
+        You may need to install the following packages on your Linux
+        system before starting the installation. Some systems will do
+        this for you automatically when you install &product-name;.
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            Qt 5.3.2 or later. Qt 5.6.2 or later is recommended.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            SDL 1.2.7 or later. This graphics library is typically
+            called <filename>libsdl</filename> or similar.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <note>
+        <para>
+          These packages are only required if you want to run the
+          &product-name; graphical user interfaces. In particular,
+          <command>VirtualBox</command>, the graphical VirtualBox
+          Manager, requires both Qt and SDL. If you only want to run
+          <command>VBoxHeadless</command>, neither Qt nor SDL are
+          required.
+        </para>
+      </note>
+
+    </sect2>
+
+    <sect2 id="externalkernelmodules">
+
+      <title>The &product-name; Kernel Modules</title>
+
+      <para>
+        In order to run other operating systems in virtual machines
+        alongside your main operating system, &product-name; needs to
+        integrate very tightly with your system. To do this it installs
+        a driver module called <command>vboxdrv</command> into the
+        system kernel. The kernel is the part of the operating system
+        which controls your processor and physical hardware. Without
+        this kernel module, you can still use &vbox-mgr; to configure
+        virtual machines, but they will not start.
+      </para>
+
+      <para>
+        Network drivers called <command>vboxnetflt</command> and
+        <command>vboxnetadp</command> are also installed. They enable
+        virtual machines to make more use of your computer's network
+        capabilities and are needed for any virtual machine networking
+        beyond the basic NAT mode.
+      </para>
+
+      <para>
+        Since distributing driver modules separately from the kernel is
+        not something which Linux supports well, the &product-name;
+        install process creates the modules on the system where they
+        will be used. This means that you may need to install some
+        software packages from the distribution which are needed for the
+        build process. Required packages may include the following:
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            GNU compiler (GCC)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            GNU Make (make)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Kernel header files
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        Also ensure that all system updates have been installed and that
+        your system is running the most up-to-date kernel for the
+        distribution.
+      </para>
+
+      <note>
+        <para>
+          The running kernel and the kernel header files must be updated
+          to matching versions.
+        </para>
+      </note>
+
+      <para>
+        The following list includes some details of the required files
+        for some common distributions. Start by finding the version name
+        of your kernel, using the command <command>uname -r</command> in
+        a terminal. The list assumes that you have not changed too much
+        from the original installation, in particular that you have not
+        installed a different kernel type.
+      </para>
+
+      <itemizedlist>
+
+        <listitem>
+          <para>
+            With Debian and Ubuntu-based distributions, you must install
+            the correct version of the
+            <filename>linux-headers</filename>, usually whichever of
+            <filename>linux-headers-generic</filename>,
+            <filename>linux-headers-amd64</filename>,
+            <filename>linux-headers-i686</filename> or
+            <filename>linux-headers-i686-pae</filename> best matches the
+            kernel version name. Also, the
+            <filename>linux-kbuild</filename> package if it exists.
+            Basic Ubuntu releases should have the correct packages
+            installed by default.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            On Fedora, Red Hat, Oracle Linux and many other RPM-based
+            systems, the kernel version sometimes has a code of letters
+            or a word close to the end of the version name. For example
+            "uek" for the Oracle Unbreakable Enterprise Kernel or
+            "default" or "desktop" for the standard kernels. In this
+            case, the package name is
+            <filename>kernel-uek-devel</filename> or equivalent. If
+            there is no such code, it is usually
+            <filename>kernel-devel</filename>.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            On some SUSE and openSUSE Linux versions, you may need to
+            install the <filename>kernel-source</filename> and
+            <filename>kernel-syms</filename> packages.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+
+      <para>
+        If you suspect that something has gone wrong with module
+        installation, check that your system is set up as described
+        above and try running the following command, as root:
+      </para>
+
+<screen>rcvboxdrv setup</screen>
+
+      <sect3 id="kernel-modules-efi-secure-boot">
+
+        <title>Kernel Modules and UEFI Secure Boot</title>
+
+        <para>
+          If you are running on a system using UEFI (Unified Extensible
+          Firmware Interface) Secure Boot, you may need to sign the
+          following kernel modules before you can load them:
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              <command>vboxdrv</command>
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              <command>vboxnetadp</command>
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              <command>vboxnetflt</command>
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              <command>vboxpci</command>
+            </para>
+          </listitem>
+
+        </itemizedlist>
+
+        <para>
+          See your system documentation for details of the kernel module
+          signing process.
+        </para>
+
+      </sect3>
+
+    </sect2>
+
+    <sect2 id="install-linux-performing">
+
+      <title>Performing the Installation</title>
+
+      <para>
+        &product-name; is available in a number of package formats
+        native to various common Linux distributions. See
+        <xref linkend="hostossupport"/>. In addition, there is an
+        alternative generic installer (.run) which you can use on
+        supported Linux distributions.
+      </para>
+
+      <sect3 id="install-linux-debian-ubuntu">
+
+        <title>Installing &product-name; from a Debian or Ubuntu Package</title>
+
+        <para>
+          Download the appropriate package for your distribution. The
+          following example assumes that you are installing to a 64-bit
+          Ubuntu Xenial system. Use <command>dpkg</command> to install
+          the Debian package,as follows:
+        </para>
+
+<screen>sudo dpkg -i virtualbox-<replaceable>version-number</replaceable>_Ubuntu_xenial_amd64.deb</screen>
+
+        <para>
+          The installer will also try to build kernel modules suitable
+          for the current running kernel. If the build process is not
+          successful you will be shown a warning and the package will be
+          left unconfigured. Look at
+          <filename>/var/log/vbox-install.log</filename> to find out why
+          the compilation failed. You may have to install the
+          appropriate Linux kernel headers, see
+          <xref linkend="externalkernelmodules" />. After correcting any
+          problems, run the following command:
+        </para>
+
+<screen>sudo rcvboxdrv setup</screen>
+
+        <para>
+          This will start a second attempt to build the module.
+        </para>
+
+        <para>
+          If a suitable kernel module was found in the package or the
+          module was successfully built, the installation script will
+          attempt to load that module. If this fails, please see
+          <xref linkend="ts_linux-kernelmodule-fails-to-load" /> for
+          further information.
+        </para>
+
+        <para>
+          Once &product-name; has been successfully installed and
+          configured, you can start it by clicking
+          <emphasis role="bold">VirtualBox</emphasis> in your
+          <emphasis role="bold">Start</emphasis> menu or from the
+          command line. See <xref linkend="startingvboxonlinux" />.
+        </para>
+
+      </sect3>
+
+      <sect3 id="install-linux-alt-installer">
+
+        <title>Using the Alternative Generic Installer (VirtualBox.run)</title>
+
+        <para>
+          The alternative generic installer performs the following
+          steps:
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              Unpacks the application files to the target directory
+              <filename>/opt/VirtualBox/</filename>, which cannot be
+              changed.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Builds and installs the &product-name; kernel modules:
+              <command>vboxdrv</command>, <command>vboxnetflt</command>,
+              and <command>vboxnetadp</command>.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Creates <filename>/sbin/rcvboxdrv</filename>, an init
+              script to start the &product-name; kernel module.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Creates a new system group called
+              <literal>vboxusers</literal>.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Creates symbolic links in <filename>/usr/bin</filename> to
+              a shell script <filename>/opt/VirtualBox/VBox</filename>
+              which does some sanity checks and dispatches to the actual
+              executables: <command>VirtualBox</command>,
+              <command>VBoxVRDP</command>,
+              <command>VBoxHeadless</command> and
+              <command>VBoxManage</command>.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Creates
+              <filename>/etc/udev/rules.d/60-vboxdrv.rules</filename>, a
+              description file for udev, if that is present, which makes
+              the USB devices accessible to all users in the
+              <literal>vboxusers</literal> group.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Writes the installation directory to
+              <filename>/etc/vbox/vbox.cfg</filename>.
+            </para>
+          </listitem>
+
+        </itemizedlist>
+
+        <para>
+          The installer must be executed as root with either
+          <literal>install</literal> or <literal>uninstall</literal> as
+          the first parameter. For example:
+        </para>
+
+<screen>sudo ./VirtualBox.run install</screen>
+
+        <para>
+          Or if you do not have the <command>sudo</command> command
+          available, run the following as root instead:
+        </para>
+
+<screen>./VirtualBox.run install</screen>
+
+        <para>
+          Add every user who needs to access USB devices from a
+          VirtualBox guests to the group <literal>vboxusers</literal>.
+          Either use the OS user management tools or run the following
+          command as root:
+        </para>
+
+<screen>sudo usermod -a -G vboxusers username</screen>
+
+        <note>
+          <para>
+            The <command>usermod</command> command of some older Linux
+            distributions does not support the <option>-a</option>
+            option, which adds the user to the given group without
+            affecting membership of other groups. In this case, find out
+            the current group memberships with the
+            <command>groups</command> command and add all these groups
+            in a comma-separated list to the command line after the
+            <option>-G</option> option. For example: <command>usermod -G
+            <replaceable>group1</replaceable>,<replaceable>group2</replaceable>,vboxusers
+            <replaceable>username</replaceable></command>.
+          </para>
+        </note>
+
+      </sect3>
+
+      <sect3 id="install-linux-manual">
+
+        <title>Performing a Manual Installation</title>
+
+        <para>
+          If you cannot use the shell script installer described in
+          <xref linkend="install-linux-alt-installer"/>, you can perform
+          a manual installation. Run the installer as follows:
+        </para>
+
+<screen>./VirtualBox.run --keep --noexec</screen>
+
+        <para>
+          This will unpack all the files needed for installation in the
+          directory <literal>install</literal> under the current
+          directory. The &product-name; application files are contained
+          in <filename>VirtualBox.tar.bz2</filename> which you can
+          unpack to any directory on your system. For example:
+        </para>
+
+<screen>sudo mkdir /opt/VirtualBox
+sudo tar jxf ./install/VirtualBox.tar.bz2 -C /opt/VirtualBox</screen>
+
+        <para>
+          To run the same example as root, use the following commands:
+        </para>
+
+<screen>mkdir /opt/VirtualBox
+tar jxf ./install/VirtualBox.tar.bz2 -C /opt/VirtualBox</screen>
+
+        <para>
+          The sources for &product-name;'s kernel module are provided in
+          the <filename>src</filename> directory. To build the module,
+          change to the directory and use the following command:
+        </para>
+
+<screen>make</screen>
+
+        <para>
+          If everything builds correctly, run the following command to
+          install the module to the appropriate module directory:
+        </para>
+
+<screen>sudo make install</screen>
+
+        <para>
+          In case you do not have sudo, switch the user account to root
+          and run the following command:
+        </para>
+
+<screen>make install</screen>
+
+        <para>
+          The &product-name; kernel module needs a device node to
+          operate. The above <command>make</command> command will tell
+          you how to create the device node, depending on your Linux
+          system. The procedure is slightly different for a classical
+          Linux setup with a <filename>/dev</filename> directory, a
+          system with the now deprecated <command>devfs</command> and a
+          modern Linux system with <command>udev</command>.
+        </para>
+
+        <para>
+          On certain Linux distributions, you might experience
+          difficulties building the module. You will have to analyze the
+          error messages from the build system to diagnose the cause of
+          the problems. In general, make sure that the correct Linux
+          kernel sources are used for the build process.
+        </para>
+
+        <para>
+          Note that the <filename>/dev/vboxdrv</filename> kernel module
+          device node must be owned by root:root and must be
+          read/writable only for the user.
+        </para>
+
+        <para>
+          Next, you install the system initialization script for the
+          kernel module and activate the initialization script using the
+          right method for your distribution, as follows:
+        </para>
+
+<screen>cp /opt/VirtualBox/vboxdrv.sh /sbin/rcvboxdrv</screen>
+
+        <para>
+          This example assumes you installed &product-name; to the
+          <filename>/opt/VirtualBox</filename> directory.
+        </para>
+
+        <para>
+          Create a configuration file for &product-name;, as follows:
+        </para>
+
+<screen>mkdir /etc/vbox
+echo INSTALL_DIR=/opt/VirtualBox &gt; /etc/vbox/vbox.cfg</screen>
+
+        <para>
+          Create the following symbolic links:
+        </para>
+
+<screen>ln -sf /opt/VirtualBox/VBox.sh /usr/bin/VirtualBox
+ln -sf /opt/VirtualBox/VBox.sh /usr/bin/VBoxManage
+ln -sf /opt/VirtualBox/VBox.sh /usr/bin/VBoxHeadless</screen>
+
+      </sect3>
+
+      <sect3 id="install-linux-update-uninstall">
+
+        <title>Updating and Uninstalling &product-name;</title>
+
+        <para>
+          Before updating or uninstalling &product-name;, you must
+          terminate any virtual machines which are currently running and
+          exit the &product-name; or VBoxSVC applications. To update
+          &product-name;, simply run the installer of the updated
+          version. To uninstall &product-name;, run the installer as
+          follows:
+        </para>
+
+<screen>sudo ./VirtualBox.run uninstall</screen>
+
+        <para>
+          As root, you can use the following command:
+        </para>
+
+<screen>./VirtualBox.run uninstall</screen>
+
+        <para>
+          You can uninstall the .run package as follows:
+        </para>
+
+<screen>/opt/VirtualBox/uninstall.sh</screen>
+
+        <para>
+          To manually uninstall &product-name;, perform the manual
+          installation steps in reverse order.
+        </para>
+
+      </sect3>
+
+      <sect3 id="install-linux-debian-automatic">
+
+        <title>Automatic Installation of Debian Packages</title>
+
+        <para>
+          The Debian packages will request some user feedback when
+          installed for the first time. The debconf system is used to
+          perform this task. To prevent any user interaction during
+          installation, default values can be defined. A file
+          <literal>vboxconf</literal> can contain the following debconf
+          settings:
+        </para>
+
+<screen>virtualbox virtualbox/module-compilation-allowed boolean true
+virtualbox virtualbox/delete-old-modules boolean true</screen>
+
+        <para>
+          The first line enables compilation of the vboxdrv kernel
+          module if no module was found for the current kernel. The
+          second line enables the package to delete any old vboxdrv
+          kernel modules compiled by previous installations.
+        </para>
+
+        <para>
+          These default settings can be applied prior to the
+          installation of the &product-name; Debian package, as follows:
+        </para>
+
+<screen>debconf-set-selections vboxconf</screen>
+
+        <para>
+          In addition there are some common configuration options that
+          can be set prior to the installation. See
+          <xref
+        linkend="linux_install_opts" />.
+        </para>
+
+      </sect3>
+
+      <sect3 id="install-linux-rpm-automatic">
+
+        <title>Automatic Installation of RPM Packages</title>
+
+        <para>
+          The RPM format does not provide a configuration system
+          comparable to the debconf system. See
+          <xref linkend="linux_install_opts" /> for how to set some
+          common installation options provided by &product-name;.
+        </para>
+
+      </sect3>
+
+      <sect3 id="linux_install_opts">
+
+        <title>Automatic Installation Options</title>
+
+        <para>
+          To configure the installation process for .deb and .rpm
+          packages, you can create a response file named
+          <filename>/etc/default/virtualbox</filename>. The automatic
+          generation of the udev rule can be prevented with the
+          following setting:
+        </para>
+
+<screen>INSTALL_NO_UDEV=1</screen>
+
+        <para>
+          The creation of the group vboxusers can be prevented as
+          follows:
+        </para>
+
+<screen>INSTALL_NO_GROUP=1</screen>
+
+        <para>
+          If the following line is specified, the package installer will
+          not try to build the <command>vboxdrv</command> kernel module
+          if no module fitting the current kernel was found.
+        </para>
+
+<screen>INSTALL_NO_VBOXDRV=1</screen>
+
+      </sect3>
+
+    </sect2>
+
+    <sect2 id="install-linux-vboxusers">
+
+      <title>The vboxusers Group</title>
+
+      <para>
+        The Linux installers create the system user group
+        <literal>vboxusers</literal> during installation. Any system
+        user who is going to use USB devices from &product-name; guests
+        must be a member of that group. A user can be made a member of
+        the group <literal>vboxusers</literal> either by using the
+        desktop user and group tools, or with the following command:
+      </para>
+
+<screen>sudo usermod -a -G vboxusers username</screen>
+
+    </sect2>
+
+    <sect2 id="startingvboxonlinux">
+
+      <title>Starting &product-name; on Linux</title>
+
+      <para>
+        The easiest way to start an &product-name; program is by running
+        the program of your choice (<command>VirtualBox</command>,
+        <command>VBoxManage</command>, or
+        <command>VBoxHeadless</command>) from a terminal. These are
+        symbolic links to <command>VBox.sh</command> that start the
+        required program for you.
+      </para>
+
+      <para>
+        The following detailed instructions should only be of interest
+        if you wish to execute &product-name; without installing it
+        first. You should start by compiling the
+        <command>vboxdrv</command> kernel module and inserting it into
+        the Linux kernel. &product-name; consists of a service daemon,
+        <command>VBoxSVC</command>, and several application programs.
+        The daemon is automatically started if necessary. All
+        &product-name; applications will communicate with the daemon
+        through UNIX local domain sockets. There can be multiple daemon
+        instances under different user accounts and applications can
+        only communicate with the daemon running under the user account
+        as the application. The local domain socket resides in a
+        subdirectory of your system's directory for temporary files
+        called <filename>.vbox-&lt;username&gt;-ipc</filename>. In case
+        of communication problems or server startup problems, you may
+        try to remove this directory.
+      </para>
+
+      <para>
+        All &product-name; applications (<command>VirtualBox</command>,
+        <command>VBoxManage</command>, and
+        <command>VBoxHeadless</command>) require the &product-name;
+        directory to be in the library path, as follows:
+      </para>
+
+<screen>LD_LIBRARY_PATH=. ./VBoxManage showvminfo "Windows XP"</screen>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="install-solaris-host">
+
+    <title>Installing on Oracle Solaris Hosts</title>
+
+    <para>
+      For the specific versions of Oracle Solaris that are supported as
+      host operating systems, see <xref linkend="hostossupport" />.
+    </para>
+
+    <para>
+      If you have a previously installed instance of &product-name; on
+      your Oracle Solaris host, please uninstall it first before
+      installing a new instance. See
+      <xref linkend="uninstall-solaris-host" /> for uninstall
+      instructions.
+    </para>
+
+    <sect2 id="install-solaris-performing">
+
+      <title>Performing the Installation</title>
+
+      <para>
+        &product-name; is available as a standard Oracle Solaris
+        package. Download the &product-name; SunOS package, which
+        includes the 64-bit version of &product-name;. <emphasis>The
+        installation must be performed as root and from the global
+        zone</emphasis>. This is because the &product-name; installer
+        loads kernel drivers, which cannot be done from non-global
+        zones. To verify which zone you are currently in, execute the
+        <command>zonename</command> command.
+      </para>
+
+      <para>
+        To start installation, run the following commands:
+      </para>
+
+<screen>gunzip -cd VirtualBox-<replaceable>version-number</replaceable>-SunOS.tar.gz | tar xvf -</screen>
+
+      <para>
+        The &product-name; kernel package is integrated into the main
+        package. Install the &product-name; package as follows:
+      </para>
+
+<screen>pkgadd -d VirtualBox-<replaceable>version-number</replaceable>-SunOS.pkg</screen>
+
+      <para>
+        The installer will then prompt you to enter the package you wish
+        to install. Choose <emphasis role="bold">1</emphasis> or
+        <emphasis role="bold">all</emphasis> and proceed. Next the
+        installer will ask you if you want to allow the postinstall
+        script to be executed. Choose <emphasis role="bold">y</emphasis>
+        and proceed, as it is essential to execute this script which
+        installs the &product-name; kernel module. Following this
+        confirmation the installer will install &product-name; and
+        execute the postinstall setup script.
+      </para>
+
+      <para>
+        Once the postinstall script has been executed your installation
+        is now complete. You may now safely delete the uncompressed
+        package and <filename>autoresponse</filename> files from your
+        system. &product-name; is installed in
+        <filename>/opt/VirtualBox</filename>.
+      </para>
+
+      <note>
+        <para>
+          If you need to use &product-name; from non-global zones, see
+          <xref linkend="solaris-zones" />.
+        </para>
+      </note>
+
+    </sect2>
+
+    <sect2 id="install-solaris-vboxuser">
+
+      <title>The vboxuser Group</title>
+
+      <para>
+        The installer creates the system user group
+        <literal>vboxuser</literal> during installation for Oracle
+        Solaris hosts that support the USB features required by
+        &product-name;. Any system user who is going to use USB devices
+        from &product-name; guests must be a member of this group. A
+        user can be made a member of this group either by using the
+        desktop user and group tools or by running the following command
+        as root:
+      </para>
+
+<screen>usermod -G vboxuser username</screen>
+
+      <para>
+        Note that adding an active user to the
+        <literal>vboxuser</literal> group will require the user to log
+        out and then log in again. This should be done manually after
+        successful installation of the package.
+      </para>
+
+    </sect2>
+
+    <sect2 id="install-solaris-starting">
+
+      <title>Starting &product-name; on Oracle Solaris</title>
+
+      <para>
+        The easiest way to start an &product-name; program is by running
+        the program of your choice (<command>VirtualBox</command>,
+        <command>VBoxManage</command>, or
+        <command>VBoxHeadless</command>) from a terminal. These are
+        symbolic links to <command>VBox.sh</command> that start the
+        required program for you.
+      </para>
+
+      <para>
+        Alternatively, you can directly invoke the required programs
+        from <filename>/opt/VirtualBox</filename>. Using the links
+        provided is easier as you do not have to enter the full path.
+      </para>
+
+      <para>
+        You can configure some elements of the
+        <command>VirtualBox</command> Qt GUI, such as fonts and colours,
+        by running <command>VBoxQtconfig</command> from the terminal.
+      </para>
+
+    </sect2>
+
+    <sect2 id="uninstall-solaris-host">
+
+      <title>Uninstallation</title>
+
+      <para>
+        Uninstallation of &product-name; on Oracle Solaris requires root
+        permissions. To perform the uninstallation, start a root
+        terminal session and run the following command:
+      </para>
+
+<screen>pkgrm SUNWvbox</screen>
+
+      <para>
+        After confirmation, this will remove &product-name; from your
+        system.
+      </para>
+
+    </sect2>
+
+    <sect2 id="install-solaris-unattended">
+
+      <title>Unattended Installation</title>
+
+      <para>
+        To perform a non-interactive installation of &product-name;
+        there is a response file named
+        <filename>autoresponse</filename>. The installer uses this for
+        responses to inputs, rather than prompting the user.
+      </para>
+
+      <para>
+        Extract the tar.gz package as described in
+        <xref linkend="install-solaris-performing"/>. Then open a root
+        terminal session and run the following command:
+      </para>
+
+<screen>pkgadd -d VirtualBox-<replaceable>version-number</replaceable>-SunOS-x86 -n -a autoresponse SUNWvbox</screen>
+
+      <para>
+        To perform a non-interactive uninstallation, open a root
+        terminal session and run the following command:
+      </para>
+
+<screen>pkgrm -n -a /opt/VirtualBox/autoresponse SUNWvbox</screen>
+
+    </sect2>
+
+    <sect2 id="solaris-zones">
+
+      <title>Configuring a Zone for Running &product-name;</title>
+
+      <para>
+        Assuming that &product-name; has already been installed into
+        your zone, you need to give the zone access to &product-name;'s
+        device node. This is done by performing the following steps.
+        Start a root terminal and run the following command:
+      </para>
+
+<screen>zonecfg -z <replaceable>vboxzone</replaceable></screen>
+
+      <para>
+        Replace <replaceable>vboxzone</replaceable> with the name of the
+        zone where you intend to run &product-name;.
+      </para>
+
+      <para>
+        Use <command>zonecfg</command> to add the
+        <literal>device</literal> resource and <literal>match</literal>
+        properties to the zone, as follows:
+      </para>
+
+<screen>zonecfg:vboxzone&gt;add device
+zonecfg:vboxzone:device&gt;set match=/dev/vboxdrv
+zonecfg:vboxzone:device&gt;end
+zonecfg:vboxzone&gt;add device
+zonecfg:vboxzone:device&gt;set match=/dev/vboxdrvu
+zonecfg:vboxzone:device&gt;end
+zonecfg:vboxzone&gt;exit</screen>
+
+      <para>
+        On Oracle Solaris 11 or later, you may also add a device for
+        <filename>/dev/vboxusbmon</filename>, similar to that shown
+        above.
+      </para>
+
+      <para>
+        If you are not using sparse root zones, you will need to
+        loopback mount <filename>/opt/VirtualBox</filename> from the
+        global zone into the non-global zone at the same path. This is
+        specified below using the <literal>dir</literal> attribute and
+        the <literal>special</literal> attribute. For example:
+      </para>
+
+<screen>zonecfg:vboxzone&gt;add fs
+zonecfg:vboxzone:device&gt;set dir=/opt/VirtualBox
+zonecfg:vboxzone:device&gt;set special=/opt/VirtualBox
+zonecfg:vboxzone:device&gt;set type=lofs
+zonecfg:vboxzone:device&gt;end
+zonecfg:vboxzone&gt;exit</screen>
+
+      <para>
+        Reboot the zone using <command>zoneadm</command> and you should
+        be able to run &product-name; from within the configured zone.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="install-ext-pack">
+
+    <title>Installing an Extension Pack</title>
+
+    <para>
+      Extension packs provide extra functionality to the &product-name;
+      base package, such as extended USB device support and cloud
+      integration features. See <xref linkend="intro-installing"/>.
+    </para>
+
+    <para>
+      To install an &product-name; extension pack, do the following:
+    </para>
+
+    <orderedlist>
+
+      <listitem>
+        <para>
+          Double-click on the extension package file name.
+        </para>
+
+        <para>
+          &product-name; extension packs have a
+          <filename>.vbox-extpack</filename> file name extension.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Follow the on-screen instructions to install the extension
+          pack.
+        </para>
+      </listitem>
+
+    </orderedlist>
+
+    <para>
+      You can also use the Extension Pack Manager tool to install an
+      extension pack. See <xref linkend="install-ext-pack-manager"/>.
+    </para>
+
+    <sect2 id="install-ext-pack-manager">
+
+      <title>The Extension Pack Manager</title>
+
+      <para>
+        Extension packs can be installed and managed using the
+        <emphasis role="bold">Extension Pack Manager</emphasis> tool in
+        &vbox-mgr;.
+      </para>
+
+      <para>
+        The Extension Pack Manager lists the extension packs that are
+        currently installed on the host, and enables you to install and
+        uninstall extension packs.
+      </para>
+
+      <para>
+        To display the Extension Pack Manager, go to the global
+        <emphasis role="bold">Tools</emphasis> menu and click
+        <emphasis role="bold">Extensions</emphasis>. The Extension Pack
+        Manager is shown.
+      </para>
+
+      <para>
+        To install an extension pack using the Extension Pack Manager,
+        click <emphasis role="bold">Install</emphasis> and select an
+        extension package file. The extension pack is installed on the
+        host and listed in Extension Pack Manager.
+      </para>
+
+      <para>
+        To uninstall an extension pack with the Extension Pack Manager,
+        do the following:
+      </para>
+
+      <orderedlist>
+
+        <listitem>
+          <para>
+            Select the extension pack in the Extension Pack Manager
+            window and click <emphasis role="bold">Uninstall</emphasis>.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Click <emphasis role="bold">Remove</emphasis> in the prompt
+            dialog.
+          </para>
+
+          <para>
+            The extension pack is uninstalled from the host and removed
+            from the Extension Pack Manager.
+          </para>
+        </listitem>
+
+      </orderedlist>
+
+      <para>
+        Alternatively, you can use the <command>VBoxManage</command>
+        command line to install and manage &product-name; extension
+        packs. See <xref linkend="vboxmanage-extpack" />.
+      </para>
+
+    </sect2>
+
+  </sect1>
+
+</chapter>

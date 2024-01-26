@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2008-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<installer-gui-script minSpecVersion="1.0">
+    <title>VirtualBox_title</title>
+    <options customize="allow" rootVolumeOnly="true" hostArchitectures="@VBOX_ARCH_LIST@"/>
+    <installation-check script="checkPrerequisite()"></installation-check>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <script>
+//<![CDATA[
+    /* js:pkmk:start */
+    function checkPrerequisite()
+    {
+       try
+       {
+           test = system.version['ProductVersion'];
+           system.log("OS version detected: " + test);
+           result = (system.compareVersions(test, '10.9') >= 0);
+       } catch (e) { system.log(e); result = false; }
+
+       if (!result)
+       {
+           my.result.type = 'Fatal';
+           my.result.title = system.localizedString('UNSUPPORTED_OS_TLE');
+           my.result.message = system.localizedString('UNSUPPORTED_OS_MSG');
+           return result;
+       }
+
+       try
+       {
+           test = system.sysctl('hw.machine');
+           system.log("Hardware architecture detected: " + test);
+           result = (test == '@VBOX_TARGET_ARCH@');
+       } catch (e) { system.log(e); result = false; }
+
+       if (!result)
+       {
+           my.result.type = 'Fatal';
+           my.result.title = system.localizedString('UNSUPPORTED_HW_MACHINE_TLE');
+           my.result.message = system.localizedString('UNSUPPORTED_HW_MACHINE_MSG');
+           return result;
+       }
+
+       try
+       {
+           /* Embedded scripts are not available here. Instead, run command to check for running VMs or running VBOX instance */
+           runAppArr = system.applications.all()
+           for (let i = 0; i < runAppArr.length; i++)
+           {
+                if (runAppArr[i]["FileCreator"] == "VBOX" || runAppArr[i]["FileCreator"] == "VBVM")
+                {
+                    result = false;
+                }
+           }
+           system.log("system.applications check => result=" + result);
+       } catch (e) { system.log(e); result = false; }
+
+       if (!result)
+       {
+
+           my.result.type = 'Fatal';
+           my.result.title = system.localizedString('RUNNING_VMS_TLE');
+           my.result.message = system.localizedString('RUNNING_VMS_MSG');
+           return result;
+       }
+
+       system.log("result:" + result);
+       return result;
+    }
+    /* js:pkmk:end */
+//]]>
+    </script>
+    <background file="background.tif" alignment="topleft" scaling="none"/>
+    <welcome file="Welcome.rtf" mime-type="text/rtf" uti="public.rtf"/>
+    <choices-outline>
+        <line choice="choiceVBoxKEXTs"></line>
+        <line choice="choiceVBox"></line>
+        <line choice="choiceVBoxCLI"></line>
+        <line choice="choiceOSXFuseCore"></line>
+    </choices-outline>
+    <choice id="choiceVBoxKEXTs"   title="choiceVBoxKEXTs_title"   description="choiceVBoxKEXTs_msg"   start_selected="true" start_enabled="true" start_visible="true">
+        <pkg-ref id="org.virtualbox.pkg.vboxkexts"></pkg-ref>
+    </choice>
+    <choice id="choiceVBox"        title="choiceVBox_title"        description="choiceVBox_msg"        start_selected="true" start_enabled="false" start_visible="true">
+        <pkg-ref id="org.virtualbox.pkg.virtualbox"></pkg-ref>
+    </choice>
+    <choice id="choiceVBoxCLI"     title="choiceVBoxCLI_title"     description="choiceVBoxCLI_msg"     start_selected="true" start_enabled="true" start_visible="true">
+        <pkg-ref id="org.virtualbox.pkg.virtualboxcli"></pkg-ref>
+    </choice>
+    <choice id="choiceOSXFuseCore" title="choiceOSXFuseCore_title" description="choiceOSXFuseCore_msg" start_selected="true" start_enabled="true" start_visible="true">
+        <pkg-ref id="com.github.osxfuse.pkg.Core"></pkg-ref>
+    </choice>
+    <pkg-ref id="org.virtualbox.pkg.vboxkexts" auth="Root">file:./Contents/Packages/VBoxKEXTs.pkg</pkg-ref>
+    <pkg-ref id="org.virtualbox.pkg.virtualbox" auth="Root">file:./Contents/Packages/VirtualBox.pkg</pkg-ref>
+    <pkg-ref id="org.virtualbox.pkg.virtualboxcli" auth="Root">file:./Contents/Packages/VirtualBoxCLI.pkg</pkg-ref>
+    <pkg-ref id="com.github.osxfuse.pkg.Core" auth="Root">file:./Contents/Packages/OSXFuseCore.pkg</pkg-ref>
+</installer-gui-script>
+

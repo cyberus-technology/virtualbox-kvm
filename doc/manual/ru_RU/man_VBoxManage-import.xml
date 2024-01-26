@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage import
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-import" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage import</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-import</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-import</refname>
+    <refpurpose>импорт виртуальной конфигурации в формате OVF или из облачной службы и создание виртуальной машины</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-import-ovf">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage import</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>имя-ovf</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ova</replaceable></arg>
+      </group>
+      <arg>--dry-run</arg>
+      <arg>--options=<group choice="plain">
+          <arg choice="plain">keepallmacs</arg>
+          <arg choice="plain">keepnatmacs</arg>
+          <arg choice="plain">importtovdi</arg>
+        </group></arg>
+      <arg>--vsys=<replaceable>n</replaceable></arg>
+      <arg>--ostype=<replaceable>тип-ос</replaceable></arg>
+      <arg>--vmname=<replaceable>имя</replaceable></arg>
+      <arg>--settingsfile=<replaceable>файл</replaceable></arg>
+      <arg>--basefolder=<replaceable>папка</replaceable></arg>
+      <arg>--group=<replaceable>группа</replaceable></arg>
+      <arg>--memory=<replaceable>МБ</replaceable></arg>
+      <arg>--cpus=<replaceable>n</replaceable></arg>
+      <arg>--description=<replaceable>текст</replaceable></arg>
+      <arg>--eula=<group choice="plain">
+          <arg choice="plain">show</arg>
+          <arg choice="plain">accept</arg>
+        </group></arg>
+      <arg>--unit=<replaceable>n</replaceable></arg>
+      <arg>--ignore</arg>
+      <arg>--scsitype=<group choice="plain">
+          <arg choice="plain">BusLogic</arg>
+          <arg choice="plain">LsiLogic</arg>
+        </group></arg>
+      <!-- <arg>&#45;&#45;controller=<replaceable>n</replaceable></arg> -->
+      <arg>--disk=<replaceable>путь</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-import-cloud">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage import</command>
+      <arg choice="plain">OCI://</arg>
+      <arg choice="plain">--cloud</arg>
+      <arg>--ostype=<replaceable>тип-ос</replaceable></arg>
+      <arg>--vmname=<replaceable>имя</replaceable></arg>
+      <arg>--basefolder=<replaceable>папка</replaceable></arg>
+      <arg>--memory=<replaceable>МБ</replaceable></arg>
+      <arg>--cpus=<replaceable>n</replaceable></arg>
+      <arg>--description=<replaceable>текст</replaceable></arg>
+      <arg choice="req">--cloudprofile=<replaceable>профиль</replaceable></arg>
+      <arg choice="req">--cloudinstanceid=<replaceable>id</replaceable></arg>
+      <arg>--cloudbucket=<replaceable>корзина</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage import</command> импортирует виртуальную
+      конфигурацию из формата OVF или из облачной службы, например &oci;.
+      Импорт производится путем копирования образов виртуальных дисков
+      (по умолчанию в формает VMDK образа) и создания виртуальных машин (ВМ)
+      в &product-name;. Смотрите <xref linkend="ovf" />.
+    </para>
+    <para>
+      Необходимо указать путь к OVF файлу или OVA архиву в качестве входных
+      данных или заполнитель для облачного варианта. В случае OVF конфигураций,
+      убедитесь, что все образы дисков в той же директории, что и OVF файл.
+    </para>
+    <para>
+      Обратите внимание, что любые опции, указываемые для управления
+      импортированной виртуальной конфигурацией или для изменения
+      параметров импорта зависят от содержимого файла OVF или от
+      информации из облачной службы.
+    </para>
+    <para>
+      Перед использованием операции импорта для создания ВМ, произведите
+      пробный запуск для проверки корректности вашей конфигурации. Это
+      полезно с конфигурациями OVF и OVA, потому что в случае с облачной
+      службой, даже при пробном запуске необходимо произвести достаточно
+      много действий, занимающих ощутимое время.
+    </para>
+    <para>
+      Импорт из облачной службы загружает временный файл, содержащий и
+      загрузочный образ и некоторые метаданные, описывающие детали
+      экземпляра ВМ. Временный файл удаляется после успешного импорта.
+    </para>
+    <refsect2>
+      <title>Общие параметры</title>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>имя-ovf</replaceable> | <replaceable>имя-ova</replaceable></term>
+          <listitem><para>
+              Задает имя файла OVF или архив OVA, описывающий конфигурацию.
+              В случае облака, это обычно фиксированная строка, такая как
+              <literal>OCI://</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--dry-run</option></term>
+          <!-- Does this option really work for cloud import? -->
+          <listitem><para>
+              Производит пробный запуск команды <command>VBoxManage
+              import</command> перед проведением реальной операции
+              импорта. Операция пробного запуска делает следующее:
+            </para><itemizedlist>
+              <listitem><para>
+                  Выводит описание содержимого конфигурации, основанное
+                  на указанном OVF или OVA файле.
+                </para></listitem>
+              <listitem><para>
+                  Показывает, как конфигурация могла быть импортирована
+                  в &product-name;. В дополнение, вывод показывает все
+                  опции, которые можно использовать для изменения
+                  поведения импорта.
+                </para></listitem>
+            </itemizedlist><para>
+              Краткая форма этой опции <option>-n</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--options=keepallmacs | keepnatmacs | importtovdi</option></term>
+          <!-- Does this option really work for cloud import? -->
+          <listitem><para>
+              Позволяет подстроить операцию импорта.
+            </para><para>
+              Допустимые аргументы нижеследующие:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>keepallmacs</literal>: Указывает, что
+                  MAC адреса каждой виртуальной сетевой карты
+                  остаются неизменными.
+                </para></listitem>
+              <listitem><para>
+                  <literal>keepnatmacs</literal>: Указывает, что
+                  MAC адреса каждой виртуальной сетевой карты
+                  остаются неизменными если тип сети - NAT.
+                </para></listitem>
+              <listitem><para>
+                  <literal>importtovdi</literal>: Указывает, что
+                  все новые образы дисков в формате файла VDI.
+                </para></listitem>
+            </itemizedlist></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ostype=<replaceable>тип-ос</replaceable></option></term>
+          <listitem><para>
+              Задает информацию о гостевой операционной системе (ОС) для
+              ВМ. Используйте команду <command>VBoxManage list ostypes</command>
+              для отображения идентификаторов типов ОС.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vmname=<replaceable>имя</replaceable></option></term>
+          <listitem><para>
+              Задает имя ВМ в &product-name;.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--basefolder=<replaceable>папка</replaceable></option></term>
+          <!-- Does this option really work for cloud import? -->
+          <listitem><para>
+              Задает папку, где сохраняются файлы импортированной ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--memory=<replaceable>МБ</replaceable></option></term>
+          <listitem><para>
+              Задает размер памяти в мегабайтах в импортированной ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cpus=<replaceable>n</replaceable></option></term>
+          <listitem><para>
+              Задает количество ЦПУ в импортированной ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--description=<replaceable>текст</replaceable></option></term>
+          <listitem><para>
+              Задает текст описания, видимый в графическом и командном
+              интерфейсе при проверке деталей ВМ.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-import-ovf">
+      <title>Опции импорта OVF / OVA</title>
+      <para>
+        Следующие опции предназначены для импорта виртуальной конфигурации
+        в форматах OVF или OVA. Такие конфигурации могут содержать один или
+        несколько ВМ. Поэтому требуется указать, какую конфигурацию ВМ надо
+        подстроить если вы хотите изменить ее. Смотрите
+        <xref linkend="ovf-import-appliance" />.
+      </para>
+      <remark role="help-copy-synopsis"/>
+      <variablelist>
+        <varlistentry>
+          <term><option>--vsys=<replaceable>n</replaceable></option></term>
+          <listitem><para>
+              Задает индекс конкретной ВМ внутри конфигурации. Влияет
+              на нижеследующие опции.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--unit=<replaceable>n</replaceable></option></term>
+          <listitem><para>
+              Задает индекс конкретного элемента ВМ внутри конфигурации.
+              Влияет на нижеследующие опции.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--settingsfile=<replaceable>файл</replaceable></option></term>
+          <listitem><para>
+              Задает имя файла настроек ВМ (с указанием пути или без),
+              который будет создан как часть импорта. Обычно, более
+              предпочтительный способ это переопределение имени ВМ через
+              <option>--vmname</option> и, если нужно, указание папки,
+              где надо создать ВМ, через <option>--basefolder</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--group=<replaceable>группа</replaceable></option></term>
+          <listitem><para>
+              Задает первичную группу импортированной ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--eula=show | accept</option></term>
+          <listitem><para>
+              Позволяет вам отобразить или принять условия лицензии ВМ
+              внутри конфигурации.
+            </para><para>
+              Допустимы следующие аргументы:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>show</literal>: Показывает лицензионное соглашение ВМ.
+                </para></listitem>
+              <listitem><para>
+                  <literal>accepts</literal>: Принимает лицензионное соглашение ВМ.
+                  Все ВМ в конфигурации, имеющие лицензию, требуют ее принятия,
+                  иначе импорт закончится неудачей.
+                </para></listitem>
+            </itemizedlist></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ignore</option></term>
+          <listitem><para>
+              Игнорирует текущий элемент импортируемой ВМ, эффективно
+              удаляя связанное аппаратное обеспечение.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--scsitype=BusLogic | LsiLogic</option></term>
+          <listitem><para>
+              Позволяет выбрать тип SCSI контроллера текущего элемента
+              импортированной ВМ.
+            </para><para>
+              Допустимы следующие аргументы:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>BusLogic</literal>: Использует SCSI контроллер
+                  типа BusLogic (очень старый).
+                </para></listitem>
+              <listitem><para>
+                  <literal>LsiLogic</literal>: Использует SCSI контроллер
+                  типа LsiLogic (более современный).
+                </para></listitem>
+            </itemizedlist></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-import-cloud">
+      <title>Опции импорта из облака</title>
+      <para>
+        Следующие опции предназначены для импорта экземпляра ВМ из
+        провайдера облачной службы. Они всегда имеют дело только
+        с одной ВМ. Смотрите <xref linkend="cloud-import-oci" />.
+      </para>
+      <remark role="help-copy-synopsis"/>
+      <variablelist>
+        <varlistentry>
+          <term><option>--cloud</option></term>
+          <listitem><para>
+              Указывает, что импорт должен быть из облака.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudprofile=<replaceable>профиль</replaceable></option></term>
+          <listitem><para>
+              Задает облачный профиль используемый для соединения с
+              провайдером облачной службы. Облачный профиль содержит
+              детали вашей учетной записи &oci;, такие как ваш OCID
+              пользователя и отпечаток вашего публичного ключа. У вас
+              должны быть требуемые права в &oci;, чтобы использовать
+              облачный профиль.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudinstanceid=<replaceable>id</replaceable></option></term>
+          <listitem><para>
+              Задает ID существующего экземпляра в облаке.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudbucket=<replaceable>корзина</replaceable></option></term>
+          <listitem><para>
+              Задает имя корзины, куда сохранять объекты, созданные из
+              экземпляра. В &oci;, корзина - это логический контейнер для
+              сохранения объектов. По умолчанию, используется первая
+              доступная корзина в облачном профиле.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      Следующий пример производит пробный запуск операции OVF импорта
+      примерной конфигурации, содержащей гостевую систему Windows 10:
+    </para>
+<screen>$ VBoxManage import Windows10.ovf --dry-run
+Интерпретация Windows10.ovf...
+OK.
+Виртуальная система 0:
+ 0: Предложенный тип ОС: "Windows10_64"
+    (изменить через "--vsys 0 --ostype &lt;тип&gt;"; используйте "list ostypes" для просмотра всех возможных значений)
+ 1: Предложенное имя ВМ "win10-appliance"
+    (изменить через "--vsys 0 --vmname &lt;имя&gt;")
+ 2: Предложенная группа ВМ "/"
+    (изменить через "--vsys 0 --group &lt;группа&gt;")
+ 3: Предложенное имя файла настроек ВМ "/home/user1/VirtualBox VMs/win10-appliance/win10-appliance.vbox"
+    (изменить через "--vsys 0 --settingsfile &lt;имя файла&gt;")
+ 4: Предложенная основная папка ВМ "/home/user1/VirtualBox VMs"
+    (изменить через "--vsys 0 --basefolder &lt;путь&gt;")
+ 5: Лицензионное соглашение
+    (показать через "--vsys 0 --eula show";
+    принять через "--vsys 0 --eula accept")
+ 6: Число ЦПУ: 1
+    (изменить через "--vsys 0 --cpus &lt;n&gt;")
+ 7: Размер памяти гостевой системы: 2048 MB (изменить через "--vsys 0 --memory &lt;MB&gt;")
+ 8: Аудио карта (конфигурация ожидает "ensoniq1371", может быть изменена при импорте)
+    (отключить через "--vsys 0 --unit 5 --ignore")
+ 9: USB контроллер
+    (отключить через "--vsys 0 --unit 6 --ignore")
+10: Сетевой адаптер: ориг. сетевой мост, конфиг. 2, экстра тип=сетевой мост
+11: Флоппи
+    (отключить через "--vsys 0 --unit 8 --ignore")
+12: SCSI контроллер, тип BusLogic
+    (изменить через "--vsys 0 --unit 9 --scsitype {BusLogic|LsiLogic}";
+    отключить через "--vsys 0 --unit 9 --ignore")
+13: IDE контроллер, тип PIIX4
+    (отключить через "--vsys 0 --unit 10 --ignore")
+14: Образ жесткого диска: образ источника=Windows10.vmdk,
+      путь назначения=/home/user1/disks/Windows10.vmdk, контроллер=9;канал=0
+    (изменить путь назначения через "--vsys 0 --unit 11 --disk &lt;путь&gt;";
+    отключить через "--vsys 0 --unit 11 --ignore")</screen>
+    <para>
+      Вывод пробного запуска показывает и нумерует индивидуальные
+      элементы настройки описанные в файле
+      <filename>Windows10.ovf</filename>. Некоторые из них включают
+      информацию о том, как отключить или изменить настройку элемента.
+    </para>
+    <para>
+      Можно отключить многие элементы, используя опции <option>--vsys
+      <replaceable>X</replaceable> --unit <replaceable>Y</replaceable>
+      --ignore</option>. <replaceable>X</replaceable> - это номер
+      виртуальной системы. Значение равно <literal>0</literal> если
+      конфигурация содержит только одно описание виртуальной системы.
+      <replaceable>Y</replaceable> - это номер элемента конфигурации.
+    </para>
+    <para>
+      Элемент 1 в выводе команды примера указывает имя целевой машины.
+      Элементы 12 и 13 указывают контроллеры IDE и SCSI жестких дисков
+      соответственно.
+    </para>
+    <para>
+      Элемент 14 показывает образ жесткого диска и опцию
+      <option>--disk</option>, задающую путь назначения, где сохранять
+      образ. Значение по умолчанию задается в файле OVF.
+    </para>
+    <para>
+      Можно комбинировать несколько элементов для той же самой
+      виртуальной системы, путем указания того же самого значения
+      для опции <option>--vsys</option>. Например, используйте
+      следующую команду для импорта машины как описано в OVF,
+      кроме аудио карты и USB контроллера, и образ диска должен
+      сохраняться с другим именем.
+    </para>
+<screen>$ VBoxManage import Windows10.ovf --vsys 0 --unit 8 --ignore \
+  --unit 9 --ignore --unit 14 --disk Windows10_disk0.vmdk</screen>
+    <para>
+      Следующий пример иллюстрирует как импортировать ВМ из &oci;. Для поиска
+      экземпляров ВМ в &oci;, а также их ID, можно вывести список всех доступных
+      экземпляров через:
+    </para>
+<screen>$ VBoxManage cloud --provider=OCI --profile=<replaceable>имя-облачного-профиля</replaceable> list instances</screen>
+    <para>
+      Когда ID известно, следующая команда импортирует экземпляр из &oci;:
+    </para>
+<screen>$ VBoxManage import OCI:// --cloud --vmname OCI_FreeBSD_VM --memory 4000 \
+  --cpus 3 --ostype FreeBSD_64 --cloudprofile "standard user" \
+  --cloudinstanceid ocid1.instance.oc1.iad.abuwc... --cloudbucket myBucket</screen>
+  </refsect1>
+</refentry>

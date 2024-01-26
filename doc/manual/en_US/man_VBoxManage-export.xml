@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage export
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-export" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage export</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-export</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-export</refname>
+    <refpurpose>export one or more virtual machines to a virtual appliance or to a cloud service</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-export-ovf">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage export</command>
+      <arg choice="req"><replaceable>machines</replaceable></arg>
+      <arg choice="req">--output=<replaceable>name</replaceable></arg>
+      <group>
+        <arg choice="plain">--legacy09</arg>
+        <arg choice="plain">--ovf09</arg>
+        <arg choice="plain">--ovf10</arg>
+        <arg choice="plain">--ovf20</arg>
+      </group>
+      <arg>--manifest</arg>
+      <arg>--options=<group choice="plain" rep="repeat">
+          <arg choice="plain">manifest</arg>
+          <arg choice="plain">iso</arg>
+          <arg choice="plain">nomacs</arg>
+          <arg choice="plain">nomacsbutnat</arg>
+        </group></arg>
+      <arg>--vsys=<replaceable>virtual-system-number</replaceable></arg>
+      <arg>--description=<replaceable>description-info</replaceable></arg>
+      <arg>--eula=<replaceable>license-text</replaceable></arg>
+      <arg>--eulafile=<replaceable>filename</replaceable></arg>
+      <arg>--product=<replaceable>product-name</replaceable></arg>
+      <arg>--producturl=<replaceable>product-URL</replaceable></arg>
+      <arg>--vendor=<replaceable>vendor-name</replaceable></arg>
+      <arg>--vendorurl=<replaceable>vendor-URL</replaceable></arg>
+      <arg>--version=<replaceable>version-info</replaceable></arg>
+      <arg>--vmname=<replaceable>vmname</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-export-cloud">
+      <command>VBoxManage export</command>
+      <arg choice="req"><replaceable>machine</replaceable></arg>
+      <arg choice="req">--output=<replaceable>cloud-service-provider</replaceable></arg>
+      <arg>--opc10</arg>
+      <arg>--vmname=<replaceable>vmname</replaceable></arg>
+      <arg>--cloud=<replaceable>virtual-system-number</replaceable></arg>
+      <arg>--cloudprofile=<replaceable>cloud-profile-name</replaceable></arg>
+      <arg>--cloudshape=<replaceable>cloud-shape-name</replaceable></arg>
+      <arg>--clouddomain=<replaceable>cloud-domain</replaceable></arg>
+      <arg>--clouddisksize=<replaceable>disk-size-in-GB</replaceable></arg>
+      <arg>--cloudbucket=<replaceable>bucket-name</replaceable></arg>
+      <arg>--cloudocivcn=<replaceable>OCI-VCN-ID</replaceable></arg>
+      <arg>--cloudocisubnet=<replaceable>OCI-subnet-ID</replaceable></arg>
+      <arg>--cloudkeepobject=<group choice="plain">
+          <arg choice="plain">true</arg>
+          <arg choice="plain">false</arg>
+        </group></arg>
+      <arg>--cloudlaunchinstance=<group choice="plain">
+          <arg choice="plain">true</arg>
+          <arg choice="plain">false</arg>
+        </group></arg>
+      <arg>--cloudlaunchmode=<group choice="plain">
+          <arg choice="plain">EMULATED</arg>
+          <arg choice="plain">PARAVIRTUALIZED</arg>
+        </group></arg>
+      <arg>--cloudpublicip=<group choice="plain">
+          <arg choice="plain">true</arg>
+          <arg choice="plain">false</arg>
+        </group></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage export</command> command enables you to
+      export one or more virtual machines (VMs) from &product-name;. You
+      can export the VM to one of the following:
+    </para>
+    <itemizedlist>
+      <listitem><para>
+          <emphasis role="bold">Virtual appliance in OVF
+          format.</emphasis> Includes the copying of its virtual disk
+          images to compressed VMDK.
+        </para></listitem>
+      <listitem><para>
+          <emphasis role="bold">Cloud service such as &oci;.</emphasis>
+          Exports a single VM.
+        </para></listitem>
+    </itemizedlist>
+    <para>
+      For more information about exporting VMs from &product-name;, see
+      <xref linkend="ovf" />
+    </para>
+    <refsect2 id="vboxmanage-export-ovf">
+      <title>Export a Virtual Machine to an OVF Virtual Appliance</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage export</command> command enables you to
+        export a VM as a virtual appliance in OVF format.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>machines</replaceable></term>
+          <listitem><para>
+              Specifies a comma-separated list of one or more machines
+              to export to the same OVF file.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--output=<replaceable>filename</replaceable></option></term>
+          <listitem><para>
+              Specifies the target OVF file. The file can be OVF, OVA,
+              or a ZIP file compressed with the <command>gzip</command>
+              command. Because the directory that contains the target
+              OVF file will also store the exported disk images in the
+              compressed VMDK format, ensure that this directory has
+              sufficient disk space in which to store the images.
+            </para><para>
+              The short form of this option is <option>-o</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--legacy09</option></term>
+          <listitem><para>
+              Exports in OVF 0.9 legacy mode if the virtualization
+              product is not fully compatible with the OVF 1.0 standard.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ovf09</option></term>
+          <listitem><para>
+              Exports in OVF 0.9 format.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ovf10</option></term>
+          <listitem><para>
+              Exports in OVF 1.0 format.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ovf20</option></term>
+          <listitem><para>
+              Exports in OVF 2.0 format.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--manifest</option></term>
+          <listitem><para>
+              Creates a manifest of the exported files.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--options=<replaceable>argument</replaceable>,...</option></term>
+          <listitem><para>
+              Specifies information to control the exact content of the
+              appliance file. Specify one or more comma-separated
+              arguments:
+            </para><variablelist>
+              <varlistentry>
+                <term><literal>manifest</literal></term>
+                <listitem><para>
+                    Produces a manifest file that detects corrupted
+                    appliances on import.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>iso</literal></term>
+                <listitem><para>
+                    Exports DVD images in an ISO file.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>nomacs</literal></term>
+                <listitem><para>
+                    Excludes all MAC addresses.
+                  </para></listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>nomacsbutnat</literal></term>
+                <listitem><para>
+                    Excludes all MAC addresses except for those in a NAT
+                    network.
+                  </para></listitem>
+              </varlistentry>
+            </variablelist></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--description=<replaceable>description-info</replaceable></option></term>
+          <listitem><para>
+              Specifies a description of the VM.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--eula=<replaceable>license-text</replaceable></option></term>
+          <listitem><para>
+              Specifies end-user license text.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--eulafile=<replaceable>filename</replaceable></option></term>
+          <listitem><para>
+              Specifies an end-user license file.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--product=<replaceable>product-name</replaceable></option></term>
+          <listitem><para>
+              Specifies a product name.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--producturl=<replaceable>product-URL</replaceable></option></term>
+          <listitem><para>
+              Specifies a product URL.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vendor=<replaceable>vendor-name</replaceable></option></term>
+          <listitem><para>
+              Specifies a vendor name.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vendorurl=<replaceable>vendor-URL</replaceable></option></term>
+          <listitem><para>
+              Specifies a vendor URL.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--version=<replaceable>version-info</replaceable></option></term>
+          <listitem><para>
+              Specifies version information.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vmname=<replaceable>vmname</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the exported VM.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vsys=<replaceable>virtual-system-number</replaceable></option></term>
+          <listitem><para>
+              Specifies the number of the virtual system.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-export-cloud">
+      <title>Export a Virtual Machine to &oci;</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage export</command> command enables you to
+        export a VM to a cloud service provider such as &oci;. By
+        default, the exported disk image is converted into compressed VMDK
+        format. This minimizes the amount of data to transfer to the cloud
+        service.
+      </para>
+      <para>
+        Some of the following options are configuration settings for the
+        VM instance. As a result, specify an Oracle Cloud Identifier
+        (OCID) for a resource. Use the &oci; Console to view OCIDs.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--output=<replaceable>cloud-service-provider</replaceable></option></term>
+          <listitem><para>
+              Specifies the short name of the cloud service provider to
+              which you export the VM. For &oci;, specify
+              <literal>OCI://</literal>.
+            </para><para>
+              The short form of this option is <option>-o</option>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--opc10</option></term>
+          <listitem><para>
+              Exports in &oci; format.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloud=<replaceable>number-of-virtual-system</replaceable></option></term>
+          <listitem><para>
+              Specifies a number that identifies the VM to export.
+              Numbering starts at <literal>0</literal> for the first VM.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--vmname=<replaceable>vmname</replaceable></option></term>
+          <listitem><para>
+              Specifies the name of the exported VM, which is used as
+              the VM instance name in &oci;.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudprofile=<replaceable>cloud-profile-name</replaceable></option></term>
+          <listitem><para>
+              Specifies the cloud profile to use to connect to the cloud
+              service provider. The cloud profile contains your &oci;
+              account details, such as your user OCID and the
+              fingerprint for your public key.
+            </para><para>
+              To use a cloud profile, you must have the required
+              permissions on &oci;.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudshape=<replaceable>cloud-shape-name</replaceable></option></term>
+          <listitem><para>
+              Specifies the shape used by the VM instance. The shape
+              defines the number of CPUs and the amount of memory that
+              is allocated to the VM instance. Ensure that the shape is
+              compatible with the exported image.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--clouddomain=<replaceable>cloud-domain</replaceable></option></term>
+          <listitem><para>
+              Specifies the availability domain to use for the VM
+              instance. Enter the full name of the availability domain.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--clouddisksize=<replaceable>disk-size-in-GB</replaceable></option></term>
+          <listitem><para>
+              Specifies the amount of disk space, in gigabytes, to use
+              for the exported disk image. Valid values are from 50 GB
+              to 300 GB.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudbucket=<replaceable>bucket-name</replaceable></option></term>
+          <listitem><para>
+              Specifies the bucket in which to store uploaded files. In
+              &oci;, a bucket is a logical container for storing
+              objects.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudocivcn=<replaceable>OCI-VCN-ID</replaceable></option></term>
+          <listitem><para>
+              Specifies the OCID of the virtual cloud network (VCN) to
+              use for the VM instance.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudocisubnet=<replaceable>OCI-subnet-ID</replaceable></option></term>
+          <listitem><para>
+              Specifies the OCID of the VCN subnet to use for the VM
+              instance.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudkeepobject=true | false</option></term>
+          <listitem><para>
+              Specifies whether to store the exported disk image in
+              Oracle Object Storage.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudlaunchinstance=true | false</option></term>
+          <listitem><para>
+              Specifies whether to start the VM instance after the
+              export to &oci; completes.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudlaunchinstance=EMULATED | PARAVIRTUALIZED</option></term>
+          <listitem><para>
+              Specifies the launch mode used for the instance.
+              Paravirtualized mode gives improved performance.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloudpublicip=true | false</option></term>
+          <listitem><para>
+              Specifies whether to enable a public IP address for the VM
+              instance.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      The following example shows how to export the
+      <literal>myVM</literal> VM to &oci;. The command's option
+      arguments describe the configuration of the
+      <literal>myVM_Cloud</literal> VM in &oci;.
+    </para>
+<screen># VBoxManage export myVM --output=OCI:// --cloud=0 --vmname=myVM_Cloud \
+--cloudprofile="standard user" --cloudbucket=myBucket \
+--cloudshape=VM.Standard2.1 --clouddomain=US-ASHBURN-AD-1 --clouddisksize=50  \
+--cloudocivcn=ocid1.vcn.oc1.iad.aaaa... --cloudocisubnet=ocid1.subnet.oc1.iad.aaaa... \
+--cloudkeepobject=true --cloudlaunchinstance=true --cloudpublicip=true</screen>
+  </refsect1>
+</refentry>

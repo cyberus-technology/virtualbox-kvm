@@ -1,0 +1,220 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Cross Platform Guest Addition Services.
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Incldue testcases.
+#
+include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+
+
+#
+# Target lists.
+#
+PROGRAMS += VBoxService
+
+
+#
+# Globals?
+#
+# Enable the timesync service within VBoxService.
+VBOX_WITH_VBOXSERVICE_TIMESYNC      := 1
+
+# Busybox-like toolbox, embedded into VBoxService.
+VBOX_WITH_VBOXSERVICE_TOOLBOX       := 1
+
+# VM-management functions, like memory ballooning and statistics.
+VBOX_WITH_VBOXSERVICE_MANAGEMENT    := 1
+
+if1of ($(KBUILD_TARGET), linux)
+ # CPU hotplugging.
+ VBOX_WITH_VBOXSERVICE_CPUHOTPLUG   := 1
+endif
+
+# Page Sharing (Page Fusion).
+if1of ($(KBUILD_TARGET), win)
+ VBOX_WITH_VBOXSERVICE_PAGE_SHARING := 1
+endif
+
+ifdef VBOX_WITH_GUEST_PROPS
+ VBOX_WITH_VBOXSERVICE_VMINFO       := 1
+endif
+
+# Guest Control.
+ifdef VBOX_WITH_GUEST_CONTROL
+ VBOX_WITH_VBOXSERVICE_CONTROL      := 1
+endif
+
+# Shared Clipboard.
+ifdef VBOX_WITH_SHARED_CLIPBOARD
+ VBOX_WITH_VBOXSERVICE_CLIPBOARD    := 1
+endif
+
+# DRM Resize.
+if "$(KBUILD_TARGET)" == "linux" && defined(VBOX_WITH_GUEST_PROPS)
+ # The DRM resizing code needs guest properties.
+ VBOX_WITH_VBOXSERVICE_DRMRESIZE    := 1
+endif
+
+
+#
+# VBoxService
+#
+VBoxService_TEMPLATE      = VBoxGuestR3Exe
+
+VBoxService_DEFS          = \
+	$(if $(VBOX_WITH_VBOXSERVICE_CONTROL),VBOX_WITH_VBOXSERVICE_CONTROL,) \
+	$(if $(VBOX_WITH_VBOXSERVICE_CPUHOTPLUG),VBOX_WITH_VBOXSERVICE_CPUHOTPLUG,) \
+	$(if $(VBOX_WITH_VBOXSERVICE_DRMRESIZE),VBOX_WITH_VBOXSERVICE_DRMRESIZE,) \
+	$(if $(VBOX_WITH_VBOXSERVICE_MANAGEMENT),VBOX_WITH_VBOXSERVICE_MANAGEMENT,) \
+	$(if $(VBOX_WITH_VBOXSERVICE_PAGE_SHARING),VBOX_WITH_VBOXSERVICE_PAGE_SHARING,) \
+	$(if $(VBOX_WITH_VBOXSERVICE_TIMESYNC),VBOX_WITH_VBOXSERVICE_TIMESYNC,) \
+	$(if $(VBOX_WITH_VBOXSERVICE_TOOLBOX),VBOX_WITH_VBOXSERVICE_TOOLBOX,) \
+	$(if $(VBOX_WITH_VBOXSERVICE_VMINFO),VBOX_WITH_VBOXSERVICE_VMINFO,) \
+	$(if $(VBOX_WITH_DBUS),VBOX_WITH_DBUS,) \
+	$(if $(VBOX_WITH_GUEST_CONTROL),VBOX_WITH_GUEST_CONTROL,) \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBOX_WITH_GUEST_PROPS,) \
+	$(if $(VBOX_WITH_HGCM),VBOX_WITH_HGCM,)
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ VBoxService_DEFS        += VBOX_BUILD_TARGET="$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)"
+else
+ VBoxService_DEFS        += VBOX_BUILD_TARGET=\"$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)\"
+endif
+VBoxService_DEFS.win     += _WIN32_WINNT=0x0501
+VBoxService_DEFS.os2      = VBOX_WITH_HGCM
+
+VBoxService_SOURCES       = \
+	VBoxService.cpp \
+	VBoxServiceUtils.cpp \
+	VBoxServiceStats.cpp
+
+ifdef VBOX_WITH_VBOXSERVICE_TIMESYNC
+ VBoxService_SOURCES     += \
+ 	VBoxServiceTimeSync.cpp
+endif
+
+ifdef VBOX_WITH_VBOXSERVICE_CLIPBOARD
+ VBoxService_DEFS.os2    += VBOX_WITH_VBOXSERVICE_CLIPBOARD VBOX_WITH_SHARED_CLIPBOARD
+ VBoxService_SOURCES.os2 += \
+ 	VBoxServiceClipboard-os2.cpp \
+ 	$(PATH_ROOT)/src/VBox/GuestHost/SharedClipboard/clipboard-common.cpp
+endif
+
+ifdef VBOX_WITH_VBOXSERVICE_TOOLBOX
+ VBoxService_SOURCES     += \
+ 	VBoxServiceToolBox.cpp
+endif
+
+ifdef VBOX_WITH_VBOXSERVICE_CONTROL
+ VBoxService_SOURCES     += \
+ 	VBoxServiceControl.cpp \
+ 	VBoxServiceControlProcess.cpp \
+ 	VBoxServiceControlSession.cpp
+endif
+
+ifdef VBOX_WITH_VBOXSERVICE_MANAGEMENT
+ ifdef VBOX_WITH_MEMBALLOON
+  VBoxService_SOURCES    += \
+  	VBoxServiceBalloon.cpp
+  VBoxService_DEFS       += VBOX_WITH_MEMBALLOON
+ endif
+endif
+
+if1of ($(KBUILD_TARGET), win)
+ VBoxService_SOURCES     += \
+ 	VBoxServicePageSharing.cpp
+endif
+
+ifdef VBOX_WITH_VBOXSERVICE_VMINFO
+ VBoxService_SOURCES.win += \
+ 	VBoxServiceVMInfo-win.cpp
+ VBoxService_SOURCES     += \
+ 	VBoxServiceVMInfo.cpp \
+ 	VBoxServicePropCache.cpp
+endif
+
+ifdef VBOX_WITH_VBOXSERVICE_CPUHOTPLUG
+ VBoxService_SOURCES     += \
+ 	VBoxServiceCpuHotPlug.cpp
+endif
+
+ifdef VBOX_WITH_SHARED_FOLDERS
+ if1of ($(KBUILD_TARGET), linux os2 solaris win)
+  VBoxService_DEFS       += VBOX_WITH_SHARED_FOLDERS
+  VBoxService_SOURCES    += \
+  	VBoxServiceAutoMount.cpp
+  VBoxService_SOURCES.linux += \
+  	../../linux/sharedfolders/vbsfmount.c
+  VBoxService_LIBS.win   += \
+  	Mpr.Lib
+ endif
+endif
+
+VBoxService_SOURCES.win  += \
+	VBoxService-win.cpp
+
+VBoxService_SOURCES.os2  += \
+	VBoxService-os2.def
+
+VBoxService_LDFLAGS.darwin = -framework IOKit
+
+VBoxService_LIBS         += \
+	$(VBOX_LIB_IPRT_GUEST_R3) \
+	$(VBOX_LIB_VBGL_R3) \
+	$(VBOX_LIB_IPRT_GUEST_R3)       # (The joy of unix linkers.)
+ifdef VBOX_WITH_DBUS
+ if1of ($(KBUILD_TARGET), linux solaris) # FreeBSD?
+  VBoxService_LIBS       += \
+  	dl
+ endif
+endif
+VBoxService_LIBS.netbsd  += crypt
+ifdef VBOX_WITH_GUEST_PROPS
+ VBoxService_LIBS.win    += \
+ 	Secur32.lib \
+ 	WtsApi32.lib \
+ 	Psapi.lib
+ VBoxService_LIBS.solaris += \
+ 	nsl \
+ 	kstat \
+ 	contract
+endif
+
+ifdef VBOX_WITH_VBOXSERVICE_VMINFO
+ VBoxServiceVMInfo.cpp_DEFS = VBOX_SVN_REV=$(VBOX_SVN_REV)
+ VBoxServiceVMInfo.cpp_DEPS = $(VBOX_SVN_REV_KMK)
+endif
+
+VBoxService_USES.win += vboximportchecker
+VBoxService_VBOX_IMPORT_CHECKER.win.x86 = nt31
+VBoxService_VBOX_IMPORT_CHECKER.win.amd64 = xp64
+
+$(call VBOX_SET_VER_INFO_EXE,VBoxService,VirtualBox Guest Additions Service,$(VBOX_WINDOWS_ICON_FILE)) # Version info / description.
+
+include $(FILE_KBUILD_SUB_FOOTER)

@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage clonevm
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-clonevm" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage clonevm</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-clonevm</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-clonevm</refname>
+    <refpurpose>создание клона существующей виртуальной машины &product-name;</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-clonevm">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage clonevm</command>
+      <arg choice="req"><replaceable>имя-ВМ|uuid</replaceable></arg>
+
+      <arg>--basefolder=<replaceable>основная-папка</replaceable></arg>
+
+      <arg rep="repeat">--groups=<replaceable>группа</replaceable>,</arg>
+
+      <group choice='opt'>
+        <arg choice='plain'>--mode=machine</arg>
+        <arg choice='plain'>--mode=machinechildren</arg>
+        <arg choice='plain'>--mode=all</arg>
+      </group>
+
+      <arg>--name=<replaceable>имя</replaceable></arg>
+
+      <arg rep="repeat">--options=<replaceable>опция</replaceable>,</arg>
+
+      <arg>--register</arg>
+
+      <arg>--snapshot=<replaceable>имя-снимка</replaceable></arg>
+
+      <arg>--uuid=<replaceable>uuid</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage clonevm</command> создает клон существующей
+      виртуальной машины (ВМ). Клон может быть либо полной копией ВМ
+      либо связанной копией.
+    </para>
+    <para>
+      Вы должны указать имя или универсальный уникальный идентификатор
+      (UUID) клонируемой машины.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Командные операнды и опции</title>
+    <para>
+      Следующий список описывает операнды и опции, которые можно использовать
+      с командой <command>VBoxManage clonevm</command>:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>имя-ВМ|uuid</replaceable></term>
+        <listitem><para>
+            Указывает имя или UUID клонируемой ВМ.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--basefolder=<replaceable>основная-папка</replaceable></option></term>
+        <listitem><para>
+            Указывает имя папки, в которую сохраняется конфигурация
+            новой ВМ.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--groups=<replaceable>группа</replaceable>,...</option></term>
+        <listitem><para>
+            Добавляет клон в группу или в группы. Несколько групп
+            указываются через запятую.
+          </para><para>
+            Обратите внимание, что каждая группа идентифицируется по ID
+            группы, начинающийся с символа <computeroutput>/</computeroutput>,
+            поэтому группы могут быть вложенные. По умолчанию, клон
+            всегда добавляется в группу <computeroutput>/</computeroutput>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--mode=machine|machineandchildren|all</option></term>
+        <listitem><para>
+            Указывает режим клонирования:
+          </para><itemizedlist>
+            <listitem><para>
+                Режим <computeroutput>machine</computeroutput> клонирует
+                текущее состояние существующей ВМ без снимков. Это
+                режим по умолчанию.
+              </para></listitem>
+            <listitem><para>
+                Режим <computeroutput>machineandchildren</computeroutput>
+                клонирует снимок, указанный через опцию
+                <option>--snapshot</option>, и все его дочерние
+                снимки.
+              </para></listitem>
+            <listitem><para>
+                Режим <computeroutput>all</computeroutput> клонирует
+                все снимки и текущее состояние существующей ВМ.
+              </para></listitem>
+          </itemizedlist></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--name=<replaceable>имя</replaceable></option></term>
+        <listitem><para>
+            Указывает имя для новой ВМ. Значение по умолчанию - это
+            <computeroutput>Копия <replaceable>исходное-имя</replaceable></computeroutput>,
+            где <replaceable>исходное-имя</replaceable> - это имя
+            исходной ВМ.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--options=<replaceable>опция</replaceable>,...</option></term>
+        <listitem><para>
+            Указывает как создать новый клон.</para>
+          <para>Аргумент <option>--options</option> может быть использован
+            несколько раз для указания нескольких опций или опции могут быть
+            указаны списком через запятую. Опции не чувствительны к регистру.</para>
+          <para>Распознаются следующие опции (не чувствительны к регистру):</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>Link</option></term>
+              <listitem><para>
+                  Создает связанный клон только из снимка.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>KeepAllMACs</option></term>
+              <listitem><para>
+                  Указывает, что новый клон использует MAC адреса
+                  всех сетевых карт существующей ВМ.
+                </para><para>
+                  Если вы не укажете эту опцию или опцию
+                  <option>--options=keepnatmacs</option>, то
+                  МАС адреса каждой сетевой карты новой ВМ
+                  инициализируются новыми значениями.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>KeepNATMACs</option></term>
+              <listitem><para>
+                  Указывает, что новый клон использует MAC адреса
+                  всех сетевых карт существующей ВМ, если используется
+                  сеть типа NAT.
+                </para><para>
+                  Если вы не укажете эту опцию или опцию
+                  <option>KeepAllMACs</option>, то МАС адреса каждой
+                  сетевой карты новой ВМ инициализируются новыми значениями.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>KeepDiskNames</option></term>
+              <listitem><para>
+                  Указывает, что новый клон использует те же имена
+                  образов дисков что и существующая ВМ. По умолчанию
+                  образы дисков переименовываются.
+                </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>KeepHwUUIDs</option></term>
+              <listitem><para>
+                  Указывает, что новый клон использует идентификаторы
+                  аппаратного обеспечения из существующей ВМ. По
+                  умолчанию назначаются новые UUID.
+                </para></listitem>
+            </varlistentry>
+          </variablelist></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--register</option></term>
+        <listitem><para>
+            Автоматически регистрирует новый клон в &product-name;.
+            Позже можно зарегистрировать новую ВМ вручную с помощью
+            команды <command>VBoxManage registervm</command>.
+            Смотрите <xref linkend="vboxmanage-registervm" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--snapshot=<replaceable>имя-снимка</replaceable></option></term>
+        <listitem><para>
+            Указывает снимок, являющийся основой для новой ВМ. По
+            умолчанию клон создается из текущего состояния указанной ВМ.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--uuid=<replaceable>uuid</replaceable></option></term>
+        <listitem><para>
+            Указывает UUID для новой ВМ. Убедитесь, что ID является
+            уникальным в экземпляре &product-name; если вы решили
+            зарегистрировать новую ВМ. По умолчанию, &product-name;
+            сам назначает новый UUID.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <para>
+      Следующая команда создает и регистрирует точный клон ВМ
+      <computeroutput>ol7</computeroutput>. Клон называется
+      <computeroutput>ol7-dev-001</computeroutput>.
+    </para>
+    <para>
+      Новый клон включает все снимки исходной ВМ. Новая ВМ использует
+      те же самые MAC адреса всех сетевых интерфейсов, имена дисков
+      и UUIDы исходной ВМ.
+    </para>
+<screen>
+$ VBoxManage clonevm ol7 --name="ol7-dev-001" --register --mode=all \
+    --options=keepallmacs --options=keepdisknames --options=keephwuuids
+</screen>
+    <para>
+      Следующая команда создает и регистрирует клон снимка
+      <computeroutput>Снимок 1</computeroutput> ВМ
+      <computeroutput>ol7</computeroutput>. Клон называется
+      <computeroutput>ol7-dev-002</computeroutput>.
+    </para>
+<screen>
+$ VBoxManage clonevm ol7 --name="ol7-dev-002" --register --snapshot="Снимок 1"
+</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>Смотрите также</title>
+    <para>
+      <xref linkend="vboxmanage-registervm" />
+    </para>
+  </refsect1>
+</refentry>

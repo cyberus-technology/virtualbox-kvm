@@ -1,0 +1,3156 @@
+#!/bin/sh
+# The purpose of this script is to check for all external tools, headers, and
+# libraries VBox OSE depends on.
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+LC_ALL=C
+export LC_ALL
+
+# append some extra paths
+PATH="$PATH:/opt/gnome/bin"
+# Solaris (order of paths important for tr, grep, sed to work)
+PATH="/usr/xpg4/bin:$PATH:/usr/local/bin:/usr/sfw/bin:/usr/ccs/bin"
+ORGPATH=$PATH
+
+# Wrapper for ancient /usr/bin/which on darwin that always returns 0
+which_wrapper()
+{
+  if [ -z "$have_ancient_which" ]; then
+    if which /bin/___cErTaINly_a_nOn_eXisTing_fIle___ 2> /dev/null > /dev/null; then
+      have_ancient_which="yes"
+    else
+      have_ancient_which="no"
+    fi
+  fi
+  if [ "$have_ancient_which" = "yes" ]; then
+    retval=`which $* 2>/dev/null`
+    echo "$retval"
+    test -n "$retval" -a -x "$retval"
+    unset retval
+  else
+    which $* 2> /dev/null
+  fi
+}
+
+OS=`uname -s | sed -e 's/GNU\/Linux/Linux/g' | tr '[:upper:]' '[:lower:]'`
+case "$OS" in
+  linux)
+    ;;
+  darwin)
+    ;;
+  freebsd)
+    ;;
+  netbsd)
+    ;;
+  sunos)
+    OS='solaris'
+    ;;
+  haiku)
+    ;;
+  *)
+    echo "Cannot determine OS!"
+    exit 1
+    ;;
+esac
+
+#
+# Defaults
+#
+OSE=1
+ODIR="`pwd`/"
+ODIR_OVERRIDE=0
+OUT_BASE_PATH=""
+OUT_BASE_PATH_OVERRIDE=0
+SETUP_WINE=
+ONLY_ADDITIONS=0
+TARGET_MACHINE=""
+TARGET_CPU=""
+WITH_XPCOM=1
+WITH_PYTHON=1
+WITH_JAVA=1
+WITH_VMMRAW=1
+WITH_LIBIDL=1
+WITH_QT5=1
+WITH_SDL=1
+WITH_SDL_TTF=1
+WITH_X11=1
+WITH_ALSA=1
+WITH_PULSE=1
+WITH_DBUS=1
+WITH_DEVMAPPER=1
+WITH_KMODS=1
+WITH_OPENGL=1
+WITH_HARDENING=1
+WITH_UDPTUNNEL=1
+WITH_VDE=0
+WITH_VNC=0
+WITH_EXTPACK=1
+WITH_DOCS=1
+WITH_LIBVPX=1
+WITH_LIBOGG=0
+WITH_LIBVORBIS=0
+WITH_LIBTPMS=1
+WITH_LIBLZMA=1
+BUILD_LIBXML2=
+BUILD_LIBCURL=
+BUILD_LIBSSL=
+BUILD_LIBVPX=
+BUILD_LIBTPMS=
+BUILD_LIBLZMA=
+PASSIVE_MESA=0
+CC="gcc"
+CC32=""
+CC64=""
+CXX="g++"
+CXX32=""
+CXX64=""
+YASM="yasm"
+IASL="iasl"
+XSLTPROC="xsltproc"
+INCCRYPTO=""
+LIBCRYPTO="-lssl -lcrypto"
+LIBPTHREAD="-lpthread"
+LIBCAP="-lcap"
+GSOAP=""
+GSOAP_IMPORT=""
+INCX11="/usr/local/include"
+LIBX11="-L/usr/X11R6/lib -L/usr/X11R6/lib64 -L/usr/local/lib -lXext -lX11"
+LIBXCURSOR="-lXcursor"
+LIBXMU="-lXmu"
+LIBXINERAMA="-lXinerama"
+LIBXRANDR="-lXrandr"
+MAKESELF="makeself"
+MESA="-lGL"
+INCZ=""
+LIBZ="-lz"
+INCLZF="/usr/include/liblzf"
+LIBLZF="-llzf"
+INCVNCSERVER=""
+LIBVNCSERVER="-lvncserver"
+INCDEVMAPPER=""
+LIBDEVMAPPER="-ldevmapper"
+CXX_FLAGS=""
+if [ "$OS" = "freebsd" ]; then
+  INCCURL="-I/usr/local/include"
+  LIBCURL="-L/usr/local/lib -lcurl"
+  INCPULSE="-I/usr/local/include"
+  LIBPULSE="-L/usr/local/lib"
+  INCPNG="-I/usr/local/include"
+  LIBPNG="-L/usr/local/lib -lpng"
+else
+  INCCURL=""
+  LIBCURL="-lcurl"
+  INCPNG=""
+  LIBPNG="-lpng"
+fi
+INCVPX=""
+LIBVPX="-lvpx"
+PKGCONFIG="`which_wrapper pkg-config`"
+PYTHONDIR="/usr /usr/local"
+QT5DIR="/usr/lib/qt5 /usr/share/qt5 /usr/lib64/qt5 /usr /usr/local"
+QT5DIR_PKGCONFIG=1
+QT5MAJ=5
+QT5MIN=9
+KBUILDDIR="`cd \`dirname $0\`; pwd`/kBuild"
+DEVDIR="`cd \`dirname $0\`; pwd`/tools"
+if [ -d "/lib/modules/`uname -r`/build" ]; then
+  LINUX="/lib/modules/`uname -r`/build"
+elif [ "`echo /lib/modules/*`" != "/lib/modules/*" ]; then
+  # Get the most recent kernel headers if none match the current kernel.
+  for i in /lib/modules/*; do
+    if [ -r "$i/build" ]; then
+      LINUX="$i/build"
+    fi
+  done
+fi
+if [ -z "$LINUX" ]; then
+ LINUX="/usr/src/linux"
+fi
+KCHMVIEWER="kchmviewer"
+LOG="configure.log"
+CNF="AutoConfig.kmk"
+ENV="env.sh"
+BUILD_TYPE="release"
+# the restricting tool is ar (mri mode).
+INVALID_CHARS="[^A-Za-z0-9/\\$:._-]"
+
+if (cd `dirname $0`; pwd)|grep -q "$INVALID_CHARS"; then
+  echo "Error: VBox base path contains invalid characters!"
+  exit 1
+fi
+
+# Posix /bin/sh isn't supporting echo -n. Use printf instead.
+ECHO_N="printf"
+
+
+cleanup()
+{
+  rm -f $ODIR.tmp_src.cc $ODIR.tmp_src.c $ODIR.tmp_out $ODIR.test_execute.log
+  [ "$OS" = "darwin" ] && rm -rf $ODIR.tmp_out.dSYM
+  true
+}
+
+fail()
+{
+  if [ -z "$nofatal" -o "x$1" != "x" ]; then
+    cleanup
+    rm -f $ENV
+    echo "Check $LOG for details"
+    exit 1
+  fi
+}
+
+log()
+{
+  echo "$1"
+  echo "$1" >> $LOG
+}
+
+log_success()
+{
+  if [ -n "$1" ]; then $ECHO_N "$1, "; fi
+  echo "OK."
+  echo "$1" >> $LOG
+  echo >> $LOG
+  echo >> $LOG
+}
+
+log_failure()
+{
+  echo
+  echo "  ** $1!"
+  echo "** $1!" >> $LOG
+  echo >> $LOG
+}
+
+cnf_append()
+{
+  printf "%-30s := %s\n" "$1" "$2" >> $CNF
+}
+
+strip_l()
+{
+  echo "$1"|$KBUILD_SED 's|-l\([^ ]\+\)|\1|g; s|^-[^l][^ ]*||g; s| -[^l][^ ]*||g; s|^ ||; s| *$||g'
+}
+
+strip_L()
+{
+  if [ "$OS" = "darwin" ]; then
+    echo "$1"|$KBUILD_SED 's|-F\([^ ]\+\)|\1|g; s|^-[^F][^ ]*||g; s| -[^F][^ ]*||g; s|^ ||; s| *$||g'
+  else
+    echo "$1"|$KBUILD_SED 's|-L\([^ ]\+\)|\1|g; s|^-[^L][^ ]*||g; s| -[^L][^ ]*||g; s|^ ||; s| *$||g'
+  fi
+}
+
+L_to_PATH()
+{
+echo $1 >> $LOG
+  if [ "$OS" = "darwin" ]; then
+    echo "$1"|$KBUILD_SED 's|-F\([^ ]\+\)|\1|g; s|^-[^F][^ ]*||g; s| -[^F][^ ]*||g; s|^ ||; s| *$||g; s| |:|g'
+  else
+    echo "$1"|$KBUILD_SED 's|-L\([^ ]\+\)|\1|g; s|^-[^L][^ ]*||g; s| -[^L][^ ]*||g; s|^ ||; s| *$||g; s| |:|g'
+  fi
+}
+
+strip_I()
+{
+  echo "$1"|$KBUILD_SED 's|-I\([^ ]\+\)|\1|g; s|^-[^I][^ ]*||g; s| -[^I][^ ]*||g; s|^ ||; s| *$||g'
+}
+
+prefix_I()
+{
+  echo "$1"|$KBUILD_SED 's|^\/|-I/|g; s| \/| -I/|g'
+}
+
+check_avail()
+{
+   if [ -z "$1" ]; then
+     log_failure "$2 is empty"
+     fail $3
+     return 1
+   elif which_wrapper $1 > /dev/null; then
+     return 0
+   else
+     log_failure "$1 (variable $2) not found"
+     fail $3
+     return 1
+   fi
+}
+
+
+# Prepare a test
+test_header()
+{
+  echo "***** Checking $1 *****" >> $LOG
+  $ECHO_N "Checking for $1: "
+}
+
+
+# Compile a test
+#  $1   compile flags/libs
+#  $2   library name
+#  $3   package name
+#  $4   if this argument is 'nofatal', don't abort
+test_compile()
+{
+  echo "compiling the following source file:" >> $LOG
+  cat $ODIR.tmp_src.cc >> $LOG
+  echo "using the following command line:" >> $LOG
+  echo "$CXX $CXX_FLAGS -fPIC -g -O -Wall -o $ODIR.tmp_out $ODIR.tmp_src.cc $1" >> $LOG
+  $CXX $CXX_FLAGS -fPIC -g -O -Wall -o $ODIR.tmp_out $ODIR.tmp_src.cc $1 >> $LOG 2>&1
+  if [ $? -ne 0 ]; then
+    if [ -z "$4" ]; then
+      echo
+      echo "  $2 not found at $1 or $3 headers not found"
+      echo "  Check the file $LOG for detailed error information."
+      fail
+    else
+      echo >> $LOG
+      echo >> $LOG
+    fi
+    return 1
+  fi
+  return 0
+}
+
+
+# Execute a compiled test binary
+test_execute()
+{
+  echo "executing the binary" >> $LOG
+  $ODIR.tmp_out > $ODIR.test_execute.log 2>&1
+  rc=$?
+  cat $ODIR.test_execute.log | tee -a $LOG
+  if [ $rc -ne 0 ]; then
+    fail $1
+    return 1
+  fi
+  echo >> $LOG
+  echo >> $LOG
+  return 0
+}
+
+
+# Execute a compiled test binary
+test_execute_path()
+{
+  ## LD_LIBRARY_PATH to set.
+  local_path="${1}"
+  ## Set this to non-empty to make this test non-fatal.
+  local_nofail="${2}"
+  echo "executing the binary (LD_LIBRARY_PATH=$1:$LD_LIBRARY_PATH)" >> $LOG
+  LD_LIBRARY_PATH="${local_path}:$LD_LIBRARY_PATH" $ODIR.tmp_out > $ODIR.test_execute.log 2>&1
+  rc=$?
+  cat $ODIR.test_execute.log | tee -a $LOG
+  if [ $rc -ne 0 ]; then
+    test -z "${local_nofail}" && fail
+    echo >> $LOG
+    echo >> $LOG
+    return 1
+  fi
+  echo >> $LOG
+  echo >> $LOG
+  return 0
+}
+
+
+#
+# Check for OS, MACHINE, CPU
+#
+check_environment()
+{
+  test_header environment
+  BUILD_CPU=`uname -m`
+  [ "$OS" = "solaris" ] && BUILD_CPU=`isainfo | cut -f 1 -d ' '`
+  case "$BUILD_CPU" in
+    i[3456789]86|x86|i86pc|BePC)
+      BUILD_MACHINE='x86'
+      LIB='lib'
+      ;;
+    x86_64|amd64)
+      BUILD_MACHINE='amd64'
+      BUILD_CPU='blend'
+      if [ "$OS" != "solaris" ]; then
+        # on AMD64 systems, 64bit libs are usually located in /usr/lib64
+        # see http://www.pathname.com/fhs/pub/fhs-2.3.html#LIB64
+        LIB='lib64'
+      else
+        # Solaris doesn't seem to subscribe to fhs, libs are usually in
+        # a '64' subdirectory of the standard 'lib' dirs while some 64-bit
+        # alternative binaries can be found in 'amd64' subdirs of the 'bin'
+        # ones. So, in order to find the right stuff (esp. sdl-config) we'll
+        # have to make sure the */bin/amd64 dirs are searched before the */bin
+        # ones. (The sed has some sideeffects, but they shouldn't harm us...)
+        echo "64-bit Solaris detected, hacking the PATH" >> $LOG
+        echo "old PATH: $PATH" >> $LOG
+        PATH=`echo ":$PATH:" | sed -e 's,\(:[^:]*/bin\):,\1/amd64:\1:,g' \
+                                   -e 's/^:*//' -e 's/:*$//g' -e 's/::*/:/g' `
+        export PATH
+        echo "new PATH: $PATH" >> $LOG
+        LIB='lib/64'
+      fi
+      ;;
+    sparc64|sparcv9)
+        BUILD_MACHINE='sparc64'
+        BUILD_CPU='blend'
+        ;;
+    sparc32|sparc|sparcv8|sparcv7|sparcv8e)
+        BUILD_MACHINE='sparc32'
+        BUILD_CPU='blend'
+        ;;
+    *)
+      log_failure "Cannot determine system"
+      exit 1
+      ;;
+  esac
+  [ -z "$TARGET_MACHINE" ] && TARGET_MACHINE=$BUILD_MACHINE
+  [ -z "$TARGET_CPU"     ] && TARGET_CPU=$BUILD_CPU
+  DEVDIR_BIN="$DEVDIR/$OS.$BUILD_MACHINE/bin"
+  log_success "Determined build machine: $OS.$BUILD_MACHINE, target machine: $OS.$TARGET_MACHINE"
+
+  echo "KBUILD_HOST=\"$OS\"" >> $ENV
+  echo "KBUILD_HOST_ARCH=\"$BUILD_MACHINE\"" >> $ENV
+  echo "KBUILD_TARGET=\"$OS\"" >> $ENV
+  echo "KBUILD_TARGET_ARCH=\"$TARGET_MACHINE\"" >> $ENV
+  echo "KBUILD_TARGET_CPU=\"$TARGET_CPU\"" >> $ENV
+  echo "KBUILD_TYPE=\"$BUILD_TYPE\"" >> $ENV
+  echo 'export KBUILD_HOST KBUILD_HOST_ARCH KBUILD_TARGET KBUILD_TARGET_ARCH KBUILD_TARGET_CPU KBUILD_TYPE' >> $ENV
+
+  # obsolete legacy stuff:
+  echo '' >> $ENV
+  echo "# Legacy - do not use:" >> $ENV
+  echo 'BUILD_PLATFORM="$KBUILD_HOST"' >> $ENV
+  echo 'BUILD_PLATFORM_ARCH="$KBUILD_HOST_ARCH"' >> $ENV
+  echo 'BUILD_TARGET="$KBUILD_TARGET"' >> $ENV
+  echo 'BUILD_TARGET_ARCH="$KBUILD_TARGET_ARCH"' >> $ENV
+  echo 'BUILD_TARGET_CPU="$KBUILD_TARGET_CPU"' >> $ENV
+  echo 'BUILD_TYPE="$KBUILD_TYPE"' >> $ENV
+  echo 'export BUILD_PLATFORM BUILD_PLATFORM_ARCH BUILD_TARGET BUILD_TARGET_ARCH BUILD_TARGET_CPU BUILD_TYPE' >> $ENV
+  echo '' >> $ENV
+}
+
+#
+# Check for gcc with version >= 3.2.
+# We depend on a working gcc, if we fail terminate in every case.
+#
+check_gcc()
+{
+  test_header gcc
+  if check_avail "$CC" CC really; then
+    cc_ver=`$CC -dumpfullversion 2>/dev/null`
+    if [ $? -ne 0 ]; then
+      cc_ver=`$CC -dumpversion 2>/dev/null`
+    fi
+    if [ $? -ne 0 ]; then
+      log_failure "cannot execute '$CC -dumpversion'"
+      fail really
+    fi
+    if check_avail "$CXX" CXX really; then
+      cxx_ver=`$CXX -dumpfullversion 2>/dev/null`
+      if [ $? -ne 0 ]; then
+        cxx_ver=`$CXX -dumpversion 2>/dev/null`
+      fi
+      if [ $? -ne 0 ]; then
+        log_failure "cannot execute '$CXX -dumpversion'"
+        fail really
+      fi
+      cc_maj=`echo $cc_ver|cut -d. -f1`
+      cc_min=`echo $cc_ver|cut -d. -f2`
+      if [ "x$cc_ver" != "x$cxx_ver" ]; then
+        log_failure "gcc version $cc_ver does not match g++ version $cxx_ver"
+        fail really
+      elif [ $cc_maj -eq 4 -a $cc_min -eq 0 -a "$OS" = "darwin" ]; then
+        log_success "found version $cc_ver"
+      # gcc-4.0 is allowed for Darwin only
+      elif [ $cc_maj -eq 4 -a $cc_min -eq 2 -a "$OS" = "freebsd" ]; then
+        log_success "found version $cc_ver"
+      # gcc-4.2 is allowed for FreeBSD only
+      elif [ $cc_maj -lt 4 \
+             -o \( $cc_maj -eq 4 -a $cc_min -lt 4 -a "$OS" != "darwin" \) \
+             -o \( $cc_maj -eq 4 -a $cc_min -lt 2 -a "$OS"  = "darwin" \) ]; then
+        log_failure "gcc version $cc_maj.$cc_min found, expected gcc 4.x or later"
+        fail really
+      else
+        log_success "found version $cc_ver"
+      fi
+      if [ "$BUILD_MACHINE" = "amd64" ]; then
+        [ -z "$CC32"  ] && CC32="$CC -m32"
+        [ -z "$CXX32" ] && CXX32="$CXX -m32"
+      else
+        [ -z "$CC32"  ] && CC32="$CC"
+        [ -z "$CXX32" ] && CXX32="$CXX"
+      fi
+      if [ "$BUILD_MACHINE" = "x86" -a "$TARGET_MACHINE" = "amd64" ]; then
+        [ -z "$CC64"  ] && CC64="$CC -m64"
+        [ -z "$CXX64" ] && CXX64="$CXX -m64"
+      fi
+      if [ "$TARGET_MACHINE" = "amd64" -a $WITH_VMMRAW -eq 0 ]; then
+        CC32="undefined"
+        CXX32="undefined"
+      fi
+      if [ "$CC" != "gcc" ]; then
+        cnf_append "TOOL_GCC3_CC"   "$CC"
+        cnf_append "TOOL_GCC3_AS"   "$CC"
+        cnf_append "TOOL_GCC3_LD"   "$CC"
+        cnf_append "TOOL_GXX3_CC"   "$CC"
+        cnf_append "TOOL_GXX3_AS"   "$CC"
+      fi
+      if [ "$CXX" != "g++" ]; then
+        cnf_append "TOOL_GCC3_CXX"  "$CXX"
+        cnf_append "TOOL_GXX3_CXX"  "$CXX"
+        cnf_append "TOOL_GXX3_LD"   "$CXX"
+      fi
+      if [ "$CC32" != "gcc -m32" -a "$CC32" != "undefined" ]; then
+        cnf_append "TOOL_GCC32_CC"  "$CC32"
+        cnf_append "TOOL_GCC32_AS"  "$CC32"
+        cnf_append "TOOL_GCC32_LD"  "$CC32"
+        cnf_append "TOOL_GXX32_CC"  "$CC32"
+        cnf_append "TOOL_GXX32_AS"  "$CC32"
+      fi
+      if [ "$CXX32" != "g++ -m32" -a "$CXX32" != "undefined" ]; then
+        cnf_append "TOOL_GCC32_CXX" "$CXX32"
+        cnf_append "TOOL_GXX32_CXX" "$CXX32"
+        cnf_append "TOOL_GXX32_LD"  "$CXX32"
+      fi
+      # this isn't not necessary, there is not such tool.
+      if [ -n "$CC64" ]; then
+        cnf_append "TOOL_GCC64_CC"  "$CC64"
+        cnf_append "TOOL_GCC64_AS"  "$CC64"
+        cnf_append "TOOL_GCC64_LD"  "$CC64"
+        cnf_append "TOOL_GXX64_CC"  "$CC64"
+        cnf_append "TOOL_GXX64_AS"  "$CC64"
+      fi
+      if [ -n "$CXX64" ]; then
+        cnf_append "TOOL_GCC64_CXX" "$CXX64"
+        cnf_append "TOOL_GXX64_CXX" "$CXX64"
+        cnf_append "TOOL_GXX64_LD"  "$CXX64"
+      fi
+      if [ "$CC" != "gcc" ]; then
+        if [ -n "$CC64" ]; then
+          cnf_append "TOOL_Bs3Gcc64Elf64_CC"  "$CC64"
+        else
+          cnf_append "TOOL_Bs3Gcc64Elf64_CC"  "$CC"
+        fi
+        if [ -n "$CXX64" ]; then
+          cnf_append "TOOL_Bs3Gcc64Elf64_CXX" "$CXX64"
+        else
+          cnf_append "TOOL_Bs3Gcc64Elf64_CXX" "$CXX"
+        fi
+      fi
+      # Solaris sports a 32-bit gcc/g++.
+      if [ "$OS" = "solaris" -a "$BUILD_MACHINE" = "amd64" ]; then
+        [ "$CC" = "gcc" ] && CC="gcc -m64"
+        [ "$CXX" = "g++" ] && CXX="g++ -m64"
+      fi
+    fi
+  fi
+}
+
+
+#
+# Check for the OpenWatcom compiler, needed for compiling the BIOS
+#
+# If the system has Open Watcom installed, WATCOM will be set in the
+# environment.  If the user has her/his own Open Watcom install it will be
+# pointed to by on the command line, which will set the WATCOM variable.
+# The only exception is detecting OpenWatcom in tools/common/openwatcom.
+#
+check_open_watcom()
+{
+  test_header "Open Watcom"
+
+  if [ -z "$WATCOM" ]; then
+    WATCOM=`/bin/ls -rd1 $DEVDIR/common/openwatcom/* 2> /dev/null | head -1`
+    if [ -z "$WATCOM" ]; then
+      if [ $OSE -eq 0 -a $OS = "linux" ]; then
+        log_failure "Open Watcom was not found"
+        exit 1
+      fi
+      log_failure "Open Watcom was not found, using alternative BIOS sources"
+      cnf_append "VBOX_WITH_OPEN_WATCOM" ""
+      return 0;
+    fi
+  fi
+
+  case "$OS" in
+    "darwin")   wc_bin="binosx";;  # ??
+    "dos")      wc_bin="binw";;
+    "freebsd")  wc_bin="binfbsd";; # ??
+    "linux")    wc_bin="binl";;
+    "netbsd")   wc_bin="binnbsd";; # ??
+    "solaris")  wc_bin="binsol";;  # ??
+    "os2")      wc_bin="binp";;
+    "win")      wc_bin="binnt";;
+    *)          wc_bin="binl";;
+  esac
+
+  # Check that the tools we use are there.
+  for prog in wasm wcc wlink;
+  do
+    if [ ! -f "$WATCOM/$wc_bin/$prog" ]; then
+      log_failure "$WATCOM/$wc_bin/$prog does not exist or is not a regular file."
+      fail
+    fi
+  done
+
+  # Use WASM to get the version.
+  wasm_ver=`$WATCOM/$wc_bin/wasm -? 2>&1 | sed -e '1!d' -e 's/Open Watcom Assembler Version *//'`
+  if [ -z "$wasm_ver" ]; then
+    log_failure "$WATCOM/$wc_bin/wasm -? did not produce the expected response"
+    fail
+  fi
+  log_success "found version $wasm_ver"
+  cnf_append "PATH_TOOL_OPENWATCOM" "$WATCOM"
+  cnf_append "VBOX_WITH_OPEN_WATCOM" "1"
+
+  unset wasm_ver
+  unset wc_wasm
+  unset wc_bin
+}
+
+
+#
+# Check for yasm, needed to compile assembler files
+#
+check_yasm()
+{
+  test_header yasm
+  if check_avail "$YASM" YASM; then
+    yasm_ver=`$YASM --version|grep "^yasm"|sed 's+^yasm \(.*\)+\1+'`
+    if [ $? -ne 0 ]; then
+      log_failure "yasm not found"
+      fail
+    else
+      yasm_maj=`echo $yasm_ver|cut -d. -f1`
+      yasm_min=`echo $yasm_ver|cut -d. -f2`
+      yasm_rev=`echo $yasm_ver|cut -d. -f3`
+      yasm_ver_mul=`expr $yasm_maj \* 10000 + $yasm_min \* 100 + $yasm_rev`
+      if [ $yasm_ver_mul -lt 10300 ]; then
+        log_failure "found version $yasm_ver, expected at least 1.3.0"
+        fail
+      else
+        [ "$YASM" != "yasm" ] && cnf_append "PATH_TOOL_YASM" "`dirname $YASM`"
+        log_success "found version $yasm_ver"
+      fi
+    fi
+  fi
+}
+
+
+#
+# Check for the iasl ACPI compiler, needed to compile vbox.dsl
+#
+check_iasl()
+{
+  test_header iasl
+  if check_avail "$IASL" IASL; then
+    iasl_ver=`$IASL|grep "ASL.*version"|sed 's+^ASL.*version \([0-9]*\).*+\1+'`
+    if [ $? -ne 0 ]; then
+      log_failure "iasl not found"
+      fail
+    else
+      log_success "found version $iasl_ver"
+      cnf_append "VBOX_IASLCMD" "`which_wrapper $IASL`"
+    fi
+  fi
+}
+
+
+#
+# Check for xsltproc, needed by Main
+#
+check_xsltproc()
+{
+  if [ -n "$BUILD_LIBXSLT" ]; then
+      return 0;
+  fi
+  test_header xslt
+  if check_avail "$XSLTPROC" XSLTPROC; then
+    xsltproc_ver=`$XSLTPROC --version`
+    if [ $? -ne 0 ]; then
+      log_failure "xsltproc not found"
+      fail
+    else
+      log_success "found"
+      cnf_append "VBOX_XSLTPROC" "`which_wrapper $XSLTPROC`"
+    fi
+  fi
+}
+
+
+#
+# Check for libxml2, needed by the Runtime.
+# 2.6.24 is known to NOT work, 2.6.26 is known to work (there is no 2.6.25 release)
+#
+check_libxml2()
+{
+  if [ -z "$BUILD_LIBXML2" ]; then
+    test_header libxml2
+    if which_wrapper pkg-config > /dev/null; then
+      libxml2_ver=`pkg-config libxml-2.0 --modversion 2>> $LOG`
+      if [ $? -ne 0 ]; then
+        log_failure "libxml2 not found"
+        fail
+      else
+        FLGXML2=`pkg-config libxml-2.0 --cflags`
+        INCXML2=`strip_I "$FLGXML2"`
+        LIBXML2=`pkg-config libxml-2.0 --libs`
+        cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <libxml/xmlversion.h>
+extern "C" int main(void)
+{
+  printf("found version %s", LIBXML_DOTTED_VERSION);
+#if LIBXML_VERSION >= 20626
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 2.6.26 or higher\n");
+  return 1;
+#endif
+}
+EOF
+        [ -n "$INCXML2" ] && I_INCXML2=`prefix_I "$INCXML2"`
+        if test_compile "$LIBXML2 $LIBPTHREAD $I_INCXML2" xml2 xml2; then
+          if test_execute; then
+            cnf_append "SDK_VBoxLibXml2_DEFS" "_REENTRANT" ## @todo get defines from --cflags
+            cnf_append "SDK_VBoxLibXml2_INCS" "$INCXML2"
+            cnf_append "SDK_VBoxLibXml2_LIBS" "`strip_l "$LIBXML2"`"
+          fi
+        fi
+      fi
+    elif which_wrapper xml2-config; then
+      libxml2_ver=`xml2-config --version`
+      if [ $? -ne 0 ]; then
+        log_failure "xml2-config not found"
+        fail
+      else
+        log_success "found version $libxml2_ver"
+        FLGXML2=`xml2-config --cflags`
+        INCXML2=`strip_I "$FLGXML2"`
+        LIBXML2=`xml2-config --libs`
+        cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <libxml/xmlversion.h>
+extern "C" int main(void)
+{
+  printf("found version %s", LIBXML_DOTTED_VERSION);
+#if LIBXML_VERSION >= 20626
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 2.6.26 or higher\n");
+  return 1;
+#endif
+}
+EOF
+        [ -n "$INCXML2" ] && I_INCXML2=`prefix_I "$INCXML2"`
+        if test_compile "$LIBXML2 $LIBPTHREAD $I_INCXML2" xml2 xml2; then
+          if test_execute; then
+            cnf_append "SDK_VBoxLibXml2_DEFS" "_REENTRANT" ## @todo get defines from --cflags
+            cnf_append "SDK_VBoxLibXml2_INCS" "$INCXML2"
+            cnf_append "SDK_VBoxLibXml2_LIBS" "`strip_l "$LIBXML2"`"
+          fi
+        fi
+      fi
+    else
+      log_failure "neither pkg-config nor xml2-config found"
+      fail
+    fi
+  fi
+}
+
+
+#
+# Check for libIDL, needed by xpcom
+#
+check_libidl()
+{
+  test_header libIDL
+
+  if which_wrapper libIDL-config-2 > /dev/null; then
+    libidl_ver=`libIDL-config-2 --version`
+    if [ $? -ne 0 ]; then
+      log_failure "libIDL-config-2 not working"
+      fail
+    else
+      log_success "found version $libidl_ver"
+      cnf_append "VBOX_LIBIDL_CONFIG" \
+        "PKG_CONFIG_PATH=`libIDL-config-2 --prefix`/$LIB/pkgconfig `which_wrapper libIDL-config-2`"
+    fi
+  elif check_avail "libIDL-config" libIDL-config; then
+    libidl_ver=`libIDL-config --version`
+    if [ $? -ne 0 ]; then
+      log_failure "libIDL-config not working"
+      fail
+    else
+      log_success "found version $libidl_ver"
+      cnf_append "VBOX_LIBIDL_CONFIG" "`which_wrapper libIDL-config`"
+    fi
+  fi
+}
+
+
+#
+# Check for libdevmapper, needed by the VBoxVolInfo
+#
+check_libdevmapper()
+{
+  test_header libdevmapper
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+extern "C" {
+#define private
+#include <libdevmapper.h>
+int main()
+{
+  char version[80];
+
+  if (!dm_get_library_version(version, sizeof(version)))
+  {
+    printf("dm_get_library_version() failed.\n");
+    return 1;
+  }
+
+  const char* v=version;
+  unsigned int major = 0, minor = 0, micro = 0;
+
+  for (; *v !='.' && *v != '\0'; v++) major = major*10 + *v-'0';
+  if (*v == '.') v++;
+  for (; *v !='.' && *v != '\0'; v++) minor = minor*10 + *v-'0';
+  if (*v == '.') v++;
+  for (; *v !='.' && *v != '\0'; v++) micro = micro*10 + *v-'0';
+
+  printf("found version %s", version);
+  if (major*10000 + minor*100 + micro >= 10200)
+  {
+    printf(", OK.\n");
+    return 0;
+  }
+  else
+  {
+    printf(", expected version 1.02 or higher\n");
+    return 1;
+  }
+}
+}
+EOF
+  if test_compile "$LIBDEVMAPPER $INCDEVMAPPER" libdevmapper libdevmapper; then
+    if test_execute; then
+      cnf_append "VBOX_WITH_DEVMAPPER" "1"
+    fi
+  fi
+}
+
+
+#
+# Check for openssl, needed for RDP and S3
+#
+check_ssl()
+{
+  if [ -z "$BUILD_LIBSSL" ]; then
+    test_header ssl
+    cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <openssl/opensslv.h>
+#include <openssl/ssl.h>
+extern "C" int main(void)
+{
+  printf("found version %s", OPENSSL_VERSION_TEXT);
+  SSL_library_init();
+#if OPENSSL_VERSION_NUMBER >= 0x10001000
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 1.0.1 or higher\n");
+  return 1;
+#endif
+}
+EOF
+    if test_compile "$INCCRYPTO $LIBCRYPTO" libcrypto openssl; then
+      if test_execute nofatal; then
+        cnf_append "SDK_VBoxOpenSslStatic_INCS" "`strip_I "$INCCRYPTO"`"
+        cnf_append "SDK_VBoxOpenSslStatic_LIBS" "`strip_l "$LIBCRYPTO"`"
+        cnf_append "SDK_VBoxOpenSslBldProg_LIBS" "`strip_l "$LIBCRYPTO"`"
+      fi
+    fi
+  fi
+}
+
+
+#
+# Check for pthread, needed by VBoxSVC, frontends, ...
+#
+check_pthread()
+{
+  test_header pthread
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <pthread.h>
+extern "C" int main(void)
+{
+  pthread_mutex_t mutex;
+  if (pthread_mutex_init(&mutex, NULL)) {
+    printf("pthread_mutex_init() failed\n");
+    return 1;
+  }
+  if (pthread_mutex_lock(&mutex)) {
+    printf("pthread_mutex_lock() failed\n");
+    return 1;
+  }
+  if (pthread_mutex_unlock(&mutex)) {
+    printf("pthread_mutex_unlock() failed\n");
+    return 1;
+  }
+  printf("found, OK.\n");
+}
+EOF
+  if test_compile $LIBPTHREAD pthread pthread; then
+    if test_execute; then
+      cnf_append "LIB_PTHREAD" "`strip_l "$LIBPTHREAD"`"
+    fi
+  fi
+}
+
+
+#
+# Check for zlib, needed by VBoxSVC, Runtime, ...
+#
+check_z()
+{
+  test_header zlib
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <zlib.h>
+extern "C" int main(void)
+{
+  printf("found version %s", ZLIB_VERSION);
+#if ZLIB_VERNUM >= 0x1210
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 1.2.1 or higher\n");
+  return 1;
+#endif
+}
+EOF
+  [ -n "$INCZ" ] && I_INCZ=`prefix_I "$INCZ"`
+  if test_compile "$LIBZ $I_INCZ" zlib zlib; then
+    if test_execute; then
+      echo "if1of (\$(KBUILD_TARGET),darwin freebsd haiku linux)" >> $CNF
+      cnf_append " SDK_VBoxZlib_LIBS" "`strip_l "$LIBZ"`"
+      cnf_append " SDK_VBoxZlib_INCS" "$INCZ"
+      echo "endif" >> $CNF
+    fi
+  fi
+}
+
+
+#
+# Check for liblzf, needed by VBoxSVC, Runtime, ...
+#
+check_lzf()
+{
+  test_header liblzf
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <lzf.h>
+extern "C" int main(void)
+{
+  printf("found LZF API version %u.%u", LZF_VERSION >> 8, LZF_VERSION & 0xff);
+#if LZF_VERSION >= 0x0105
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 1.5 or higher\n");
+  return 1;
+#endif
+}
+EOF
+  [ -n "$INCLZF" ] && I_INCLZF=`prefix_I "$INCLZF"`
+  if test_compile "$LIBLZF $I_INCLZF" liblzf liblzf nofatal; then
+    if test_execute; then
+      echo "if1of (\$(KBUILD_TARGET),darwin freebsd haiku linux)" >> $CNF
+      cnf_append " SDK_VBoxLzf_LIBS" "`strip_l "$LIBLZF"`"
+      cnf_append " SDK_VBoxLzf_INCS" "$INCLZF"
+      echo "endif" >> $CNF
+    fi
+  else
+    echo "not found -- builing liblzf from in-tree code."
+  fi
+}
+
+
+#
+# Check for libpng, needed by kchmviewer
+#
+check_png()
+{
+  test_header libpng
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <png.h>
+extern "C" int main(void)
+{
+  printf("found version %s", PNG_LIBPNG_VER_STRING);
+#if PNG_LIBPNG_VER >= 10205
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 1.2.5 or higher\n");
+  return 1;
+#endif
+}
+EOF
+  [ -n "$INCPNG" ] && I_INCPNG=`prefix_I "$INCPNG"`
+  if test_compile "$LIBPNG $I_INCPNG" libpng libpng; then
+    if test_execute; then
+      cnf_append "SDK_VBoxLibPng_LIBS" "`strip_l "$LIBPNG"`"
+      cnf_append "SDK_VBoxLibPng_INCS" "$INCPNG"
+    fi
+  fi
+}
+
+#
+# Check for libvncserver, needed for VNC in OSE
+#
+check_vncserver()
+{
+  test_header libvncserver
+  cat > $ODIR.tmp_src.cc <<EOF
+#include <cstdio>
+#include <rfb/rfbconfig.h>
+
+extern "C" int main()
+{
+  const char* v=LIBVNCSERVER_VERSION;
+  unsigned int major = 0, minor = 0, micro = 0;
+
+  for (; *v !='.' && *v != '\0'; v++) major = major*10 + *v-'0';
+  if (*v == '.') v++;
+  for (; *v !='.' && *v != '\0'; v++) minor = minor*10 + *v-'0';
+  if (*v == '.') v++;
+  for (; *v !='.' && *v != '\0'; v++) micro = micro*10 + *v-'0';
+
+  printf("found version %s", LIBVNCSERVER_PACKAGE_VERSION);
+  if (major*10000 + minor*100 + micro >= 900)
+  {
+    printf(", OK.\n");
+    return 0;
+  }
+  else
+  {
+    printf(", expected version 0.9 or higher\n");
+    return 1;
+  }
+}
+EOF
+  if test_compile "$LIBVNCSERVER $INCVNCSERVER" libvncserver libvncserver; then
+    if test_execute; then
+      cnf_append "VBOX_WITH_EXTPACK_VNC" "1"
+    fi
+  fi
+}
+
+#
+# Check for libcurl, needed by S3
+#
+check_curl()
+{
+  if [ -z "$BUILD_LIBCURL" ]; then
+    test_header libcurl
+    cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <curl/curl.h>
+extern "C" int main(void)
+{
+  printf("found version %s", LIBCURL_VERSION);
+#if 10000*LIBCURL_VERSION_MAJOR + 100*LIBCURL_VERSION_MINOR + LIBCURL_VERSION_PATCH >= 71901
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 7.19.1 or higher\n");
+  return 1;
+#endif
+}
+EOF
+    [ -n "$INCCURL" ] && I_INCCURL=`prefix_I "$INCCURL"`
+    if test_compile "$LIBCURL $I_INCCURL" libcurl libcurl; then
+      if test_execute; then
+        cnf_append "SDK_VBoxLibCurl_LIBS" "`strip_l "$LIBCURL"`"
+        cnf_append "SDK_VBoxLibCurl_INCS" "$INCCURL"
+      fi
+    fi
+  fi
+}
+
+
+#
+# Check for pam, needed by VRDPAuth
+# Version 79 was introduced in 9/2005, do we support older versions?
+# Debian/sarge uses 76
+# OpenSUSE comes with 0.99.xxx where they changed the versioning scheme.
+#
+check_pam()
+{
+  test_header pam
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <security/pam_appl.h>
+extern "C" int main(void)
+{
+  printf("found version %d", __LIBPAM_VERSION);
+  if (__LIBPAM_VERSION >= 76)
+  {
+    printf(", OK.\n");
+    return 0;
+  }
+  else
+  {
+    printf(", expected version 76 or higher\n");
+    return 1;
+  }
+}
+EOF
+  if test_compile "-lpam" pam pam nofatal; then
+    if test_execute nofatal; then
+      return 0;
+    fi
+  fi
+  echo "pam0.x not found"
+  test_header linux_pam
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <security/pam_appl.h>
+extern "C" int main(void)
+{
+  printf("found version %d.%d", __LINUX_PAM__, __LINUX_PAM_MINOR__);
+  if (__LINUX_PAM__ >= 1)
+  {
+    printf(", OK.\n");
+    return 0;
+  }
+  else
+  {
+    printf(", expected version 1.0 or higher\n");
+    return 1;
+  }
+}
+EOF
+  if test_compile "-lpam" pam pam; then
+    test_execute
+  fi
+}
+
+
+#
+# Check for the SDL library, needed by VBoxSDL and VirtualBox
+# We depend at least on version 1.2.7
+#
+check_sdl()
+{
+  test_header SDL
+  if [ "$OS" = "darwin" ]; then
+    if [ -f "/System/Library/Frameworks/SDL.framework/SDL" ]; then
+      PATH_SDK_LIBSDL="/System/Library/Frameworks/SDL.framework"
+    elif [ -f "/Library/Frameworks/SDL.framework/SDL" ]; then
+      PATH_SDK_LIBSDL="/Library/Frameworks/SDL.framework"
+    fi
+    if [ -n "$PATH_SDK_LIBSDL" ]; then
+      foundsdl=1
+      INCSDL="$PATH_SDK_LIBSDL/Headers"
+      FLDSDL="-framework SDL"
+    else
+      log_failure "SDL framework not found"
+      fail
+    fi
+  else
+    if which_wrapper sdl-config > /dev/null; then
+      FLGSDL=`sdl-config --cflags`
+      INCSDL=`strip_I "$FLGSDL"`
+      LIBSDL=`sdl-config --libs`
+      LIBSDLMAIN="-lSDLmain"
+      FLDSDL=
+      foundsdl=1
+    fi
+  fi
+  [ "$OS" = "linux" -o "$OS" = "darwin" -o "$OS" = "solaris" ] && LIBSDLMAIN=""
+  if [ -n "$foundsdl" ]; then
+    cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <SDL.h>
+#include <SDL_main.h>
+#undef main
+extern "C" int main(int argc, char** argv)
+{
+  printf("found version %d.%d.%d",
+         SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL);
+#if SDL_VERSION_ATLEAST(1,2,7)
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 1.2.7 or higher\n");
+  return 1;
+#endif
+}
+EOF
+    [ -n "$INCSDL" ] && I_INCSDL=`prefix_I "$INCSDL"`
+    if test_compile "$LIBSDL $LIBSDLMAIN $I_INCSDL $FLDSDL" SDL SDL; then
+      if test_execute; then
+        cnf_append "LIB_SDK_LIBSDL_SDL"     "`strip_l "$LIBSDL"`"
+        cnf_append "SDK_LIBSDL_LIBPATH"     "`strip_L "$LIBSDL"`"
+        cnf_append "LIB_SDK_LIBSDL_SDLMAIN" "`strip_l "$LIBSDLMAIN"`"
+        [ -n "$INCSDL" ] && cnf_append "SDK_LIBSDL_INCS"    "$INCSDL"
+        [ -n "$FLDSDL" ] && cnf_append "SDK_LIBSDL_LDFLAGS" "$FLDSDL"
+      fi
+    fi
+  else
+    log_failure "SDL not found (can be disabled using --disable-sdl)"
+    fail
+  fi
+}
+
+
+#
+# Check for the SDL_ttf library, needed by VBoxSDL (secure label)
+#
+check_sdl_ttf()
+{
+  test_header SDL_ttf
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <SDL_ttf.h>
+#ifndef SDL_TTF_MAJOR_VERSION
+#define SDL_TTF_MAJOR_VERSION TTF_MAJOR_VERSION
+#define SDL_TTF_MINOR_VERSION TTF_MINOR_VERSION
+#define SDL_TTF_PATCHLEVEL    TTF_PATCHLEVEL
+#endif
+extern "C" int main(void)
+{
+  printf("found version %d.%d.%d",
+         SDL_TTF_MAJOR_VERSION, SDL_TTF_MINOR_VERSION, SDL_TTF_PATCHLEVEL);
+#if 10000*SDL_TTF_MAJOR_VERSION + 100*SDL_TTF_MINOR_VERSION + SDL_TTF_PATCHLEVEL >= 20006
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 2.0.6 or higher\n");
+  return 1;
+#endif
+}
+EOF
+  if test_compile "-lSDL_ttf $I_INCSDL" SDL_ttf SDL_ttf nofatal; then
+    test_execute nofatal || \
+      cnf_append "VBOX_WITH_SECURELABEL" ""
+  else
+    echo "not found -- disabling VBoxSDL secure label."
+    cnf_append "VBOX_WITH_SECURELABEL" ""
+  fi
+}
+
+
+#
+# Check for libasound, needed by the ALSA audio backend
+#
+check_alsa()
+{
+  test_header ALSA
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <alsa/asoundlib.h>
+extern "C" int main(void)
+{
+  printf("found version %d.%d.%d",
+         SND_LIB_MAJOR, SND_LIB_MINOR, SND_LIB_SUBMINOR);
+#if 10000*SND_LIB_MAJOR + 100*SND_LIB_MINOR + SND_LIB_SUBMINOR >= 10014
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 1.0.14 or higher\n");
+  return 1;
+#endif
+}
+EOF
+  if test_compile "-lasound" asound asound; then
+    test_execute
+  fi
+}
+
+
+#
+# Check for PulseAudio
+#
+check_pulse()
+{
+  test_header "PulseAudio"
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <pulse/version.h>
+extern "C" int main(void)
+{
+  printf("found version %s API version %d", pa_get_headers_version(), PA_API_VERSION);
+#if PA_API_VERSION >= 9
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 0.9.0 (API version 9) or higher\n");
+  return 1;
+#endif
+}
+EOF
+  if test_compile "$INCPULSE $LIBPULSE -lpulse" pulse pulse nofatal; then
+    if test_execute nofatal; then
+      cnf_append "VBOX_WITH_AUDIO_PULSE" "1"
+    else
+      cnf_append "VBOX_WITH_AUDIO_PULSE" ""
+    fi
+  else
+    cnf_append "VBOX_WITH_AUDIO_PULSE" ""
+  fi
+}
+
+
+#
+# Check for the X libraries (Xext, X11)
+#
+check_x()
+{
+  test_header "X libraries"
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <X11/Xlib.h>
+extern "C" int main(void)
+{
+  Display *dpy;
+  int scrn_num;
+  Screen *scrn;
+  Window win;
+
+  dpy      = XOpenDisplay(NULL);
+  scrn_num = DefaultScreen(dpy);
+  scrn     = ScreenOfDisplay(dpy, scrn_num);
+  win      = XCreateWindow(dpy, RootWindowOfScreen(scrn), 0, 0, 100, 100,
+                           0, 16, InputOutput, CopyFromParent, 0, NULL);
+  XDestroyWindow(dpy, win);
+  XCloseDisplay(dpy);
+}
+EOF
+  [ -n "$INCX11" ] && I_INCX11=`prefix_I "$INCX11"`
+  if test_compile "$LIBX11 $I_INCX11" Xlibs Xlibs; then
+    log_success "found"
+  fi
+}
+
+
+#
+# Check for the Xcursor library, needed by VBoxSDL.
+#
+check_xcursor()
+{
+  test_header Xcursor
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <X11/Xlib.h>
+#include <X11/Xcursor/Xcursor.h>
+extern "C" int main(void)
+{
+  XcursorImage *cursor = XcursorImageCreate (10, 10);
+  XcursorImageDestroy(cursor);
+  return 0;
+}
+EOF
+  [ -n "$INCX11" ] && I_INCX11=`prefix_I "$INCX11"`
+  if test_compile "$LIBX11 $LIBXCURSOR $I_INCX11" Xcursor Xcursor; then
+    log_success "found"
+    cnf_append "VBOX_XCURSOR_LIBS" "`strip_l "$LIBXCURSOR"`"
+  fi
+}
+
+
+#
+# Check for the Xinerama library, needed by the Qt GUI
+#
+check_xinerama()
+{
+  test_header Xinerama
+  cat > $ODIR.tmp_src.cc << EOF
+#include <X11/Xlib.h>
+#include <X11/extensions/Xinerama.h>
+extern "C" int main(void)
+{
+  Display *dpy;
+  Bool flag;
+  dpy = XOpenDisplay(NULL);
+  if (dpy)
+  {
+    flag = XineramaIsActive(dpy);
+    XCloseDisplay(dpy);
+  }
+}
+EOF
+  [ -n "$INCX11" ] && I_INCX11=`prefix_I "$INCX11"`
+  if test_compile "$LIBX11 $LIBXINERAMA $I_INCX11" Xinerama Xinerama; then
+    log_success "found"
+  fi
+}
+
+
+#
+# Check for the XRandR library, needed by the Qt GUI
+#
+check_xrandr()
+{
+  test_header Xrandr
+  cat > $ODIR.tmp_src.cc << EOF
+#include <X11/Xlib.h>
+#include <X11/extensions/Xrandr.h>
+extern "C" int main(void)
+{
+  Display *dpy;
+  Bool flag;
+  int major, minor;
+  dpy = XOpenDisplay(NULL);
+  if (dpy)
+  {
+    flag = XRRQueryVersion(dpy, &major, &minor);
+    XCloseDisplay(dpy);
+  }
+}
+EOF
+  [ -n "$INCX11" ] && I_INCX11=`prefix_I "$INCX11"`
+  if test_compile "$LIBX11 $LIBXRANDR $I_INCX11" Xrandr Xrandr; then
+    log_success "found"
+  fi
+}
+
+
+#
+# Check for OpenGL
+#
+check_opengl()
+{
+  # On darwin this is a on/off decision only
+  if [ "$OS" = "darwin" ]; then
+    test_header "OpenGL support"
+    echo "enabled"
+  else
+    check_xmu
+    check_mesa
+  fi
+}
+
+
+#
+# Check for the Xmu library, needed by OpenGL
+#
+check_xmu()
+{
+  test_header Xmu
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <X11/Xatom.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xmu/StdCmap.h>
+extern "C" int main(void)
+{
+  Display *dpy;
+  int scrn_num;
+  Screen *scrn;
+
+  dpy = XOpenDisplay(NULL);
+  if (dpy)
+  {
+    scrn_num = DefaultScreen(dpy);
+    scrn     = ScreenOfDisplay(dpy, scrn_num);
+    Status status = XmuLookupStandardColormap(dpy, RootWindowOfScreen(scrn), 0,
+                    24, XA_RGB_DEFAULT_MAP, False, True);
+    printf("Status = %x\n", status);
+    XCloseDisplay(dpy);
+  }
+  return 0;
+}
+EOF
+  [ -n "$INCX11" ] && I_INCX11=`prefix_I "$INCX11"`
+  if test_compile "$LIBX11 $LIBXMU $I_INCX11" Xmu Xmu; then
+    log_success "found"
+    cnf_append "VBOX_XMU_LIBS" "`strip_l "$LIBXMU"`"
+  fi
+}
+
+#
+# Check for Mesa, needed by OpenGL
+#
+check_mesa()
+{
+  test_header "Mesa / GLU"
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <X11/Xlib.h>
+#include <GL/glx.h>
+#include <GL/glu.h>
+extern "C" int main(void)
+{
+  Display *dpy;
+  int major, minor;
+
+  dpy = XOpenDisplay(NULL);
+  if (dpy)
+  {
+    Bool glx_version = glXQueryVersion(dpy, &major, &minor);
+    XCloseDisplay(dpy);
+    if (glx_version)
+    {
+      printf("found version %u.%u, OK.\n", major, minor);
+      return 0;
+    }
+  }
+  printf("found (inactive), OK.\n");
+  return 0;
+}
+EOF
+  [ -n "$INCX11" ] && I_INCX11=`prefix_I "$INCX11"`
+  if test_compile "$LIBX11 $MESA $I_INCX11" Mesa Mesa; then
+    [ $PASSIVE_MESA -eq 1 ] && unset DISPLAY
+    test_execute
+  fi
+}
+
+
+#
+# Check for the Qt5 library, needed by the VirtualBox frontend
+#
+# Currently not fatal.
+#
+check_qt5()
+{
+  foundqt5=
+  test_header Qt5
+  cat > $ODIR.tmp_src.cc << EOF
+#include <QtGlobal>
+extern "C" int main(void)
+{
+EOF
+  echo "#if QT_VERSION >= $(($QT5MAJ*65536+$QT5MIN*256))" >> $ODIR.tmp_src.cc
+  cat >> $ODIR.tmp_src.cc << EOF
+  return 0;
+#else
+  return 1;
+#endif
+}
+EOF
+  if [ "$OS" = "darwin" ]; then
+    # First check if there is the internal version of Qt. If yes nothing else
+    # has to be done.
+    QT_INTERNAL=`/bin/ls -rd1 $DEVDIR/$BUILD_TARGET.$BUILD_PLATFORM_ARCH/qt/* 2> /dev/null`
+    for t in $QT_INTERNAL; do
+      if [ -f "$t/Frameworks/QtCoreVBox.framework/QtCoreVBox" ]; then
+        cnf_append "VBOX_WITH_ORACLE_QT" "1"
+        log_success "use internal version"
+        return
+      fi
+    done
+    # Now try the user provided directory and some of the standard directories.
+    QT_TRIES="$QT5DIR /System/Library /Library"
+    for t in $QT_TRIES; do
+      if [ -f "$t/Frameworks/QtCore.framework/QtCore" -o -f "$t/clang_64/lib/QtCore.framework/QtCore" ]; then
+        PATH_SDK_QT5="$t"
+        foundqt5=1
+        break
+      fi
+    done
+    # Add the necessary params for building the test application
+    if [ -n "$PATH_SDK_QT5" ]; then
+      if [ -f "$t/clang_64/lib/QtCore.framework/QtCore" ]; then
+        INCQT5=-I$PATH_SDK_QT5/clang_64/lib/QtCore.framework/Headers
+        LIBQT5=-F$PATH_SDK_QT5/clang_64/lib
+        SDKQT5=$PATH_SDK_QT5/clang_64
+      else
+        INCQT5=-I$PATH_SDK_QT5/Frameworks/QtCore.framework/Headers
+        LIBQT5=-F$PATH_SDK_QT5/Frameworks
+        SDKQT5=$PATH_SDK_QT5
+      fi
+      FLGQT5="-framework QtCore -std=c++11 -Wl,-rpath,`L_to_PATH "$LIBQT5"`"
+    else
+      log_failure "Qt5 framework not found (can be disabled using --disable-qt)"
+      fail
+    fi
+  else # !darwin
+    if [ $QT5DIR_PKGCONFIG -eq 1 ]; then
+      # Default is to use pkg-config:
+      if which_wrapper pkg-config > /dev/null; then
+        qt5_ver=`pkg-config Qt5Core --modversion 2>> $LOG`
+        if [ $? -eq 0 ]; then
+          echo "(Qt5 from pkg-config)" >> $LOG
+          FLGQT5=`pkg-config Qt5Core --cflags`
+          # gcc 4.8 is able to compile with C++11 (see also VBOX_GCC_std in Config.kmk)
+          [ $(($cc_maj * 100 + $cc_min)) -ge 408 ] && FLGQT5="$FLGQT5 -std=c++11"
+          INCQT5=`strip_I "$FLGQT5"`
+          LIBDIR5=`pkg-config Qt5Core --variable=libdir`
+          LIBQT5=`pkg-config Qt5Core Qt5Gui --libs`
+          LIBQT5="-L$LIBDIR5 $LIBQT5"
+          TOOLQT5=`pkg-config Qt5Core --variable=prefix`
+          TOOLQT5BIN=`pkg-config Qt5Core --variable=host_bins`
+          if test_compile "$LIBQT5 $LIBPTHREAD $FLGQT5" qt5 qt5 nofatal; then
+            test_execute_path "`L_to_PATH "$LIBQT5"`" nofatal && foundqt5=3 # pkg-config
+          fi
+        fi
+      else
+        log_failure "pkg-config not found"
+        fail
+      fi
+    fi
+    if [ -z "$foundqt5" ]; then
+      # Do it the old way (e.g. user has specified QT5DIR):
+      for q in $QT5DIR "$DEVDIR/linux.$TARGET_MACHINE"/qt/v5.*; do
+        echo "(Qt5 from '$q')" >> $LOG
+        INCQT5="$q/include $q/include/QtCore"
+        FLGQT5="-DQT_SHARED -std=c++11"
+        I_INCQT5=`prefix_I "$INCQT5"`
+        LIBQT5="-L$q/lib -lQt5CoreVBox -lQt5GuiVBox"
+        TOOLQT5="$q"
+        if test_compile "$LIBQT5 $LIBPTHREAD $I_INCQT5 $FLGQT5" qt5 qt5 nofatal &&
+            test_execute_path "`L_to_PATH "$LIBQT5"`" nofatal; then
+          foundqt5=2 # internal
+          break;
+        fi
+        LIBQT5="-L$q/lib -lQt5Core -lQt5Gui"
+        if test_compile "$LIBQT5 $LIBPTHREAD $I_INCQT5 $FLGQT5" qt5 qt5 nofatal &&
+            test_execute_path "`L_to_PATH "$LIBQT5"`" nofatal; then
+          foundqt5=1 # no pkg-config, Qt directory
+          break;
+        fi
+      done
+    fi
+  fi
+  if [ -n "$foundqt5" ]; then
+    # We decided which version of Qt to use, now enforce the version requirement:
+    cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <QtGlobal>
+extern "C" int main(void)
+{
+  printf("found version %s", QT_VERSION_STR);
+EOF
+  echo "#if QT_VERSION >= $(($QT5MAJ*65536+$QT5MIN*256))" >> $ODIR.tmp_src.cc
+    cat >> $ODIR.tmp_src.cc << EOF
+  printf(", OK.\n");
+  return 0;
+#else
+EOF
+echo "  printf(\", expected version $QT5MAJ.$QT5MIN or higher\\\\n\");" >> $ODIR.tmp_src.cc
+    cat >> $ODIR.tmp_src.cc << EOF
+  return 1;
+#endif
+}
+EOF
+    [ -n "$INCQT5" ] && I_INCQT5=`prefix_I "$INCQT5"`
+    if test_compile "$LIBQT5 $LIBPTHREAD $I_INCQT5 $FLGQT5" qt5 qt5 nofatal; then
+      if test_execute_path "`L_to_PATH "$LIBQT5"`"; then
+        if [ "$OS" = "darwin" ]; then
+          # Successful build & run the test application so add the necessary
+          # params to AutoConfig.kmk:
+          cnf_append "PATH_SDK_QT5_INC" "`L_to_PATH "$LIBQT5"`"
+          cnf_append "PATH_SDK_QT5_LIB" "`L_to_PATH "$LIBQT5"`"
+          cnf_append "PATH_SDK_QT5" "$SDKQT5"
+          # Check for the moc tool in the Qt directory found & some standard
+          # directories.
+          for q in $PATH_SDK_QT5 $PATH_SDK_QT5/clang_64 /usr /Developer/Tools/Qt; do
+            if which_wrapper "$q/bin/moc" > /dev/null; then
+              cnf_append "PATH_TOOL_QT5_BIN" "$q/bin"
+            fi
+          done
+        else
+          # Strip .../QtCore as we add components ourself:
+          INCQT5=`echo "$INCQT5"|$KBUILD_SED 's|\([^ ]*\)/QtCore|\1|g; s| $||g'`
+          # store only the first path, remove all other paths
+          # most likely pkg-config gave us -I/usr/include/qt5 -I/usr/include/qt5/QtCore
+          INCQT5=`echo "$INCQT5"|$KBUILD_SED 's|\([^ ]*\) .*|\1|'`
+          cnf_append "VBOX_PATH_QT_LIB" "`strip_L "$LIBQT5"`"
+          cnf_append "PATH_SDK_QT5_INC" "$INCQT5"
+          # This is not quite right since the qt libpath does not have to be first...
+          cnf_append "PATH_SDK_QT5_LIB" '$'"(firstword `strip_L "$LIBQT5"`)"
+          if [ "$foundqt5" = "2" ]; then
+            cnf_append "VBOX_WITH_ORACLE_QT" "1"
+          fi
+          if [ "$foundqt5" != "3" ]; then
+            TOOLQT5BIN="$TOOLQT5/bin"
+          fi
+          test_header "Qt5 devtools"
+          # Try it with a suffix, some platforms use that
+          if which_wrapper "$TOOLQT5BIN/moc-qt5" > /dev/null; then
+            QT5BINSUFF="-qt5"
+          else
+            QT5BINSUFF=""
+          fi
+          moc_ver=`$TOOLQT5BIN/moc$QT5BINSUFF -v 2>&1|sed 's+^.*(Qt \(.*\))+\1+'`
+          if [ $? -ne 0 ]; then
+            log_failure "moc$QT5BINSUFF not working"
+            fail
+          else
+            log_success "found version $moc_ver"
+            cnf_append "VBOX_PATH_QT" "$TOOLQT5"
+            cnf_append "PATH_SDK_QT5" "$TOOLQT5"
+            cnf_append "PATH_TOOL_QT5_BIN" "$TOOLQT5BIN"
+            [ -n "$QT5BINSUFF" ] && cnf_append "TOOL_QT5_BIN_SUFF" "$QT5BINSUFF"
+          fi
+        fi
+      fi
+    else
+      log_failure "qt5 not working"
+      fail
+    fi
+  else
+    log_failure "qt5 not found"
+    fail
+  fi
+}
+
+
+#
+# Check for libvpx
+#
+check_vpx()
+{
+  if [ -z "$BUILD_LIBVPX" ]; then
+    test_header libvpx
+    if which_wrapper pkg-config > /dev/null; then
+      libvpx_ver=`pkg-config vpx --modversion 2>> $LOG`
+      if [ $? -eq 0 ]; then
+        FLGVPX=`pkg-config vpx --cflags`
+        INCVPX=`strip_I "$FLGVPX"`
+        LIBVPX=`pkg-config vpx --libs`
+      fi
+      cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <vpx/vpx_codec.h>
+extern "C" int main(void)
+{
+  int version = vpx_codec_version();
+  int verMajor = VPX_VERSION_MAJOR(version);
+  int verMinor = VPX_VERSION_MINOR(version);
+  int verPatch = VPX_VERSION_PATCH(version);
+  printf("found version %d.%d.%d", verMajor, verMinor, verPatch);
+  if (   verMajor == 1 && verMinor >= 0
+      || verMajor == 0 && verMinor == 9 && verPatch >= 5)
+  {
+      printf(", OK.\n");
+      return 0;
+  }
+  else
+  {
+      printf(", expected version 0.9.5 or higher\n");
+      return 1;
+   }
+}
+EOF
+      [ -n "$INCVPX" ] && I_INCVPX=`prefix_I "$INCVPX"`
+      if test_compile "$LIBVPX $I_INCVPX" vpx vpx; then
+        if test_execute; then
+          cnf_append "SDK_VBoxLibVpx_INCS" "$INCVPX"
+          cnf_append "SDK_VBoxLibVpx_LIBS" "`strip_l "$LIBVPX"`"
+          fi
+      fi
+    fi
+  fi
+}
+
+
+#
+# Check for libtpms
+#
+check_libtpms()
+{
+  if [ -z "$BUILD_LIBTPMS" ]; then
+    test_header libtpms
+    if which_wrapper pkg-config > /dev/null; then
+      libtpms_ver=`pkg-config libtpms --modversion 2>> $LOG`
+      if [ $? -eq 0 ]; then
+        FLGTPMS=`pkg-config libtpms --cflags`
+        INCTPMS=`strip_I "$FLGTPMS"`
+        LIBTPMS=`pkg-config libtpms --libs`
+      fi
+      cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <libtpms/tpm_library.h>
+extern "C" int main(void)
+{
+  TPMLIB_MainInit();
+  printf("found, OK.\n");
+}
+EOF
+      [ -n "$INCTPMS" ] && I_INCTPMS=`prefix_I "$INCTPMS"`
+      if test_compile "$LIBTPMS $I_INCTPMS" libtpms libtpms nofatal; then
+        if test_execute; then
+          cnf_append "SDK_VBoxLibTpms_INCS" "$INCTPMS"
+          cnf_append "SDK_VBoxLibTpms_LIBS" "`strip_l "$LIBTPMS"`"
+        fi
+      else
+        echo "not found -- building libtpms from in-tree code."
+      fi
+    fi
+  fi
+}
+
+
+#
+# Check for liblzma
+#
+check_liblzma()
+{
+  if [ -z "$BUILD_LIBLZMA" ]; then
+    test_header liblzma
+    if which_wrapper pkg-config > /dev/null; then
+      liblzma_ver=`pkg-config liblzma --modversion 2>> $LOG`
+      if [ $? -eq 0 ]; then
+        FLGLZMA=`pkg-config liblzma --cflags`
+        INCLZMA=`strip_I "$FLGLZMA"`
+        LIBLZMA=`pkg-config liblzma --libs`
+      fi
+      cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <lzma.h>
+extern "C" int main(void)
+{
+  lzma_stream strm = LZMA_STREAM_INIT;
+  uint32_t preset;
+  lzma_ret ret = lzma_easy_encoder(&strm, preset, LZMA_CHECK_CRC64);
+  printf("found, OK.\n");
+}
+EOF
+      [ -n "$INCLZMA" ] && I_INCLZMA=`prefix_I "$INCLZMA"`
+      if test_compile "$LIBLZMA $I_INCLZMA" liblzma liblzma nofatal; then
+        if test_execute; then
+          cnf_append "SDK_VBoxLibLzma_INCS" "$INCLZMA"
+          cnf_append "SDK_VBoxLibLzma_LIBS" "`strip_l "$LIBLZMA"`"
+        fi
+      else
+        echo "not found -- building liblzma from in-tree code."
+      fi
+    fi
+  fi
+}
+
+
+#
+# Check for libvorbis
+#
+check_libvorbis()
+{
+  test_header libvorbis
+  if which_wrapper pkg-config > /dev/null; then
+    libvorbis_ver=`pkg-config vorbis --modversion 2>> $LOG`
+    if [ $? -eq 0 ]; then
+      FLGVRB=`pkg-config vorbis --cflags`
+      INCVRB=`strip_I "$FLGVRB"`
+      LIBVRB=`pkg-config vorbis --libs`
+    fi
+    cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <vorbis/vorbisenc.h>
+extern "C" int main(void)
+{
+  vorbis_info v;
+  vorbis_info_init(&v);
+  printf("found, OK.\n");
+  return 0;
+}
+EOF
+    [ -n "$INCVRB" ] && I_INCVRB=`prefix_I "$INCVRB"`
+    if test_compile "$LIBVRB $I_INCVRB" vorbis vorbis nofatal; then
+      if test_execute; then
+        cnf_append "SDK_VBoxLibVorbis_INCS" "$INCVRB"
+        cnf_append "SDK_VBoxLibVorbis_LIBS" "`strip_l "$LIBVRB"`"
+      fi
+    else
+      echo "not found -- building libvorbis from in-tree code."
+    fi
+  fi
+}
+
+
+#
+# Check for libogg
+#
+check_libogg()
+{
+  test_header libogg
+  if which_wrapper pkg-config > /dev/null; then
+    libogg_ver=`pkg-config ogg --modversion 2>> $LOG`
+    if [ $? -eq 0 ]; then
+      FLGOGG=`pkg-config ogg --cflags`
+      INCOGG=`strip_I "$FLGOGG"`
+      LIBOGG=`pkg-config ogg --libs`
+    fi
+    cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <ogg/ogg.h>
+extern "C" int main(void)
+{
+  oggpack_buffer o;
+  oggpack_get_buffer(&o);
+  printf("found, OK.\n");
+  return 0;
+}
+EOF
+    [ -n "$INCOGG" ] && I_INCVRB=`prefix_I "$INCOGG"`
+    if test_compile "$LIBOGG $I_INCOGG" ogg ogg nofatal; then
+      if test_execute; then
+        cnf_append "SDK_VBoxLibOgg_INCS" "$INCOGG"
+        cnf_append "SDK_VBoxLibOgg_LIBS" "`strip_l "$LIBOGG"`"
+      fi
+    else
+      echo "not found -- building libogg from in-tree code."
+    fi
+  fi
+}
+
+
+#
+# Check whether static libstdc++ is installed. This library is required
+# for the Linux guest additions.
+#
+check_staticlibstdcxx()
+{
+  test_header "static stc++ library"
+  libstdcxx=`$CXX -print-file-name=libstdc++.a`
+  cat > $ODIR.tmp_src.cc << EOF
+#include <string>
+
+extern "C" int main(void)
+{
+  std::string s = "test";
+  return 0;
+}
+EOF
+  if test_compile "$libstdcxx" libstdc++ libstdc++; then
+    log_success "found"
+  fi
+}
+
+
+#
+# Check for Linux sources
+#
+check_linux()
+{
+  test_header "Linux kernel sources"
+  cat > $ODIR.tmp_src.c << EOF
+#include <linux/version.h>
+int printf(const char *format, ...);
+int main(void)
+{
+  printf("found version %d.%d.%d",  LINUX_VERSION_CODE / 65536,
+                                   (LINUX_VERSION_CODE % 65536) / 256,
+                                    LINUX_VERSION_CODE          % 256);
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,0)
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 2.4.0 or higher\n");
+  return 1;
+#endif
+}
+EOF
+  echo "compiling the following source file:" >> $LOG
+  cat $ODIR.tmp_src.c >> $LOG
+  echo "using the following command line:" >> $LOG
+  echo "$CC -O -Wall -o $ODIR.tmp_out $ODIR.tmp_src.c -nostdinc -I$LINUX/include " \
+      "-I$LINUX/include/generated/uapi" >> $LOG
+  $CC -O -Wall -o $ODIR.tmp_out $ODIR.tmp_src.c -nostdinc -I$LINUX/include \
+      -I$LINUX/include/generated/uapi >> $LOG 2>&1
+  if [ $? -ne 0 ]; then
+    echo
+    echo "  Linux kernel headers not found at $LINUX"
+    echo "  Check the file $LOG for detailed error information."
+    fail
+  else
+    if test_execute; then
+      cnf_append "VBOX_LINUX_SRC" "`cd $LINUX ; pwd`"
+    fi
+  fi
+}
+
+#
+# Check for kchmviewer, needed to display the online help
+# (unused as we ship kchmviewer)
+#
+check_kchmviewer()
+{
+  test_header kchmviewer
+  if check_avail "$KCHMVIEWER" KCHMVIEWER; then
+    kchmviewer_ver=`$KCHMVIEWER --version|grep "^KchmViewer:"|sed 's+^KchmViewer: \(.*\)+\1+'`
+    if [ $? -ne 0 ]; then
+      log_failure "kchmviewer not working"
+      fail
+    else
+      log_success "found version $kchmviewer_ver"
+    fi
+  fi
+}
+
+
+#
+# Check for the kBuild tools, we don't support GNU make
+#
+check_kbuild()
+{
+  test_header kBuild
+  if which_wrapper "$KBUILDDIR/bin/$OS.$BUILD_MACHINE/kmk" > /dev/null; then
+    KBUILDDIR_BIN="$KBUILDDIR/bin/$OS.$BUILD_MACHINE"
+
+    echo "KBUILD_PATH=\"`cd $KBUILDDIR ; pwd`\"" >> $ENV
+    echo "KBUILD_DEVTOOLS=\"$DEVDIR\"" >> $ENV
+    echo 'path_kbuild_bin="$KBUILD_PATH/bin/$BUILD_TARGET.$BUILD_PLATFORM_ARCH"' >> $ENV
+    echo 'path_tools_bin="$KBUILD_DEVTOOLS/$BUILD_TARGET.$BUILD_PLATFORM_ARCH/bin"' >> $ENV
+
+    if [ "$OS" = "solaris" ]; then
+      # Because of sh being non-default shell in Solaris we need to export PATH again when
+      # sourcing env.sh. Simply exporting from ./configure does not export PATH correctly.
+      echo "PATH=\"$ORGPATH\"" >> $ENV
+      echo "echo \"\$PATH\" | /usr/sfw/bin/ggrep -q \"\$path_kbuild_bin\" || PATH=\"\$path_kbuild_bin:\$PATH\"" >> $ENV
+      echo "echo \"\$PATH\" | /usr/sfw/bin/ggrep -q \"\$path_tools_bin\"  || PATH=\"\$path_tools_bin:\$PATH\"" >> $ENV
+    else
+      echo "echo \"\$PATH\" | grep -q \"\$path_kbuild_bin\" || PATH=\"\$path_kbuild_bin:\$PATH\"" >> $ENV
+      echo "echo \"\$PATH\" | grep -q \"\$path_tools_bin\"  || PATH=\"\$path_tools_bin:\$PATH\"" >> $ENV
+    fi
+    echo "export KBUILD_PATH KBUILD_DEVTOOLS PATH" >> $ENV
+    echo "unset path_kbuild_bin path_tools_bin" >> $ENV
+    KBUILD_SED="$KBUILDDIR_BIN/kmk_sed"
+
+    echo '' >> $ENV
+    echo "# Legacy - do not use:" >> $ENV
+    echo 'PATH_KBUILD=${KBUILD_PATH}' >> $ENV
+    echo 'PATH_DEVTOOLS=${KBUILD_DEVTOOLS}' >> $ENV
+    echo 'export PATH_KBUILD PATH_DEVTOOLS' >> $ENV
+    echo '' >> $ENV
+  elif check_avail "kmk" KBUILDDIR really; then
+    # check for installed kBuild
+    KBUILD_SED="`which_wrapper kmk_sed`"
+  else
+    fail
+  fi
+  log_success "found"
+}
+
+
+#
+# Check for compiler.h
+# Some Linux distributions include "compiler.h" in their libc linux
+# headers package, some don't.  Most don't need it, building might (!)
+# not succeed on openSUSE without it.
+#
+# See http://www.mail-archive.com/qemu-devel%40nongnu.org/msg07980.html
+#
+check_compiler_h()
+{
+  test_header compiler.h
+  if test ! -f "/usr/include/linux/compiler.h"; then
+    log_success "compiler.h not found"
+  else
+    cnf_append "VBOX_WITH_LINUX_COMPILER_H" "1"
+    log_success "compiler.h found"
+  fi
+}
+
+#
+# Check for libcap.
+# Required to pass CAP_NET_RAW to our binaries to allow to open SOCK_RAW
+# sockets for doing ICMP requests.
+#
+check_libcap()
+{
+  test_header "libcap library"
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <sys/types.h>
+#include <linux/types.h>
+#include <sys/capability.h>
+
+extern "C" int main(void)
+{
+  char buf[1024];
+  cap_t caps = cap_get_proc();
+  snprintf(buf, sizeof(buf), "Current caps are '%s'\n", cap_to_text(caps, NULL));
+  return 0;
+}
+EOF
+  if test_compile $LIBCAP libcap libcap; then
+    if test_execute; then
+      log_success "found"
+    fi
+  fi
+}
+
+#
+# Check if we are able to build 32-bit applications (needed for the guest additions)
+#
+check_32bit()
+{
+  test_header "32-bit support"
+  cat > $ODIR.tmp_src.c << EOF
+#include <stdint.h>
+int main(void)
+{
+  return 0;
+}
+EOF
+  echo "compiling the following source file:" >> $LOG
+  cat $ODIR.tmp_src.c >> $LOG
+  echo "using the following command line:" >> $LOG
+  echo "$CC -m32 -O -Wall -o $ODIR.tmp_out $ODIR.tmp_src.c" >> $LOG
+  $CC -m32 -O -Wall -o $ODIR.tmp_out $ODIR.tmp_src.c >> $LOG 2>&1
+  if [ $? -ne 0 ]; then
+    echo
+    echo "  Cannot compile 32-bit applications (missing headers and/or libraries)!"
+    echo "  Check the file $LOG for detailed error information."
+    fail
+  else
+    echo "executing the binary" >> $LOG
+    $ODIR.tmp_out 2> $ODIR.test_execute.log
+    rc=$?
+    cat $ODIR.test_execute.log >> $LOG
+    if [ $rc -ne 0 ]; then
+      echo
+      echo "  Cannot execute 32-bit applications! Either enable 32-bit support in the"
+      echo "  kernel configuration or use --disable-vmmraw to disable 32-bit guests."
+      fail
+      return 1
+    fi
+  fi
+  log_success ""
+}
+
+
+#
+# Check for Python
+#
+check_python()
+{
+  test_header "Python support"
+
+  # On darwin this is a on/off decision only
+  if [ "$OS" = "darwin" ]; then
+    echo "enabled"
+    cnf_append "VBOX_WITH_PYTHON"     "1"
+    return
+  fi
+
+  cat > $ODIR.tmp_src.cc << EOF
+#include <cstdio>
+#include <Python.h>
+extern "C" int main(void)
+{
+  Py_Initialize();
+  printf("found version %s", PY_VERSION);
+#if PY_VERSION_HEX >= 0x02060000
+  printf(", OK.\n");
+  return 0;
+#else
+  printf(", expected version 2.6 or higher\n");
+  return 1;
+#endif
+}
+EOF
+  found=
+  SUPPYTHONLIBS="python2.7 python2.6 python3.1 python3.2 python3.3 python3.4 python3.4m python3.5 python3.5m python3.6 python3.6m python3.7 python3.7m python3.8 python3.9 python3.10 python3.11 python3.12"
+  for p in $PYTHONDIR; do
+    for d in $SUPPYTHONLIBS; do
+      for b in lib/x86_64-linux-gnu lib/i386-linux-gnu lib64 lib/64 lib; do
+        echo "compiling the following source file:" >> $LOG
+        cat $ODIR.tmp_src.cc >> $LOG
+        echo "using the following command line:" >> $LOG
+        echo "$CXX -O -Wall -o $ODIR.tmp_out $ODIR.tmp_src.cc -I$p/include/$d $p/$b/lib$d.so" >> $LOG
+        $CXX -O -Wall -o $ODIR.tmp_out $ODIR.tmp_src.cc -I$p/include/$d $p/$b/lib$d.so >> $LOG 2>&1
+        if [ $? -eq 0 ]; then
+          found=1
+          break
+        fi
+      done
+      if [ -n "$found" ]; then break; fi
+    done
+    if [ -n "$found" ]; then break; fi
+  done
+  if [ -n "$found" ]; then
+    if test_execute; then
+      cnf_append "VBOX_WITH_PYTHON"     "1"
+      cnf_append "VBOX_PATH_PYTHON_INC" "$p/include/$d"
+      cnf_append "VBOX_LIB_PYTHON"      "$p/$b/lib$d.so"
+    else
+      log_failure "Python not working"
+      fail
+    fi
+  else
+    log_failure "Python not found"
+    fail
+  fi
+}
+
+
+#
+# Check for Java
+#
+check_java()
+{
+  test_header "Java support"
+  log_success
+}
+
+
+#
+# Setup wine
+#
+setup_wine()
+{
+  test_header "Wine support"
+  if ! which_wrapper wine > /dev/null; then
+    echo "  wine binary not found"
+    fail
+  fi
+  if ! which_wrapper wine > /dev/null; then
+    echo "  wine not found"
+    fail
+  fi
+  wine_version="`wine --version`"
+  case "`expr "$wine_version" : 'wine-\([0-9.]*\)' '>' 1.1.43`" in
+    "0")
+      if ! which_wrapper wineprefixcreate > /dev/null; then
+        echo "  wineprefixcreate not found"
+        fail
+      fi
+    ;;
+    *) eval "wineprefixcreate() { true ; }" ;; # now created automatically
+  esac
+  export WINEPREFIX="${ODIR}wine.$BUILD_MACHINE"
+  echo "WINEPREFIX=\"${ODIR}wine.$BUILD_MACHINE\"" >> $ENV
+  echo "export WINEPREFIX" >> $ENV
+  rm -rf $WINEPREFIX
+  mkdir -p $WINEPREFIX
+  touch $WINEPREFIX/.no_prelaunch_window_flag
+  if ! wineprefixcreate -q > /dev/null 2>&1; then
+    echo "  wineprefixcreate failed"
+    fail
+  fi
+  tmp=.tmp.wine.reg
+  rm -f $tmp
+  echo 'REGEDIT4' > $tmp
+  echo '' >> $tmp
+  echo '[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment]' >> $tmp
+  echo "\"PATH\"=\"c:\\\\\\\\windows\\\\\\\\system32;c:\\\\\\\\windows;z:$DEVDIR/win.x86/vcc/v8/bin/Microsoft.VC80.CRT;z:$DEVDIR/win.x86/HTML_Help_Workshop/v1.3\"" >> $tmp
+  echo '' >> $tmp
+  echo '[HKEY_CURRENT_USER\Software\Wine\AppDefaults\hhc.exe\DllOverrides]' >> $tmp
+  echo '"itss"="native"' >> $tmp
+  echo '' >> $tmp
+  echo '[HKEY_CURRENT_USER\Software\Wine\AppDefaults\hhw.exe\DllOverrides]' >> $tmp
+  echo '"itss"="native"' >> $tmp
+  echo '' >> $tmp
+  if ! wine regedit $tmp > /dev/null 2>&1; then
+    rm -f $tmp
+    echo "  failed to load registry changes (path)."
+    fail
+  fi
+  rm -f $tmp
+  log_success "found"
+}
+
+
+#
+# Check for gSOAP.
+#
+check_gsoap()
+{
+  test_header "GSOAP compiler"
+  if [ -z "$GSOAP" -a -z "$GSOAP_IMPORT" ]; then
+    if which_wrapper pkg-config > /dev/null; then
+      GSOAP_CXX_LIBS=`pkg-config gsoapssl++ --libs 2>> $LOG`
+      if [ $? -eq 0 ]; then
+        GSOAP=`pkg-config gsoapssl++ --variable=exec_prefix`
+        GSOAP_IMPORT="$GSOAP/share/gsoap/import"
+        if [ ! -d "$GSOAP_IMPORT"  -a  -d "$GSOAP/include/gsoap" ]; then
+          GSOAP_IMPORT="$GSOAP/include/gsoap"
+        fi
+        cnf_append "VBOX_GSOAP_INSTALLED"   "1"
+        cnf_append "VBOX_PATH_GSOAP"        "$GSOAP"
+        cnf_append "VBOX_PATH_GSOAP_IMPORT" "$GSOAP_IMPORT"
+        if [ -f "$GSOAP/share/gsoap/stdsoap2.cpp" ]; then
+          cnf_append "VBOX_GSOAP_CXX_SOURCES" "$GSOAP/share/gsoap/stdsoap2.cpp"
+        else
+          cnf_append "VBOX_GSOAP_CXX_SOURCES" ""
+        fi
+        cnf_append "VBOX_GSOAP_CXX_LIBS"    "`strip_l "$GSOAP_CXX_LIBS"`"
+        gsoap_version=`pkg-config gsoapssl++ --modversion`
+        log_success "found version $gsoap_version"
+        return
+      fi
+    fi
+    if [ -d "$DEVDIR/common/gsoap" ]; then
+      GSOAP_DIR=`ls -d1 "$DEVDIR"/common/gsoap/v* 2>/dev/null | tail -1`
+      if [ -n "$GSOAP_DIR" -a -d "$GSOAP_DIR" ]; then
+        gsoap_version=`echo "$GSOAP_DIR" | sed -ne 's/^.*\/v\([1-9][0-9.]*\).*$/\1/p'`
+        log_success "found gSOAP tool version $gsoap_version"
+        # No need to configure anything, the build system knows what to do.
+        return
+      fi
+    fi
+  fi
+  if [ -z "$GSOAP" ]; then
+    GSOAP="/usr"
+  fi
+  if which_wrapper "$GSOAP/bin/soapcpp2" > /dev/null; then
+    if which_wrapper "$GSOAP/bin/wsdl2h" > /dev/null; then
+      if [ -f "$GSOAP/include/stdsoap2.h" ]; then
+        # TODO: Check for libgsoap++.a/so
+
+        if [ -z "$GSOAP_IMPORT" ]; then
+          GSOAP_IMPORT="$GSOAP/share/gsoap/import"
+          if [ ! -d "$GSOAP_IMPORT"  -a  -d "$GSOAP/include/gsoap" ]; then
+            GSOAP_IMPORT="$GSOAP/include/gsoap"
+          fi
+        fi
+        if [ -f "$GSOAP_IMPORT/stlvector.h" ]; then
+          cnf_append "VBOX_GSOAP_INSTALLED"   "1"
+          cnf_append "VBOX_PATH_GSOAP"        "$GSOAP"
+          cnf_append "VBOX_PATH_GSOAP_IMPORT" "$GSOAP_IMPORT"
+          if [ -f "$GSOAP/share/gsoap/stdsoap2.cpp" ]; then
+            cnf_append "VBOX_GSOAP_CXX_SOURCES" "$GSOAP/share/gsoap/stdsoap2.cpp"
+          else
+            cnf_append "VBOX_GSOAP_CXX_SOURCES" ""
+          fi
+          cnf_append "VBOX_GSOAP_CXX_LIBS"    "libgsoapssl++"
+          log_success "found"
+        else
+          log_failure "stlvector.h not found -- disabling webservice"
+          cnf_append "VBOX_WITH_WEBSERVICES" ""
+        fi
+      else
+        log_failure "stdsoap2.h not found -- disabling webservice"
+        cnf_append "VBOX_WITH_WEBSERVICES" ""
+      fi
+    else
+      log_failure "wsdl2h not found -- disabling webservice"
+      cnf_append "VBOX_WITH_WEBSERVICES" ""
+    fi
+  else
+    log_failure "soapcpp2 not found -- disabling webservice"
+    cnf_append "VBOX_WITH_WEBSERVICES" ""
+  fi
+}
+
+
+#
+# Determines the Darwin version.
+#
+check_darwinversion()
+{
+  test_header "Darwin version"
+  darwin_ver=`uname -r`
+  case "$darwin_ver" in
+    20\.*)
+      darwin_ver="11.0" # Big Sur
+      ;;
+    19\.*)
+      darwin_ver="10.15" # Catalina
+      ;;
+    18\.*)
+      darwin_ver="10.14" # Mojave
+      ;;
+    17\.*)
+      darwin_ver="10.13" # High Sierra
+      ;;
+    16\.*)
+      darwin_ver="10.12" # Sierra
+      ;;
+    15\.*)
+      darwin_ver="10.11" # El Capitan
+      ;;
+    14\.*)
+      darwin_ver="10.10" # Yosemite
+      ;;
+    13\.*)
+      darwin_ver="10.9" # Mavericks
+      ;;
+    *)
+      echo "  failed to determine Darwin version. (uname -r: $darwin_ver)"
+      fail
+      darwin_ver="unknown"
+      ;;
+  esac
+
+  log_success "found version $darwin_ver"
+}
+
+#
+# Check Xcode path
+#
+check_xcode_path()
+{
+    # Check if WITH_XCODE_DIR is set.
+    if [ -z "$WITH_XCODE_DIR" ]; then
+        if [ -d "/Library/Developer/CommandLineTools" -a -f "/Library/Developer/CommandLineTools/usr/bin/clang" ]; then
+            return 1
+        else
+            echo "Please specify --with-xcode-dir option."
+            return 0
+        fi
+    fi
+
+    # Check if specified path exists and is a directory containing Xcode.
+    if [ -d "$1" -a -f "$1/Contents/Developer/usr/bin/xcodebuild" ]; then
+        return 1
+    else
+        echo "Xcode path [$1] not found."
+        return 0
+    fi
+}
+
+check_xcode()
+{
+  test_header "Xcode and SDK"
+  check_xcode_path "$WITH_XCODE_DIR"
+  [ $? -eq 1 ] || fail
+
+  # Pick the oldest SDK offered by Xcode, to get maximum compatibility
+  if [ -z "$WITH_XCODE_DIR" ]; then
+    devel_subdir="/Library/Developer/CommandLineTools"
+    sdk_subdir="$devel_subdir/SDKs"
+  else
+    devel_subdir="$WITH_XCODE_DIR/Contents/Developer"
+    sdk_subdir="$devel_subdir/Platforms/MacOSX.platform/Developer/SDKs"
+  fi
+  sdk_tries="$sdk_subdir"/MacOSX10.?.sdk" $sdk_subdir"/MacOSX10.??.sdk" $sdk_subdir"/MacOSX.sdk
+  for t in $sdk_tries; do
+    if [ -f "$t/SDKSettings.plist" ]; then
+      sdk="$t"
+      sdk_ver=`defaults read "$t/SDKSettings.plist" Version`
+      break
+    fi
+  done
+  if [ -z "$sdk" ]; then
+    echo "  failed to determine SDK directory. ($sdk_subdir/MacOSX*.sdk/SDKSettings.plist should exist)"
+    fail
+  fi
+  xcode_ver=`$devel_subdir/usr/bin/clang --version | sed -n 's/^.*version \([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\).*$/\1/p'`
+  if [ $? -ne 0 -o -z "$xcode_ver" ]; then
+    echo "  failed to determine Xcode version."
+    fail
+  fi
+
+  if [ -z "$WITH_XCODE_DIR" ]; then
+    cnf_append "VBOX_WITH_EVEN_NEWER_XCODE" "1"
+  else
+    cnf_append "VBOX_WITH_MACOSX_COMPILERS_FROM_DEVEL" "1"
+    cnf_append "PATH_TOOL_VBoxXcode62" "$devel_subdir"
+    cnf_append "VBOX_PATH_MACOSX_DEVEL_ROOT" "$devel_subdir"
+  fi
+  cnf_append "VBOX_PATH_MACOSX_SDK" "$sdk"
+  if [ -n "$sdk_ver" ]; then
+    cnf_append "VBOX_DEF_MACOSX_VERSION_MIN" "$sdk_ver"
+    cnf_append "VBOX_WITHOUT_VBOXPYTHON_FOR_OSX_10_6" "1"
+  fi
+
+  log_success "found version $xcode_ver (SDK: $sdk)"
+}
+
+
+check_makeself()
+{
+  test_header "makeself"
+  if check_avail "$MAKESELF" makeself; then
+    makeself_ver=`$MAKESELF --version|grep version|sed 's+^Makeself.*version \([0-9\.]*\).*+\1+'`
+    if [ $? -ne 0 ]; then
+      log_failure "makeself not working"
+      fail
+    else
+      log_success "found version $makeself_ver"
+      cnf_append "VBOX_MAKESELF" "`which_wrapper $MAKESELF`"
+    fi
+  fi
+}
+
+
+#
+# Show help
+#
+show_help()
+{
+cat << EOF
+Usage: ./configure [OPTIONS]...
+
+Configuration:
+  -h, --help               display this help and exit
+  --nofatal                don't abort on errors
+EOF
+[ $WITH_XPCOM   -eq 1 ] && echo "  --disable-xpcom          disable XPCOM and related stuff"
+[ $WITH_PYTHON  -eq 1 ] && echo "  --disable-python         disable python bindings"
+[ $WITH_JAVA    -eq 1 ] && echo "  --disable-java           disable java bindings"
+[ $WITH_VMMRAW  -eq 1 ] && echo "  --disable-vmmraw         disable VMM raw mode (VT-x/AMD-V mandatory!)"
+[ $WITH_SDL_TTF -eq 1 ] && echo "  --disable-sdl-ttf        disable SDL_ttf detection"
+[ $WITH_QT5     -eq 1 ] && echo "  --disable-qt             disable Qt detection"
+[ $WITH_ALSA    -eq 1 ] && echo "  --disable-alsa           disable the ALSA sound backend"
+[ $WITH_PULSE   -eq 1 ] && echo "  --disable-pulse          disable the PulseAudio backend"
+[ $WITH_DBUS    -eq 1 ] && echo "  --disable-dbus           don't use DBus and hal for hardware detection"
+[ $WITH_KMODS   -eq 1 ] && echo "  --disable-kmods          don't build Linux kernel modules (host and guest)"
+[ $WITH_OPENGL  -eq 1 ] && echo "  --disable-opengl         disable OpenGL support (2D & 3D)"
+[ $WITH_QT5     -eq 0 ] && echo "  --enable-qt5             enable Qt5 detection"
+[ $OSE          -eq 1 ] && echo "  --enable-vnc             enable the VNC server"
+[ $OSE          -eq 0 ] && echo "  --disable-extpack        don't build the extpack"
+[ $WITH_DOCS    -eq 1 ] && echo "  --disable-docs           don't build the documentation"
+[ $WITH_LIBVPX  -eq 1 ] && echo "  --disable-libvpx         don't use libvpx for video capturing"
+[ $WITH_LIBVORBIS -eq 0 ] && echo "  --enable-libvorbis       enable system libvorbis"
+[ $WITH_LIBOGG -eq 0 ]  && echo "  --enable-libogg          enable system libogg"
+[ $WITH_LIBTPMS -eq 1 ] && echo "  --disable-libtpms        don't use libtpms for TPM emulation"
+[ $WITH_LIBLZMA -eq 1 ] && echo "  --disable-liblzma        don't use liblzma"
+[ "$OS" = "linux" -o "$OS" = "freebsd" ] && echo "  --enable-vde             enable VDE networking"
+cat << EOF
+  --disable-udptunnel      disable UDP tunnel networking
+  --disable-devmapper      disable device mapper library access
+  --disable-hardening      don't be strict about /dev/vboxdrv access
+  --build-libxml2          build libxml2 from sources
+  --build-libssl           build openssl from sources
+  --build-libtpms          build libtpms from sources
+  --build-liblzma          build liblzma from sources
+EOF
+[ $OSE -eq 0 ] && cat << EOF
+  --build-libcurl          build libcurl from sources
+  --build-libvpx           build libvpx from sources
+EOF
+[ "$OS"   != "darwin" ] && echo "  --setup-wine             setup a Wine directory and register the hhc hack"
+cat << EOF
+  --only-additions         only build the Guest Additions
+
+Paths:
+  --with-gcc=PATH          location of the gcc compiler [$CC]
+  --with-g++=PATH          location of the g++ compiler [$CXX]
+  --with-kbuild=DIR        kbuild directory [$KBUILDDIR]
+  --with-iasl=PATH         location of the iasl compiler [$IASL]
+  --with-yasm=PATH         location of the iasl compiler [$YASM]
+  --with-makeself=PATH     location of makeself [$MAKESELF]
+EOF
+[ "$OS"   = "darwin" ] && echo "  --with-xcode-dir=DIR     custom path to Xcode root directory; it is assumed that Xcode"
+[ "$OS"   = "darwin" ] && echo "                           contains OS X 10.6 SDK (required for Mountain Lion and newer hosts"
+[ "$OS"   = "darwin" ] && echo "                           only, ignored for the rest)"
+[ "$OS"    = "linux" ] && echo "  --with-linux=DIR         Linux kernel source directory [$LINUX]"
+[ $WITH_QT5    -eq 1 ] && echo "  --with-qt-dir=DIR        directory for Qt headers/libraries [pkgconfig]"
+cat << EOF
+  --with-gsoap-dir=PATH    directory for gSOAP compiler/headers/libraries
+                           (soapcpp2 and wsdl2h, soapstd2.h, libgsoap++.a/so)
+  --with-gsoap-import=PATH directory for gSOAP import files (stlvector.h)
+  --with-openssl-dir=DIR   directory for OpenSSL headers/libraries
+  --with-ow-dir=DIR        directory where Open Watcom can be found [$WATCOM]
+  --out-base-dir=DIR       directory where configuration and build output
+                           should go, in subdirectory out
+
+Build type:
+  -d, --build-debug        build with debugging symbols and assertions
+  --build-profile          build with profiling support
+  --build-headless         build headless (without any GUI frontend)
+EOF
+  exit 0
+}
+
+
+#
+# The body.
+#
+
+# test if we are OSE
+if [ $OSE -eq 1 -a -r "`cd \`dirname $0\`; pwd`/src/VBox/RDP/server/server.cpp" ]; then
+  OSE=0
+  # Set this as a reminder to print a log message once we know the path of the
+  # log file
+  NOT_OSE=1
+fi
+
+# Change OS specific defaults; must be before all other stuff
+if [ "$OS" = "darwin" ]; then
+  WITH_SDL=0
+  WITH_SDL_TTF=0
+  WITH_X11=0
+  WITH_ALSA=0
+  WITH_PULSE=0
+  WITH_DBUS=0
+  WITH_KMODS=0
+  BUILD_LIBXML2=1
+  BUILD_LIBSSL=1
+  BUILD_LIBVPX=1
+  [ $OSE -eq 1 ] || BUILD_LIBCURL=1
+  [ $OSE -eq 1 ] && WITH_LIBVPX=0
+  [ $OSE -eq 1 ] && WITH_LIBOGG=0
+  [ $OSE -eq 1 ] && WITH_LIBVORBIS=0
+  WITH_XCODE_DIR=""
+elif [ "$OS" = "haiku" ]; then
+  #WITH_SDL=0
+  WITH_SDL_TTF=0
+  WITH_X11=0
+  WITH_ALSA=0
+  WITH_PULSE=0
+  WITH_DBUS=0
+  WITH_KMODS=0
+  WITH_LIBIDL=0
+  WITH_XPCOM=0
+  BUILD_LIBXSLT=1
+  BUILD_LIBXML2=1
+  WITH_LIBVPX=0
+  WITH_LIBOGG=0
+  WITH_LIBVORBIS=0
+  # but the script wants something
+  LIBPTHREAD="-lroot"
+  #[ $OSE -eq 1 ] || BUILD_LIBCURL=1
+  [ $OSE -eq 1 ] || BUILD_LIBSSL=1
+elif [ "$OS" = "solaris" ]; then
+  [ $OSE -eq 1 ] && WITH_LIBVPX=0
+  [ $OSE -eq 1 ] && WITH_LIBOGG=0
+  [ $OSE -eq 1 ] && WITH_LIBVORBIS=0
+fi
+
+# scan command line options
+for option in "$@"; do
+  case "$option" in
+    --help|-help|-h)
+      show_help
+      ;;
+    --nofatal)
+      nofatal=1
+      ;;
+    --env-only)
+      ENV_ONLY=1
+      ;;
+    --with-gcc=*)
+      CC=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-g++=*)
+      CXX=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-kbuild=*)
+      KBUILDDIR=`echo $option | cut -d'=' -f2`
+      if echo $KBUILDDIR|grep -q "$INVALID_CHARS"; then
+        echo "Error: KBUILDDIR contains invalid characters!"
+        exit 1
+      fi
+      ;;
+    --with-qt-dir=*)
+      [ $WITH_QT5 -eq 1 ] && QT5DIR=`echo $option | cut -d'=' -f2`
+      [ $WITH_QT5 -eq 1 ] && QT5DIR_PKGCONFIG=0
+      ;;
+    --with-qt5-minor=*)
+      QT5MIN=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-qt5-major=*)
+      QT5MAJ=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-openssl-dir=*)
+      OPENSSLDIR=`echo $option | cut -d'=' -f2`
+      INCCRYPTO="-I${OPENSSLDIR}/include"
+      LIBCRYPTO="${OPENSSLDIR}/lib/libssl.a ${OPENSSLDIR}/lib/libcrypto.a"
+      # On Darwin (at least for macports) static OpenSSL also needs zlib.
+      [ "$OS" = "darwin" ] && LIBCRYPTO="$LIBCRYPTO ${OPENSSLDIR}/lib/libz.a"
+      # On Linux static OpenSSL typically needs a few additional libraries.
+      [ "$OS" = "linux" ] && LIBCRYPTO="-ldl $LIBPTHREAD -lm"
+      ;;
+    --with-ow-dir=*)
+      WATCOM=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-gsoap-dir=*)
+      GSOAP=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-gsoap-import=*)
+      GSOAP_IMPORT=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-iasl=*)
+      IASL=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-yasm=*)
+      YASM=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-xcode-dir=*)
+      WITH_XCODE_DIR=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-linux=*)
+      LINUX=`echo $option | cut -d'=' -f2`
+      ;;
+    --with-makeself=*)
+      MAKESELF=`echo $option | cut -d'=' -f2`
+      ;;
+    --target-arch=*)
+      TARGET_MACHINE=`echo $option | cut -d'=' -f2`
+      ;;
+    --disable-xpcom)
+      [ $WITH_XPCOM -eq 1 ] && WITH_XPCOM=0
+      ;;
+    --disable-python)
+      [ $WITH_PYTHON -eq 1 ] && WITH_PYTHON=0
+      ;;
+    --disable-java)
+      [ $WITH_JAVA -eq 1 ] && WITH_JAVA=0
+      ;;
+    --disable-vmmraw)
+      [ $WITH_VMMRAW -eq 1 ] && WITH_VMMRAW=0
+      ;;
+    --disable-sdl-ttf)
+      [ $WITH_SDL_TTF -eq 1 ] && WITH_SDL_TTF=0
+      ;;
+    --disable-qt)
+      [ $WITH_QT5 -eq 1 ] && WITH_QT5=0
+      ;;
+    --enable-qt5)
+      [ $WITH_QT5 -eq 0 ] && WITH_QT5=1
+      ;;
+    --passive-mesa)
+      PASSIVE_MESA=1
+      ;;
+    --disable-alsa)
+      [ $WITH_ALSA -eq 1 ] && WITH_ALSA=0
+      ;;
+    --disable-pulse)
+      [ $WITH_PULSE -eq 1 ] && WITH_PULSE=0
+      ;;
+    --enable-pulse)
+      WITH_PULSE=2
+      ;;
+    --disable-dbus)
+      [ $WITH_DBUS -eq 1 ] && WITH_DBUS=0
+      ;;
+    --disable-kmods)
+      [ $WITH_KMODS -eq 1 ] && WITH_KMODS=0
+      ;;
+    --disable-opengl)
+      [ $WITH_OPENGL -eq 1 ] && WITH_OPENGL=0
+      ;;
+    --enable-webservice)
+      ;;
+    --enable-vnc)
+      WITH_VNC=1
+      ;;
+    --disable-hardening)
+      WITH_HARDENING=0
+      ;;
+    --disable-extpack)
+      WITH_EXTPACK=0
+      ;;
+    --disable-docs)
+      WITH_DOCS=0
+      ;;
+    --enable-hardening)
+      WITH_HARDENING=2
+      ;;
+    --disable-udptunnel)
+      WITH_UDPTUNNEL=0
+      ;;
+    --enable-vde)
+      WITH_VDE=1
+      ;;
+    --disable-devmapper)
+      WITH_DEVMAPPER=0
+      ;;
+    --disable-libvpx)
+      WITH_LIBVPX=0
+      ;;
+    --disable-libtpms)
+      WITH_LIBTPMS=0
+      ;;
+    --disable-liblzma)
+      WITH_LIBLZMA=0
+      ;;
+    --enable-libogg)
+      WITH_LIBOGG=1
+      ;;
+    --enable-libvorbis)
+      WITH_LIBVORBIS=1
+      ;;
+    --disable-sdl)
+      WITH_SDL=0
+      ;;
+    --build-debug|-d)
+      BUILD_TYPE=debug
+      ;;
+    --build-profile)
+      BUILD_TYPE=profile
+      ;;
+    --build-libxml2)
+      BUILD_LIBXML2=1
+      ;;
+    --build-libssl)
+      BUILD_LIBSSL=1
+      ;;
+    --build-libcurl)
+      BUILD_LIBCURL=1
+      ;;
+    --build-libvpx)
+      BUILD_LIBVPX=1
+      ;;
+    --build-libtpms)
+      BUILD_LIBTPMS=1
+      ;;
+    --build-liblzma)
+      BUILD_LIBLZMA=1
+      ;;
+    --build-headless)
+      HEADLESS=1
+      WITH_SDL=0
+      WITH_SDL_TTF=0
+      WITH_X11=0
+      WITH_OPENGL=0
+      WITH_QT5=0
+      ;;
+    --ose)
+      OSE=2
+      ;;
+    --odir=*)
+      ODIR="`echo $option | cut -d'=' -f2`/"
+      ODIR_OVERRIDE=1
+      ;;
+    --out-base-dir=*)
+      out_base_dir="`echo $option | cut -d'=' -f2`/"
+      if [ -d $out_base_dir ]; then
+        saved_pwd="$PWD"
+        cd $out_base_dir
+        OUT_BASE_PATH="`pwd`"
+        cd $saved_pwd
+        OUT_BASE_PATH_OVERRIDE=1
+        if [ $ODIR_OVERRIDE -eq 0 ]; then
+          # This variable has not *yet* been overridden.  That can still happen.
+          ODIR=$OUT_BASE_PATH/
+          ODIR_OVERRIDE=1
+        fi
+      else
+        echo "Error: invalid folder \"$out_base_dir\" in option \"$option\""
+        exit 1
+      fi
+      ;;
+    --setup-wine)
+      [ "$OS" != "darwin" ] && SETUP_WINE=1
+      ;;
+    --only-additions)
+      ONLY_ADDITIONS=1
+      ;;
+    *)
+      echo
+      echo "Unrecognized option \"$option\""
+      echo
+      show_help
+      ;;
+  esac
+done
+
+LOG="$ODIR$LOG"
+ENV="$ODIR$ENV"
+CNF="$ODIR$CNF"
+
+# initialize output files
+cat > $LOG << EOF
+# Log file generated by
+#
+#   '$0 $*'
+#
+
+EOF
+cat > $CNF << EOF
+# -*- Makefile -*-
+#
+# automatically generated by
+#
+#   '$0 $*'
+#
+# It will be completely overwritten if configure is executed again.
+#
+
+EOF
+cat > $ENV << EOF
+#!/bin/bash
+#
+# automatically generated by
+#
+#   '$0 $*'
+#
+# It will be completely overwritten if configure is executed again.
+# Make sure you source this file once before you start to build VBox.
+#
+
+EOF
+
+# Print log warning about OSE if necessary
+if [ -n "$NOT_OSE" ]; then
+  echo "Found RDP server, assuming VBOX_OSE = FALSE" >> $LOG
+  echo >> $LOG
+fi
+
+
+if [ "$BUILD_TYPE" = "debug" ]; then
+  echo "Creating DEBUG build!" >> $LOG
+elif [ "$BUILD_TYPE" = "profile" ]; then
+  echo "Creating PROFILE build!" >> $LOG
+fi
+
+# first determine our environment
+check_environment
+check_kbuild
+
+[ -n "$ENV_ONLY" ] && exit 0
+
+# append the tools directory to the default search path
+echo "$PATH" | grep -q "$DEVDIR_BIN" || PATH="$PATH:$DEVDIR_BIN"
+export PATH
+
+# if we will be writing to a different out directory then set this up now
+if [ $ODIR_OVERRIDE -eq 1 ]; then
+  echo "AUTOCFG=$CNF" >> $ENV
+  echo "export AUTOCFG" >> $ENV
+fi
+if [ $OUT_BASE_PATH_OVERRIDE -eq 1 ]; then
+  echo "PATH_OUT_BASE=$OUT_BASE_PATH" >> $ENV
+  echo "export PATH_OUT_BASE" >> $ENV
+fi
+
+# don't bother people with -Werror
+cnf_append "VBOX_GCC_WERR" "\$(NO_SUCH_VARIABLE)"
+
+# some things are not available in for OSE
+if [ $OSE -ge 1 ]; then
+  cnf_append "VBOX_OSE" "1"
+  cnf_append "VBOX_WITH_VALIDATIONKIT" ""
+  cnf_append "VBOX_WITH_WIN32_ADDITIONS" ""
+
+  if [ "$OS" = "linux" ]; then
+    cnf_append "VBOX_WITH_LINUX_ADDITIONS" "1"
+  else
+    cnf_append "VBOX_WITH_LINUX_ADDITIONS" ""
+  fi
+  echo >> $CNF
+fi
+
+# extpack
+if [ $ONLY_ADDITIONS -eq 1 ]; then
+  cnf_append "VBOX_WITH_EXTPACK_PUEL_BUILD" ""
+elif [ $OSE -eq 0 ]; then
+  if [ $WITH_EXTPACK -eq 1 ]; then
+    BUILD_LIBSSL=1
+  else
+    cnf_append "VBOX_WITH_EXTPACK_PUEL_BUILD" ""
+  fi
+fi
+
+# headless
+if [ -n "$HEADLESS" ]; then
+  cnf_append "VBOX_HEADLESS" "1"
+fi
+
+# emit disable directives corresponding to any --disable-xxx options.
+if [ $WITH_OPENGL -eq 0 ]; then
+  cnf_append "VBOX_WITH_VMSVGA3D" ""
+  cnf_append "VBOX_WITH_3D_ACCELERATION" ""
+  cnf_append "VBOX_WITH_VIDEOHWACCEL" ""
+  cnf_append "VBOX_GUI_USE_QGL" ""
+fi
+[ $WITH_XPCOM     -eq 0 ] && cnf_append "VBOX_WITH_MAIN" ""
+[ $WITH_QT5       -eq 0 ] && cnf_append "VBOX_WITH_QTGUI" ""
+[ $WITH_SDL_TTF   -eq 0 ] && cnf_append "VBOX_WITH_SECURELABEL" ""
+[ $WITH_PYTHON    -eq 0 ] && cnf_append "VBOX_WITH_PYTHON" ""
+[ $WITH_JAVA      -eq 0 ] && cnf_append "VBOX_WITH_JXPCOM" ""
+[ $WITH_JAVA      -eq 0 ] && cnf_append "VBOX_WITH_JWS" ""
+[ $WITH_HARDENING -eq 0 ] && cnf_append "VBOX_WITHOUT_HARDENING" "1"
+[ $WITH_HARDENING -eq 2 ] && cnf_append "VBOX_WITH_HARDENING" "2"
+[ $WITH_VMMRAW    -eq 0 ] && cnf_append "VBOX_WITH_RAW_MODE" ""
+[ $WITH_LIBTPMS   -eq 0 ] && cnf_append "VBOX_WITH_LIBTPMS" ""
+[ $WITH_LIBLZMA   -eq 0 ] && cnf_append "VBOX_WITH_LIBLZMA" ""
+if [ $WITH_LIBVPX -eq 0 ]; then
+  cnf_append "VBOX_WITH_LIBVPX" ""
+  cnf_append "VBOX_WITH_RECORDING" ""
+fi
+if [ $WITH_LIBOGG -eq 0 -o $WITH_LIBVORBIS -eq 0 ]; then
+  cnf_append "VBOX_WITH_LIBOGG" ""
+  cnf_append "VBOX_WITH_LIBVORBIS" ""
+  cnf_append "VBOX_WITH_AUDIO_RECORDING" ""
+fi
+
+# Darwin-specific
+[ "$OS" = "darwin" ] && check_darwinversion
+# the tools
+[ "$OS" != "darwin"  ] && check_gcc
+[ "$OS" = "darwin"  ] && check_xcode
+if [ $ONLY_ADDITIONS -eq 0 ]; then
+  check_open_watcom
+  [ "$OS" != "darwin"  ] && check_iasl
+  [ $OSE -ge 1 ] && check_yasm
+  [ "$OS" != "darwin"  ] && check_xsltproc
+fi
+
+# the libraries
+if [ $ONLY_ADDITIONS -eq 0 ]; then
+  [ "$OS" != "darwin"  ] && check_pthread
+  check_libxml2
+  [ $WITH_LIBIDL -eq 1 ] && check_libidl
+  check_z
+  check_lzf
+  check_ssl
+  check_curl
+  [ $WITH_LIBVPX -eq 1 ] && check_vpx
+  [ $WITH_LIBOGG -eq 1 ] && check_libogg
+  [ $WITH_LIBVORBIS -eq 1 ] && check_libvorbis
+  [ $WITH_LIBTPMS -eq 1 ] && check_libtpms
+  [ $WITH_LIBLZMA -eq 1 ] && check_liblzma
+  [ "$OS" != "darwin"  ] && check_png
+  [ $OSE -eq 0 -a "$OS" = "linux" ] && check_pam
+  if [ $WITH_SDL -eq 1 ]; then
+    check_sdl
+  else
+    cnf_append "VBOX_WITH_VBOXSDL" ""
+  fi
+  [ $WITH_SDL_TTF -eq 1 -a $OSE -eq 0 ] && check_sdl_ttf
+  [ $WITH_X11    -eq 1 ] && check_x
+  # TODO check for xcomposite-dev (X11/extensions/Xcomposite.h, additions only)
+  # TODO check for libxdamange-dev (X11/extensions/Xdamage.h, additions only)
+  [ $WITH_X11    -eq 1 ] && check_xcursor
+  [ $WITH_X11    -eq 1 ] && check_xinerama
+  [ $WITH_X11    -eq 1 ] && check_xrandr
+  [ $WITH_OPENGL -eq 1 ] && check_opengl
+  [ $WITH_QT5    -eq 1 ] && check_qt5
+  [ $WITH_PYTHON -eq 1 ] && check_python
+  [ $WITH_JAVA   -eq 1 ] && check_java
+
+  # PulseAudio
+  if [ $WITH_PULSE -eq 1 ]; then
+    check_pulse
+  elif [ $WITH_PULSE -eq 0 ]; then # Force disabling PulseAudio.
+    cnf_append "VBOX_WITH_AUDIO_PULSE" ""
+  elif [ $WITH_PULSE -eq 2 ]; then # --enable-pulse was passed, force PulseAudio.
+    cnf_append "VBOX_WITH_AUDIO_PULSE" "1"
+  fi
+fi
+
+# Linux-specific
+if [ "$OS" = "linux" ]; then
+  # don't check for the static libstdc++ in the PUEL version as we build the
+  # additions at a dedicated box
+  [ $OSE -ge 1 ] && check_staticlibstdcxx
+  if [ $WITH_KMODS -eq 1 ]; then
+    check_linux
+  else
+    cnf_append "VBOX_LINUX_SRC" ""
+    cnf_append "VBOX_WITHOUT_LINUX_TEST_BUILDS" "1"
+  fi
+  if [ $ONLY_ADDITIONS -eq 0 ]; then
+    if [ $WITH_ALSA -eq 1 ]; then
+      check_alsa
+    else
+      cnf_append "VBOX_WITH_AUDIO_ALSA" ""
+    fi
+    if [ $WITH_DBUS -eq 0 ]; then
+      cnf_append "VBOX_WITH_DBUS" ""
+    fi
+    if [ $WITH_DEVMAPPER -eq 1 ]; then
+      check_libdevmapper
+    else
+      cnf_append "VBOX_WITH_DEVMAPPER" ""
+    fi
+    check_libcap
+  fi
+  check_compiler_h
+  [ $ONLY_ADDITIONS -eq 0 -a "$BUILD_MACHINE" = "amd64" -a $WITH_VMMRAW -eq 1 ] && check_32bit
+  # tools/common/makeself*
+  [ $OSE -ge 1 ] && check_makeself
+fi
+
+[ -n "$SETUP_WINE" ] && setup_wine
+
+if [ $ONLY_ADDITIONS -eq 0 ]; then
+  check_gsoap
+else
+  cnf_append "VBOX_WITH_WEBSERVICES" ""
+fi
+
+# UDPTUNNEL
+if [ $ONLY_ADDITIONS -eq 0 -a $WITH_UDPTUNNEL -eq 0 ]; then
+  cnf_append "VBOX_WITH_UDPTUNNEL" ""
+fi
+
+# VDE
+if [ $ONLY_ADDITIONS -eq 0 -a "$OS" = "linux" -o "$OS" = "freebsd" ]; then
+  if [ $WITH_VDE -eq 1 ]; then
+    cnf_append "VBOX_WITH_VDE" "1"
+  fi
+fi
+
+# DOCS
+if [ $ONLY_ADDITIONS -eq 1 -o $WITH_DOCS -eq 0 ]; then
+  cnf_append "VBOX_WITH_DOCS" ""
+  cnf_append "VBOX_WITH_DOCS_PACKING" ""
+fi
+
+# VNC server support
+if [ $ONLY_ADDITIONS -eq 0 -a $OSE -ge 1 ]; then
+  if [ $WITH_VNC = 1 ]; then
+    check_vncserver
+  else
+    cnf_append "VBOX_WITH_EXTPACK_VNC" ""
+  fi
+fi
+
+if [ $ONLY_ADDITIONS -eq 1 ]; then
+  cnf_append "VBOX_ONLY_ADDITIONS" "1"
+fi
+
+# success!
+echo
+echo "Successfully generated '$CNF' and '$ENV'."
+echo "Source '$ENV' once before you start to build VBox:"
+echo ""
+echo "  source $ENV"
+echo "  kmk"
+echo ""
+if [ "$OS" = "linux" ]; then
+    if [ $OUT_BASE_PATH_OVERRIDE -eq 1 ]; then
+      out_base_dir=$OUT_BASE_PATH
+    else
+      out_base_dir=.
+    fi
+    echo "To compile the kernel modules, do:"
+    echo ""
+    echo "  cd $out_base_dir/out/$OS.$TARGET_MACHINE/$BUILD_TYPE/bin/src"
+    echo "  make"
+    echo ""
+fi
+if [ $ONLY_ADDITIONS -eq 1 ]; then
+    echo ""
+    echo "  Tree configured to build only the Guest Additions"
+    echo ""
+elif [ $WITH_HARDENING -gt 0 ]; then
+    echo ""
+    echo "  +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++"
+    echo "  Hardening is enabled which means that the VBox binaries will not run from"
+    echo "  the binary directory. The binaries have to be installed suid root and some"
+    echo "  more prerequisites have to be fulfilled which is normally done by installing"
+    echo "  the final package. For development, the hardening feature can be disabled"
+    echo "  by specifying the --disable-hardening parameter. Please never disable that"
+    echo "  feature for the final distribution!"
+    echo "  +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++"
+    echo ""
+else
+    echo ""
+    echo "  +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++"
+    echo "  Hardening is disabled. Please do NOT build packages for distribution with"
+    echo "  disabled hardening!"
+    echo "  +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++"
+    echo ""
+fi
+echo "Enjoy!"
+cleanup

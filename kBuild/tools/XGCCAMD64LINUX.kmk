@@ -1,0 +1,283 @@
+# $Id: XGCCAMD64LINUX.kmk 3579 2023-01-05 01:53:41Z bird $
+## @file
+# kBuild Tool Config - GCC Cross compiler for AMD64+Linux.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_XGCCAMD64LINUX := GCC Cross compiler for AMD64+Linux.
+
+# Tool Specific Properties
+TOOL_XGCCAMD64LINUX_SUFFIX ?= $(HOSTSUFF_EXE)
+ifeq ($(KBUILD_HOST).$(KBUILD_HOST_ARCH),linux.amd64)
+ # not x-compile, use the default gcc.
+ TOOL_XGCCAMD64LINUX_PREFIX := $(TOOL_XGCCAMD64LINUX_PREFIX)
+else # x-compile:
+ # find the latest xgcc build.
+ ifndef TOOL_XGCCAMD64LINUX_PREFIX
+  TOOL_XGCCAMD64LINUX_PREFIX := x86_64-unknown-linux-gnu-
+  ifndef PATH_TOOL_XGCCAMD64LINUX
+   PATH_TOOL_XGCCAMD64LINUX := $(sort $(wildcard $(KBUILD_DEVTOOLS_HST)/x86_64-unknown-linux-gnu/*))
+   ifeq ($(PATH_TOOL_XGCCAMD64LINUX),)
+    ifeq ($(filter-out win.amd64,$(KBUILD_HOST).$(KBUILD_HOST_ARCH)),) # these can use the windows build.
+     TOOL_XGCCAMD64LINUX_EXEC_PREFIX ?= $(EXEC_X86_WIN32)
+     TOOL_XGCCAMD64LINUX_SUFFIX := .exe
+     PATH_TOOL_XGCCAMD64LINUX := $(sort $(wildcard $(KBUILD_DEVTOOLS)/win.x86/x86_64-unknown-linux-gnu/*))
+     ifeq ($(PATH_TOOL_XGCCAMD64LINUX),)
+      PATH_TOOL_XGCCAMD64LINUX := $(sort $(wildcard $(KBUILD_DEVTOOLS)/x86.win32/x86_64-unknown-linux-gnu/*))
+     endif
+    endif
+   endif
+   ifneq ($(PATH_TOOL_XGCCAMD64LINUX),)
+    PATH_TOOL_XGCCAMD64LINUX := $(call lastword,$(PATH_TOOL_XGCCAMD64LINUX))
+   endif
+  endif # !PATH_TOOL_XGCCAMD64LINUX
+  ifneq ($(PATH_TOOL_XGCCAMD64LINUX),)
+   TOOL_XGCCAMD64LINUX_PREFIX := $(TOOL_XGCCAMD64LINUX_EXEC_PREFIX) $(PATH_TOOL_XGCCAMD64LINUX)/bin/$(TOOL_XGCCAMD64LINUX_PREFIX)
+  endif
+ else
+  # Resolve any fancy stuff once and for all.
+  TOOL_XGCCAMD64LINUX_PREFIX := $(TOOL_XGCCAMD64LINUX_PREFIX)
+ endif
+endif
+
+TOOL_XGCCAMD64LINUX_PREFIX2 ?= $(TOOL_XGCCAMD64LINUX_PREFIX)
+TOOL_XGCCAMD64LINUX_SUFFIX2 ?= $(TOOL_XGCCAMD64LINUX_SUFFIX)
+TOOL_XGCCAMD64LINUX_CC  ?= $(TOOL_XGCCAMD64LINUX_PREFIX)gcc$(TOOL_XGCCAMD64LINUX_SUFFIX)
+TOOL_XGCCAMD64LINUX_CXX ?= $(TOOL_XGCCAMD64LINUX_PREFIX)g++$(TOOL_XGCCAMD64LINUX_SUFFIX)
+TOOL_XGCCAMD64LINUX_AS  ?= $(TOOL_XGCCAMD64LINUX_PREFIX)gcc$(TOOL_XGCCAMD64LINUX_SUFFIX)
+TOOL_XGCCAMD64LINUX_AR  ?= $(TOOL_XGCCAMD64LINUX_PREFIX2)ar$(TOOL_XGCCAMD64LINUX_SUFFIX2)
+TOOL_XGCCAMD64LINUX_LD  ?= $(TOOL_XGCCAMD64LINUX_PREFIX)g++$(TOOL_XGCCAMD64LINUX_SUFFIX)
+TOOL_XGCCAMD64LINUX_LD_SYSMOD ?= $(TOOL_XGCCAMD64LINUX_PREFIX2)ld$(TOOL_XGCCAMD64LINUX_SUFFIX2)
+
+TOOL_XGCCAMD64LINUX_LD_SONAME ?= -Wl,-soname=$(firstword $($(1)_SONAME.$(KBUILD_TARGET).$(KBUILD_TYPE)) $($(1)_SONAME.$(KBUILD_TARGET)) $($(1)_SONAME.$(KBUILD_TYPE)) $($(1)_SONAME) $(notdir $(2)))
+TOOL_XGCCAMD64LINUX_LD_MAP ?= -Wl,-Map -Wl,$(1) -Wl,--cref
+TOOL_XGCCAMD64LINUX_LD_SYSMOD_MAP ?= -Map $(1) --cref
+TOOL_XGCCAMD64LINUX_LDFLAGS.dll ?= -shared
+TOOL_XGCCAMD64LINUX_LDFLAGS.sysmod ?= -r
+
+# General Properties used by kBuild
+TOOL_XGCCAMD64LINUX_COBJSUFF         ?= .o
+TOOL_XGCCAMD64LINUX_CFLAGS           ?= -g
+TOOL_XGCCAMD64LINUX_CFLAGS.debug     ?= -O0
+TOOL_XGCCAMD64LINUX_CFLAGS.release   ?= -O2
+TOOL_XGCCAMD64LINUX_CFLAGS.profile   ?= -O2 #-pg
+TOOL_XGCCAMD64LINUX_CINCS            ?=
+TOOL_XGCCAMD64LINUX_CDEFS            ?=
+
+TOOL_XGCCAMD64LINUX_CXXOBJSUFF       ?= .o
+TOOL_XGCCAMD64LINUX_CXXOBJSUFF       ?= .o
+TOOL_XGCCAMD64LINUX_CXXFLAGS         ?= -g
+TOOL_XGCCAMD64LINUX_CXXFLAGS.debug   ?= -O0
+TOOL_XGCCAMD64LINUX_CXXFLAGS.release ?= -O2
+TOOL_XGCCAMD64LINUX_CXXFLAGS.profile ?= -O2 #-pg
+TOOL_XGCCAMD64LINUX_CXXINCS          ?=
+TOOL_XGCCAMD64LINUX_CXXDEFS          ?=
+
+TOOL_XGCCAMD64LINUX_ASFLAGS          ?= -g -x assembler-with-cpp
+TOOL_XGCCAMD64LINUX_ASOBJSUFF        ?= .o
+
+TOOL_XGCCAMD64LINUX_ARFLAGS          ?= cr
+TOOL_XGCCAMD64LINUX_ARLIBSUFF        ?= .a
+
+TOOL_XGCCAMD64LINUX_LDFLAGS          ?=
+TOOL_XGCCAMD64LINUX_LDFLAGS.debug    ?= -g
+TOOL_XGCCAMD64LINUX_LDFLAGS.release  ?= -s
+
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_XGCCAMD64LINUX_COMPILE_C_OUTPUT =
+TOOL_XGCCAMD64LINUX_COMPILE_C_DEPEND =
+TOOL_XGCCAMD64LINUX_COMPILE_C_DEPORD =
+define TOOL_XGCCAMD64LINUX_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_XGCCAMD64LINUX_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+endef
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_XGCCAMD64LINUX_COMPILE_CXX_OUTPUT =
+TOOL_XGCCAMD64LINUX_COMPILE_CXX_DEPEND =
+TOOL_XGCCAMD64LINUX_COMPILE_CXX_DEPORD =
+define TOOL_XGCCAMD64LINUX_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_XGCCAMD64LINUX_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+endef
+
+## Compile Assembly source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+#
+TOOL_XGCCAMD64LINUX_COMPILE_AS_OUTPUT =
+TOOL_XGCCAMD64LINUX_COMPILE_AS_DEPEND =
+TOOL_XGCCAMD64LINUX_COMPILE_AS_DEPORD =
+define TOOL_XGCCAMD64LINUX_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_XGCCAMD64LINUX_AS) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
+		-o $(obj)\
+		$(abspath $(source))
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_XGCCAMD64LINUX_LINK_LIBRARY_OUTPUT = $(out).ar-script
+TOOL_XGCCAMD64LINUX_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_XGCCAMD64LINUX_LINK_LIBRARY_DEPORD =
+define TOOL_XGCCAMD64LINUX_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) $(out).ar-script 'CREATE $(out)'
+	$(QUIET)$(APPEND) -n $(out).ar-script \
+		$(foreach o,$(objs), 'ADDMOD $(o)') \
+		$(foreach o,$(othersrc), 'ADDLIB $(o)')
+	$(QUIET)$(APPEND) $(out).ar-script 'SAVE'
+	$(QUIET)$(APPEND) $(out).ar-script 'END'
+	$(QUIET)$(REDIRECT) -rti $(out).ar-script -- $(TOOL_XGCCAMD64LINUX_AR) -M
+endef
+
+
+## Link program
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_XGCCAMD64LINUX_LINK_PROGRAM_OUTPUT = $(outbase).map
+TOOL_XGCCAMD64LINUX_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_XGCCAMD64LINUX_LINK_PROGRAM_DEPORD =
+define TOOL_XGCCAMD64LINUX_LINK_PROGRAM_CMDS
+	$(QUIET)$(TOOL_XGCCAMD64LINUX_LD) $(flags) -o $(out) $(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(basename $(lib))), $(lib)))\
+		$(call TOOL_XGCCAMD64LINUX_LD_MAP,$(outbase).map)
+endef
+
+
+## Link DLL
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		Program name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_XGCCAMD64LINUX_LINK_DLL_OUTPUT = $(outbase).map
+TOOL_XGCCAMD64LINUX_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_XGCCAMD64LINUX_LINK_DLL_DEPORD =
+define TOOL_XGCCAMD64LINUX_LINK_DLL_CMDS
+	$(QUIET)$(TOOL_XGCCAMD64LINUX_LD) $(TOOL_XGCCAMD64LINUX_LDFLAGS.dll) $(flags) -o $(out)\
+		$(if $(filter-out win32 os2, $(KBUILD_TARGET)),$(call TOOL_XGCCAMD64LINUX_LD_SONAME,$(target),$(out)))\
+		$(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(basename $(lib))), $(lib)))\
+		$(call TOOL_XGCCAMD64LINUX_LD_MAP,$(outbase).map)
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)   Normalized main target name.
+# @param    $(out)		System module name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)		Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_XGCCAMD64LINUX_LINK_SYSMOD_OUTPUT = $(outbase).map
+TOOL_XGCCAMD64LINUX_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_XGCCAMD64LINUX_LINK_SYSMOD_DEPORD =
+define TOOL_XGCCAMD64LINUX_LINK_SYSMOD_CMDS
+	$(QUIET)$(TOOL_XGCCAMD64LINUX_LD_SYSMOD) $(TOOL_XGCCAMD64LINUX_LDFLAGS.sysmod) $(flags) -o $(out) $(objs)\
+		$(foreach p,$(libpath), -L$(p))\
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(basename $(lib))), $(lib)))\
+		$(call TOOL_XGCCAMD64LINUX_LD_SYSMOD_MAP,$(outbase).map)
+endef
+

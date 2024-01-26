@@ -1,0 +1,845 @@
+; $Id: bs3-cpu-instr-2-template.mac $
+;; @file
+; BS3Kit - bs3-cpu-instr-2 assembly template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+;*********************************************************************************************************************************
+;*  Header Files                                                                                                                 *
+;*********************************************************************************************************************************
+%include "bs3kit-template-header.mac"   ; setup environment
+
+
+;*********************************************************************************************************************************
+;*  Defined Constants And Macros                                                                                                 *
+;*********************************************************************************************************************************
+;;
+; Variant on BS3_PROC_BEGIN_CMN w/ BS3_PBC_NEAR that prefixes the function
+; with an instruction length byte.
+;
+; ASSUMES the length is between the start of the function and the .again label.
+;
+%ifndef BS3CPUINSTR2_PROC_BEGIN_CMN_DEFINED
+ %define BS3CPUINSTR2_PROC_BEGIN_CMN_DEFINED
+ %macro BS3CPUINSTR2_PROC_BEGIN_CMN 1
+        align   8, db 0cch
+        db      BS3_CMN_NM(%1).again - BS3_CMN_NM(%1)
+BS3_PROC_BEGIN_CMN %1, BS3_PBC_NEAR
+ %endmacro
+%endif
+
+
+;*********************************************************************************************************************************
+;*  External Symbols                                                                                                             *
+;*********************************************************************************************************************************
+TMPL_BEGIN_TEXT
+
+
+;
+; Test code snippets containing code which differs between 16-bit, 32-bit
+; and 64-bit CPUs modes.
+;
+%ifdef BS3_INSTANTIATING_CMN
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_mul_xBX_ud2, BS3_PBC_NEAR
+        mul     xBX
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_mul_xBX_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_imul_xBX_ud2, BS3_PBC_NEAR
+        imul    xBX
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_imul_xBX_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_imul_xCX_xBX_ud2, BS3_PBC_NEAR
+        imul    xCX, xBX
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_imul_xCX_xBX_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_div_xBX_ud2, BS3_PBC_NEAR
+        div     xBX
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_div_xBX_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_idiv_xBX_ud2, BS3_PBC_NEAR
+        idiv    xBX
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_idiv_xBX_ud2
+
+
+;
+; BSF / BSR / TZCNT / LZCNT
+;
+%ifndef EMIT_BITSCAN_DEFINED
+%define EMIT_BITSCAN_DEFINED
+%macro EMIT_BITSCAN 3
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %3 %+ _AX_BX_ud2, BS3_PBC_NEAR
+        %2
+        %1      ax, bx
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %3 %+ _AX_BX_ud2
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %3 %+ _AX_FSxBX_ud2, BS3_PBC_NEAR
+        %2
+        %1      ax, [fs:xBX]
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %3 %+ _AX_FSxBX_ud2
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %3 %+ _EAX_EBX_ud2, BS3_PBC_NEAR
+        %2
+        %1      eax, ebx
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %3 %+ _EAX_EBX_ud2
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %3 %+ _EAX_FSxBX_ud2, BS3_PBC_NEAR
+        %2
+        %1      eax, [fs:xBX]
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %3 %+ _EAX_FSxBX_ud2
+
+ %if TMPL_BITS == 64
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %3 %+ _RAX_RBX_ud2, BS3_PBC_NEAR
+        %2
+        %1      rax, rbx
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %3 %+ _RAX_RBX_ud2
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %3 %+ _RAX_FSxBX_ud2, BS3_PBC_NEAR
+        %2
+        %1      rax, [fs:xBX]
+.again:
+        ud2
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %3 %+ _RAX_FSxBX_ud2
+ %endif
+%endmacro
+%endif
+
+EMIT_BITSCAN bsf,   .ignored:, bsf
+EMIT_BITSCAN bsr,   .ignored:, bsr
+EMIT_BITSCAN tzcnt, .ignored:, tzcnt
+EMIT_BITSCAN lzcnt, .ignored:, lzcnt
+EMIT_BITSCAN bsf,   db 0f2h,   f2_bsf
+EMIT_BITSCAN bsr,   db 0f2h,   f2_bsr
+EMIT_BITSCAN tzcnt, db 0f2h,   f2_tzcnt
+EMIT_BITSCAN lzcnt, db 0f2h,   f2_lzcnt
+
+
+;
+; RORX - VEX instruction with a couple of questions about non-standard encodings.
+;
+;;%define icebp ud2
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rorx_EBX_EDX_2_icebp, BS3_PBC_NEAR
+        rorx    ebx, edx, 2
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_rorx_EBX_EDX_2_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rorx_RBX_RDX_2_icebp, BS3_PBC_NEAR
+%if TMPL_BITS == 64
+        rorx    rbx, rdx, 2
+%else
+        db      0C4h,0E3h,0FBh,0F0h,0DAh,002h    ; 32-bit ignores VEX.W=1 (10980xe)
+%endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_rorx_RBX_RDX_2_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rorx_EBX_EDX_2_icebp_L1, BS3_PBC_NEAR
+        db 0C4h, 0E3h, 07Bh | 4h, 0F0h, 0DAh, 002h          ; VEX.L=1 should #UD according to the docs
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_rorx_EBX_EDX_2_icebp_L1
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rorx_EBX_EDX_2_icebp_V1, BS3_PBC_NEAR
+        db 0C4h, 0E3h, 003h | ~(1 << 3), 0F0h, 0DAh, 002h   ; VEX.VVVV=1 - behaviour is undocumented - 10980xe #UD
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_rorx_EBX_EDX_2_icebp_V1
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rorx_EBX_EDX_2_icebp_V15, BS3_PBC_NEAR
+        db 0C4h, 0E3h, 003h | ~(15 << 3), 0F0h, 0DAh, 002h  ; VEX.VVVV=15 - behaviour is not documented - 10980xe #UD
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_rorx_EBX_EDX_2_icebp_V15
+
+ %if TMPL_BITS == 64
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rorx_EBX_EDX_2_icebp_X1, BS3_PBC_NEAR
+        db 0C4h, 0E3h & ~40h, 07Bh, 0F0h, 0DAh, 002h        ; VEX.X=0 - behaviour is not documented - ignored by 10980xe
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_rorx_EBX_EDX_2_icebp_X1
+ %endif
+
+; A couple of memory variants
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rorx_EBX_DSxDI_36_icebp, BS3_PBC_NEAR
+        rorx    ebx, [xDI], 36
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_rorx_EBX_DSxDI_36_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rorx_RBX_DSxDI_68_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        rorx    rbx, [xDI], 68
+ %elif TMPL_BITS == 32
+        db      0C4h,0E3h,07Bh,0F0h,01Fh,044h   ; 16-bit ignores VEX.W=1 (10980xe)
+ %else
+        db      0C4h,0E3h,0FBh,0F0h,01Dh,044h   ; 16-bit ignores VEX.W=1 (10980xe)
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_rorx_RBX_DSxDI_68_icebp
+
+;
+; ANDN (BMI1)
+;
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_andn_RAX_RCX_RBX_icebp, BS3_PBC_NEAR
+%if TMPL_BITS == 64
+        andn    rax, rcx, rbx
+%else
+        db      0C4h,0E2h,0F0h,0F2h,0C3h    ; 32-bit & 16-bit ignores VEX.W=1 (10980xe)
+%endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_andn_RAX_RCX_RBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_andn_EAX_ECX_EBX_icebp, BS3_PBC_NEAR
+        andn    eax, ecx, ebx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_andn_EAX_ECX_EBX_icebp
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_andn_RAX_RCX_FSxBX_icebp, BS3_PBC_NEAR
+%if TMPL_BITS == 64
+        andn    rax, rcx, [fs:rbx]
+%elif TMPL_BITS == 32
+        db      064h,0C4h,0E2h,0F0h,0F2h,003h   ; andn    rax, rcx, [fs:ebx]
+%else
+        db      064h,0C4h,0E2h,0F0h,0F2h,007h   ; andn    rax, rcx, [fs:bx]
+%endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_andn_RAX_RCX_FSxBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_andn_EAX_ECX_FSxBX_icebp, BS3_PBC_NEAR
+        andn    eax, ecx, [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_andn_EAX_ECX_FSxBX_icebp
+
+
+;
+; BEXTR / SHLX / SARX / SHRX - BMI1 (opcode f7h)
+; BZHI                       - BMI2 (opcode f5h)
+;
+; @param %1 instruction
+; @param %2 opcode
+; @param %3 prefix
+;
+%ifndef SHLX_SARX_SHRX_DEFINED
+%define SHLX_SARX_SHRX_DEFINED
+%macro SHLX_SARX_SHRX 3
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _RAX_RBX_RCX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        %1      rax, rbx, rcx                   ; SHLX=C4E2F1F7C3
+ %else
+        db      0C4h,0E2h,0F0h|%3,%2,0C3h       ; 32-bit & 16-bit ignores VEX.W=1 (10980xe)
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _RAX_RBX_RCX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _EAX_EBX_ECX_icebp, BS3_PBC_NEAR
+        %1      eax, ebx, ecx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _EAX_EBX_ECX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _RAX_FSxBX_RCX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        %1      rax, [fs:rbx], rcx              ; SHLX=64C4E2F1F703
+ %elif TMPL_BITS == 32
+        db      064h,0C4h,0E2h,0F0h|%3,%2,003h
+ %else
+        db      064h,0C4h,0E2h,0F0h|%3,%2,007h
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _RAX_FSxBX_RCX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _EAX_FSxBX_ECX_icebp, BS3_PBC_NEAR
+        %1      eax, [fs:xBX], ecx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _EAX_FSxBX_ECX_icebp
+
+%endmacro
+%endif
+
+SHLX_SARX_SHRX bextr, 0f7h, 0 ; none
+SHLX_SARX_SHRX shlx,  0f7h, 1 ; 66h
+SHLX_SARX_SHRX sarx,  0f7h, 2 ; f3h
+SHLX_SARX_SHRX shrx,  0f7h, 3 ; f2h
+SHLX_SARX_SHRX bzhi,  0f5h, 0 ; none
+
+;
+; PPEP / PEXT - BMI2 (opcode f5h)
+;
+; @param %1 instruction
+; @param %2 opcode
+; @param %3 prefix
+;
+%ifndef PDEP_PEXT_DEFINED
+%define PDEP_PEXT_DEFINED
+%macro PDEP_PEXT_ 3
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _RAX_RCX_RBX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        %1      rax, rcx, rbx
+ %else
+        db      0C4h,0E2h,0F0h|%3,%2,0C3h       ; 32-bit & 16-bit ignores VEX.W=1 (10980xe)
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _RAX_RCX_RBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _EAX_ECX_EBX_icebp, BS3_PBC_NEAR
+        %1      eax, ecx, ebx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _EAX_ECX_EBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _RAX_RCX_FSxBX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        %1      rax, rcx, [fs:rbx]
+ %elif TMPL_BITS == 32
+        db      064h,0C4h,0E2h,0F0h|%3,%2,003h
+ %else
+        db      064h,0C4h,0E2h,0F0h|%3,%2,007h
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _RAX_RCX_FSxBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _EAX_ECX_FSxBX_icebp, BS3_PBC_NEAR
+        %1      eax, ecx, [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _EAX_ECX_FSxBX_icebp
+
+%endmacro
+%endif
+
+PDEP_PEXT_ pext,  0f5h, 2 ; f3h
+PDEP_PEXT_ pdep,  0f5h, 3 ; f2h
+
+;
+; BLSR / BLSMSK / BLSI
+; These are encoded in the exact same way, only the /r differs (%2).
+;
+%ifndef BLSR_BLSMSK_BLSI_DEFINED
+%define BLSR_BLSMSK_BLSI_DEFINED
+%macro BLSR_BLSMSK_BLSI 2
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _RAX_RBX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        %1      rax, rbx                                ; BLSR=C4E2F8F3CB
+ %else
+        db      0C4h,0E2h,0F8h,0F3h,0C3h | (%2 << 3)    ; 32-bit & 16-bit ignores VEX.W=1 (10980xe)
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _RAX_RBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _EAX_EBX_icebp, BS3_PBC_NEAR
+        %1      eax, ebx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _EAX_EBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _RAX_FSxBX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        %1      rax, [fs:rbx]                           ; BSLR=64C4E2F8F30B
+ %elif TMPL_BITS == 32
+        db      064h,0C4h,0E2h,0F8h,0F3h,003h | (%2 << 3)
+ %else
+        db      064h,0C4h,0E2h,0F8h,0F3h,007h | (%2 << 3)
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _RAX_FSxBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_ %+ %1 %+ _EAX_FSxBX_icebp, BS3_PBC_NEAR
+        %1      eax, [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_ %+ %1 %+ _EAX_FSxBX_icebp
+
+%endmacro
+%endif
+
+BLSR_BLSMSK_BLSI blsr,    1
+BLSR_BLSMSK_BLSI blsmsk,  2
+BLSR_BLSMSK_BLSI blsi,    3
+
+;
+; MULX
+;
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_mulx_RAX_RCX_RBX_RDX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        mulx    rax, rcx, rbx                   ; C4E2F3F6C3
+ %else
+        db      0C4h,0E2h,0F3h,0F6h,0C3h        ; 32-bit & 16-bit ignores VEX.W=1 (10980xe)
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_mulx_RAX_RCX_RBX_RDX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_mulx_RCX_RCX_RBX_RDX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        mulx    rcx, rcx, rbx                   ; C4E2F3F6CB
+ %else
+        db      0C4h,0E2h,0F3h,0F6h,0CBh        ; 32-bit & 16-bit ignores VEX.W=1 (10980xe)
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_mulx_RCX_RCX_RBX_RDX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_mulx_RAX_RCX_FSxBX_RDX_icebp, BS3_PBC_NEAR
+ %if TMPL_BITS == 64
+        mulx    rax, rcx, [fs:rbx]              ; 64C4E2F3F603
+ %elif TMPL_BITS == 32
+        db      064h,0C4h,0E2h,0F3h,0F6h,003h   ; 32-bit & 16-bit ignores VEX.W=1 (10980xe)
+ %else
+        db      064h,0C4h,0E2h,0F3h,0F6h,007h   ; 32-bit & 16-bit ignores VEX.W=1 (10980xe)
+ %endif
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_mulx_RAX_RCX_FSxBX_RDX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_mulx_EAX_ECX_EBX_EDX_icebp, BS3_PBC_NEAR
+        mulx    eax, ecx, ebx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_mulx_EAX_ECX_EBX_EDX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_mulx_ECX_ECX_EBX_EDX_icebp, BS3_PBC_NEAR
+        mulx    ecx, ecx, ebx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_mulx_ECX_ECX_EBX_EDX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_mulx_EAX_ECX_FSxBX_EDX_icebp, BS3_PBC_NEAR
+        mulx    eax, ecx, [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_mulx_EAX_ECX_FSxBX_EDX_icebp
+
+
+;
+; POPCNT
+;
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_popcnt_AX_BX_icebp, BS3_PBC_NEAR
+        popcnt  ax, bx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_popcnt_AX_BX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_popcnt_EAX_EBX_icebp, BS3_PBC_NEAR
+        popcnt  eax, ebx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_popcnt_EAX_EBX_icebp
+
+ %if TMPL_BITS == 64
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_popcnt_RAX_RBX_icebp, BS3_PBC_NEAR
+        popcnt  rax, rbx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_popcnt_RAX_RBX_icebp
+ %endif
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_popcnt_AX_FSxBX_icebp, BS3_PBC_NEAR
+        popcnt  ax, [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_popcnt_AX_FSxBX_icebp
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_popcnt_EAX_FSxBX_icebp, BS3_PBC_NEAR
+        popcnt  eax, [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_popcnt_EAX_FSxBX_icebp
+
+ %if TMPL_BITS == 64
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_popcnt_RAX_FSxBX_icebp, BS3_PBC_NEAR
+        popcnt  rax, [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN   bs3CpuInstr2_popcnt_RAX_FSxBX_icebp
+ %endif
+
+
+;
+; CRC32
+;
+BS3CPUINSTR2_PROC_BEGIN_CMN bs3CpuInstr2_crc32_EAX_BL_icebp
+        crc32   eax, bl
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN            bs3CpuInstr2_crc32_EAX_BL_icebp
+
+BS3CPUINSTR2_PROC_BEGIN_CMN bs3CpuInstr2_crc32_EAX_BX_icebp
+        crc32   eax, bx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN            bs3CpuInstr2_crc32_EAX_BX_icebp
+
+BS3CPUINSTR2_PROC_BEGIN_CMN bs3CpuInstr2_crc32_EAX_EBX_icebp
+        crc32   eax, ebx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN            bs3CpuInstr2_crc32_EAX_EBX_icebp
+
+ %if TMPL_BITS == 64
+BS3CPUINSTR2_PROC_BEGIN_CMN bs3CpuInstr2_crc32_EAX_RBX_icebp
+        crc32   rax, rbx
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN            bs3CpuInstr2_crc32_EAX_RBX_icebp
+ %endif
+
+
+BS3CPUINSTR2_PROC_BEGIN_CMN bs3CpuInstr2_crc32_EAX_byte_FSxBX_icebp
+        crc32   eax, byte [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN            bs3CpuInstr2_crc32_EAX_byte_FSxBX_icebp
+
+BS3CPUINSTR2_PROC_BEGIN_CMN bs3CpuInstr2_crc32_EAX_word_FSxBX_icebp
+        crc32   eax, word [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN            bs3CpuInstr2_crc32_EAX_word_FSxBX_icebp
+
+BS3CPUINSTR2_PROC_BEGIN_CMN bs3CpuInstr2_crc32_EAX_dword_FSxBX_icebp
+        crc32   eax, dword [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN            bs3CpuInstr2_crc32_EAX_dword_FSxBX_icebp
+
+ %if TMPL_BITS == 64
+BS3CPUINSTR2_PROC_BEGIN_CMN bs3CpuInstr2_crc32_EAX_qword_FSxBX_icebp
+        crc32   rax, qword [fs:xBX]
+.again:
+        icebp
+        jmp     .again
+BS3_PROC_END_CMN            bs3CpuInstr2_crc32_EAX_qword_FSxBX_icebp
+ %endif
+
+
+;
+; CMPXCHG16B
+;
+ %if TMPL_BITS == 64
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_cmpxchg16b_rdi_ud2, BS3_PBC_NEAR
+        cmpxchg16b [rdi]
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 4)
+BS3_PROC_END_CMN   bs3CpuInstr2_cmpxchg16b_rdi_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_lock_cmpxchg16b_rdi_ud2, BS3_PBC_NEAR
+        lock cmpxchg16b [rdi]
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 5)
+BS3_PROC_END_CMN   bs3CpuInstr2_lock_cmpxchg16b_rdi_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_o16_cmpxchg16b_rdi_ud2, BS3_PBC_NEAR
+        o16 cmpxchg16b [rdi]
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 5)
+BS3_PROC_END_CMN   bs3CpuInstr2_o16_cmpxchg16b_rdi_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_lock_o16_cmpxchg16b_rdi_ud2, BS3_PBC_NEAR
+        db 0f0h, 066h
+        cmpxchg16b [rdi]
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 6)
+BS3_PROC_END_CMN   bs3CpuInstr2_lock_o16_cmpxchg16b_rdi_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_repz_cmpxchg16b_rdi_ud2, BS3_PBC_NEAR
+        repz cmpxchg16b [rdi]
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 5)
+BS3_PROC_END_CMN   bs3CpuInstr2_repz_cmpxchg16b_rdi_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_lock_repz_cmpxchg16b_rdi_ud2, BS3_PBC_NEAR
+        db 0f0h, 0f3h
+        cmpxchg16b [rdi]
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 6)
+BS3_PROC_END_CMN   bs3CpuInstr2_lock_repz_cmpxchg16b_rdi_ud2
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_repnz_cmpxchg16b_rdi_ud2, BS3_PBC_NEAR
+        repnz cmpxchg16b [rdi]
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 5)
+BS3_PROC_END_CMN   bs3CpuInstr2_repnz_cmpxchg16b_rdi_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_lock_repnz_cmpxchg16b_rdi_ud2, BS3_PBC_NEAR
+        db 0f0h, 0f2h
+        cmpxchg16b [rdi]
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 6)
+BS3_PROC_END_CMN   bs3CpuInstr2_lock_repnz_cmpxchg16b_rdi_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_wrfsbase_rbx_ud2, BS3_PBC_NEAR
+        wrfsbase rbx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 5)
+BS3_PROC_END_CMN   bs3CpuInstr2_wrfsbase_rbx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_wrfsbase_ebx_ud2, BS3_PBC_NEAR
+        wrfsbase ebx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 4)
+BS3_PROC_END_CMN   bs3CpuInstr2_wrfsbase_ebx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_wrgsbase_rbx_ud2, BS3_PBC_NEAR
+        wrgsbase rbx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 5)
+BS3_PROC_END_CMN   bs3CpuInstr2_wrgsbase_rbx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_wrgsbase_ebx_ud2, BS3_PBC_NEAR
+        wrgsbase ebx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 4)
+BS3_PROC_END_CMN   bs3CpuInstr2_wrgsbase_ebx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_wrfsbase_rbx_rdfsbase_rcx_ud2, BS3_PBC_NEAR
+        wrfsbase rbx
+        mov      ebx, 0
+        rdfsbase rcx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 15)
+BS3_PROC_END_CMN   bs3CpuInstr2_wrfsbase_rbx_rdfsbase_rcx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_wrfsbase_ebx_rdfsbase_ecx_ud2, BS3_PBC_NEAR
+        wrfsbase ebx
+        mov      ebx, 0
+        rdfsbase ecx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 13)
+BS3_PROC_END_CMN   bs3CpuInstr2_wrfsbase_ebx_rdfsbase_ecx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_wrgsbase_rbx_rdgsbase_rcx_ud2, BS3_PBC_NEAR
+        wrgsbase rbx
+        mov      ebx, 0
+        rdgsbase rcx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 15)
+BS3_PROC_END_CMN   bs3CpuInstr2_wrgsbase_rbx_rdgsbase_rcx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_wrgsbase_ebx_rdgsbase_ecx_ud2, BS3_PBC_NEAR
+        wrgsbase ebx
+        mov      ebx, 0
+        rdgsbase ecx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 13)
+BS3_PROC_END_CMN   bs3CpuInstr2_wrfgbase_ebx_rdgsbase_ecx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rdfsbase_rbx_ud2, BS3_PBC_NEAR
+        rdfsbase rbx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 5)
+BS3_PROC_END_CMN   bs3CpuInstr2_rdfsbase_rbx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rdfsbase_ebx_ud2, BS3_PBC_NEAR
+        rdfsbase ebx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 4)
+BS3_PROC_END_CMN   bs3CpuInstr2_rdfsbase_ebx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rdgsbase_rbx_ud2, BS3_PBC_NEAR
+        rdgsbase rbx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 5)
+BS3_PROC_END_CMN   bs3CpuInstr2_rdgsbase_rbx_ud2
+
+
+BS3_PROC_BEGIN_CMN bs3CpuInstr2_rdgsbase_ebx_ud2, BS3_PBC_NEAR
+        rdgsbase ebx
+.again:
+        ud2
+        jmp     .again
+AssertCompile(.again - BS3_LAST_LABEL == 4)
+BS3_PROC_END_CMN   bs3CpuInstr2_rdgsbase_ebx_ud2
+
+
+;; @todo figure out this fudge. sigh.
+times (348) db 0cch ; fudge to avoid 'rderr' during boot.
+
+ %endif ; TMPL_BITS == 64
+
+
+%endif ; BS3_INSTANTIATING_CMN
+
+%include "bs3kit-template-footer.mac"   ; reset environment
+

@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage mediumio
+-->
+<!--
+    Copyright (C) 2018-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-mediumio" lang="en">
+
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage mediumio</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-mediumio</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-mediumio</refname>
+    <refpurpose>доступ к содержимому носителя</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-mediumio-formatfat"> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage mediumio</command>
+      <group choice="req">
+        <arg choice="plain">--disk=<replaceable>uuid|имя-файла</replaceable></arg>
+        <arg choice="plain">--dvd=<replaceable>uuid|имя-файла</replaceable></arg>
+        <arg choice="plain">--floppy=<replaceable>uuid|имя-файла</replaceable></arg>
+      </group>
+      <arg>--password-file=<replaceable>-|имя-файла</replaceable></arg>
+      <arg choice="plain">formatfat</arg>
+      <arg>--quick</arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-mediumio-cat">
+      <command>VBoxManage mediumio</command>
+      <group choice="req">
+        <arg choice="plain">--disk=<replaceable>uuid|имя-файла</replaceable></arg>
+        <arg choice="plain">--dvd=<replaceable>uuid|имя-файла</replaceable></arg>
+        <arg choice="plain">--floppy=<replaceable>uuid|имя-файла</replaceable></arg>
+      </group>
+      <arg>--password-file=<replaceable>-|имя-файла</replaceable></arg>
+      <arg choice="plain">cat</arg>
+      <arg>--hex</arg>
+      <arg>--offset=<replaceable>смещение-байт</replaceable></arg>
+      <arg>--size=<replaceable>байты</replaceable></arg>
+      <arg>--output=<replaceable>-|имя-файла</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-mediumio-stream">
+      <command>VBoxManage mediumio</command>
+      <group choice="req">
+        <arg choice="plain">--disk=<replaceable>uuid|имя-файла</replaceable></arg>
+        <arg choice="plain">--dvd=<replaceable>uuid|имя-файла</replaceable></arg>
+        <arg choice="plain">--floppy=<replaceable>uuid|имя-файла</replaceable></arg>
+      </group>
+      <arg>--password-file=<replaceable>-|имя-файла</replaceable></arg>
+      <arg choice="plain">stream</arg>
+      <arg>--format=<replaceable>формат-образа</replaceable></arg>
+      <arg>--variant=<replaceable>вариант-образа</replaceable></arg>
+      <arg>--output=<replaceable>-|имя-файла</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+
+    <refsect2 id="vboxmanage-mediumio-common-options">
+      <title>Общие параметры</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para>Все подкоманды <command>mediumio</command> оперируют носителем, который должен быть указан вместе с паролем
+         шифрования (необязательно). Следующие общие опции могут быть помещены перед или после подкоманд:</para>
+      <variablelist>
+        <varlistentry>
+          <term>--disk=<replaceable>uuid|имя-файла</replaceable></term>
+          <listitem><para>UUID или имя файла образа жесткого диска, например VDI, VMDK, VHD, и т.д.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--dvd=<replaceable>uuid|имя-файла</replaceable></term>
+          <listitem><para>UUID или имя файла образа DVD, например ISO, DMG, CUE.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--floppy=<replaceable>uuid|имя-файла</replaceable></term>
+          <listitem><para>UUID или имя файла образа флоппи, например IMG.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--password-file=<replaceable>-|имя-файла</replaceable></term>
+          <listitem><para>Имя файла, содержащего пароль шифрования носителя. Если указана опция <option>-</option>,
+            пароль читается из стандартного потока ввода. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-mediumio-formatfat">
+      <title>mediumio formatfat</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Форматирует носитель флоппи диска файловой системой FAT. Эта команда удаляет
+        содержимое носителя.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--quick</option></term><listitem><para>Быстрое форматирование носителя.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-mediumio-cat">
+      <title>mediumio cat</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Сбрасывает содержимое носителя в стандартный поток вывода или в указанный файл.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--hex</option></term><listitem><para>Сбросить как hex байты.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--offset</option></term><listitem><para>Смещение в байтах с начала носителя, откуда начинать сброс дампа.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--size</option></term><listitem><para>Количество байтов для сброса.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--output</option></term>
+          <listitem><para>Имя выходного файла. Как обычно, <option>-</option> подразумевает стандартный поток вывода.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-mediumio-stream">
+      <title>mediumio stream</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Преобразует носитель в потоковый формат и сбрасывает его в указанный выход.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--format</option></term><listitem><para>Формат образа назначения.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--variant</option></term><listitem><para>Вариант носителя назначения.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--output</option></term>
+          <listitem><para>Имя выходного файла. Как обычно, <option>-</option> подразумевает стандартный поток вывода.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+  </refsect1>
+
+</refentry>
+

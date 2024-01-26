@@ -1,0 +1,434 @@
+# $Id: footer-pass2-fetches.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild - Footer - Target lists - Pass 2 - Fetches.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version source of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+
+## @page pg_fetches 	Fetching Tools, Sources and Similar.
+#
+# The targets listed in the the FETCHES target list have the following attributes:
+#       SOURCES
+#       INST
+#       FETCHTOOL
+#       FETCHFLAGS
+#       FETCHDIR
+#       UNPACKTOOL
+#       UNPACKFLAGS
+#
+# As usual the target name is an alias for 'creating' the target. Other
+# aliases are:
+#       pass_fetches
+#       fetch
+#       unfetch
+#       download
+#       unpack
+#
+# @remark
+#
+#   This is a little bit complex because we must guarantee that if a source file
+#   changes only sligtly we must refetch it and to a proper unpacking of it. It
+#   is also a desire that fetched archives and unpacked files can be deleted to
+#   save space.
+#
+#   Thus, we must be able to cleanup what we've unpacked should any of the
+#   sources be removed. We do this by maintaining a file listing the files
+#   and directories that was unpacked. This operation is named 'unfetch'.
+#
+#   We make use of the SIZE and MD5 attributes for each of the sources to
+#   create a digest that is stored in the primary target file. Subsequent
+#   runswill compare their digest with it to decide if a refetch is required.
+#   When a refetch is found necessary, an 'unfetch' is performed first to
+#	clean out old files and directores. Note even changes in source order
+#   will cause a refetch due to the way the digest is constructed and
+#   evaluated.
+#
+#   By not depending directly on the archives (nor on any unpacked files)
+#	but on a goal made up from the archive name, size and md5, we allow
+#   the user to delete the archives. Naturally, this means we'll have to
+#   check and fetch missing archives before attempting to unpack them.
+#
+# @remark
+#
+#	This feature will *NOT* work correctly with vanilla GNU make becuase
+#   it makes use of includedep to avoid too many unnecessary files.
+#
+# @todo
+#   0. Move the fetches out into a unit.
+#   1. Download corruption / continuation.
+#   2. It's quite possible that there is one too many indirect dependency now...
+#
+
+## generates the fetch rule
+define def_fetch_src_fetch_rule
+# Indirect goal for downloading something.
+.PRECIOUS: $(out)
+$(out) + $($(target)_$(srcname)_FETCH_2_OUTPUT) +| $($(target)_$(srcname)_FETCH_2_OUTPUT_MAYBE)  : \
+		| $($(target)_$(srcname)_FETCH_2_DEPORD)
+	%$$(call MSG_FETCH_DL,$(target),$(source),$(out))
+	@## @todo do fancy stuff like download continuation.
+	$$(QUIET)$$(RM) -f -- $(out)
+	$(cmds)
+	$$(QUIET)$(if $(md5),$$(MD5SUM_EXT) -b -C $(md5) $(out))
+
+
+
+# Intermediate goal for making sure the md5 and size matches. it will (re) fetch the archive if necessary.
+$(out).checked_$(md5)_$(size): $($(target)_$(srcname)_FETCH_2_DEPEND) | $($(target)_$(srcname)_FETCH_2_DEPORD)
+	%$$(call MSG_FETCH_CHK,$(target),$(source),$(out))
+	$$(QUIET)$$(RM) -f -- $$@
+	@# (re)fetch the file if it doesn't exist or if it doesn't matches the md5.
+	@## @todo do fancy stuff like download continuation.
+	$$(QUIET)( test -f $(out) && $(if $(md5),$$(MD5SUM_EXT) -b -C $(md5) $(out), true) ) \
+	          || (   $$(RM_EXT) -f $(out) \
+		      && $$(MAKE)      $(out) -f $(MAKEFILE) --no-print-directory )
+	$$(QUIET2)$$(APPEND) $$@
+
+_TARGET_$(target)_FETCHED += $(out) $(out).checked_$(md5)_$(size)
+
+# Just a little precaution.
+.NOTPARALLEL: $(out) $(out).checked_$(md5)_$(size)
+
+endef # def_fetch_src_fetch_rule
+$(eval-opt-var def_fetch_src_fetch_rule)
+
+## generates the unpack rule
+define def_fetch_src_unpack_rule
+# This is the unpack rule. it has an order-only dependency on the download check.
+$(out) + $($(target)_$(srcname)_UNPACK_2_OUTPUT) +| $($(target)_$(srcname)_UNPACK_2_OUTPUT_MAYBE) : \
+		$($(target)_$(srcname)_UNPACK_2_DEPEND) \
+		| $($(target)_$(srcname)_UNPACK_2_DEPORD) \
+		$(archive).checked_$(md5)_$(size) \
+		$(dir $(out))
+	%$$(call MSG_FETCH_UP,$(target),$(archive),$(inst))
+	$$(QUIET)$$(RM) -f -- $(out)
+	$$(QUIET)$$(MKDIR) -p -- $(dir $(out))
+	@# if the source archive doesn't exist fetch it (may have been deleted to save space).
+	$$(QUIET)test -f $(archive) \
+	         || (   $$(RM_EXT) -f $(archive).checked_$(md5)_$(size) \
+	             && $$(MAKE)      $(archive).checked_$(md5)_$(size) -f $(MAKEFILE) --no-print-directory )
+	$(cmds)
+	$$(QUIET2)$$(APPEND) $(out) $(notdir $(archive).checked_$(md5)_$(size))
+	$$(QUIET2)$$(APPEND) $(out) $(notdir $(out))
+
+$(eval _TARGET_$(target)_UNPACKED += $(out))
+_TARGET_$(target)_DIGEST := $(_TARGET_$(target)_DIGEST)-$(srcname)_$(md5)_$(size)
+
+.NOTPARALLEL: $(out)
+
+endef # def_fetch_src_unpack_rule
+$(eval-opt-var def_fetch_src_unpack_rule)
+
+## Processes a fetch source
+#
+define def_fetch_src
+#$ (warning dbg: def_fetch_src: source='$(source)' target='$(target)')
+
+# common
+local srcname := $(notdir $(source))
+local inst := $(firstword \
+	$($(target)_$(source)_INST)\
+	$($(target)_$(srcname)_INST)\
+	$($(source)_INST)\
+	$($(srcname)_INST)\
+	$($(target)_INST)\
+)
+ifneq ($(patsubst %/,ok,$(inst)),ok)
+$(error kBuild: Bad or missing INST property for source '$(source)' in target '$(target)': $(inst))
+endif
+## @todo Install-revamp: FIXME
+INSTARGET_$(target)_$(srcname) := $(inst)
+local fetchdir := $(firstword \
+	$($(target)_$(source)_FETCHDIR)\
+	$($(target)_$(srcname)_FETCHDIR)\
+	$($(source)_FETCHDIR)\
+	$($(srcname)_FETCHDIR)\
+	$($(target)_FETCHDIR)\
+	$(FETCHDIR)\
+	$(PATH_TARGET)\
+)
+local deps := \
+	$($(target)_$(source)_DEPS)\
+	$($(target)_$(srcname)_DEPS)\
+	$($(source)_DEPS)\
+	$($(srcname)_DEPS)\
+	$($(target)_DEPS)
+local orderdeps := \
+	$($(target)_$(source)_ORDERDEPS)\
+	$($(target)_$(srcname)_ORDERDEPS)\
+	$($(source)_ORDERDEPS)\
+	$($(srcname)_ORDERDEPS)\
+	$($(target)_ORDERDEPS)
+local md5 := $(firstword \
+	$($(target)_$(source)_MD5)\
+	$($(target)_$(srcname)_MD5)\
+	$($(source)_MD5)\
+	$($(srcname)_MD5)\
+	$($(target)_MD5)\
+)
+local size := $(firstword \
+	$($(target)_$(source)_SIZE)\
+	$($(target)_$(srcname)_SIZE)\
+	$($(source)_SIZE)\
+	$($(srcname)_SIZE)\
+	$($(target)_SIZE)\
+)
+clean_files += \
+	$($(target)_$(source)_CLEAN)\
+	$($(target)_$(srcname)_CLEAN)\
+	$($(source)_CLEAN)\
+	$($(srcname)_CLEAN)
+local dep := # not legal for fetch and unpack tools
+
+
+#
+# The fetching.
+#
+local out := $(fetchdir)/$(srcname)
+local archive := $(out)
+$(target)_$(srcname)_1_TARGET = $(TARGET_$(target)_$(srcname))
+$(call KB_FN_ASSIGN_DEPRECATED,TARGET_$(target)_$(srcname),$(TARGET_$(target)_$(srcname)),TARGET_$(target)_$(srcname))
+
+local dirdep := $(call DIRDEP,$(fetchdir))
+local tool := $(firstword \
+	$($(target)_$(source)_FETCHTOOL)\
+	$($(target)_$(srcname)_FETCHTOOL)\
+	$($(target)_$(source)_TOOL)\
+	$($(target)_$(srcname)_TOOL)\
+	$($(source)_FETCHTOOL)\
+	$($(srcname)_FETCHTOOL)\
+	$($(source)_TOOL)\
+	$($(srcname)_TOOL)\
+	$($(target)_FETCHTOOL)\
+	$($(target)_TOOL)\
+	)
+local flags :=\
+	$(TOOL_$(tool)_FETCHFLAGS)\
+	$(FETCHFLAGS)\
+	$($(target)_FETCHFLAGS)\
+	$($(srcname)_FETCHFLAGS)\
+	$($(source)_FETCHFLAGS)\
+	$($(target)_$(srcname)_FETCHFLAGS)\
+	$($(target)_$(source)_FETCHFLAGS)
+
+#$ (warning dbg: target=$(target) source=$(source) $(srcname)=$(srcname) tool=$(tool) out=$(out) flags=$(flags) dirdep=$(dirdep) fetchdir=$(fetchdir) md5=$(md5) size=$(size))
+
+ifndef TOOL_$(tool)_FETCH_CMDS
+$(warning kBuild: tools: \
+	1 $($(target)_$(source)_FETCHTOOL)\
+	2 $($(target)_$(srcname)_FETCHTOOL)\
+	3 $($(target)_$(source)_TOOL)\
+	4 $($(target)_$(srcname)_TOOL)\
+	5 $($(source)_FETCHTOOL)\
+	6 $($(srcname)_FETCHTOOL)\
+	7 $($(source)_TOOL)\
+	8 $($(srcname)_TOOL)\
+	9 $($(target)_FETCHTOOL)\
+	10 $($(target)_TOOL) )
+$(error kBuild: TOOL_$(tool)_FETCH_CMDS is not defined. source=$(source) target=$(target) )
+endif
+
+# call the tool
+local cmds := $(TOOL_$(tool)_FETCH_CMDS)
+$(target)_$(srcname)_FETCH_2_OUTPUT := $(TOOL_$(tool)_FETCH_OUTPUT)
+$(target)_$(srcname)_FETCH_2_OUTPUT_MAYBE := $(TOOL_$(tool)_FETCH_OUTPUT_MAYBE)
+$(target)_$(srcname)_FETCH_2_DEPEND := $(TOOL_$(tool)_FETCH_DEPEND) $(deps)
+$(target)_$(srcname)_FETCH_2_DEPORD := $(TOOL_$(tool)_FETCH_DEPORD) $(dirdep) $(orderdeps)
+
+# generate the fetch rule.
+$(eval $(def_fetch_src_fetch_rule))
+
+
+#
+# The unpacking / installing.
+#
+local out := $(inst)_kBuild_$(target)_$(srcname)_unpacked.lst
+local dirdep := $(call DIRDEP,$(inst))
+local tool := $(firstword \
+	$($(target)_$(source)_UNPACKTOOL)\
+	$($(target)_$(srcname)_UNPACKTOOL)\
+	$($(target)_$(source)_TOOL)\
+	$($(target)_$(srcname)_TOOL)\
+	$($(source)_UNPACKTOOL)\
+	$($(srcname)_UNPACKTOOL)\
+	$($(source)_TOOL)\
+	$($(srcname)_TOOL)\
+	$($(target)_UNPACKTOOL)\
+	$($(target)_TOOL) \
+	)
+ifeq ($(tool),)
+local tool := $(toupper $(subst .,,$(suffix $(subst tar.,TAR,$(srcname)))))
+$(evalval def_tools_include)
+endif
+local flags :=\
+	$(TOOL_$(tool)_UNPACKFLAGS)\
+	$(UNPACKFLAGS)\
+	$($(target)_UNPACKFLAGS)\
+	$($(srcname)_UNPACKFLAGS)\
+	$($(source)_UNPACKFLAGS)\
+	$($(target)_$(srcname)_UNPACKFLAGS)\
+	$($(target)_$(source)_UNPACKFLAGS)
+
+#$ (warning dbg: target=$(target) source=$(source) $(srcname)=$(srcname) tool=$(tool) out=$(out) flags=$(flags) dirdep=$(dirdep) inst=$(inst) md5=$(md5) size=$(size))
+ifndef TOOL_$(tool)_UNPACK_CMDS
+$(warning kBuild: tools: \
+	1 $($(target)_$(source)_UNPACKTOOL)\
+	2 $($(target)_$(srcname)_UNPACKTOOL)\
+	3 $($(target)_$(source)_TOOL)\
+	4 $($(target)_$(srcname)_TOOL)\
+	5 $($(source)_UNPACKTOOL)\
+	6 $($(srcname)_UNPACKTOOL)\
+	7 $($(source)_TOOL)\
+	8 $($(srcname)_TOOL)\
+	9 $($(target)_UNPACKTOOL)\
+	10 $($(target)_TOOL) \
+	11 $(toupper $(subst tar.,TAR,$(ext $(srcname)))) \
+	)
+$(error kBuild: TOOL_$(tool)_UNPACK_CMDS is not defined. source=$(source) target=$(target) )
+endif
+
+# call the tool
+local cmds := $(TOOL_$(tool)_UNPACK_CMDS)
+$(target)_$(srcname)_UNPACK_2_OUTPUT := $(TOOL_$(tool)_UNPACK_OUTPUT)
+$(target)_$(srcname)_UNPACK_2_OUTPUT_MAYBE := $(TOOL_$(tool)_UNPACK_OUTPUT_MAYBE)
+$(target)_$(srcname)_UNPACK_2_DEPEND := $(TOOL_$(tool)_UNPACK_DEPEND) $(deps)
+$(target)_$(srcname)_UNPACK_2_DEPORD := $(TOOL_$(tool)_UNPACK_DEPORD) $(dirdep) $(orderdeps)
+
+# generate the fetch rule.
+$(eval $(def_fetch_src_unpack_rule))
+
+_DIRS += $(inst) $(fetchdir)
+
+endef #	def_fetch_src
+$(eval-opt-var def_fetch_src)
+
+
+##
+# Define the target level rules for a fetch.
+# @param	target
+# @param	out
+# @param	inst
+# @param	_TARGET_$(target)_UNPACKED
+# @param	_TARGET_$(target)_DIGEST
+# @param	bld_trg
+# @param	bld_trg_arch
+define def_fetch_rules
+
+$(out).lst: $(_TARGET_$(target)_UNPACKED) | $(call DIRDEP,$(inst))
+	%$$(call MSG_FETCH_OK,$(target))
+	$$(QUIET)$$(RM) -f -- $$@ $$@.tmp
+	$$(QUIET2)$$(APPEND) $$@.tmp '$(notdir $(out))'
+	$$(QUIET)$(if $(_TARGET_$(target)_UNPACKED),$$(CAT_EXT) $(_TARGET_$(target)_UNPACKED) >> $$@.tmp)
+	$$(QUIET)$$(MV) -f -- $$@.tmp $$@
+
+$(out)_unfetched:
+	%$$(call MSG_UNFETCH,$(target))
+	$$(QUIET)$$(RM) -f -- $$(addprefix $(inst),$$(shell $$(CAT_EXT) $(out).lst 2> /dev/null | $$(SED) -e '/\/$$$$/d'))
+	$$(QUIET)$$(RMDIR) -p --ignore-fail-on-non-empty --ignore-fail-on-not-exist -- $$(dir $$@) \
+		$$(addprefix $(inst),$$(sort $$(dir $$(shell $$(CAT_EXT) $(out).lst 2> /dev/null))))
+	$$(QUIET)$$(RM) -f -- $(out).lst $(out)
+	$$(QUIET)$$(RMDIR) -p --ignore-fail-on-non-empty --ignore-fail-on-not-exist -- $$(dir $$@)
+
+$(out): $(comp-vars _TARGET_$(target)_DIGEST_PREV,_TARGET_$(target)_DIGEST,FORCE) | $(call DIRDEP,$(inst))
+	$$(QUIET)$$(RM) -f -- $$@
+	%$$(if $$(_TARGET_$(target)_DIGEST),$$(if $$(eq $$(file-size $(out).lst),-1)\
+		,$$(call MSG_REFETCH,$(target)),$$(call MSG_FETCH,$(target))),$$(call MSG_UNFETCH,$(target)))
+	$$(QUIET)$(TEST_EXT) -f $(out).lst -- $$(MAKE) -f $(MAKEFILE) --no-print-directory $(out)_unfetched
+if $(KBUILD_KMK_REVISION) > 2911
+	$$(QUIET)kmk_builtin_dircache deleted "$(dir $(out))"
+endif
+	$$(QUIET)$$(if  $$(_TARGET_$(target)_DIGEST),$$(MAKE) -f $(MAKEFILE) --no-print-directory $(out).lst,$$(RMDIR) -p --ignore-fail-on-non-empty --ignore-fail-on-not-exist -- $$(dir $$@))
+	$$(QUIET2)$$(if $$(_TARGET_$(target)_DIGEST),$$(APPEND) $$@ "_TARGET_$(target)_DIGEST_PREV := $(_TARGET_$(target)_DIGEST)")
+
+.NOTPARALLEL: $(out).lst $(out)_unfetched $(out)
+
+endef
+
+
+##
+# Deal with one fetch target.
+# @param	target
+# @param	bld_trg
+# @param	bld_trg_arch
+define def_fetch
+# common
+## @todo Install-revamp: FIXME
+INSTARGET_$(target) := $($(target)_INST)
+ifneq ($(patsubst %/,ok,$(INSTARGET_$(target))),ok)
+$(error kBuild: Bad or missing INST property for target '$(target)'. \
+	$(target)_INST='$($(target)_INST)' ($(origin $(target)_INST)))
+endif
+_TARGET_$(target)_FETCHED :=
+_TARGET_$(target)_UNPACKED :=
+_TARGET_$(target)_DIGEST :=
+local clean_files := $($(target)_CLEAN) $($(target)_CLEAN.$(bld_trg)) $($(target)_CLEAN.$(bld_trg).$(bld_trg_arch)) $($(target)_CLEAN.$(bld_trg_arch)) $($(target)_CLEAN.$(KBUILD_TYPE))
+
+# The 'sources'.
+#$ (warning dbg fetch: target=$(target) sources=$($(target)_SOURCES) $($(target)_SOURCES.$(KBUILD_TYPE)) $($(target)_SOURCES.$(KBUILD_TARGET)) $($(target)_SOURCES.$(bld_trg_arch)) $($(target)_SOURCES.$(KBUILD_TARGET).$(bld_trg_arch)))
+$(foreach source,$($(target)_SOURCES) $($(target)_SOURCES.$(KBUILD_TYPE)) $($(target)_SOURCES.$(bld_trg)) $($(target)_SOURCES.$(bld_trg_arch)) $($(target)_SOURCES.$(bld_trg).$(bld_trg_arch)),\
+	$(evalval def_fetch_src))
+
+# The target.
+local inst := $(INSTARGET_$(target))
+local out := $(inst)_kBuild_fetch_$(target)
+
+$(eval includedep $(out))
+
+$(eval $(def_fetch_rules))
+
+# Define the aliases here (doesn't work if defined in def_fetch_rules, just like includedep).
+$(target): $(out)
+$(target)_unfetch: $(out)_unfetched
+
+_FETCHES += $(out)
+_DOWNLOADS += $(_TARGET_$(target)_FETCHED)
+_UNPACKS += $(_TARGET_$(target)_UNPACKED)
+_UNFETCHES += $(out)_unfetched
+_DIRS += $(inst)
+_CLEAN_FILES += $(clean_files)
+
+endef
+$(eval-opt-var def_fetch)
+
+# Walk the FETCH target lists.
+bld_trg := $(KBUILD_TARGET)
+bld_trg_arch := $(KBUILD_TARGET_ARCH)
+$(foreach target, $(_ALL_FETCHES), \
+	$(evalvalctx def_fetch))
+
+# some aliases.
+download: $(_DOWNLOADS)
+unpack: $(_UNPACKS)
+fetch: $(_FETCHES)
+unfetch: $(_UNFETCHES)
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done fetching targets)
+endif

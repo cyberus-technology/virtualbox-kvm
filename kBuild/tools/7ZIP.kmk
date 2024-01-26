@@ -1,0 +1,75 @@
+# $Id: 7ZIP.kmk 3345 2020-05-22 14:23:56Z bird $
+## @file
+# kBuild Tool Config - 7-Zip unpacker.
+#
+
+#
+# Copyright (c) 2006-2020 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_7ZIP := 7-Zip unpacker.
+
+# Tool Specific Properties
+ifndef TOOL_7ZIP_7Z
+ TOOL_7ZIP_7Z := $(wildcard $(KBUILD_DEVTOOLS_HST)/7zip/v*/7z$(HOSTSUFF_EXE))
+ ifeq ($(TOOL_7ZIP_7Z),)
+  TOOL_7ZIP_7Z := $(wildcard $(KBUILD_DEVTOOLS_HST)/bin/7z$(HOSTSUFF_EXE))
+ endif
+ ifneq ($(TOOL_7ZIP_7Z),)
+  TOOL_7ZIP_7Z := $(lastword $(sort $(TOOL_7ZIP_7Z)))
+ else
+  TOOL_7ZIP_7Z := 7z$(HOSTSUFF_EXE)
+ endif
+else
+ TOOL_7ZIP_7Z := $(TOOL_7ZIP_7Z)
+endif
+TOOL_7ZIP_UNPACK ?= $(TOOL_7ZIP_7Z)
+
+# General Properties used by kBuild
+TOOL_7ZIP_UNPACKFLAGS ?=
+
+## UNPACK one file.
+# @param    $(target)   Normalized main target name.
+# @param    $(archive)  The file to unpack.
+# @param    $(flags)    Flags.
+# @param	$(inst)		Where to unpack it.
+# @param	$(out)		Where to write the file list.
+TOOL_7ZIP_UNPACK_OUTPUT =
+TOOL_7ZIP_UNPACK_DEPEND =
+TOOL_7ZIP_UNPACK_DEPORD =
+define TOOL_7ZIP_UNPACK_CMDS
+	$(QUIET)$(TOOL_7ZIP_UNPACK) x $(flags) -o"$(inst)" "$(archive)"
+	$(QUIET)$(TOOL_7ZIP_UNPACK) l $(filter-out -bb%,$(flags)) "$(archive)" \
+	| $(SED) \
+		-e '1,/-------------------/d' \
+		-e '/-------------------/,$$(DOLLAR)d' \
+		-e '/^[^ ]* [^ ]* D/d' \
+		-e 's/^.................................................... *//'  \
+		-e 's,\\,/,g' \
+		--output $(out)
+endef
+

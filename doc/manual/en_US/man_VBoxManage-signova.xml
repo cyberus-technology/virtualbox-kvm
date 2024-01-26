@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage signova
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-signova" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage signova</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-signova</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-signova</refname>
+    <refpurpose>Digitally sign an OVA</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-signova">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage signova</command>
+      <arg choice="req"><replaceable>ova</replaceable></arg>
+      <arg choice="req">--certificate=<replaceable>file</replaceable></arg>
+      <arg choice="req">--private-key=<replaceable>file</replaceable></arg>
+      <group>
+        <arg choice="plain">--private-key-password-file=<replaceable>password-file</replaceable></arg>
+        <arg choice="plain">--private-key-password=<replaceable>password</replaceable></arg>
+      </group>
+      <arg>--digest-type=<replaceable>type</replaceable></arg>
+      <group>
+        <arg choice="plain">--pkcs7</arg>
+        <arg choice="plain">--no-pkcs7</arg>
+      </group>
+      <arg>--intermediate-cert=<replaceable>file</replaceable></arg>
+      <arg>--force</arg>
+      <arg>--verbose</arg>
+      <arg>--quiet</arg>
+      <arg>--dry-run</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage signova</command> command adds a digital
+      signature to an OVA file.
+    </para>
+    <!-- Add more description here -->
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>ova</replaceable></term>
+        <listitem><para>The OVA file to sign.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--certificate=<replaceable>file</replaceable></option></term>
+        <listitem><para>File containing the certificate that the OVA should be
+          signed with.  This can either be in PEM format (base64) or DER (binary),
+          the command will detect which.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--private-key=<replaceable>file</replaceable></option></term>
+        <listitem><para>The file containing the private key.  This can either be
+          in PEM (base64) or DER (binary) format, the command will detect
+          which.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--private-key-password-file=<replaceable>password-file</replaceable></option></term>
+        <listitem><para>File containing the private key password.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--private-key-password=<replaceable>password</replaceable></option></term>
+        <listitem><para>The private key password. <!-- add warning about visibility --> </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--digest-type=<replaceable>type</replaceable></option></term>
+        <listitem>
+          <para>Select the cryptographic digest algorithm to use in the
+            signing. Possible values: SHA-256 (default), SHA-512 and SHA-1.</para>
+          <para>Some older versions of OVFTool and other VMware produces may
+            require <option>--digest-type=sha-1</option> to accept the OVA.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--pkcs7</option>, <option>--no-pkcs7</option></term>
+        <listitem><para>Enables or disables the creation of an additional
+          PKCS#7/CMS signature.  This is enabled by default.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--intermediate-cert=<replaceable>file</replaceable></option></term>
+        <listitem><para>File containing an intermediary certificate that should be
+          included in the optional PKCS#7/CMS signature.  Like the others, the file can
+          either be in PEM or DER format.  This option can be repeated to add
+          multiple intermediate certificates.  This option implies the
+          <option>--pkcs7</option> option.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--force</option></term>
+        <listitem><para>Overwrite existing signature if present.  The default
+          behaviour is to fail if the OVA is already signed.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+        <listitem><para>Do not actually modify the OVA, just test-run the signing operation.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-v</option>, <option>--verbose</option>, <option>-q</option>, <option>--quiet</option></term>
+        <listitem><para>Controls the verbositity of the command execution.  The
+          <option>--verbose</option> option can be used multiple times to get more output.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+</refentry>
+

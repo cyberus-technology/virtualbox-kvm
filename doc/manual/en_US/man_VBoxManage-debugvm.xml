@@ -1,0 +1,666 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage debugvm
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-debugvm" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage debugvm</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-debugvm</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-debugvm</refname>
+    <refpurpose>introspection and guest debugging</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-dumpvmcore">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">dumpvmcore</arg>
+      <arg>--filename=<replaceable>name</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-info">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">info</arg>
+      <arg choice="req"><replaceable>item</replaceable></arg>
+      <arg rep="repeat"><replaceable>args</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-injectnmi">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">injectnmi</arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-log">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">log</arg>
+      <group><arg>--release</arg><arg>--debug</arg></group>
+      <arg rep="repeat"><replaceable>group-settings</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-logdest">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">logdest</arg>
+      <group><arg>--release</arg><arg>--debug</arg></group>
+      <arg rep="repeat"><replaceable>destinations</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-logflags">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">logflags</arg>
+      <group><arg>--release</arg><arg>--debug</arg></group>
+      <arg rep="repeat"><replaceable>flags</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-osdetect">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">osdetect</arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-osinfo">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">osinfo</arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-osdmesg">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">osdmesg</arg>
+      <arg>--lines=<replaceable>lines</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-getregisters">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">getregisters</arg>
+      <arg>--cpu=<replaceable>id</replaceable></arg>
+      <arg rep="repeat"><replaceable>reg-set.reg-name</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-setregisters">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">setregisters</arg>
+      <arg>--cpu=<replaceable>id</replaceable></arg>
+      <arg rep="repeat"><replaceable>reg-set.reg-name</replaceable>=<replaceable>value</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-show">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">show</arg>
+      <group><arg>--human-readable</arg><arg>--sh-export</arg><arg>--sh-eval</arg><arg>--cmd-set</arg></group>
+      <arg rep="repeat"><replaceable>settings-item</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-stack">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">stack</arg>
+      <arg>--cpu=<replaceable>id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-statistics">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">statistics</arg>
+      <arg>--reset</arg>
+      <arg>--descriptions</arg>
+      <arg>--pattern=<replaceable>pattern</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-debugvm-guestsample">
+      <command>VBoxManage debugvm</command>
+      <arg choice="req"><replaceable>uuid|vmname</replaceable></arg>
+      <arg choice="plain">guestsample</arg>
+      <arg>--filename=<replaceable>filename</replaceable></arg>
+      <arg>--sample-interval-us=<replaceable>interval</replaceable></arg>
+      <arg>--sample-time-us=<replaceable>time</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1>
+    <title>Description</title>
+
+    <para>The "debugvm" commands are for experts who want to tinker with the
+      exact details of virtual machine execution.  Like the VM debugger
+      described in <xref linkend="ts_debugger" />, these commands are only useful if you are
+      very familiar with the details of the PC architecture and how to debug
+      software.</para>
+
+    <refsect2 id="vboxmanage-debugvm-common-options">
+      <title>Common options</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para>The subcommands of <command>debugvm</command> all operate on a running virtual
+      machine:</para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid|vmname</replaceable></term>
+          <listitem><para>Either the UUID or the name (case sensitive) of a VM.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-dumpvmcore">
+      <title>debugvm dumpvmcore</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Creates a system dump file of the specified VM.  This file will have
+        the standard ELF core format (with custom sections); see
+        <xref linkend="ts_guest-core-format" />.
+      </para>
+      <para>
+        This corresponds to the <command>writecore</command> command in the debugger.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--filename=<replaceable>filename</replaceable></option></term>
+          <listitem><para>The name of the output file.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-info">
+      <title>debugvm info</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Displays info items relating to the VMM, device emulations and
+        associated drivers.
+      </para>
+      <para>
+        This corresponds to the <command>info</command> command in the debugger.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>item</replaceable></term>
+          <listitem>
+            <para>Name of the info item to display.  The special name
+            <option>help</option> will list all the available info items and
+            hints about optional arguments.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>args</replaceable></term>
+          <listitem>
+            <para>Optional argument string for the info item handler.  Most info items
+            does not take any extra arguments.  Arguments not recognized are generally
+            ignored.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-injectnmi">
+      <title>debugvm injectnmi</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Causes a non-maskable interrupt (NMI) to be injected into the guest. This
+        might be useful for certain debugging scenarios. What happens exactly is
+        dependent on the guest operating system, but an NMI can crash the whole
+        guest operating system. Do not use unless you know what you're doing.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-log">
+      <title>debugvm log</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Changes the group settings for either debug (<option>--debug</option>)
+        or release (<option>--release</option>) logger of the VM process.
+      </para>
+      <para>
+        The <replaceable>group-settings</replaceable> are typically strings on the form
+        <computeroutput>em.e.f.l</computeroutput>, <computeroutput>hm=~0</computeroutput>
+        and <computeroutput>-em.f</computeroutput>.  Basic wildcards are supported for
+        group matching.  The <computeroutput>all</computeroutput> group is an alias for
+        all the groups.
+      </para>
+      <para>
+        Please do keep in mind that the group settings are applied as modifications
+        to the current ones.
+      </para>
+      <para>
+        This corresponds to the <command>log</command> command in the debugger.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-logdest">
+      <title>debugvm logdest</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Changes the destination settings for either debug (<option>--debug</option>)
+        or release (<option>--release</option>) logger of the VM process.  For details
+        on the destination format, the best source is src/VBox/Runtime/common/log/log.cpp.
+      </para>
+      <para>
+        The <replaceable>destinations</replaceable> is one or more mnemonics, optionally
+        prefixed by "no" to disable them.  Some of them take values after a ":" or "="
+        separator.  Multiple mnemonics can be separated by space or given as separate
+        arguments on the command line.
+      </para>
+      <para>
+        List of available destination:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>file[=<replaceable>file</replaceable>], nofile</option></term>
+          <listitem><para>Specifies a log file.  If no filename is given, one will be
+              generated based on the current UTC time and VM process name and placed in
+              the current directory of the VM process.  Note that this will currently not
+              have any effect if the log file has already been opened.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>dir=<replaceable>directory</replaceable>, nodir</option></term>
+          <listitem><para>Specifies the output directory for log files.  Note that this
+              will currently not  have any effect if the log file has already been opened.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>history=<replaceable>count</replaceable>, nohistory</option></term>
+          <listitem><para>A non-zero value enables log historization, with the value
+            specifying how many old log files to keep.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>histsize=<replaceable>bytes</replaceable></option></term>
+          <listitem><para>The max size of a log file before it is historized.  Default is infinite.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>histtime=<replaceable>seconds</replaceable></option></term>
+          <listitem><para>The max age (in seconds) of a log file before it is historized.  Default is infinite.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>ringbuffer, noringbuffer</option></term>
+          <listitem><para>Only log to the log buffer until an explicit flush (e.g. via an assertion)
+              occurs.  This is fast and saves diskspace.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>stdout, nostdout</option></term>
+          <listitem><para>Write the log content to standard output.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>stdout, nostdout</option></term>
+          <listitem><para>Write the log content to standard error.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>debugger, nodebugger</option></term>
+          <listitem><para>Write the log content to the debugger, if supported by the host OS.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>com, nocom</option></term>
+          <listitem><para>Writes logging to the COM port. This is only applicable for raw-mode and ring-0 logging.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>user, nouser</option></term>
+          <listitem><para>Custom destination which has no meaning to VM processes..</para></listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+        This corresponds to the <command>logdest</command> command in the debugger.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-logflags">
+      <title>debugvm logflags</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Changes the flags on either debug (<option>--debug</option>) or release
+        (<option>--release</option>) logger of the VM process.  Please note that the
+        modifications are applied onto the existing changes, they are not replacing them.
+      </para>
+      <para>
+        The <replaceable>flags</replaceable> are a list of flag mnemonics, optionally
+        prefixed by a "no", "!", "~" or "-" to negate their meaning.  The "+" prefix
+        can be used to undo previous negation or use as a separator, though better use
+        whitespace or separate arguments for that.
+      </para>
+      <para>
+        List of log flag mnemonics, with their counter form where applicable
+        (asterisk indicates defaults):
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>enabled*, disabled</option></term>
+          <listitem><para>Enables or disables logging.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>buffered, unbuffered*</option></term>
+          <listitem><para>Enabling buffering of log output before it hits the destinations.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>writethrough(/writethru)</option></term>
+          <listitem><para>Whether to open the destination file with writethru buffering settings or not.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>flush</option></term>
+          <listitem><para>Enables flushing of the output file (to disk) after each log statement.</para></listitem>
+        </varlistentry>
+        <!-- Prefixes -->
+        <varlistentry>
+          <term><option>lockcnts</option></term>
+          <listitem><para>Prefix each log line with lock counts for the current thread.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>cpuid</option></term>
+          <listitem><para>Prefix each log line with the ID of the current CPU.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>pid</option></term>
+          <listitem><para>Prefix each log line with the current process ID.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>flagno</option></term>
+          <listitem><para>Prefix each log line with the numberic flags corresponding to the log statement.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>flag</option></term>
+          <listitem><para>Prefix each log line with the flag mnemonics corresponding to the log statement.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>groupno</option></term>
+          <listitem><para>Prefix each log line with the log group number for the log statement producing it.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>group</option></term>
+          <listitem><para>Prefix each log line with the log group name for the log statement producing it.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>tid</option></term>
+          <listitem><para>Prefix each log line with the current thread identifier.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>thread</option></term>
+          <listitem><para>Prefix each log line with the current thread name.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>time</option></term>
+          <listitem><para>Prefix each log line with the current UTC wall time.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>timeprog</option></term>
+          <listitem><para>Prefix each log line with the current monotonic time since the start of the program.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>msprog</option></term>
+          <listitem><para>Prefix each log line with the current monotonic timestamp value in milliseconds since the start of the program.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>ts</option></term>
+          <listitem><para>Prefix each log line with the current monotonic timestamp value in nanoseconds.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>tsc</option></term>
+          <listitem><para>Prefix each log line with the current CPU timestamp counter (TSC) value.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>rel, abs*</option></term>
+          <listitem><para>Selects the whether <computeroutput>ts</computeroutput> and
+              <computeroutput>tsc</computeroutput> prefixes should be displayed as relative to the
+              previous log line or as absolute time.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>hex*, dec</option></term>
+          <listitem><para>Selects the whether the <computeroutput>ts</computeroutput> and
+              <computeroutput>tsc</computeroutput> prefixes should be formatted as hexadecimal
+              or decimal.</para></listitem>
+        </varlistentry>
+
+        <!-- Suffixes and weird stuff. -->
+        <varlistentry>
+          <term><option>custom</option></term>
+          <listitem><para>Custom log prefix, has by default no meaning for VM processes.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>usecrlf, uself*</option></term>
+          <listitem><para>Output with DOS style (CRLF) or just UNIX style (LF) line endings.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>overwrite*, append</option></term>
+          <listitem><para>Overwrite the destination file or append to it.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>
+        This corresponds to the <command>logflags</command> command in the debugger.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-osdetect">
+      <title>debugvm osdetect</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Make the VMM's debugger facility (re)-detect the guest operating system (OS).
+        This will first load all debugger plug-ins.
+      </para>
+      <para>
+        This corresponds to the <command>detect</command> command in the debugger.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-osinfo">
+      <title>debugvm osinfo</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Displays information about the guest operating system (OS) previously
+        detected by the VMM's debugger facility.
+      </para>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-osdmesg">
+      <title>debugvm osdmesg</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Displays the guest OS kernel log, if detected and supported.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--lines=<replaceable>lines</replaceable></option></term>
+          <listitem><para>Number of lines of the log to display, counting from
+          the end. The default is infinite.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-getregisters">
+      <title>debugvm getregisters</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Retrieves register values for guest CPUs and emulated devices.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>reg-set.reg-name</replaceable></term>
+          <listitem>
+            <para>One of more registers, each having one of the following forms:</para>
+            <orderedlist>
+              <listitem><para>register-set.register-name.sub-field</para></listitem>
+              <listitem><para>register-set.register-name</para></listitem>
+              <listitem><para>cpu-register-name.sub-field</para></listitem>
+              <listitem><para>cpu-register-name</para></listitem>
+              <listitem><para>all</para></listitem>
+            </orderedlist>
+            <para>The <replaceable>all</replaceable> form will cause all registers
+              to be shown (no sub-fields).  The registers names are case-insensitive.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cpu=<replaceable>id</replaceable></option></term>
+          <listitem><para>Selects the CPU register set when specifying just a
+            CPU register (3rd and 4th form).  The default is 0.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-setregisters">
+      <title>debugvm setregisters</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Changes register values for guest CPUs and emulated devices.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>reg-set.reg-name=value</replaceable></term>
+          <listitem>
+            <para>One of more register assignment, each having one of the following forms:</para>
+            <orderedlist>
+              <listitem><para>register-set.register-name.sub-field=value</para></listitem>
+              <listitem><para>register-set.register-name=value</para></listitem>
+              <listitem><para>cpu-register-name.sub-field=value</para></listitem>
+              <listitem><para>cpu-register-name=value</para></listitem>
+            </orderedlist>
+            <para>The value format should be in the same style as what
+              <command>getregisters</command> displays, with the exception that
+              both octal and decimal can be used instead of hexadecimal.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cpu=<replaceable>id</replaceable></option></term>
+          <listitem><para>Selects the CPU register set when specifying just a
+            CPU register (3rd and 4th form).  The default is 0.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-show">
+      <title>debugvm show</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Shows logging settings for the VM.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--human-readable</option></term>
+          <listitem><para>Selects human readable output.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sh-export</option></term>
+          <listitem><para>Selects output format as bourne shell style <command>export</command> commands.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sh-eval</option></term>
+          <listitem><para>Selects output format as bourne shell style <command>eval</command> command input.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cmd-set</option></term>
+          <listitem><para>Selects output format as DOS style <command>SET</command> commands.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>settings-item</replaceable></term>
+          <listitem>
+            <para>What to display. One or more of the following:</para>
+            <itemizedlist>
+              <listitem><para>logdbg-settings - debug log settings.</para></listitem>
+              <listitem><para>logrel-settings - release log settings.</para></listitem>
+              <listitem><para>log-settings - alias for both debug and release log settings.</para></listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-stack">
+      <title>debugvm stack</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Unwinds the guest CPU stacks to the best of our ability.  It is
+        recommended to first run the <command>osdetect</command> command, as this
+        gives both symbols and perhaps unwind information.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--cpu=<replaceable>id</replaceable></option></term>
+          <listitem><para>Selects a single guest CPU to display the stack for.  The default is all CPUs.</para> </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-statistics">
+      <title>debugvm statistics</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Displays or resets VMM statistics.
+      </para>
+      <para>
+        Retrieves register values for guest CPUs and emulated devices.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--pattern=<replaceable>pattern</replaceable></option></term>
+          <listitem><para>DOS/NT-style wildcards patterns for selecting statistics.  Multiple
+            patterns can be specified by using the '|' (pipe) character as separator.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--reset</option></term>
+          <listitem><para>Select reset instead of display mode.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+
+    <refsect2 id="vboxmanage-debugvm-guestsample">
+      <title>debugvm guestsample</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Creates a sample report of the guest activity.
+      </para>
+      <para>
+        Retrieves the filename to dump the report to.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--filename=<replaceable>filename</replaceable></option></term>
+          <listitem><para>The filename to dump the sample report to.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sample-interval-us=<replaceable>interval</replaceable></option></term>
+          <listitem><para>The interval in microseconds between guest samples.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sample-time-us=<replaceable>time</replaceable></option></term>
+          <listitem><para>The amount of microseconds to take guest samples.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+
+  </refsect1>
+
+</refentry>
+

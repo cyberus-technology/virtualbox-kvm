@@ -1,0 +1,82 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the vboxvideo DRM module (FreeBSD kernel OpenGL module).
+#
+
+#
+# Copyright (C) 2009-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+INSTALLS += vboxvideo-mod
+
+ifdef VBOX_WITH_ADDITION_DRIVERS
+ SYSMODS  += vboxvideo_drm
+endif
+ifneq ($(KBUILD_HOST),freebsd)
+ $(error "The FreeBSD guest additions can only be built on FreeBSD!")
+endif
+
+#
+# Populate FILES_VBOXVIDEO_DRM_NOBIN
+#
+include $(PATH_SUB_CURRENT)/files_vboxvideo_drm
+
+# vboxvideo source
+vboxvideo-mod_INST        = $(INST_ADDITIONS)src/vboxvideo_drm/
+vboxvideo-mod_MODE        = a+r,u+w
+vboxvideo-mod_SOURCES     = $(subst ",,$(FILES_VBOXVIDEO_DRM_NOBIN))
+
+#
+# vboxvideo - The Video DRM (Direct Rendering Module) kernel module
+#
+# Note! Syntax checking only.
+#
+vboxvideo_drm_TEMPLATE      = VBoxGuestR0Drv
+vboxvideo_drm_NAME          = vboxvideo
+vboxvideo_drm_DEFS          = VBOX_WITH_HGCM VBOX_SVN_REV=$(VBOX_SVN_REV)
+vboxvideo_drm_DEPS         += $(VBOX_SVN_REV_KMK)
+vboxvideo_drm_INCS.freebsd  = \
+	$(vboxvideo_drm_0_OUTDIR) \
+	$(PATH_STAGE)/gen-sys-hdrs
+vboxvideo_drm_SOURCES       = vboxvideo_drm.c
+vboxvideo_drm_LIBS          = \
+	$(VBOX_LIB_VBGL_R0) \
+	$(VBOX_LIB_IPRT_GUEST_R0)
+vboxvideo_drm_ORDERDEPS.freebsd = \
+	$(PATH_STAGE)/gen-sys-hdrs/pci_if.h \
+	$(PATH_STAGE)/gen-sys-hdrs/bus_if.h \
+	$(PATH_STAGE)/gen-sys-hdrs/device_if.h \
+	$(vboxvideo_drm_0_OUTDIR)/opt_drm.h
+vboxvideo_drm_CLEAN.freebsd = $(vboxvideo_drm_DEPS)
+
+#
+# Header for DRM not included by us.
+#
+$$(vboxvideo_drm_0_OUTDIR)/opt_drm.h:
+	$(QUIET)$(MKDIR) -p $(vboxvideo_drm_0_OUTDIR)
+	$(QUIET)touch $(vboxvideo_drm_0_OUTDIR)/opt_drm.h
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

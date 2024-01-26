@@ -1,0 +1,72 @@
+# $Id: Makefile.glue $
+## @file
+# Makefile for java samples.
+#
+
+#
+# Copyright (C) 2008-2023 Oracle and/or its affiliates.
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation
+# files (the "Software"), to deal in the Software without
+# restriction, including without limitation the rights to use,
+# copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following
+# conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
+
+JAXWS=./jaxws-ri
+JAXWSLIBS=$(JAXWS)/lib/jaxws-api.jar:$(JAXWS)/lib/jaxb-api.jar:$(JAXWS)/lib/jsr181-api.jar:$(JAXWS)/lib/jaxws-rt.jar
+
+
+JAVA16=java
+JAVA15=/usr/lib/jvm/java-1.5.0-sun/bin/java
+JAVAC15 = javac -target 1.5
+JAVAC16 = javac -target 1.6
+WSIMPORT15 = $(JAVA15) -cp $(JAXWS)/lib/jaxws-tools.jar com.sun.tools.ws.WsImport
+WSIMPORT16 = wsimport
+JAR = jar
+CP = cp
+MKDIR = mkdir
+RM = rm
+
+DEST16 = ./gen16
+DEST15 = ./gen15
+
+VBOXWS15 = ../lib/vboxws_java15.jar
+VBOXWS16 = ../lib/vboxws_java16.jar
+
+all: $(VBOXWS15) $(VBOXWS16)
+
+$(VBOXWS15): ../../../vboxwebService.wsdl ../../../vboxweb.wsdl *.java
+	$(RM) -rf  $(DEST15)
+	$(MKDIR) -p $(DEST15)
+	$(WSIMPORT15) -d $(DEST15) $<
+	$(JAVAC15) -cp $(DEST15) *.java -d $(DEST15)
+	$(CP)  ../../../vboxwebService.wsdl ../../../vboxweb.wsdl $(DEST15)
+	$(JAR) cvf $(VBOXWS15) -C $(DEST15) . > /dev/null
+
+$(VBOXWS16): ../../../vboxwebService.wsdl ../../../vboxweb.wsdl *.java
+	$(RM) -rf  $(DEST16)
+	$(MKDIR) -p $(DEST16)
+	$(WSIMPORT16) -d $(DEST16) $<
+	$(JAVAC16) -cp $(DEST16) *.java -d $(DEST16)
+	$(CP)  ../../../vboxwebService.wsdl ../../../vboxweb.wsdl $(DEST16)
+	$(JAR) cvf $(VBOXWS16) -C $(DEST16) . > /dev/null
+
+clean:
+	$(RM) -rf $(DEST)
+

@@ -1,0 +1,1767 @@
+; $Id: bs3kit.mac $
+;; @file
+; BS3Kit - structures, symbols, macros and stuff.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___bs3kit_mac___
+%define ___bs3kit_mac___
+
+;
+; Before we can include anything, we need to override NAME and switch section.
+; If we don't do the latter we end up with an unused 'text' section.
+;
+
+; Drop the asmdefs-first.mac header for native bs3kit files.
+%undef RT_ASMDEFS_INC_FIRST_FILE
+
+;;
+; Macro for setting register aliases according to the bit count given by %1.
+;
+%macro BS3_SET_REG_ALIASES 1
+ ;
+ ; Register aliases.
+ ;
+ %if %1 == 64
+  %define xCB  8
+  %define xDEF dq
+  %define xRES resq
+  %define xPRE qword
+  %define xSP  rsp
+  %define xBP  rbp
+  %define xAX  rax
+  %define xBX  rbx
+  %define xCX  rcx
+  %define xDX  rdx
+  %define xDI  rdi
+  %define xSI  rsi
+  %define xWrtRIP wrt rip
+  %define xPUSHF pushfq
+  %define xPOPF  popfq
+  %define xRETF  o64 retf
+ %elif %1 == 32
+  %define xCB  4
+  %define xDEF dd
+  %define xRES resd
+  %define xPRE dword
+  %define xSP  esp
+  %define xBP  ebp
+  %define xAX  eax
+  %define xBX  ebx
+  %define xCX  ecx
+  %define xDX  edx
+  %define xDI  edi
+  %define xSI  esi
+  %define xWrtRIP
+  %define xPUSHF pushfd
+  %define xPOPF  popfd
+  %define xRETF  retf
+ %elif %1 == 16
+  %define xCB  2
+  %define xDEF dw
+  %define xRES resw
+  %define xPRE word
+  %define xSP  sp
+  %define xBP  bp
+  %define xAX  ax
+  %define xBX  bx
+  %define xCX  cx
+  %define xDX  dx
+  %define xDI  di
+  %define xSI  si
+  %define xWrtRIP
+  %define xPUSHF pushf
+  %define xPOPF  popf
+  %define xRETF  retf
+ %else
+  %error "Invalid BS3_SET_REG_ALIASES argument:" %1
+ %endif
+
+
+ ;
+ ; Register names corresponding to the max size for pop/push <reg>.
+ ;
+ ; 16-bit can push both 32-bit and 16-bit registers.  This 's' prefixed variant
+ ; is used when 16-bit should use the 32-bit register.
+ ;
+ %if %1 == 64
+  %define sCB  8
+  %define sDEF dq
+  %define sRES resq
+  %define sPRE qword
+  %define sSP  rsp
+  %define sBP  rbp
+  %define sAX  rax
+  %define sBX  rbx
+  %define sCX  rcx
+  %define sDX  rdx
+  %define sDI  rdi
+  %define sSI  rsi
+  %define sPUSHF pushfq
+  %define sPOPF  popfq
+ %else
+  %define sCB  4
+  %define sDEF dd
+  %define sRES resd
+  %define sPRE dword
+  %define sSP  esp
+  %define sBP  ebp
+  %define sAX  eax
+  %define sBX  ebx
+  %define sCX  ecx
+  %define sDX  edx
+  %define sDI  edi
+  %define sSI  esi
+  %define sPUSHF pushfd
+  %define sPOPF  popfd
+ %endif
+%endmacro
+
+;;
+; Redefines macros that follows __BITS__.
+%macro BS3_SET_BITS_MACROS 1
+ ;; Emulate the __BITS__ macro in NASM 2.0+. Follows BS3_SET_BITS.
+ %ifdef __YASM__
+  %undef  __BITS__
+  %define __BITS__ %1
+ %endif
+
+ ;; Mostly internal macro. Follows BS3_SET_BITS.
+ %undef  BS3_NAME_UNDERSCORE
+ %define BS3_NAME_UNDERSCORE _
+
+ ;; For segment overrides and stuff. Follows BS3_SET_BITS.
+ %undef   BS3_ONLY_16BIT
+ %if %1 == 16
+  %define BS3_ONLY_16BIT(a_Expr)    a_Expr
+ %else
+  %define BS3_ONLY_16BIT(a_Expr)
+ %endif
+
+ ;; For odd 64-bit stuff. Follows BS3_SET_BITS.
+ %undef   BS3_ONLY_64BIT
+ %if %1 == 64
+  %define BS3_ONLY_64BIT(a_Expr)    a_Expr
+ %else
+  %define BS3_ONLY_64BIT(a_Expr)
+ %endif
+
+ ;; For segment overrides and stuff. Follows BS3_SET_BITS.
+ %undef   BS3_NOT_64BIT
+ %if %1 == 64
+  %define BS3_NOT_64BIT(a_Expr)
+ %else
+  %define BS3_NOT_64BIT(a_Expr)     a_Expr
+ %endif
+
+ ;; For stack cleanups and similar where each bit mode is different. Follows BS3_SET_BITS.
+ %undef   BS3_IF_16_32_64BIT
+ %if %1 == 16
+  %define BS3_IF_16_32_64BIT(a_16BitExpr, a_32BitExpr, a_64BitExpr) a_16BitExpr
+ %elif %1 == 32
+  %define BS3_IF_16_32_64BIT(a_16BitExpr, a_32BitExpr, a_64BitExpr) a_32BitExpr
+ %else
+  %define BS3_IF_16_32_64BIT(a_16BitExpr, a_32BitExpr, a_64BitExpr) a_64BitExpr
+ %endif
+
+ ;; For RIP relative addressing in 64-bit mode and absolute addressing in
+ ; other modes. Follows BS3_SET_BITS.
+ %undef   BS3_WRT_RIP
+ %if %1 == 64
+  %define BS3_WRT_RIP(a_Sym)        rel a_Sym
+ %else
+  %define BS3_WRT_RIP(a_Sym)        a_Sym
+ %endif
+
+ %undef   BS3_LEA_MOV_WRT_RIP
+ %if %1 == 64
+  %define BS3_LEA_MOV_WRT_RIP(a_DstReg, a_Sym)  lea a_DstReg, [BS3_WRT_RIP(a_Sym)]
+ %else
+  %define BS3_LEA_MOV_WRT_RIP(a_DstReg, a_Sym)  mov a_DstReg, a_Sym
+ %endif
+
+ ;; @def BS3_DATA16_WRT
+ ; For accessing BS3DATA16 correctly.
+ ; @param a_Var The BS3DATA16 variable.
+ %undef BS3_DATA16_WRT
+ %if %1 == 16
+  %define BS3_DATA16_WRT(a_Var)     a_Var wrt BS3KIT_GRPNM_DATA16
+ %elif %1 == 32
+  %define BS3_DATA16_WRT(a_Var)     a_Var wrt FLAT
+ %else
+  %define BS3_DATA16_WRT(a_Var)     BS3_WRT_RIP(a_Var) wrt FLAT
+ %endif
+
+ ;; @def BS3_TEXT16_WRT
+ ; For accessing BS3DATA16 correctly.
+ ; @param a_Label The BS3TEXT16 label.
+ %undef BS3_TEXT16_WRT
+ %if %1 == 16
+  %define BS3_TEXT16_WRT(a_Label)   a_Label wrt CGROUP16
+ %elif %1 == 32
+  %define BS3_TEXT16_WRT(a_Label)   a_Label wrt FLAT
+ %else
+  %define BS3_TEXT16_WRT(a_Label)   BS3_WRT_RIP(a_Label) wrt FLAT
+ %endif
+
+ %undef   BS3_IF_16BIT_OTHERWISE
+ %if %1 == 16
+  %define BS3_IF_16BIT_OTHERWISE(a_16BitExpr, a_OtherwiseExpr) a_16BitExpr
+ %else
+  %define BS3_IF_16BIT_OTHERWISE(a_16BitExpr, a_OtherwiseExpr) a_OtherwiseExpr
+ %endif
+
+ %undef   BS3_IF_32BIT_OTHERWISE
+ %if %1 == 32
+  %define BS3_IF_32BIT_OTHERWISE(a_32BitExpr, a_OtherwiseExpr) a_32BitExpr
+ %else
+  %define BS3_IF_32BIT_OTHERWISE(a_32BitExpr, a_OtherwiseExpr) a_OtherwiseExpr
+ %endif
+
+ %undef   BS3_IF_64BIT_OTHERWISE
+ %if %1 == 64
+  %define BS3_IF_64BIT_OTHERWISE(a_64BitExpr, a_OtherwiseExpr) a_64BitExpr
+ %else
+  %define BS3_IF_64BIT_OTHERWISE(a_64BitExpr, a_OtherwiseExpr) a_OtherwiseExpr
+ %endif
+
+ ;;
+ ; Same as BS3_CMN_NM except in 16-bit mode, it will generate the far name.
+ ; (16-bit code generally have both near and far callable symbols, so we won't
+ ; be restricted to 64KB test code.)
+ %if %1 == 16
+  %define BS3_CMN_NM_FAR(a_Name) BS3_NAME_UNDERSCORE %+ a_Name %+ _f %+ __BITS__
+ %else
+  %define BS3_CMN_NM_FAR(a_Name) BS3_CMN_NM(a_Name)
+ %endif
+
+%endmacro
+
+; Default to register aliases for ARCH_BITS.
+BS3_SET_REG_ALIASES ARCH_BITS
+
+; Define macros for ARCH_BITS.
+BS3_SET_BITS_MACROS ARCH_BITS
+
+
+;; Wrapper around BITS.
+; Updates __BITS__ (built-in variable in nasm, we work it for yasm) as well
+; a number of convenient macros and register aliases.
+;
+; @param    %1      The CPU bit count: 16, 32 or 64
+; @remarks ARCH_BITS is not modified and will remain what it was on the
+;          assembler command line.
+%macro BS3_SET_BITS 1
+ BITS %1
+ BS3_SET_BITS_MACROS %1
+ BS3_SET_REG_ALIASES %1
+%endmacro
+
+;;
+; For instruction that should only be emitted in 16-bit mode. Follows BS3_SET_BITS.
+; BONLY16 normally goes in column 1.
+%macro BONLY16 1+
+ %if __BITS__ == 16
+        %1
+ %endif
+%endmacro
+
+;;
+; For instruction that should only be emitted in 32-bit mode. Follows BS3_SET_BITS.
+; BONLY32 normally goes in column 1.
+%macro BONLY32 1+
+ %if __BITS__ == 32
+        %1
+ %endif
+%endmacro
+
+;;
+; For instruction that should only be emitted in 64-bit mode. Follows BS3_SET_BITS.
+; BONLY64 normally goes in column 1.
+%macro BONLY64 1+
+ %if __BITS__ == 64
+        %1
+ %endif
+%endmacro
+
+
+
+;; @name Segment definitions.
+;; @{
+
+%ifndef ASM_FORMAT_BIN
+; !!HACK ALERT!!
+;
+;   To make FLAT actually be flat, i.e. have a base of 0 rather than the same as
+;   the target (?) segment, we tweak it a little bit here.  We associate a segment
+;   with it so that we can get at it in the class/segment ordering directives
+;   we pass to the linker.  The segment does not contain any data or anything, it
+;   is just an empty one which we assign the address of zero.
+;
+;   Look for 'clname BS3FLAT segaddr=0x0000' and 'segment BS3FLAT segaddr=0x0000'
+;   in the makefile.
+;
+; !!HACK ALERT!!
+segment BS3FLAT use32 class=BS3FLAT
+GROUP FLAT BS3FLAT
+%endif
+
+
+;;
+; Changes to the BS3TEXT16 segment, defining it if necessary.
+; @param %1  The bitcount to invoke BS3_SET_BITS with, default is 16.
+%macro BS3_BEGIN_TEXT16 0-1 16
+ %ifndef  BS3_BEGIN_TEXT16_NOT_FIRST
+  %define BS3_BEGIN_TEXT16_NOT_FIRST
+        section BS3TEXT16 align=2 CLASS=BS3CLASS16CODE PUBLIC USE16
+  %ifndef BS3_BEGIN_TEXT16_WITHOUT_GROUP ; bs3-first-common.mac trick.
+   %ifndef BS3_BEGIN_TEXT16_NEARSTUBS_NOT_FIRST
+   %define BS3_BEGIN_TEXT16_NEARSTUBS_NOT_FIRST
+        section BS3TEXT16_NEARSTUBS align=1 CLASS=BS3CLASS16CODE PUBLIC USE16
+   %endif
+   %ifndef BS3_BEGIN_TEXT16_FARSTUBS_NOT_FIRST
+   %define BS3_BEGIN_TEXT16_FARSTUBS_NOT_FIRST
+        section BS3TEXT16_FARSTUBS align=1 CLASS=BS3CLASS16CODE PUBLIC USE16
+   %endif
+        GROUP CGROUP16 BS3TEXT16 BS3TEXT16_NEARSTUBS BS3TEXT16_FARSTUBS
+        section BS3TEXT16
+  %endif
+ %else
+        section BS3TEXT16
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_TEXT16
+        BS3_SET_BITS %1
+%endmacro
+
+%macro BS3_BEGIN_TEXT16_NEARSTUBS 0
+ %ifndef  BS3_BEGIN_TEXT16_NEARSTUBS_NOT_FIRST
+  %define BS3_BEGIN_TEXT16_NEARSTUBS_NOT_FIRST
+        section BS3TEXT16_NEARSTUBS align=1 CLASS=BS3CLASS16CODE PUBLIC USE16
+ %else
+        section BS3TEXT16_NEARSTUBS
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_TEXT16_NEARSTUBS
+        BS3_SET_BITS 16
+%endmacro
+
+%macro BS3_BEGIN_TEXT16_FARSTUBS 0
+ %ifndef  BS3_BEGIN_TEXT16_FARSTUBS_NOT_FIRST
+  %define BS3_BEGIN_TEXT16_FARSTUBS_NOT_FIRST
+        section BS3TEXT16_FARSTUBS align=1 CLASS=BS3CLASS16CODE PUBLIC USE16
+ %else
+        section BS3TEXT16_FARSTUBS
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_TEXT16_FARSTUBS
+        BS3_SET_BITS 16
+%endmacro
+
+%macro BS3_BEGIN_RMTEXT16 0-1 2
+ %ifndef  BS3_BEGIN_RMTEXT16_NOT_FIRST
+  %define BS3_BEGIN_RMTEXT16_NOT_FIRST
+        section BS3RMTEXT16 align=%1 CLASS=BS3CLASS16RMCODE PUBLIC USE16
+  %ifndef BS3_BEGIN_RMTEXT16_WITHOUT_GROUP ; bs3-first-common.mac trick.
+        GROUP BS3GROUPRMTEXT16 BS3RMTEXT16
+  %endif
+ %else
+        section BS3RMTEXT16
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_RMTEXT16
+        BS3_SET_BITS 16
+%endmacro
+
+%macro BS3_BEGIN_X0TEXT16 0-1 2
+ %ifndef  BS3_BEGIN_X0TEXT16_NOT_FIRST
+  %define BS3_BEGIN_X0TEXT16_NOT_FIRST
+        section BS3X0TEXT16 align=%1 CLASS=BS3CLASS16X0CODE PUBLIC USE16
+  %ifndef BS3_BEGIN_X0TEXT16_WITHOUT_GROUP ; bs3-first-common.mac trick.
+        GROUP BS3GROUPX0TEXT16 BS3X0TEXT16
+  %endif
+ %else
+        section BS3X0TEXT16
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_X0TEXT16
+        BS3_SET_BITS 16
+%endmacro
+
+%macro BS3_BEGIN_X1TEXT16 0-1 2
+ %ifndef  BS3_BEGIN_X1TEXT16_NOT_FIRST
+  %define BS3_BEGIN_X1TEXT16_NOT_FIRST
+        section BS3X1TEXT16 align=%1 CLASS=BS3CLASS16X1CODE PUBLIC USE16
+  %ifndef BS3_BEGIN_X1TEXT16_WITHOUT_GROUP ; bs3-first-common.mac trick.
+        GROUP BS3GROUPX1TEXT16 BS3X1TEXT16
+  %endif
+ %else
+        section BS3X1TEXT16
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_X1TEXT16
+        BS3_SET_BITS 16
+%endmacro
+
+
+%macro BS3_BEGIN_DATA16 0-1 2
+ %ifndef  BS3_BEGIN_DATA16_NOT_FIRST
+  %define BS3_BEGIN_DATA16_NOT_FIRST
+        section BS3DATA16 align=%1 CLASS=BS3KIT_CLASS_DATA16 PUBLIC USE16
+  %ifndef BS3_BEGIN_DATA16_WITHOUT_GROUP ; bs3-first-common.mac trick.
+    GROUP BS3KIT_GRPNM_DATA16 BS3DATA16
+  %endif
+ %else
+        section BS3DATA16
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_DATA16
+        BS3_SET_BITS 16
+%endmacro
+
+%macro BS3_BEGIN_TEXT32 0-1 2
+ %ifndef  BS3_BEGIN_TEXT32_NOT_FIRST
+  %define BS3_BEGIN_TEXT32_NOT_FIRST
+        section BS3TEXT32 align=%1 CLASS=BS3CLASS32CODE PUBLIC USE32 FLAT
+ %else
+        section BS3TEXT32
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_TEXT32
+        BS3_SET_BITS 32
+%endmacro
+
+%macro BS3_BEGIN_DATA32 0-1 16
+ %ifndef  BS3_BEGIN_DATA32_NOT_FIRST
+  %define BS3_BEGIN_DATA32_NOT_FIRST
+        section BS3DATA32 align=%1 CLASS=FAR_DATA PUBLIC USE32 ;FLAT - compiler doesn't make data flat.
+ %else
+        section BS3DATA32
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_DATA32
+        BS3_SET_BITS 32
+%endmacro
+
+%macro BS3_BEGIN_TEXT64 0-1 2
+ %ifndef  BS3_BEGIN_TEXT64_NOT_FIRST
+  %define BS3_BEGIN_TEXT64_NOT_FIRST
+        section BS3TEXT64 align=%1 CLASS=BS3CLASS64CODE PUBLIC USE32 FLAT
+ %else
+        section BS3TEXT64
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_TEXT64
+        BS3_SET_BITS 64
+%endmacro
+
+%macro BS3_BEGIN_DATA64 0-1 16
+ %ifndef  BS3_BEGIN_DATA64_NOT_FIRST
+  %define BS3_BEGIN_DATA64_NOT_FIRST
+        section BS3DATA64 align=%1 CLASS=FAR_DATA PUBLIC USE32 ;FLAT (see DATA32)
+ %else
+        section BS3DATA64
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_DATA64
+        BS3_SET_BITS 64
+%endmacro
+
+;; The system data segment containing the GDT, TSSes and IDTs.
+%macro BS3_BEGIN_SYSTEM16 0-1 16
+ %ifndef  BS3_BEGIN_SYSTEM16_NOT_FIRST
+  %define BS3_BEGIN_SYSTEM16_NOT_FIRST
+        section BS3SYSTEM16 align=%1 CLASS=BS3SYSTEM16 PUBLIC USE16
+ %else
+        section BS3SYSTEM16
+ %endif
+ %undef   BS3_CUR_SEG_BEGIN_MACRO
+ %xdefine BS3_CUR_SEG_BEGIN_MACRO   BS3_BEGIN_SYSTEM16
+        BS3_SET_BITS 16
+%endmacro
+
+;; Default text section.
+%macro BS3_BEGIN_DEFAULT_TEXT 0
+ %if ARCH_BITS == 16
+  BS3_BEGIN_TEXT16
+ %elif ARCH_BITS == 32
+  BS3_BEGIN_TEXT32
+ %elif ARCH_BITS == 64
+  BS3_BEGIN_TEXT64
+ %else
+  %error "ARCH_BITS must be defined as either 16, 32, or 64!"
+  INVALID_ARCH_BITS
+ %endif
+%endmacro
+
+;; @}
+
+
+;
+; Now, ditch the default 'text' section and define our own NAME macro.
+;
+%ifndef ASM_FORMAT_BIN
+ BS3_BEGIN_DEFAULT_TEXT
+ BS3_BEGIN_DEFAULT_TEXT ; stupid nasm automagically repeats the segment attributes.
+%endif
+
+;; When using watcom + OMF, we're using __cdecl by default, which
+; get an underscore added in front.
+%define NAME(name) _ %+ NAME_OVERLOAD(name)
+
+
+;
+; Include the standard headers from iprt.
+;
+
+
+%include "iprt/asmdefs.mac"
+%include "iprt/x86.mac"
+
+
+;;
+; Extern macro which mangles the name using NAME().
+%macro EXTERN 1
+ extern NAME(%1)
+%endmacro
+
+;;
+; Mangles a common name according to the current cpu bit count.
+; @remarks Requires the use of the BS3_SET_BITS macro instead of the BITS directive.
+%define BS3_CMN_NM(a_Name)     BS3_NAME_UNDERSCORE %+ a_Name %+ _c %+ __BITS__
+
+;;
+; Extern macro which mangles the common name correctly, redefining the unmangled
+; name to the mangled one for ease of use.
+;
+; @param    %1  The unmangled common name.
+;
+; @remarks  Must enter the segment in which this name is defined.
+;
+%macro BS3_EXTERN_CMN 1
+ extern BS3_CMN_NM(%1)
+ %undef  %1
+ %define %1 BS3_CMN_NM(%1)
+%endmacro
+
+;;
+; Same as BS3_EXTERN_CMN except it picks the far variant in 16-bit code.
+;
+; @param    %1  The unmangled common name.
+;
+; @remarks  Must enter the segment in which this name is defined.
+;
+%macro BS3_EXTERN_CMN_FAR 1
+ extern BS3_CMN_NM_FAR(%1)
+ %undef  %1
+ %define %1 BS3_CMN_NM_FAR(%1)
+%endmacro
+
+;; @def BS3_EXTERN_TMPL
+; Mangles the given name into a template specific one.  For ease of use, the
+; name is redefined to the mangled one, just like BS3_EXTERN_CMN does.
+; @note Segment does not change.
+%macro BS3_EXTERN_TMPL 1
+ extern TMPL_NM(%1)
+ %undef  %1
+ %define %1 TMPL_NM(%1)
+%endmacro
+
+
+;;
+; Mangles a 16-bit and 32-bit accessible data name.
+; @remarks Requires the use of the BS3_SET_BITS macro instead of the BITS directive.
+%define BS3_DATA_NM(a_Name)     _ %+ a_Name
+
+;;
+; Extern macro which mangles a DATA16 symbol correctly, redefining the
+; unmangled name to the mangled one for ease of use.
+;
+; @param    %1  The unmangled common name.
+;
+; @remarks  Will change to the DATA16 segment, use must switch back afterwards!
+;
+%macro BS3_EXTERN_DATA16 1
+ BS3_BEGIN_DATA16
+ extern _ %+ %1
+ %undef  %1
+ %define %1  _ %+ %1
+%endmacro
+
+;;
+; Extern macro which mangles a BS3SYSTEM16 symbol correctly, redefining the
+; unmangled name to the mangled one for ease of use.
+;
+; @param    %1  The unmangled common name.
+;
+; @remarks  Will change to the SYSTEM16 segment, use must switch back afterwards!
+;
+%macro BS3_EXTERN_SYSTEM16 1
+ BS3_BEGIN_SYSTEM16
+ extern _ %+ %1
+ %undef  %1
+ %define %1  _ %+ %1
+%endmacro
+
+
+;;
+; Global name with ELF attributes and size.
+;
+; This differs from GLOBALNAME_EX in that it expects a mangled symbol name,
+; and allows for nasm style symbol size expressions.
+;
+; @param    %1  The mangled name.
+; @param    %2  Symbol attributes.
+; @param    %3  The size expression.
+;
+%macro BS3_GLOBAL_NAME_EX 3
+global %1
+%1:
+%undef  BS3_LAST_LABEL
+%xdefine BS3_LAST_LABEL %1
+%endmacro
+
+;;
+; Global local label.
+;
+; This should be used when switching segments and jumping to it via a local lable.
+; It makes the lable visible to the debugger and map file.
+;
+%macro BS3_GLOBAL_LOCAL_LABEL 1
+global RT_CONCAT(BS3_LAST_LABEL,%1)
+%1:
+%endmacro
+
+;;
+; Global data unmangled label.
+;
+; @param    %1  The unmangled name.
+; @param    %2  The size (0 is fine).
+;
+%macro BS3_GLOBAL_DATA 2
+BS3_GLOBAL_NAME_EX BS3_DATA_NM(%1), , %2
+%endmacro
+
+;;
+; Starts a procedure.
+;
+; This differs from BEGINPROC in that it expects a mangled symbol name and
+; does the NASM symbol size stuff.
+;
+; @param    %1      The mangled name.
+;
+%macro BS3_PROC_BEGIN 1
+BS3_GLOBAL_NAME_EX %1, function, (%1 %+ _EndProc - %1)
+%endmacro
+
+;;
+; Ends a procedure.
+;
+; Counter part to BS3_PROC_BEGIN.
+;
+; @param    %1      The mangled name.
+;
+%macro BS3_PROC_END  1
+BS3_GLOBAL_NAME_EX %1 %+ _EndProc, function hidden, (%1 %+ _EndProc - %1)
+ int3                                   ; handy and avoids overlapping labels.
+%endmacro
+
+
+;; @name BS3_PBC_XXX - For use as the 2nd parameter to BS3_PROC_BEGIN_CMN and BS3_PROC_BEGIN_MODE.
+;; @{
+%define BS3_PBC_NEAR          1 ;;< Only near.
+%define BS3_PBC_FAR           2 ;;< Only far.
+%define BS3_PBC_HYBRID        3 ;;< Hybrid near/far procedure, trashing AX. Use BS3_HYBRID_RET to return.
+%define BS3_PBC_HYBRID_SAFE   4 ;;< Hybrid near/far procedure, no trashing but slower. Use BS3_HYBRID_RET to return.
+%define BS3_PBC_HYBRID_0_ARGS 5 ;;< Hybrid near/far procedure, no parameters so separate far stub, no trashing, fast near calls.
+;; @}
+
+;; Internal begin procedure macro.
+;
+; @param    1       The near name.
+; @param    2       The far name
+; @param    3       BS3_PBC_XXX.
+%macro BS3_PROC_BEGIN_INT 3
+ ;%warning "BS3_PROC_BEGIN_INT:" 1=%1 2=%2 3=%3
+ %undef BS3_CUR_PROC_FLAGS
+ %if __BITS__ == 16
+  %if %3 == BS3_PBC_NEAR
+   %xdefine BS3_CUR_PROC_FLAGS  BS3_PBC_NEAR
+   %xdefine cbCurRetAddr        2
+   BS3_PROC_BEGIN       %1
+
+  %elif %3 == BS3_PBC_FAR
+   %xdefine BS3_CUR_PROC_FLAGS  BS3_PBC_FAR
+   %xdefine cbCurRetAddr        4
+   BS3_PROC_BEGIN       %2
+
+  %elif %3 == BS3_PBC_HYBRID
+   %xdefine BS3_CUR_PROC_FLAGS  BS3_PBC_HYBRID
+   %xdefine cbCurRetAddr        4
+   BS3_GLOBAL_NAME_EX   %1, function, 3
+        pop     ax
+        push    cs
+        push    ax
+   BS3_PROC_BEGIN       %2
+
+  %elif %3 == BS3_PBC_HYBRID_SAFE
+   %xdefine BS3_CUR_PROC_FLAGS  BS3_PBC_HYBRID_SAFE
+   %xdefine cbCurRetAddr        4
+   BS3_GLOBAL_NAME_EX   %1, function, 3
+        extern  Bs3CreateHybridFarRet_c16
+        call    Bs3CreateHybridFarRet_c16
+   BS3_PROC_BEGIN       %2
+
+  %elif %3 == BS3_PBC_HYBRID_0_ARGS
+   %xdefine BS3_CUR_PROC_FLAGS  BS3_PBC_NEAR
+   %xdefine cbCurRetAddr        2
+   %xdefine TMP_BEGIN_PREV_SEG  BS3_CUR_SEG_BEGIN_MACRO
+
+   BS3_BEGIN_TEXT16_FARSTUBS
+   BS3_PROC_BEGIN       %2
+        call    %1
+        retf
+   BS3_PROC_END         %2
+
+   TMP_BEGIN_PREV_SEG
+   BS3_PROC_BEGIN       %1
+   %undef  TMP_BEGIN_PREV_SEG
+
+  %else
+   %error BS3_PROC_BEGIN_CMN parameter 2 value %3 is not recognized.
+
+   %xdefine BS3_CUR_PROC_FLAGS   BS3_PBC_NEAR
+   %xdefine cbCurRetAddr         4
+   BS3_PROC_BEGIN       %1
+  %endif
+ %else
+  %xdefine BS3_CUR_PROC_FLAGS   BS3_PBC_NEAR
+  %xdefine cbCurRetAddr         xCB
+  BS3_PROC_BEGIN        %1
+ %endif
+%endmacro
+
+;; Internal end procedure macro
+;
+; @param    1       The near name.
+; @param    2       The far name
+;
+%macro BS3_PROC_END_INT 2
+ %if __BITS__ == 16
+  %if BS3_CUR_PROC_FLAGS == BS3_PBC_NEAR
+   BS3_PROC_END      %1
+  %else
+   BS3_PROC_END      %2
+  %endif
+ %else
+  BS3_PROC_END       %1
+ %endif
+ %undef BS3_CUR_PROC_FLAGS
+ %undef cbCurRetAddr
+%endmacro
+
+
+;; Convenience macro for defining common procedures.
+; This will emit both near and far 16-bit symbols according to parameter %2 (BS3_PBC_XXX).
+%macro BS3_PROC_BEGIN_CMN 2
+ BS3_PROC_BEGIN_INT BS3_CMN_NM(%1), BS3_CMN_NM_FAR(%1), %2
+%endmacro
+
+;; Convenience macro for defining common procedures.
+%macro BS3_PROC_END_CMN 1
+ BS3_PROC_END_INT BS3_CMN_NM(%1), BS3_CMN_NM_FAR(%1)
+%endmacro
+
+;;
+; Generate a safe 16-bit far stub for function %1, shuffling %2 bytes of parameters.
+;
+; This does absolutely nothing in 32-bit and 64-bit mode.
+;
+; @param    1   The function basename.
+; @param    2   The number of bytes of parameters on the stack, must be a multiple of 2.
+; @remarks  Changes the segment to TEXT16.
+;
+%macro BS3_CMN_FAR_STUB 2
+ %if %2 <= 1 || (%2 & 1)
+  %error Invalid parameter frame size passed to BS3_CMN_FAR_STUB: %2
+ %endif
+ %if __BITS__ == 16
+BS3_BEGIN_TEXT16_FARSTUBS
+BS3_PROC_BEGIN_CMN %1, BS3_PBC_FAR
+        CPU 8086
+        inc     bp                      ; Odd bp is far call indicator.
+        push    bp
+        mov     bp, sp
+  %assign offParam %2
+  %rep %2/2
+        push    word [bp + xCB + cbCurRetAddr + offParam - 2]
+  %assign offParam offParam - 2
+  %endrep
+        call    BS3_CMN_NM(%1)
+        add     sp, %2
+        pop     bp
+        dec     bp
+        retf
+BS3_PROC_END_CMN   %1
+BS3_BEGIN_TEXT16
+ %endif
+%endmacro
+
+
+;; Convenience macro for defining mode specific procedures.
+%macro BS3_PROC_BEGIN_MODE 2
+ ;%warning "BS3_PROC_BEGIN_MODE: 1=" %1 "2=" %2
+ BS3_PROC_BEGIN_INT TMPL_NM(%1), TMPL_FAR_NM(%1), %2
+%endmacro
+
+;; Convenience macro for defining mode specific procedures.
+%macro BS3_PROC_END_MODE 1
+ BS3_PROC_END_INT TMPL_NM(%1), TMPL_FAR_NM(%1)
+%endmacro
+
+;; Does a far return in 16-bit code, near return in 32-bit and 64-bit.
+; This is for use with BS3_PBC_XXX
+%macro BS3_HYBRID_RET 0-1
+ %if __BITS__ == 16
+  %if %0 > 0
+   %if BS3_CUR_PROC_FLAGS == BS3_PBC_NEAR || BS3_CUR_PROC_FLAGS == BS3_PBC_HYBRID_0_ARGS
+        ret    %1
+   %else
+        retf    %1
+   %endif
+  %else
+   %if BS3_CUR_PROC_FLAGS == BS3_PBC_NEAR || BS3_CUR_PROC_FLAGS == BS3_PBC_HYBRID_0_ARGS
+        ret
+   %else
+        retf
+   %endif
+  %endif
+ %else
+  %if BS3_CUR_PROC_FLAGS != BS3_PBC_NEAR
+   %error Expected BS3_CUR_PROC_FLAGS to be BS3_PBC_NEAR in non-16-bit code.
+  %endif
+  %if %0 > 0
+        ret     %1
+  %else
+        ret
+  %endif
+ %endif
+%endmacro
+
+
+;;
+; Prologue hacks for 64-bit code.
+;
+; This saves the four register parameters onto the stack so we can pretend
+; the calling convention is stack based.  The 64-bit calling convension is
+; the microsoft one, so this is straight forward.
+;
+; Pairs with BS3_CALL_CONV_EPILOG.
+;
+; @param    %1      The number of parameters.
+;
+; @remarks  Must be invoked before any stack changing instructions are emitted.
+;
+%macro BS3_CALL_CONV_PROLOG 1
+ %undef  BS3_CALL_CONV_PROLOG_PARAMS
+ %define BS3_CALL_CONV_PROLOG_PARAMS %1
+ %if __BITS__ == 64
+  %if %1 >= 1
+        mov         [rsp + 008h], rcx
+  %elifdef BS3_STRICT
+        and         qword [rsp + 008h], 1
+  %endif
+  %if %1 >= 2
+        mov         [rsp + 010h], rdx
+  %elifdef BS3_STRICT
+        and         qword [rsp + 010h], 2
+  %endif
+  %if %1 >= 3
+        mov         [rsp + 018h], r8
+  %elifdef BS3_STRICT
+        and         qword [rsp + 018h], 3
+  %endif
+  %if %1 >= 4
+        mov         [rsp + 020h], r9
+  %elifdef BS3_STRICT
+        and         qword [rsp + 020h], 4
+  %endif
+ %endif
+%endmacro
+
+;;
+; Epilogue hacks for 64-bit code.
+;
+; Counter part to BS3_CALL_CONV_PROLOG.
+;
+; @param    %1      The number of parameters.
+;
+; @remarks  Must be invoked right before the return instruction as it uses RSP.
+;
+%macro BS3_CALL_CONV_EPILOG 1
+ %if BS3_CALL_CONV_PROLOG_PARAMS != %1
+  %error "BS3_CALL_CONV_EPILOG argument differs from BS3_CALL_CONV_PROLOG."
+ %endif
+ %if __BITS__ == 64
+  %ifdef BS3_STRICT
+        mov         dword [rsp + 008h], 31h
+        mov         dword [rsp + 010h], 32h
+        mov         dword [rsp + 018h], 33h
+        mov         dword [rsp + 020h], 34h
+  %endif
+ %endif
+%endmacro
+
+;;
+; Wrapper for the call instruction that hides calling convension differences.
+;
+; This always calls %1.
+; In 64-bit code, it will load up to 4 parameters into register.
+;
+; @param    %1      The function to call (mangled).
+; @param    %2      The number of parameters.
+;
+%macro BS3_CALL 2
+ %if __BITS__ == 64
+  %if %2 >= 1
+        mov         rcx, [rsp]
+   %ifdef BS3_STRICT
+        and         qword [rsp], 11h
+   %endif
+  %endif
+  %if %2 >= 2
+        mov         rdx, [rsp + 008h]
+   %ifdef BS3_STRICT
+        and         qword [rsp + 008h], 12h
+   %endif
+  %endif
+  %if %2 >= 3
+        mov         r8,  [rsp + 010h]
+   %ifdef BS3_STRICT
+        and         qword [rsp + 010h], 13h
+   %endif
+  %endif
+  %if %2 >= 4
+        mov         r9,  [rsp + 018h]
+   %ifdef BS3_STRICT
+        and         qword [rsp + 018h], 14h
+   %endif
+  %endif
+ %endif
+        call        %1
+%endmacro
+
+
+;; @name Execution Modes
+; @{
+%define BS3_MODE_INVALID    000h
+%define BS3_MODE_RM         001h    ;;< real mode.
+%define BS3_MODE_PE16       011h    ;;< 16-bit protected mode kernel+tss, running 16-bit code, unpaged.
+%define BS3_MODE_PE16_32    012h    ;;< 16-bit protected mode kernel+tss, running 32-bit code, unpaged.
+%define BS3_MODE_PE16_V86   018h    ;;< 16-bit protected mode kernel+tss, running virtual 8086 mode code, unpaged.
+%define BS3_MODE_PE32       022h    ;;< 32-bit protected mode kernel+tss, running 32-bit code, unpaged.
+%define BS3_MODE_PE32_16    021h    ;;< 32-bit protected mode kernel+tss, running 16-bit code, unpaged.
+%define BS3_MODE_PEV86      028h    ;;< 32-bit protected mode kernel+tss, running virtual 8086 mode code, unpaged.
+%define BS3_MODE_PP16       031h    ;;< 16-bit protected mode kernel+tss, running 16-bit code, paged.
+%define BS3_MODE_PP16_32    032h    ;;< 16-bit protected mode kernel+tss, running 32-bit code, paged.
+%define BS3_MODE_PP16_V86   038h    ;;< 16-bit protected mode kernel+tss, running virtual 8086 mode code, paged.
+%define BS3_MODE_PP32       042h    ;;< 32-bit protected mode kernel+tss, running 32-bit code, paged.
+%define BS3_MODE_PP32_16    041h    ;;< 32-bit protected mode kernel+tss, running 16-bit code, paged.
+%define BS3_MODE_PPV86      048h    ;;< 32-bit protected mode kernel+tss, running virtual 8086 mode code, paged.
+%define BS3_MODE_PAE16      051h    ;;< 16-bit protected mode kernel+tss, running 16-bit code, PAE paging.
+%define BS3_MODE_PAE16_32   052h    ;;< 16-bit protected mode kernel+tss, running 32-bit code, PAE paging.
+%define BS3_MODE_PAE16_V86  058h    ;;< 16-bit protected mode kernel+tss, running virtual 8086 mode, PAE paging.
+%define BS3_MODE_PAE32      062h    ;;< 32-bit protected mode kernel+tss, running 32-bit code, PAE paging.
+%define BS3_MODE_PAE32_16   061h    ;;< 32-bit protected mode kernel+tss, running 16-bit code, PAE paging.
+%define BS3_MODE_PAEV86     068h    ;;< 32-bit protected mode kernel+tss, running virtual 8086 mode, PAE paging.
+%define BS3_MODE_LM16       071h    ;;< 16-bit long mode (paged), kernel+tss always 64-bit.
+%define BS3_MODE_LM32       072h    ;;< 32-bit long mode (paged), kernel+tss always 64-bit.
+%define BS3_MODE_LM64       074h    ;;< 64-bit long mode (paged), kernel+tss always 64-bit.
+
+%define BS3_MODE_CODE_MASK  00fh    ;;< Running code mask.
+%define BS3_MODE_CODE_16    001h    ;;< Running 16-bit code.
+%define BS3_MODE_CODE_32    002h    ;;< Running 32-bit code.
+%define BS3_MODE_CODE_64    004h    ;;< Running 64-bit code.
+%define BS3_MODE_CODE_V86   008h    ;;< Running 16-bit virtual 8086 code.
+
+%define BS3_MODE_SYS_MASK   0f0h    ;;< kernel+tss mask.
+%define BS3_MODE_SYS_RM     000h    ;;< Real mode kernel+tss.
+%define BS3_MODE_SYS_PE16   010h    ;;< 16-bit protected mode kernel+tss.
+%define BS3_MODE_SYS_PE32   020h    ;;< 32-bit protected mode kernel+tss.
+%define BS3_MODE_SYS_PP16   030h    ;;< 16-bit paged protected mode kernel+tss.
+%define BS3_MODE_SYS_PP32   040h    ;;< 32-bit paged protected mode kernel+tss.
+%define BS3_MODE_SYS_PAE16  050h    ;;< 16-bit PAE paged protected mode kernel+tss.
+%define BS3_MODE_SYS_PAE32  060h    ;;< 32-bit PAE paged protected mode kernel+tss.
+%define BS3_MODE_SYS_LM     070h    ;;< 64-bit (paged) long mode protected mode kernel+tss.
+
+;; Whether the mode has paging enabled.
+%define BS3_MODE_IS_PAGED(a_fMode)              ((a_fMode) >= BS3_MODE_PP16)
+
+;; Whether the mode is running v8086 code.
+%define BS3_MODE_IS_V86(a_fMode)                (((a_fMode) & BS3_MODE_CODE_MASK) == BS3_MODE_CODE_V86)
+;; Whether the we're executing in real mode or v8086 mode.
+%define BS3_MODE_IS_RM_OR_V86(a_fMode)          ((a_fMode) == BS3_MODE_RM || BS3_MODE_IS_V86(a_fMode))
+;; Whether the mode is running 16-bit code, except v8086.
+%define BS3_MODE_IS_16BIT_CODE_NO_V86(a_fMode)  (((a_fMode) & BS3_MODE_CODE_MASK) == BS3_MODE_CODE_16)
+;; Whether the mode is running 16-bit code (includes v8086).
+%define BS3_MODE_IS_16BIT_CODE(a_fMode)         (BS3_MODE_IS_16BIT_CODE_NO_V86(a_fMode) || BS3_MODE_IS_V86(a_fMode))
+;; Whether the mode is running 32-bit code.
+%define BS3_MODE_IS_32BIT_CODE(a_fMode)         (((a_fMode) & BS3_MODE_CODE_MASK) == BS3_MODE_CODE_32)
+;; Whether the mode is running 64-bit code.
+%define BS3_MODE_IS_64BIT_CODE(a_fMode)         (((a_fMode) & BS3_MODE_CODE_MASK) == BS3_MODE_CODE_64)
+
+;; Whether the system is in real mode.
+%define BS3_MODE_IS_RM_SYS(a_fMode)             (((a_fMode) & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_RM)
+;; Whether the system is some 16-bit mode that isn't real mode.
+%define BS3_MODE_IS_16BIT_SYS_NO_RM(a_fMode)    (   ((a_fMode) & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PE16 \
+                                                 || ((a_fMode) & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PP16 \
+                                                 || ((a_fMode) & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PAE16)
+;; Whether the system is some 16-bit mode (includes real mode).
+%define BS3_MODE_IS_16BIT_SYS(a_fMode)          (BS3_MODE_IS_16BIT_SYS_NO_RM(a_fMode) || BS3_MODE_IS_RM_SYS(a_fMode))
+;; Whether the system is some 32-bit mode.
+%define BS3_MODE_IS_32BIT_SYS(a_fMode)          (   ((a_fMode) & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PE32 \
+                                                 || ((a_fMode) & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PP32 \
+                                                 || ((a_fMode) & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_PAE32)
+;; Whether the system is long mode.
+%define BS3_MODE_IS_64BIT_SYS(a_fMode)          (((a_fMode) & BS3_MODE_SYS_MASK) == BS3_MODE_SYS_LM)
+
+;; @}
+
+;; @name For mode specfic lookups:
+;;          %[BS3_MODE_NM %+ BS3_MODE_PE32](SomeBaseName)
+;;          %[BS3_MODE_LNAME_ %+ TMPL_MODE]
+;; @{
+%define BS3_MODE_NM_001h(a_Name)        _ %+ a_Name %+ _rm
+%define BS3_MODE_NM_011h(a_Name)        _ %+ a_Name %+ _pe16
+%define BS3_MODE_NM_012h(a_Name)        _ %+ a_Name %+ _pe16_32
+%define BS3_MODE_NM_018h(a_Name)        _ %+ a_Name %+ _pe16_v86
+%define BS3_MODE_NM_022h(a_Name)        _ %+ a_Name %+ _pe32
+%define BS3_MODE_NM_021h(a_Name)        _ %+ a_Name %+ _pe32_16
+%define BS3_MODE_NM_028h(a_Name)        _ %+ a_Name %+ _pev86
+%define BS3_MODE_NM_031h(a_Name)        _ %+ a_Name %+ _pp16
+%define BS3_MODE_NM_032h(a_Name)        _ %+ a_Name %+ _pp16_32
+%define BS3_MODE_NM_038h(a_Name)        _ %+ a_Name %+ _pp16_v86
+%define BS3_MODE_NM_042h(a_Name)        _ %+ a_Name %+ _pp32
+%define BS3_MODE_NM_041h(a_Name)        _ %+ a_Name %+ _pp32_16
+%define BS3_MODE_NM_048h(a_Name)        _ %+ a_Name %+ _ppv86
+%define BS3_MODE_NM_051h(a_Name)        _ %+ a_Name %+ _pae16
+%define BS3_MODE_NM_052h(a_Name)        _ %+ a_Name %+ _pae16_32
+%define BS3_MODE_NM_058h(a_Name)        _ %+ a_Name %+ _pae16_v86
+%define BS3_MODE_NM_062h(a_Name)        _ %+ a_Name %+ _pae32
+%define BS3_MODE_NM_061h(a_Name)        _ %+ a_Name %+ _pae32_16
+%define BS3_MODE_NM_068h(a_Name)        _ %+ a_Name %+ _paev86
+%define BS3_MODE_NM_071h(a_Name)        _ %+ a_Name %+ _lm16
+%define BS3_MODE_NM_072h(a_Name)        _ %+ a_Name %+ _lm32
+%define BS3_MODE_NM_074h(a_Name)        _ %+ a_Name %+ _lm64
+
+%define BS3_MODE_LNAME_001h             rm
+%define BS3_MODE_LNAME_011h             pe16
+%define BS3_MODE_LNAME_012h             pe16_32
+%define BS3_MODE_LNAME_018h             pe16_v86
+%define BS3_MODE_LNAME_022h             pe32
+%define BS3_MODE_LNAME_021h             pe32_16
+%define BS3_MODE_LNAME_028h             pev86
+%define BS3_MODE_LNAME_031h             pp16
+%define BS3_MODE_LNAME_032h             pp16_32
+%define BS3_MODE_LNAME_038h             pp16_v86
+%define BS3_MODE_LNAME_042h             pp32
+%define BS3_MODE_LNAME_041h             pp32_16
+%define BS3_MODE_LNAME_048h             ppv86
+%define BS3_MODE_LNAME_051h             pae16
+%define BS3_MODE_LNAME_052h             pae16_32
+%define BS3_MODE_LNAME_058h             pae16_v86
+%define BS3_MODE_LNAME_062h             pae32
+%define BS3_MODE_LNAME_061h             pae32_16
+%define BS3_MODE_LNAME_068h             paev86
+%define BS3_MODE_LNAME_071h             lm16
+%define BS3_MODE_LNAME_072h             lm32
+%define BS3_MODE_LNAME_074h             lm64
+
+%define BS3_MODE_UNAME_001h             RM
+%define BS3_MODE_UNAME_011h             PE16
+%define BS3_MODE_UNAME_012h             PE16_32
+%define BS3_MODE_UNAME_018h             PE16_V86
+%define BS3_MODE_UNAME_022h             PE32
+%define BS3_MODE_UNAME_021h             PE32_16
+%define BS3_MODE_UNAME_028h             PEV86
+%define BS3_MODE_UNAME_031h             PP16
+%define BS3_MODE_UNAME_032h             PP16_32
+%define BS3_MODE_UNAME_038h             PP16_V86
+%define BS3_MODE_UNAME_042h             PP32
+%define BS3_MODE_UNAME_041h             PP32_16
+%define BS3_MODE_UNAME_048h             PPV86
+%define BS3_MODE_UNAME_051h             PAE16
+%define BS3_MODE_UNAME_052h             PAE16_32
+%define BS3_MODE_UNAME_058h             PAE16_V86
+%define BS3_MODE_UNAME_062h             PAE32
+%define BS3_MODE_UNAME_061h             PAE32_16
+%define BS3_MODE_UNAME_068h             PAEV86
+%define BS3_MODE_UNAME_071h             LM16
+%define BS3_MODE_UNAME_072h             LM32
+%define BS3_MODE_UNAME_074h             LM64
+
+%define BS3_MODE_UNDERSCORE_001h        _
+%define BS3_MODE_UNDERSCORE_011h        _
+%define BS3_MODE_UNDERSCORE_012h        _
+%define BS3_MODE_UNDERSCORE_018h        _
+%define BS3_MODE_UNDERSCORE_022h        _
+%define BS3_MODE_UNDERSCORE_021h        _
+%define BS3_MODE_UNDERSCORE_028h        _
+%define BS3_MODE_UNDERSCORE_031h        _
+%define BS3_MODE_UNDERSCORE_032h        _
+%define BS3_MODE_UNDERSCORE_038h        _
+%define BS3_MODE_UNDERSCORE_042h        _
+%define BS3_MODE_UNDERSCORE_041h        _
+%define BS3_MODE_UNDERSCORE_048h        _
+%define BS3_MODE_UNDERSCORE_051h        _
+%define BS3_MODE_UNDERSCORE_052h        _
+%define BS3_MODE_UNDERSCORE_058h        _
+%define BS3_MODE_UNDERSCORE_062h        _
+%define BS3_MODE_UNDERSCORE_061h        _
+%define BS3_MODE_UNDERSCORE_068h        _
+%define BS3_MODE_UNDERSCORE_071h        _
+%define BS3_MODE_UNDERSCORE_072h        _
+%define BS3_MODE_UNDERSCORE_074h        _
+
+%define BS3_MODE_CNAME_001h             c16
+%define BS3_MODE_CNAME_011h             c16
+%define BS3_MODE_CNAME_012h             c32
+%define BS3_MODE_CNAME_018h             c16
+%define BS3_MODE_CNAME_022h             c32
+%define BS3_MODE_CNAME_021h             c16
+%define BS3_MODE_CNAME_028h             c16
+%define BS3_MODE_CNAME_031h             c16
+%define BS3_MODE_CNAME_032h             c32
+%define BS3_MODE_CNAME_038h             c16
+%define BS3_MODE_CNAME_042h             c32
+%define BS3_MODE_CNAME_041h             c16
+%define BS3_MODE_CNAME_048h             c16
+%define BS3_MODE_CNAME_051h             c16
+%define BS3_MODE_CNAME_052h             c32
+%define BS3_MODE_CNAME_058h             c16
+%define BS3_MODE_CNAME_062h             c32
+%define BS3_MODE_CNAME_061h             c16
+%define BS3_MODE_CNAME_068h             c16
+%define BS3_MODE_CNAME_071h             c16
+%define BS3_MODE_CNAME_072h             c32
+%define BS3_MODE_CNAME_074h             c64
+;; @}
+
+;; @name For getting the ring-0 mode for v86 modes: %[BS3_MODE_R0_NM_001h %+ TMPL_MODE](Bs3SwitchToRM)
+;; @{
+%define BS3_MODE_R0_NM_001h(a_Name)     _ %+ a_Name %+ _rm
+%define BS3_MODE_R0_NM_011h(a_Name)     _ %+ a_Name %+ _pe16
+%define BS3_MODE_R0_NM_012h(a_Name)     _ %+ a_Name %+ _pe16_32
+%define BS3_MODE_R0_NM_018h(a_Name)     _ %+ a_Name %+ _pe16
+%define BS3_MODE_R0_NM_022h(a_Name)     _ %+ a_Name %+ _pe32
+%define BS3_MODE_R0_NM_021h(a_Name)     _ %+ a_Name %+ _pe32_16
+%define BS3_MODE_R0_NM_028h(a_Name)     _ %+ a_Name %+ _pe32_16
+%define BS3_MODE_R0_NM_031h(a_Name)     _ %+ a_Name %+ _pp16
+%define BS3_MODE_R0_NM_032h(a_Name)     _ %+ a_Name %+ _pp16_32
+%define BS3_MODE_R0_NM_038h(a_Name)     _ %+ a_Name %+ _pp16
+%define BS3_MODE_R0_NM_042h(a_Name)     _ %+ a_Name %+ _pp32
+%define BS3_MODE_R0_NM_041h(a_Name)     _ %+ a_Name %+ _pp32_16
+%define BS3_MODE_R0_NM_048h(a_Name)     _ %+ a_Name %+ _pp32_16
+%define BS3_MODE_R0_NM_051h(a_Name)     _ %+ a_Name %+ _pae16
+%define BS3_MODE_R0_NM_052h(a_Name)     _ %+ a_Name %+ _pae16_32
+%define BS3_MODE_R0_NM_058h(a_Name)     _ %+ a_Name %+ _pae16
+%define BS3_MODE_R0_NM_062h(a_Name)     _ %+ a_Name %+ _pae32
+%define BS3_MODE_R0_NM_061h(a_Name)     _ %+ a_Name %+ _pae32_16
+%define BS3_MODE_R0_NM_068h(a_Name)     _ %+ a_Name %+ _pae32_16
+%define BS3_MODE_R0_NM_071h(a_Name)     _ %+ a_Name %+ _lm16
+%define BS3_MODE_R0_NM_072h(a_Name)     _ %+ a_Name %+ _lm32
+%define BS3_MODE_R0_NM_074h(a_Name)     _ %+ a_Name %+ _lm64
+;; @}
+
+
+;;
+; Includes the file %1 with TMPL_MODE set to all possible value.
+; @param 1      Double quoted include file name.
+%macro BS3_INSTANTIATE_TEMPLATE_WITH_WEIRD_ONES 1
+ %define BS3_INSTANTIATING_MODE
+ %define BS3_INSTANTIATING_ALL_MODES
+
+ %define TMPL_MODE BS3_MODE_RM
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PE16
+ %include %1
+ %define TMPL_MODE BS3_MODE_PE16_32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PE16_V86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PE32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PE32_16
+ %include %1
+ %define TMPL_MODE BS3_MODE_PEV86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PP16
+ %include %1
+ %define TMPL_MODE BS3_MODE_PP16_32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PP16_V86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PP32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PP32_16
+ %include %1
+ %define TMPL_MODE BS3_MODE_PPV86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PAE16
+ %include %1
+ %define TMPL_MODE BS3_MODE_PAE16_32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PAE16_V86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PAE32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PAE32_16
+ %include %1
+ %define TMPL_MODE BS3_MODE_PAEV86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_LM16
+ %include %1
+ %define TMPL_MODE BS3_MODE_LM32
+ %include %1
+ %define TMPL_MODE BS3_MODE_LM64
+ %include %1
+
+ %undef BS3_INSTANTIATING_MODE
+ %undef BS3_INSTANTIATING_ALL_MODES
+%endmacro
+
+
+;;
+; Includes the file %1 with TMPL_MODE set to all but the "weird" value.
+; @param 1      Double quoted include file name.
+%macro BS3_INSTANTIATE_TEMPLATE_ESSENTIALS 1
+ %define BS3_INSTANTIATING_MODE
+ %define BS3_INSTANTIATING_ESSENTIAL_MODES
+
+ %define TMPL_MODE BS3_MODE_RM
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PE16
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PE32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PEV86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PP16
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PP32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PPV86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PAE16
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_PAE32
+ %include %1
+ %define TMPL_MODE BS3_MODE_PAEV86
+ %include %1
+
+ %define TMPL_MODE BS3_MODE_LM16
+ %include %1
+ %define TMPL_MODE BS3_MODE_LM32
+ %include %1
+ %define TMPL_MODE BS3_MODE_LM64
+ %include %1
+
+ %undef  BS3_INSTANTIATING_MODE
+ %undef  BS3_INSTANTIATING_ESSENTIAL_MODES
+%endmacro
+
+;;
+; Includes the file %1 with TMPL_MODE set to a 16-bit, a 32-bit and a 64-bit value.
+; @param 1      Double quoted include file name.
+%macro BS3_INSTANTIATE_COMMON_TEMPLATE 1
+ %define BS3_INSTANTIATING_CMN
+
+ %define TMPL_MODE BS3_MODE_RM
+ %include %1
+ %define TMPL_MODE BS3_MODE_PE32
+ %include %1
+ %define TMPL_MODE BS3_MODE_LM64
+ %include %1
+
+ %undef  BS3_INSTANTIATING_CMN
+%endmacro
+
+
+;; @name Static Memory Allocation
+; @{
+;; The flat load address for the code after the bootsector.
+%define BS3_ADDR_LOAD           010000h
+;; Where we save the boot registers during init.
+; Located right before the code.
+%define BS3_ADDR_REG_SAVE       (BS3_ADDR_LOAD - BS3REGCTX_size - 8)
+;; Where the stack starts (initial RSP value).
+; Located 16 bytes (assumed by boot sector) before the saved registers. SS.BASE=0.
+%define BS3_ADDR_STACK          (BS3_ADDR_REG_SAVE - 16)
+;; The ring-0 stack (8KB) for ring transitions.
+%define BS3_ADDR_STACK_R0       006000h
+;; The ring-1 stack (8KB) for ring transitions.
+%define BS3_ADDR_STACK_R1       004000h
+;; The ring-2 stack (8KB) for ring transitions.
+%define BS3_ADDR_STACK_R2       002000h
+;; IST1 ring-0 stack for long mode (4KB), used for double faults elsewhere.
+%define BS3_ADDR_STACK_R0_IST1  009000h
+;; IST2 ring-0 stack for long mode (3KB), used for spare 0 stack elsewhere.
+%define BS3_ADDR_STACK_R0_IST2  008000h
+;; IST3 ring-0 stack for long mode (1KB).
+%define BS3_ADDR_STACK_R0_IST3  007400h
+;; IST4 ring-0 stack for long mode (1KB), used for spare 1 stack elsewhere.
+%define BS3_ADDR_STACK_R0_IST4  007000h
+;; IST5 ring-0 stack for long mode (1KB).
+%define BS3_ADDR_STACK_R0_IST5  006c00h
+;; IST6 ring-0 stack for long mode (1KB).
+%define BS3_ADDR_STACK_R0_IST6  006800h
+;; IST7 ring-0 stack for long mode (1KB).
+%define BS3_ADDR_STACK_R0_IST7  006400h
+
+;; The base address of the BS3TEXT16 segment (same as BS3_LOAD_ADDR).
+;; @sa BS3_SEL_TEXT16
+%define BS3_ADDR_BS3TEXT16      010000h
+;; The base address of the BS3SYSTEM16 segment.
+;; @sa BS3_SEL_SYSTEM16
+%define BS3_ADDR_BS3SYSTEM16    020000h
+;; The base address of the BS3DATA16/BS3KIT_GRPNM_DATA16 segment.
+;; @sa BS3_SEL_DATA16
+%define BS3_ADDR_BS3DATA16      029000h
+;; @}
+
+
+;;
+; BS3 register context.  Used by traps and such.
+;
+struc BS3REGCTX
+        .rax        resq 1              ; BS3REG      rax;                    /**< 0x00  */
+        .rcx        resq 1              ; BS3REG      rcx;                    /**< 0x08  */
+        .rdx        resq 1              ; BS3REG      rdx;                    /**< 0x10  */
+        .rbx        resq 1              ; BS3REG      rbx;                    /**< 0x18  */
+        .rsp        resq 1              ; BS3REG      rsp;                    /**< 0x20  */
+        .rbp        resq 1              ; BS3REG      rbp;                    /**< 0x28  */
+        .rsi        resq 1              ; BS3REG      rsi;                    /**< 0x30  */
+        .rdi        resq 1              ; BS3REG      rdi;                    /**< 0x38  */
+        .r8         resq 1              ; BS3REG      r8;                     /**< 0x40  */
+        .r9         resq 1              ; BS3REG      r9;                     /**< 0x48  */
+        .r10        resq 1              ; BS3REG      r10;                    /**< 0x50  */
+        .r11        resq 1              ; BS3REG      r11;                    /**< 0x58  */
+        .r12        resq 1              ; BS3REG      r12;                    /**< 0x60  */
+        .r13        resq 1              ; BS3REG      r13;                    /**< 0x68  */
+        .r14        resq 1              ; BS3REG      r14;                    /**< 0x70  */
+        .r15        resq 1              ; BS3REG      r15;                    /**< 0x78  */
+        .rflags     resq 1              ; BS3REG      rflags;                 /**< 0x80  */
+        .rip        resq 1              ; BS3REG      rip;                    /**< 0x88  */
+        .cs         resw 1              ; uint16_t    cs;                     /**< 0x90  */
+        .ds         resw 1              ; uint16_t    ds;                     /**< 0x92  */
+        .es         resw 1              ; uint16_t    es;                     /**< 0x94  */
+        .fs         resw 1              ; uint16_t    fs;                     /**< 0x96  */
+        .gs         resw 1              ; uint16_t    gs;                     /**< 0x98  */
+        .ss         resw 1              ; uint16_t    ss;                     /**< 0x9a  */
+        .tr         resw 1              ; uint16_t    tr;                     /**< 0x9c  */
+        .ldtr       resw 1              ; uint16_t    ldtr;                   /**< 0x9e  */
+        .bMode      resb 1              ; uint8_t     bMode;                  /**< 0xa0:  BS3_MODE_XXX. */
+        .bCpl       resb 1              ; uint8_t     bCpl;                   /**< 0xa1: 0-3, 0 is used for real mode. */
+        .fbFlags    resb 1              ; uint8_t     fbFlags;                /**< 0xa2: BS3REG_CTX_F_XXX  */
+        .abPadding  resb 5              ; uint8_t     abPadding[5];           /**< 0xa4  */
+        .cr0        resq 1              ; BS3REG      cr0;                    /**< 0xa8  */
+        .cr2        resq 1              ; BS3REG      cr2;                    /**< 0xb0  */
+        .cr3        resq 1              ; BS3REG      cr3;                    /**< 0xb8  */
+        .cr4        resq 1              ; BS3REG      cr4;                    /**< 0xc0  */
+        .uUnused    resq 1              ; BS3REG      uUnused;                /**< 0xc8  */
+endstruc
+AssertCompileSize(BS3REGCTX, 0xd0)
+
+;; @name BS3REG_CTX_F_XXX - BS3REGCTX::fbFlags masks.
+; @{
+;; The CR0 is MSW (only low 16-bit). */
+%define BS3REG_CTX_F_NO_CR0_IS_MSW      0x01
+;; No CR2 and CR3 values.  Not in CPL 0 or CPU too old for CR2 & CR3.
+%define BS3REG_CTX_F_NO_CR2_CR3         0x02
+;; No CR4 value. The CPU is too old for CR4.
+%define BS3REG_CTX_F_NO_CR4             0x04
+;; No TR and LDTR values.  Context gathered in real mode or v8086 mode.
+%define BS3REG_CTX_F_NO_TR_LDTR         0x08
+;; The context doesn't have valid values for AMD64 GPR extensions.
+%define BS3REG_CTX_F_NO_AMD64           0x10
+;; @}
+
+
+;; @name Flags for Bs3RegCtxRestore
+; @{
+;; Skip restoring the CRx registers.
+%define BS3REGCTXRESTORE_F_SKIP_CRX         1
+;; Sets g_fBs3TrapNoV86Assist.
+%define BS3REGCTXRESTORE_F_NO_V86_ASSIST    2
+;; @}
+
+
+;;
+; BS3 extended register context (FPU, SSE, AVX, ++)
+;
+struc BS3EXTCTX
+        .u16Magic       resw 1          ; uint16_t            u16Magic;
+        .cb             resw 1          ; uint16_t            cb;
+        .enmMethod      resb 1          ; uint8_t             enmMethod;
+        alignb           8
+        .fXcr0Nominal   resq 1          ; uint64_t            fXcr0Nominal;
+        .fXcr0Saved     resq 1          ; uint64_t            fXcr0Saved;
+        alignb           64
+        .Ctx            resb 512
+endstruc
+%define BS3EXTCTXMETHOD_ANCIENT     1
+%define BS3EXTCTXMETHOD_FXSAVE      2
+%define BS3EXTCTXMETHOD_XSAVE       3
+
+;;
+; BS3 Trap Frame.
+;
+struc BS3TRAPFRAME
+        .bXcpt          resb 1
+        .cbIretFrame    resb 1
+        .uHandlerCs     resw 1
+        .uHandlerSs     resw 1
+        .usAlignment    resw 1
+        .uHandlerRsp    resq 1
+        .fHandlerRfl    resq 1
+        .uErrCd         resq 1
+        .Ctx            resb BS3REGCTX_size
+endstruc
+AssertCompileSize(BS3TRAPFRAME, 0x20 + 0xd0)
+
+;;
+; Trap record.
+;
+struc BS3TRAPREC
+        ;; The trap location relative to the base address given at
+        ; registration time.
+        .offWhere               resd 1
+        ;; What to add to .offWhere to calculate the resume address.
+        .offResumeAddend        resb 1
+        ;; The trap number.
+        .u8TrapNo               resb 1
+        ;; The error code if the trap takes one.
+        .u16ErrCd               resw 1
+endstruc
+
+;; The size shift.
+%define BS3TRAPREC_SIZE_SHIFT   3
+
+
+;; The system call vector.
+%define BS3_TRAP_SYSCALL            20h
+
+;; @name System call numbers (ax)
+;; @note Pointers are always passed in cx:xDI.
+;; @{
+;; Print char (cl).
+%define BS3_SYSCALL_PRINT_CHR       0001h
+;; Print string (pointer in cx:xDI, length in xDX).
+%define BS3_SYSCALL_PRINT_STR       0002h
+;; Switch to ring-0.
+%define BS3_SYSCALL_TO_RING0        0003h
+;; Switch to ring-1.
+%define BS3_SYSCALL_TO_RING1        0004h
+;; Switch to ring-2.
+%define BS3_SYSCALL_TO_RING2        0005h
+;; Switch to ring-3.
+%define BS3_SYSCALL_TO_RING3        0006h
+;; Restore context (pointer in cx:xDI, flags in dx).
+%define BS3_SYSCALL_RESTORE_CTX     0007h
+;; Set DRx register (value in ESI, register number in dl).
+%define BS3_SYSCALL_SET_DRX         0008h
+;; GET DRx register (register number in dl, value returned in ax:dx).
+%define BS3_SYSCALL_GET_DRX         0009h
+;; Set CRx register (value in ESI, register number in dl).
+%define BS3_SYSCALL_SET_CRX         000ah
+;; Get CRx register (register number in dl, value returned in ax:dx).
+%define BS3_SYSCALL_GET_CRX         000bh
+;; Set the task register (value in dx). */
+%define BS3_SYSCALL_SET_TR          000ch
+;; Get the task register (value returned in ax).
+%define BS3_SYSCALL_GET_TR          000dh
+;; Set the LDT register (value in dx).
+%define BS3_SYSCALL_SET_LDTR        000eh
+;; Get the LDT register (value returned in ax).
+%define BS3_SYSCALL_GET_LDTR        000fh
+;; Set XCR0 register (value in edx:esi).
+%define BS3_SYSCALL_SET_XCR0        0010h
+;; Get XCR0 register (value returned in edx:eax).
+%define BS3_SYSCALL_GET_XCR0        0011h
+;; The last system call value.
+%define BS3_SYSCALL_LAST            BS3_SYSCALL_GET_XCR0
+;; @}
+
+
+
+;; @name BS3_SEL_XXX - GDT selectors
+;; @{
+
+%define BS3_SEL_LDT                 0010h ;;< The LDT selector (requires setting up).
+%define BS3_SEL_TSS16               0020h ;;< The 16-bit TSS selector.
+%define BS3_SEL_TSS16_DF            0028h ;;< The 16-bit TSS selector for double faults.
+%define BS3_SEL_TSS16_SPARE0        0030h ;;< The 16-bit TSS selector for testing.
+%define BS3_SEL_TSS16_SPARE1        0038h ;;< The 16-bit TSS selector for testing.
+%define BS3_SEL_TSS32               0040h ;;< The 32-bit TSS selector.
+%define BS3_SEL_TSS32_DF            0048h ;;< The 32-bit TSS selector for double faults.
+%define BS3_SEL_TSS32_SPARE0        0050h ;;< The 32-bit TSS selector for testing.
+%define BS3_SEL_TSS32_SPARE1        0058h ;;< The 32-bit TSS selector for testing.
+%define BS3_SEL_TSS32_IOBP_IRB      0060h ;;< The 32-bit TSS selector with I/O permission and interrupt redirection bitmaps.
+%define BS3_SEL_TSS32_IRB           0068h ;;< The 32-bit TSS selector with only interrupt redirection bitmap (IOPB stripped by limit).
+%define BS3_SEL_TSS64               0070h ;;< The 64-bit TSS selector.
+%define BS3_SEL_TSS64_SPARE0        0080h ;;< The 64-bit TSS selector.
+%define BS3_SEL_TSS64_SPARE1        0090h ;;< The 64-bit TSS selector.
+%define BS3_SEL_TSS64_IOBP          00a0h ;;< The 64-bit TSS selector.
+
+%define BS3_SEL_RMTEXT16_CS         00e0h ;;< Conforming code selector for accessing the BS3RMTEXT16 segment. Runtime config.
+%define BS3_SEL_X0TEXT16_CS         00e8h ;;< Conforming code selector for accessing the BS3X0TEXT16 segment. Runtime config.
+%define BS3_SEL_X1TEXT16_CS         00f0h ;;< Conforming code selector for accessing the BS3X1TEXT16 segment. Runtime config.
+%define BS3_SEL_VMMDEV_MMIO16       00f8h ;;< Selector for accessing the VMMDev MMIO segment at 0100000h from 16-bit code.
+
+%define BS3_SEL_RING_SHIFT          8     ;;< For the formula: BS3_SEL_R0_XXX + ((cs & 3) << BS3_SEL_RING_SHIFT)
+
+%define BS3_SEL_R0_FIRST            0100h ;;< The first selector in the ring-0 block.
+%define BS3_SEL_R0_CS16             0100h ;;< ring-0: 16-bit code selector,  base 0x10000.
+%define BS3_SEL_R0_DS16             0108h ;;< ring-0: 16-bit data selector,  base 0x23000.
+%define BS3_SEL_R0_SS16             0110h ;;< ring-0: 16-bit stack selector, base 0x00000.
+%define BS3_SEL_R0_CS32             0118h ;;< ring-0: 32-bit flat code selector.
+%define BS3_SEL_R0_DS32             0120h ;;< ring-0: 32-bit flat data selector.
+%define BS3_SEL_R0_SS32             0128h ;;< ring-0: 32-bit flat stack selector.
+%define BS3_SEL_R0_CS64             0130h ;;< ring-0: 64-bit flat code selector.
+%define BS3_SEL_R0_DS64             0138h ;;< ring-0: 64-bit flat data & stack selector.
+%define BS3_SEL_R0_CS16_EO          0140h ;;< ring-0: 16-bit execute-only code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R0_CS16_CNF         0148h ;;< ring-0: 16-bit conforming code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R0_CS16_CNF_EO      0150h ;;< ring-0: 16-bit execute-only conforming code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R0_CS32_EO          0158h ;;< ring-0: 32-bit execute-only code selector, not accessed, flat.
+%define BS3_SEL_R0_CS32_CNF         0160h ;;< ring-0: 32-bit conforming code selector, not accessed, flat.
+%define BS3_SEL_R0_CS32_CNF_EO      0168h ;;< ring-0: 32-bit execute-only conforming code selector, not accessed, flat.
+%define BS3_SEL_R0_CS64_EO          0170h ;;< ring-0: 64-bit execute-only code selector, not accessed, flat.
+%define BS3_SEL_R0_CS64_CNF         0178h ;;< ring-0: 64-bit conforming code selector, not accessed, flat.
+%define BS3_SEL_R0_CS64_CNF_EO      0180h ;;< ring-0: 64-bit execute-only conforming code selector, not accessed, flat.
+
+%define BS3_SEL_R1_FIRST            0200h ;;< The first selector in the ring-1 block.
+%define BS3_SEL_R1_CS16             0200h ;;< ring-1: 16-bit code selector,  base 0x10000.
+%define BS3_SEL_R1_DS16             0208h ;;< ring-1: 16-bit data selector,  base 0x23000.
+%define BS3_SEL_R1_SS16             0210h ;;< ring-1: 16-bit stack selector, base 0x00000.
+%define BS3_SEL_R1_CS32             0218h ;;< ring-1: 32-bit flat code selector.
+%define BS3_SEL_R1_DS32             0220h ;;< ring-1: 32-bit flat data selector.
+%define BS3_SEL_R1_SS32             0228h ;;< ring-1: 32-bit flat stack selector.
+%define BS3_SEL_R1_CS64             0230h ;;< ring-1: 64-bit flat code selector.
+%define BS3_SEL_R1_DS64             0238h ;;< ring-1: 64-bit flat data & stack selector.
+%define BS3_SEL_R1_CS16_EO          0240h ;;< ring-1: 16-bit execute-only code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R1_CS16_CNF         0248h ;;< ring-1: 16-bit conforming code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R1_CS16_CNF_EO      0250h ;;< ring-1: 16-bit execute-only conforming code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R1_CS32_EO          0258h ;;< ring-1: 32-bit execute-only code selector, not accessed, flat.
+%define BS3_SEL_R1_CS32_CNF         0260h ;;< ring-1: 32-bit conforming code selector, not accessed, flat.
+%define BS3_SEL_R1_CS32_CNF_EO      0268h ;;< ring-1: 32-bit execute-only conforming code selector, not accessed, flat.
+%define BS3_SEL_R1_CS64_EO          0270h ;;< ring-1: 64-bit execute-only code selector, not accessed, flat.
+%define BS3_SEL_R1_CS64_CNF         0278h ;;< ring-1: 64-bit conforming code selector, not accessed, flat.
+%define BS3_SEL_R1_CS64_CNF_EO      0280h ;;< ring-1: 64-bit execute-only conforming code selector, not accessed, flat.
+
+%define BS3_SEL_R2_FIRST            0300h ;;< The first selector in the ring-2 block.
+%define BS3_SEL_R2_CS16             0300h ;;< ring-2: 16-bit code selector,  base 0x10000.
+%define BS3_SEL_R2_DS16             0308h ;;< ring-2: 16-bit data selector,  base 0x23000.
+%define BS3_SEL_R2_SS16             0310h ;;< ring-2: 16-bit stack selector, base 0x00000.
+%define BS3_SEL_R2_CS32             0318h ;;< ring-2: 32-bit flat code selector.
+%define BS3_SEL_R2_DS32             0320h ;;< ring-2: 32-bit flat data selector.
+%define BS3_SEL_R2_SS32             0328h ;;< ring-2: 32-bit flat stack selector.
+%define BS3_SEL_R2_CS64             0330h ;;< ring-2: 64-bit flat code selector.
+%define BS3_SEL_R2_DS64             0338h ;;< ring-2: 64-bit flat data & stack selector.
+%define BS3_SEL_R2_CS16_EO          0340h ;;< ring-2: 16-bit execute-only code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R2_CS16_CNF         0348h ;;< ring-2: 16-bit conforming code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R2_CS16_CNF_EO      0350h ;;< ring-2: 16-bit execute-only conforming code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R2_CS32_EO          0358h ;;< ring-2: 32-bit execute-only code selector, not accessed, flat.
+%define BS3_SEL_R2_CS32_CNF         0360h ;;< ring-2: 32-bit conforming code selector, not accessed, flat.
+%define BS3_SEL_R2_CS32_CNF_EO      0368h ;;< ring-2: 32-bit execute-only conforming code selector, not accessed, flat.
+%define BS3_SEL_R2_CS64_EO          0370h ;;< ring-2: 64-bit execute-only code selector, not accessed, flat.
+%define BS3_SEL_R2_CS64_CNF         0378h ;;< ring-2: 64-bit conforming code selector, not accessed, flat.
+%define BS3_SEL_R2_CS64_CNF_EO      0380h ;;< ring-2: 64-bit execute-only conforming code selector, not accessed, flat.
+
+%define BS3_SEL_R3_FIRST            0400h ;;< The first selector in the ring-3 block.
+%define BS3_SEL_R3_CS16             0400h ;;< ring-3: 16-bit code selector,  base 0x10000.
+%define BS3_SEL_R3_DS16             0408h ;;< ring-3: 16-bit data selector,  base 0x23000.
+%define BS3_SEL_R3_SS16             0410h ;;< ring-3: 16-bit stack selector, base 0x00000.
+%define BS3_SEL_R3_CS32             0418h ;;< ring-3: 32-bit flat code selector.
+%define BS3_SEL_R3_DS32             0420h ;;< ring-3: 32-bit flat data selector.
+%define BS3_SEL_R3_SS32             0428h ;;< ring-3: 32-bit flat stack selector.
+%define BS3_SEL_R3_CS64             0430h ;;< ring-3: 64-bit flat code selector.
+%define BS3_SEL_R3_DS64             0438h ;;< ring-3: 64-bit flat data & stack selector.
+%define BS3_SEL_R3_CS16_EO          0440h ;;< ring-3: 16-bit execute-only code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R3_CS16_CNF         0448h ;;< ring-3: 16-bit conforming code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R3_CS16_CNF_EO      0450h ;;< ring-3: 16-bit execute-only conforming code selector, not accessed, 0xfffe limit, CS16 base.
+%define BS3_SEL_R3_CS32_EO          0458h ;;< ring-3: 32-bit execute-only code selector, not accessed, flat.
+%define BS3_SEL_R3_CS32_CNF         0460h ;;< ring-3: 32-bit conforming code selector, not accessed, flat.
+%define BS3_SEL_R3_CS32_CNF_EO      0468h ;;< ring-3: 32-bit execute-only conforming code selector, not accessed, flat.
+%define BS3_SEL_R3_CS64_EO          0470h ;;< ring-3: 64-bit execute-only code selector, not accessed, flat.
+%define BS3_SEL_R3_CS64_CNF         0478h ;;< ring-3: 64-bit conforming code selector, not accessed, flat.
+%define BS3_SEL_R3_CS64_CNF_EO      0480h ;;< ring-3: 64-bit execute-only conforming code selector, not accessed, flat.
+
+%define BS3_SEL_SPARE_FIRST         0500h ;;< The first selector in the spare block
+%define BS3_SEL_SPARE_00            0500h ;;< Spare selector number 00h.
+%define BS3_SEL_SPARE_01            0508h ;;< Spare selector number 01h.
+%define BS3_SEL_SPARE_02            0510h ;;< Spare selector number 02h.
+%define BS3_SEL_SPARE_03            0518h ;;< Spare selector number 03h.
+%define BS3_SEL_SPARE_04            0520h ;;< Spare selector number 04h.
+%define BS3_SEL_SPARE_05            0528h ;;< Spare selector number 05h.
+%define BS3_SEL_SPARE_06            0530h ;;< Spare selector number 06h.
+%define BS3_SEL_SPARE_07            0538h ;;< Spare selector number 07h.
+%define BS3_SEL_SPARE_08            0540h ;;< Spare selector number 08h.
+%define BS3_SEL_SPARE_09            0548h ;;< Spare selector number 09h.
+%define BS3_SEL_SPARE_0a            0550h ;;< Spare selector number 0ah.
+%define BS3_SEL_SPARE_0b            0558h ;;< Spare selector number 0bh.
+%define BS3_SEL_SPARE_0c            0560h ;;< Spare selector number 0ch.
+%define BS3_SEL_SPARE_0d            0568h ;;< Spare selector number 0dh.
+%define BS3_SEL_SPARE_0e            0570h ;;< Spare selector number 0eh.
+%define BS3_SEL_SPARE_0f            0578h ;;< Spare selector number 0fh.
+%define BS3_SEL_SPARE_10            0580h ;;< Spare selector number 10h.
+%define BS3_SEL_SPARE_11            0588h ;;< Spare selector number 11h.
+%define BS3_SEL_SPARE_12            0590h ;;< Spare selector number 12h.
+%define BS3_SEL_SPARE_13            0598h ;;< Spare selector number 13h.
+%define BS3_SEL_SPARE_14            05a0h ;;< Spare selector number 14h.
+%define BS3_SEL_SPARE_15            05a8h ;;< Spare selector number 15h.
+%define BS3_SEL_SPARE_16            05b0h ;;< Spare selector number 16h.
+%define BS3_SEL_SPARE_17            05b8h ;;< Spare selector number 17h.
+%define BS3_SEL_SPARE_18            05c0h ;;< Spare selector number 18h.
+%define BS3_SEL_SPARE_19            05c8h ;;< Spare selector number 19h.
+%define BS3_SEL_SPARE_1a            05d0h ;;< Spare selector number 1ah.
+%define BS3_SEL_SPARE_1b            05d8h ;;< Spare selector number 1bh.
+%define BS3_SEL_SPARE_1c            05e0h ;;< Spare selector number 1ch.
+%define BS3_SEL_SPARE_1d            05e8h ;;< Spare selector number 1dh.
+%define BS3_SEL_SPARE_1e            05f0h ;;< Spare selector number 1eh.
+%define BS3_SEL_SPARE_1f            05f8h ;;< Spare selector number 1fh.
+
+%define BS3_SEL_TILED               0600h  ;;< 16-bit data tiling: First - base=0x00000000, limit=64KB, DPL=3.
+%define BS3_SEL_TILED_LAST          0df8h  ;;< 16-bit data tiling: Last  - base=0x00ff0000, limit=64KB, DPL=3.
+%define BS3_SEL_TILED_AREA_SIZE     001000000h ;;< 16-bit data tiling: Size of addressable area, in bytes. (16 MB)
+
+%define BS3_SEL_FREE_PART1          0e00h ;;< Free selector space - part \%1.
+%define BS3_SEL_FREE_PART1_LAST     0ff8h ;;< Free selector space - part \%1, last entry.
+
+%define BS3_SEL_TEXT16              1000h ;;< The BS3TEXT16 selector.
+
+%define BS3_SEL_FREE_PART2          1008h ;;< Free selector space - part \#2.
+%define BS3_SEL_FREE_PART2_LAST     17f8h ;;< Free selector space - part \#2, last entry.
+
+%define BS3_SEL_TILED_R0            1800h ;;< 16-bit data/stack tiling: First - base=0x00000000, limit=64KB, DPL=0.
+%define BS3_SEL_TILED_R0_LAST       1ff8h ;;< 16-bit data/stack tiling: Last  - base=0x00ff0000, limit=64KB, DPL=0.
+
+%define BS3_SEL_SYSTEM16            2000h ;;< The BS3SYSTEM16 selector.
+
+%define BS3_SEL_FREE_PART3          2008h ;;< Free selector space - part \%3.
+%define BS3_SEL_FREE_PART3_LAST     28f8h ;;< Free selector space - part \%3, last entry.
+
+%define BS3_SEL_DATA16              2900h ;;< The BS3DATA16/BS3KIT_GRPNM_DATA16 selector.
+
+%define BS3_SEL_FREE_PART4          2908h ;;< Free selector space - part \#4.
+%define BS3_SEL_FREE_PART4_LAST     2f98h ;;< Free selector space - part \#4, last entry.
+
+%define BS3_SEL_PRE_TEST_PAGE_08    2fa0h ;;< Selector located 8 selectors before the test page.
+%define BS3_SEL_PRE_TEST_PAGE_07    2fa8h ;;< Selector located 7 selectors before the test page.
+%define BS3_SEL_PRE_TEST_PAGE_06    2fb0h ;;< Selector located 6 selectors before the test page.
+%define BS3_SEL_PRE_TEST_PAGE_05    2fb8h ;;< Selector located 5 selectors before the test page.
+%define BS3_SEL_PRE_TEST_PAGE_04    2fc0h ;;< Selector located 4 selectors before the test page.
+%define BS3_SEL_PRE_TEST_PAGE_03    2fc8h ;;< Selector located 3 selectors before the test page.
+%define BS3_SEL_PRE_TEST_PAGE_02    2fd0h ;;< Selector located 2 selectors before the test page.
+%define BS3_SEL_PRE_TEST_PAGE_01    2fd8h ;;< Selector located 1 selector  before the test page.
+%define BS3_SEL_TEST_PAGE           2fe0h ;;< Start of the test page intended for playing around with paging and GDT.
+%define BS3_SEL_TEST_PAGE_00        2fe0h ;;< Test page selector number 00h (convenience).
+%define BS3_SEL_TEST_PAGE_01        2fe8h ;;< Test page selector number 01h (convenience).
+%define BS3_SEL_TEST_PAGE_02        2ff0h ;;< Test page selector number 02h (convenience).
+%define BS3_SEL_TEST_PAGE_03        2ff8h ;;< Test page selector number 03h (convenience).
+%define BS3_SEL_TEST_PAGE_04        3000h ;;< Test page selector number 04h (convenience).
+%define BS3_SEL_TEST_PAGE_05        3008h ;;< Test page selector number 05h (convenience).
+%define BS3_SEL_TEST_PAGE_06        3010h ;;< Test page selector number 06h (convenience).
+%define BS3_SEL_TEST_PAGE_07        3018h ;;< Test page selector number 07h (convenience).
+%define BS3_SEL_TEST_PAGE_LAST      3fd0h ;;< The last selector in the spare page.
+
+%define BS3_SEL_GDT_LIMIT           3fd8h ;;< The GDT limit.
+
+;; @}
+
+
+;
+; Sanity checks.
+;
+%if BS3_ADDR_BS3TEXT16 != BS3_ADDR_LOAD
+ %error "BS3_ADDR_BS3TEXT16 and BS3_ADDR_LOAD are out of sync"
+%endif
+%if (BS3_ADDR_BS3TEXT16 / 16) != BS3_SEL_TEXT16
+ %error "BS3_ADDR_BS3TEXT16 and BS3_SEL_TEXT16 are out of sync"
+%endif
+%if (BS3_ADDR_BS3DATA16 / 16) != BS3_SEL_DATA16
+ %error "BS3_ADDR_BS3DATA16 and BS3_SEL_DATA16 are out of sync"
+%endif
+%if (BS3_ADDR_BS3SYSTEM16 / 16) != BS3_SEL_SYSTEM16
+ %error "BS3_ADDR_BS3SYSTEM16 and BS3_SEL_SYSTEM16 are out of sync"
+%endif
+
+
+;; @name BS3CPU_XXX - Bs3CpuDetect_mmm return value and g_bBs3CpuDetected.
+;; @{
+%define BS3CPU_8086                 0x0001
+%define BS3CPU_V20                  0x0002
+%define BS3CPU_80186                0x0003
+%define BS3CPU_80286                0x0004
+%define BS3CPU_80386                0x0005
+%define BS3CPU_80486                0x0006
+%define BS3CPU_Pentium              0x0007
+%define BS3CPU_PPro                 0x0008
+%define BS3CPU_PProOrNewer          0x0009
+%define BS3CPU_TYPE_MASK            0x00ff
+%define BS3CPU_F_CPUID              0x0100
+%define BS3CPU_F_CPUID_EXT_LEAVES   0x0200
+%define BS3CPU_F_PAE                0x0400
+%define BS3CPU_F_PAE_BIT            10
+%define BS3CPU_F_PSE                0x0800
+%define BS3CPU_F_PSE_BIT            11
+%define BS3CPU_F_LONG_MODE          0x1000
+%define BS3CPU_F_LONG_MODE_BIT      12
+%define BS3CPU_F_NX                 0x2000
+%define BS3CPU_F_NX_BIT             13
+;; @}
+
+%endif
+

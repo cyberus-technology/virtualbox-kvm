@@ -1,0 +1,87 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for VBoxGL OpenGL state tracker.
+#
+
+#
+# Copyright (C) 2018-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+DLLS       += VBoxGL
+DLLS.amd64 += VBoxGL-x86
+
+VBoxGL_TEMPLATE = VBoxMesa3DGuestR3DllMinVista
+VBoxGL_DEFS     = VBOXGL
+# -wd4005: '__useHeader' : redefinition
+VBOXGL_DISABLED_WARNINGS := -wd4005
+# -wd4204: nonstandard extension used: non-constant aggregate initializer
+# -wd4267: 'initializing': conversion from 'size_t' to 'unsigned int', possible loss of data
+# -wd4459: stw_device.h(102): warning C4459: declaration of 'stw_dev' hides global declaration
+# -wd4668: c99_compat.h(99): warning C4668: '__STDC_VERSION__' is not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
+VBOXGL_DISABLED_WARNINGS += -wd4204 -wd4267 -wd4459 -wd4668
+VBoxGL_CFLAGS   = $(VBOXGL_DISABLED_WARNINGS)
+VBoxGL_CXXFLAGS = $(VBOXGL_DISABLED_WARNINGS)
+VBoxGL_INCS     = \
+	$(VBOX_PATH_3D)/win/include \
+	$(VBOX_PATH_MESA)/include/GL \
+	$(VBOX_PATH_MESA)/src/gallium/frontends/wgl \
+	$(VBOX_PATH_MESA)/src/gallium/winsys/sw \
+	$(VBOX_PATH_MESA)/src/gallium/drivers \
+	$(PATH_ROOT)/src/VBox/Additions/WINNT/Graphics/Video \
+	$(PATH_ROOT)/src/VBox/Runtime/common/table \
+	$(VBOX_PATH_VMSVGA_INC) \
+	$(VBOX_GRAPHICS_INCS)
+VBoxGL_SOURCES  = \
+	$(VBOX_PATH_MESA)/src/gallium/targets/libgl-gdi/opengl32.def \
+	VBoxGL.rc
+VBoxGL_SOURCES += \
+	GaDrvEnvKMT.cpp \
+	VBoxGL.c
+VBoxGL_LIBS     = \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxWddmUmHlp$(VBOX_SUFF_LIB) \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxMesaGalliumAuxLib$(VBOX_SUFF_LIB) \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxMesaWglLib$(VBOX_SUFF_LIB) \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxMesaUtilLib$(VBOX_SUFF_LIB) \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxMesaLib$(VBOX_SUFF_LIB)
+
+if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+ VBoxGL_INSTTYPE       = none
+ VBoxGL_DEBUG_INSTTYPE = both
+endif
+
+#
+# VBoxGL-x86 - x86 version of VBoxGL built for amd64 build
+#
+VBoxGL-x86_EXTENDS      = VBoxGL
+VBoxGL-x86_BLD_TRG_ARCH = x86
+VBoxGL-x86_LIBS         = \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxWddmUmHlp-x86$(VBOX_SUFF_LIB) \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxMesaGalliumAuxLib-x86$(VBOX_SUFF_LIB) \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxMesaWglLib-x86$(VBOX_SUFF_LIB) \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxMesaUtilLib-x86$(VBOX_SUFF_LIB) \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxMesaLib-x86$(VBOX_SUFF_LIB)
+VBoxGL-x86_DEFS         = $(VBoxGL_DEFS) VBOX_WOW64
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

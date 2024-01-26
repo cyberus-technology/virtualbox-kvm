@@ -1,0 +1,655 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage cloud
+-->
+<!--
+    Copyright (C) 2018-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-cloud" lang="en">
+  <refentryinfo>
+    <title>VBoxManage cloud</title>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-cloud</refentrytitle>
+    <manvolnum>1</manvolnum>
+    <refmiscinfo class="manual">Oracle VM VirtualBox</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-cloud</refname>
+    <refpurpose>Управление облачными сущностями</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <!-- Cloud list -->
+    <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+    <cmdsynopsis id="synopsis-vboxmanage-cloudlist-instances">
+      <command>VBoxManage cloud</command>
+        <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+        <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+        <sbr/>
+        <arg choice="plain">list</arg>
+        <arg choice="plain">instances</arg>
+        <arg>--state=<replaceable>строка</replaceable></arg>
+        <arg>--compartment-id=<replaceable>строка</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudlist-images">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+      <sbr/>
+      <arg choice="plain">list</arg>
+      <arg choice="plain">images</arg>
+      <arg choice="req">--compartment-id=<replaceable>строка</replaceable></arg>
+      <arg>--state=<replaceable>строка</replaceable></arg>
+    </cmdsynopsis>
+
+    <!-- Cloud instance commands -->
+      <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-create" sepchar=" ">
+       <command moreinfo="none">VBoxManage cloud</command>
+       <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+       <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+       <sbr/>
+       <arg choice="plain">instance</arg>
+       <arg choice="plain">create</arg>
+       <arg choice="req">--domain-name=<replaceable>имя</replaceable></arg>
+       <group choice="req">
+           <arg choice="req">--image-id=<replaceable>id</replaceable></arg>
+           <arg choice="req">--boot-volume-id=<replaceable>id</replaceable></arg>
+       </group>
+       <arg choice="req">--display-name=<replaceable>имя</replaceable></arg>
+       <arg choice="req">--shape=<replaceable>тип</replaceable></arg>
+       <arg choice="req">--subnet=<replaceable>id</replaceable></arg>
+       <arg>--boot-disk-size=<replaceable>размер в ГБ</replaceable></arg>
+       <arg>--publicip=<replaceable>true/false</replaceable></arg>
+       <arg>--privateip=<replaceable>IP адрес</replaceable></arg>
+       <arg rep="repeat">--public-ssh-key=<replaceable>ключевая строка</replaceable></arg>
+       <arg>--launch-mode=<replaceable>NATIVE/EMULATED/PARAVIRTUALIZED</replaceable></arg>
+       <arg>--cloud-init-script-path=<replaceable>путь к скрипту</replaceable></arg>
+     </cmdsynopsis>
+     <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-info" sepchar=" ">
+       <command moreinfo="none">VBoxManage cloud</command>
+       <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+       <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+       <sbr/>
+       <arg choice="plain">instance</arg>
+       <arg choice="plain">info</arg>
+       <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+     </cmdsynopsis>
+     <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-terminate" sepchar=" ">
+       <command moreinfo="none">VBoxManage cloud</command>
+       <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+       <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+       <sbr/>
+       <arg choice="plain">instance</arg>
+       <arg choice="plain">terminate</arg>
+       <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+     </cmdsynopsis>
+     <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-start" sepchar=" ">
+       <command moreinfo="none">VBoxManage cloud</command>
+       <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+       <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+       <sbr/>
+       <arg choice="plain">instance</arg>
+       <arg choice="plain">start</arg>
+       <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+     </cmdsynopsis>
+     <cmdsynopsis id="synopsis-vboxmanage-cloudinstance-pause" sepchar=" ">
+       <command moreinfo="none">VBoxManage cloud</command>
+       <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+       <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+       <sbr/>
+       <arg choice="plain">instance</arg>
+       <arg choice="plain">pause</arg>
+       <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+     </cmdsynopsis>
+
+     <!-- Cloud image commands -->
+      <cmdsynopsis id="synopsis-vboxmanage-cloudimage-create" sepchar=" "> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+        <command>VBoxManage cloud</command>
+          <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+          <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+          <sbr/>
+          <arg choice="plain">image</arg>
+          <arg choice="plain">create</arg>
+          <arg choice="req">--display-name=<replaceable>имя</replaceable></arg>
+          <arg>--bucket-name=<replaceable>имя</replaceable></arg>
+          <arg>--object-name=<replaceable>имя</replaceable></arg>
+          <arg>--instance-id=<replaceable>уникальный id</replaceable></arg>
+      </cmdsynopsis>
+      <cmdsynopsis id="synopsis-vboxmanage-cloudimage-info" sepchar=" ">
+        <command>VBoxManage cloud</command>
+        <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+        <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+        <sbr/>
+        <arg choice="plain">image</arg>
+        <arg choice="plain">info</arg>
+        <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+      </cmdsynopsis>
+      <cmdsynopsis id="synopsis-vboxmanage-cloudimage-delete" sepchar=" ">
+        <command>VBoxManage cloud</command>
+        <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+        <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+        <sbr/>
+        <arg choice="plain">image</arg>
+        <arg choice="plain">delete</arg>
+        <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+      </cmdsynopsis>
+      <cmdsynopsis id="synopsis-vboxmanage-cloudimage-import" sepchar=" ">
+        <command>VBoxManage cloud</command>
+        <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+        <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+        <sbr/>
+        <arg choice="plain">image</arg>
+        <arg choice="plain">import</arg>
+        <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+        <arg>--bucket-name=<replaceable>имя</replaceable></arg>
+        <arg>--object-name=<replaceable>имя</replaceable></arg>
+      </cmdsynopsis>
+      <cmdsynopsis id="synopsis-vboxmanage-cloudimage-export" sepchar=" ">
+        <command>VBoxManage cloud</command>
+        <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+        <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+        <sbr/>
+        <arg choice="plain">image</arg>
+        <arg choice="plain">export</arg>
+        <arg choice="req">--id=<replaceable>уникальный id</replaceable></arg>
+        <arg choice="req">--display-name=<replaceable>имя</replaceable></arg>
+        <arg>--bucket-name=<replaceable>имя</replaceable></arg>
+        <arg>--object-name=<replaceable>имя</replaceable></arg>
+      </cmdsynopsis>
+
+      <!-- Cloud network commands -->
+    <cmdsynopsis id="synopsis-vboxmanage-cloud-network-setup"> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+      <sbr/>
+      <arg choice="plain">network setup</arg>
+      <arg choice="req">--local-gateway-iso=<replaceable>путь</replaceable></arg>
+      <arg>--gateway-os-name=<replaceable>строка</replaceable></arg>
+      <arg>--gateway-os-version=<replaceable>строка</replaceable></arg>
+      <arg>--gateway-shape=<replaceable>строка</replaceable></arg>
+      <arg>--tunnel-network-name=<replaceable>строка</replaceable></arg>
+      <arg>--tunnel-network-range=<replaceable>строка</replaceable></arg>
+      <arg>--guest-additions-iso=<replaceable>путь</replaceable></arg>
+      <arg>--proxy=<replaceable>строка</replaceable></arg>
+      <arg>--compartment-id=<replaceable>строка</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloud-network-create">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>имя</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>имя</replaceable></arg>
+      <sbr/>
+      <arg choice="plain">network create</arg>
+      <arg choice="req">--name=<replaceable>строка</replaceable></arg>
+      <arg choice="req">--network-id=<replaceable>строка</replaceable></arg>
+      <group>
+        <arg choice="plain">--enable</arg>
+        <arg choice="plain">--disable</arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloud-network-update">
+      <command>VBoxManage cloud network update</command>
+      <arg choice="req">--name=<replaceable>строка</replaceable></arg>
+      <arg>--network-id=<replaceable>строка</replaceable></arg>
+      <group>
+        <arg choice="plain">--enable</arg>
+        <arg choice="plain">--disable</arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloud-network-delete">
+      <command>VBoxManage cloud</command>
+      <arg choice="plain">network delete</arg>
+      <arg choice="req">--name=<replaceable>строка</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloud-network-info">
+      <command>VBoxManage cloud</command>
+      <arg choice="plain">network info</arg>
+      <arg choice="req">--name=<replaceable>строка</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+
+    <!-- Cloud commands common options  -->
+    <refsect2 id="vboxmanage-cloud-common-options">
+      <title>Общие параметры</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para>Слово "cloud" объединяет все команды, относящиеся к взаимодействию с облаком. Следующие
+        общие параметры необходимо разместить между "cloud" и последующими подкомандами:</para>
+      <variablelist>
+        <varlistentry>
+          <term>--provider=<replaceable>имя</replaceable></term>
+          <listitem><para>Короткое имя облачного провайдера.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--profile=<replaceable>имя</replaceable></term>
+          <listitem><para>Имя профиля облака. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <!-- Cloud list commands -->
+    <refsect2 id="vboxmanage-cloudlist-instances">
+      <title>cloud list instances</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Отображает список экземпляров указанной секции.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>--state<replaceable>"running/paused/terminated"</replaceable></term>
+          <listitem>
+            <para>Состояние облачного экземпляра. На данный момент возможны следующие состояния:
+              "running/paused/terminated". Если состояние не указано, возвращается список экземпляров
+              со всеми возможными состояниями.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--compartment-id</option></term>
+          <listitem>
+            <para>Секция - это логический контейнер, используемый для организации и изоляции
+              облачных ресурсов. У разных облачных провайдеров эта сущность называется по-разному.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudlist-images">
+      <title>cloud list images</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Отображает список образов для указанной секции.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>--state<replaceable>"available/disabled/deleted"</replaceable></term>
+          <listitem>
+            <para>Состояние облачного образа. На данный момент возможны следующие состояния:
+              "available/disabled/deleted". Если состояние не указано, возвращается список
+              образов со всеми возможными состояниями.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--compartment-id</option></term>
+            <listitem>
+              <para>Секция - это логический контейнер, используемый для организации и изоляции
+                облачных ресурсов. У разных облачных провайдеров эта сущность называется по-разному.
+              </para>
+            </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <!-- Cloud instance commands -->
+    <refsect2 id="vboxmanage-cloudinstance-create">
+      <title>cloud instance create</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Создает новый экземпляр в облаке.
+        Существует два стандартных способа создать экземпляр в облаке:
+         1. Создать экземпляр из существующего пользовательского образа.
+         2. Создать экземпляр из существующего загрузочного тома. Этот загрузочный том не должен быть подключен
+            к какому-либо экземпляру.
+        Для первого способа требуются параметры: image-id, boot-disk-size.
+        Для второго способа требуются параметры: boot-volume-id.
+        Остальные параметры являются общими для обоих способов:
+         display-name, launch-mode, subnet-id, publicIP, privateIP, shape, domain.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--domain-name</option></term><listitem><para>Облачный домен, где создается экземпляр.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--image-id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий пользовательский образ в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--boot-volume-id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий загрузочный том в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--display-name</option></term><listitem><para>Имя для нового экземпляра в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--shape</option></term><listitem><para>Форма экземпляра, определяющая количество ЦПУ и размер RAM памяти.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--subnet</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий существующую подсеть в облаке для использования экземпляром.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--boot-disk-size</option></term><listitem><para>Размер загрузочного образа в ГБ. По умолчанию 50 ГБ.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--publicip</option></term><listitem><para>У экземпляра публичный IP или нет.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--privateip</option></term><listitem><para>Приватный IP адрес для созданного экземпляра.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--public-ssh-key</option></term>
+            <listitem>
+              <para>Публичный ключ SSH, используемый для подключения к экземпляру через
+                SSH. Этот параметр может быть указан несколько раз, если нужно указать
+                несколько ключей, например: "--public-ssh-key=firstSSHKey --public-ssh-key=secondSSHKey".
+              </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--launch-mode</option></term><listitem><para>Наиболее известные значения здесь могут быть EMULATED, NATIVE, PARAVIRTUALIZED.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cloud-init-script-path</option></term><listitem><para>Абсолютный путь к пользовательскому скрипту облачной инициализации.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-info">
+      <title>cloud instance info</title>
+      <para>
+        Отображает информацию об облачном экземпляре с указанным id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий экземпляр в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-terminate">
+      <title>cloud instance termination</title>
+      <para>
+        Удаляет облачный экземпляр с указанным id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий экземпляр в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-start">
+      <title>cloud instance start</title>
+      <para>
+        Запускает облачный экземпляр с указанным id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий экземпляр в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudinstance-pause">
+      <title>cloud instance pause</title>
+      <para>
+        Приостанавливает облачный экземпляр с указанным id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий экземпляр в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+
+    <!-- Cloud image commands -->
+    <refsect2 id="vboxmanage-cloudimage-create">
+      <title>cloud image create</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Создает новый образ в облаке.
+        Существует два стандартных способа создать образ в облаке:
+        1. Создать образ из объекта в облачном хранилище;
+        2. Создать образ из существующего облачного экземпляра.
+        Для первого способа требуются параметры:
+        bucket-name - имя облачной корзины, где находится объект;
+        object-name - имя объекта в корзине;
+        display-name - имя для нового образа в облаке.
+        Для второго способа требуются параметры:
+        instance-id - Id экземпляра в облаке;
+        display-name - имя для нового образа в облаке.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--display-name</option></term><listitem><para>Имя для нового образа в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Имя облачной корзине, где находится объект.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term><listitem><para>Имя объекта в корзине.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--instance-id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий экземпляр в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-info">
+      <title>cloud image info</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Отображает информацию об облачном образе с указанным id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий образ в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-delete">
+      <title>cloud image delete</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Удаляет образ с указанным id из облака.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий образ в облаке.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-import">
+      <title>cloud image import</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Импортирует образ с указанным id из облака на локальный хост.
+        Результатом является объект в локальной папке "temp" локального хоста.
+        Возможный подход может состоят из двух основных этапов:
+        1. Создать объект из образа в облачном хранилище;
+        2. Загрузить объект на локальный хост.
+        Поэтому, следующие параметры могут потребоваться:
+        bucket-name - имя облачной корзины где будет создан объект;
+        object-name - имя объекта в корзине. Если параметр "object-name" отсутствует, будет использовано показанное имя образа.
+        Если первый этап не нужен, требуется только параметр "id".
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор, полностью идентифицирующий образ в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Имя облачной корзины, где будет создан объект.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term>
+            <listitem>
+              <para>
+                Имя созданного объекта в корзине. У загруженного объекта будет такое же имя.
+              </para>
+            </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-export">
+      <title>cloud image export</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Экспортирует существующий образ VBox с указанным uuid из локального хоста в облако.
+        Результатом является новый образ в облаке.
+        Возможный подход может состоят из двух основных этапов:
+        1. Загрузить образ VBox в облачное хранилище;
+        2. Создать образ из загруженного объекта.
+        Поэтому, следующие параметры могут потребоваться:
+        bucket-name - имя облачной корзины куда будет загружен объект;
+        object-name - имя объекта в корзине. Если параметр "object-name" отсутствует, будет использован id образа;
+        display-name - имя для нового образа в облаке.
+        Если первый этап не нужен, требуются только параметры "id" и "display-name".
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Уникальный идентификатор образа в VirtualBox.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--display-name</option></term><listitem><para>Имя для нового образа в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Имя облачной корзины куда будет загружен образ (объект).</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term><listitem><para>Имя объекта в корзине.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+
+    <!-- Cloud network commands -->
+    <refsect2 id="vboxmanage-cloud-network-setup">
+      <title>cloud network setup</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Настраивает окружение облачной сети для указанного облачного профиля.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--local-gateway-iso</option></term><listitem><para>Локальный путь к установочному носителю для локального шлюза.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--gateway-os-name</option></term><listitem><para>Имя ОС, используемой для облачного шлюза.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--gateway-os-version</option></term><listitem><para>Версия ОС, используемой для облачного шлюза.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--gateway-shape</option></term><listitem><para>Форма экземпляра, используемая для облачного шлюза.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+        <term><option>--tunnel-network-name</option></term><listitem><para>Имя VCN/подсети, используемой для туннелирования.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--tunnel-network-range</option></term><listitem><para>Диапазон IP адресов, используемый для туннелирования.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--guest-additions-iso</option></term><listitem><para>Локальный путь к установочному носителю Дополнений Гостевой ОС VirtualBox.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--proxy</option></term><listitem><para>URL прокси, используемый в установке локального шлюза.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--compartment-id</option></term><listitem><para>Секция, в которую создается туннель.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloud-network-create">
+      <title>cloud network create</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Создает новый дескриптор облачной сети, связанный с существующей облачной подсетью.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--name</option></term><listitem><para>Имя для назначения дескриптору облачной сети.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--network-id</option></term><listitem><para>Уникальный идентификатор существующей подсети в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--enable</option>, --disable</term>
+          <listitem><para>Включить или выключить дескриптор сети. Если не указано, сеть будет включена.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloud-network-update">
+      <title>cloud network update</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Изменяет существующий дескриптор облачной сети.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--name</option></term><listitem><para>Имя существующего дескриптора облачной сети.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--network-id</option></term><listitem><para>Уникальный идентификатор существующей подсети в облаке.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--enable</option>, --disable</term>
+          <listitem><para>Включить или выключить дескриптор сети.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloud-network-delete">
+      <title>cloud network delete</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Удаляет существующий дескриптор облачной сети.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--name</option></term><listitem><para>Имя существующего дескриптора облачной сети.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloud-network-info">
+      <title>cloud network info</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Показывает информацию о дескрипторе облачной сети.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--name</option></term><listitem><para>Имя существующего дескриптора облачной сети.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+  </refsect1>
+
+</refentry>
+

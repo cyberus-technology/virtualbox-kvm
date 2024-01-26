@@ -1,0 +1,157 @@
+; $Id: sup.mac $
+;; @file
+; SUP - Support Library, assembly definitions.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___VBox_sup_mac
+%define ___VBox_sup_mac
+
+struc SUPGIPCPU
+    .u32TransactionId           resd 1
+    .u32UpdateIntervalTSC       resd 1
+    .u64NanoTS                  resq 1
+    .u64TSC                     resq 1
+    .u64CpuHz                   resq 1
+    .i64TSCDelta                resq 1
+    .cErrors                    resd 1
+    .iTSCHistoryHead            resd 1
+    .au32TSCHistory             resd 8
+    .u32PrevUpdateIntervalNS    resd 1
+    .u32Reserved                resd 1
+    .u64TSCSample               resq 1
+    .au32Reserved1              resd 3
+    .enmState                   resd 1
+    .idCpu                      resd 1
+    .iCpuSet                    resw 1
+    .iCpuGroup                  resw 1
+    .iCpuGroupMember            resw 1
+    .idApic                     resw 1
+    .iReservedForNumaNode       resd 1
+endstruc
+
+%define SUPGIPUSETSCDELTA_NOT_APPLICABLE        0
+%define SUPGIPUSETSCDELTA_ZERO_CLAIMED          1
+%define SUPGIPUSETSCDELTA_PRACTICALLY_ZERO      2
+%define SUPGIPUSETSCDELTA_ROUGHLY_ZERO          3
+%define SUPGIPUSETSCDELTA_NOT_ZERO              4
+
+%define SUPGIPGETCPU_APIC_ID                          1
+%define SUPGIPGETCPU_RDTSCP_MASK_MAX_SET_CPUS         2
+%define SUPGIPGETCPU_IDTR_LIMIT_MASK_MAX_SET_CPUS     4
+%define SUPGIPGETCPU_RDTSCP_GROUP_IN_CH_NUMBER_IN_CL  8
+%define SUPGIPGETCPU_APIC_ID_EXT_0B                  16
+%define SUPGIPGETCPU_APIC_ID_EXT_8000001E            32
+
+
+%define SUPGLOBALINFOPAGE_MAGIC 0x19590106
+struc SUPGLOBALINFOPAGE
+    .u32Magic                   resd 1
+    .u32Version                 resd 1
+    .u32Mode                    resd 1
+    .cCpus                      resw 1
+    .cPages                     resw 1
+    .u32UpdateHz                resd 1
+    .u32UpdateIntervalNS        resd 1
+    .u64NanoTSLastUpdateHz      resq 1
+    .u64CpuHz                   resq 1
+    .cOnlineCpus                resw 1
+    .cPresentCpus               resw 1
+    .cPossibleCpus              resw 1
+    .cPossibleCpuGroups         resw 1
+    .idCpuMax                   resd 1
+    .enmUseTscDelta             resd 1
+    .fGetGipCpu                 resd 1
+    .fFlags                     resd 1
+    .OnlineCpuSet               resq 16
+    .PresentCpuSet              resq 16
+    .PossibleCpuSet             resq 16
+    .au32Padding1               resd 48
+    .aiCpuFromApicId            resw 4096
+    .aiCpuFromCpuSetIdx         resw 1024
+    .aoffCpuGroup               resd 256
+    .aCPUs                      resb SUPGIPCPU_size
+endstruc
+
+struc SUPDRVTRACERUSRCTX32
+        .idProbe                resd 1
+        .cBits                  resb 1
+        .abReserved             resb 3
+        .u.X86.uVtgProbeLoc     resd 1
+        .u.X86.aArgs            resd 20
+        .u.X86.eip              resd 1
+        .u.X86.eflags           resd 1
+        .u.X86.eax              resd 1
+        .u.X86.ecx              resd 1
+        .u.X86.edx              resd 1
+        .u.X86.ebx              resd 1
+        .u.X86.esp              resd 1
+        .u.X86.ebp              resd 1
+        .u.X86.esi              resd 1
+        .u.X86.edi              resd 1
+        .u.X86.cs               resw 1
+        .u.X86.ss               resw 1
+        .u.X86.ds               resw 1
+        .u.X86.es               resw 1
+        .u.X86.fs               resw 1
+        .u.X86.gs               resw 1
+endstruc
+
+struc SUPDRVTRACERUSRCTX64
+        .idProbe                resd 1
+        .cBits                  resb 1
+        .abReserved             resb 3
+        .u.Amd64.uVtgProbeLoc   resq 1
+        .u.Amd64.aArgs          resq 10
+        .u.Amd64.rip            resq 1
+        .u.Amd64.rflags         resq 1
+        .u.Amd64.rax            resq 1
+        .u.Amd64.rcx            resq 1
+        .u.Amd64.rdx            resq 1
+        .u.Amd64.rbx            resq 1
+        .u.Amd64.rsp            resq 1
+        .u.Amd64.rbp            resq 1
+        .u.Amd64.rsi            resq 1
+        .u.Amd64.rdi            resq 1
+        .u.Amd64.r8             resq 1
+        .u.Amd64.r9             resq 1
+        .u.Amd64.r10            resq 1
+        .u.Amd64.r11            resq 1
+        .u.Amd64.r12            resq 1
+        .u.Amd64.r13            resq 1
+        .u.Amd64.r14            resq 1
+        .u.Amd64.r15            resq 1
+endstruc
+
+%endif
+

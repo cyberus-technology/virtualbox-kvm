@@ -1,0 +1,75 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-makefile for the Ring-3 based network switch process.
+#
+
+#
+# Copyright (C) 2022-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH := ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# The internal network switch module.
+#
+PROGRAMS += VBoxIntNetSwitch
+VBoxIntNetSwitch_TEMPLATE := VBoxR3Exe
+
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ VBoxIntNetSwitch_DEFS     = KBUILD_TYPE="$(KBUILD_TYPE)"
+else
+ VBoxIntNetSwitch_DEFS     = KBUILD_TYPE=\"$(KBUILD_TYPE)\"
+endif
+VBoxIntNetSwitch_DEFS     += VBOX_WITH_INTNET_SERVICE_IN_R3
+VBoxIntNetSwitch_INST.darwin = $(VBoxIntNetSwitch.xpc_INST)/MacOS/
+VBoxIntNetSwitch_SOURCES = \
+	VBoxIntNetSwitch.cpp \
+	SrvIntNetWrapper.cpp
+VBoxIntNetSwitch_LIBS = $(LIB_RUNTIME)
+VBoxIntNetSwitch_LDFLAGS.darwin = \
+	-rpath @executable_path/../../../../MacOS
+
+ifeq ($(KBUILD_TARGET),darwin)
+ INSTALLS += VBoxIntNetSwitch.xpc
+
+ VBoxIntNetSwitch.xpc_MODE = 644
+ VBoxIntNetSwitch.xpc_INST = $(INST_VIRTUALBOX)Contents/XPCServices/org.virtualbox.intnet.xpc/Contents/
+ VBoxIntNetSwitch.xpc_SOURCES = \
+ 	$(VBoxIntNetSwitch.xpc_0_OUTDIR)/Info.plist
+
+ $$(VBoxIntNetSwitch.xpc_0_OUTDIR)/Info.plist: $(PATH_SUB_CURRENT)/darwin/Info.plist $(VBOX_VERSION_MK) | $$(@D)/
+	$(call MSG_GENERATE,VBoxIntNetSwitch.xpc,$<,$@)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(SED) \
+		-e 's+@VBOX_VERSION_STRING@+$(VBOX_VERSION_STRING)+g' \
+		-e 's+@VBOX_VERSION_MAJOR@+$(VBOX_VERSION_MAJOR)+g' \
+		-e 's+@VBOX_VERSION_MINOR@+$(VBOX_VERSION_MINOR)+g' \
+		-e 's+@VBOX_VERSION_BUILD@+$(VBOX_VERSION_BUILD)+g' \
+		-e 's+@VBOX_VENDOR@+$(VBOX_VENDOR)+g' \
+		-e 's+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+g' \
+		-e 's+@VBOX_C_YEAR@+$(VBOX_C_YEAR)+g' \
+		$< > $@
+endif
+
+$(call VBOX_SET_VER_INFO_EXE,VBoxIntNetSwitch,VirtualBox Internal Network Switch,$(VBOX_WINDOWS_ICON_FILE))       # Version info / description.
+
+include $(FILE_KBUILD_SUB_FOOTER)

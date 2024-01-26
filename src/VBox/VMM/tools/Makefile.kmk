@@ -1,0 +1,89 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for VMM tools.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# Targets.
+#
+ifdef VBOX_WITH_HARDENING
+ PROGRAMS += VBoxVMMPreloadHardened
+ DLLS    += VBoxVMMPreload
+else
+ PROGRAMS += VBoxVMMPreload
+endif
+
+
+#
+# Hardened stub.
+#
+VBoxVMMPreloadHardened_TEMPLATE = VBoxR3HardenedExe
+VBoxVMMPreloadHardened_SOURCES  = VBoxVMMPreloadHardened.cpp
+VBoxVMMPreloadHardened_NAME     = VBoxVMMPreload
+
+
+#
+# The real thing
+#
+VBoxVMMPreload_TEMPLATE  := $(if $(VBOX_WITH_HARDENING),VBoxR3Dll,VBoxR3Exe)
+VBoxVMMPreload_SOURCES    = VBoxVMMPreload.cpp
+VBoxVMMPreload_LIBS = $(LIB_RUNTIME)
+ifdef VBOX_WITH_HARDENING
+ VBoxVMMPreload_LDFLAGS.darwin += -install_name $(VBOX_DYLD_EXECUTABLE_PATH)/VBoxVMMPreload.dylib
+endif
+
+
+#
+# CPU report program (CPUM DB).
+#
+if1of ($(KBUILD_TARGET_ARCH), amd64 x86)
+ PROGRAMS += VBoxCpuReport
+endif
+VBoxCpuReport_TEMPLATE := VBoxR3Static
+VBoxCpuReport_DEFS      = VBOX_IN_VMM IN_VMM_R3 IN_VBOX_CPU_REPORT $(VMM_COMMON_DEFS)
+VBoxCpuReport_INCS      = ../include
+VBoxCpuReport_SOURCES   = \
+	VBoxCpuReport.cpp \
+	VBoxCpuReportMsrSup.cpp \
+	../VMMR3/CPUMR3CpuId.cpp \
+	../VMMAll/CPUMAllCpuId.cpp
+VBoxCpuReport_SOURCES.linux = \
+	VBoxCpuReportMsrLinux.cpp
+VBoxCpuReport_DEFS.linux    = VBCR_HAVE_PLATFORM_MSR_PROBER
+VBoxCpuReport_LIBS      = \
+	$(PATH_STAGE_LIB)/SUPR3Static$(VBOX_SUFF_LIB) \
+	$(VBOX_LIB_RUNTIME_STATIC)
+VBoxCpuReport_LIBS.solaris = kstat contract
+
+VBoxCpuReport_LDFLAGS.darwin = \
+	-framework IOKit -framework CoreFoundation -framework CoreServices
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

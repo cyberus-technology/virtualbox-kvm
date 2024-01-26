@@ -1,0 +1,960 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the VBox web service.
+#
+# Warning! This is a seriously complicated makefile!
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# Define VBOX_GSOAP_INSTALLED to something if you have gSOAP's
+# "wsdl2h" and "soapcpp2" executables on your PATH somewhere.
+
+#
+# Here's an overview how all this works. It's complicated. Essentially,
+# lots of files get generated automatically from our XML XIDL file that
+# describes the VirtualBox API (../idl/VirtualBox.xidl); as a result,
+# no manual coding is necessary when the API changes. All generated
+# web service code gets adjusted automatically.
+#
+# In more detail:
+#
+# 1) We use xsltproc and websrv-wsdl.xsl to generate a WSDL file from
+#    our XML IDL file. WSDL (Web Service Description language) is an XML
+#    industry standard that publicly describes a web service.
+#    So, the WSDL generated here describes the VirtualBox web
+#    service to third-party clients; for example, one can feed it to
+#    Java or Perl or some other toolkit that understands WSDL and thus
+#    easily write a short script that connects to the web service properly.
+#    This WSDL file ends up in $(VBOXWEB_OUT_DIR)/vboxweb.wsdl.
+#
+# 2) We use xsltproc and websrv-wsdl2gsoapH.xsl to generate a so-called
+#    "gSoap header file": $(VBOXWEB_OUT_DIR)/gsoapH_from_xslt.h from
+#    the WSDL previously generated.
+#    This file looks like a C header file, but really isn't meant
+#    to be included by a C compiler. Instead, it just happens to be the
+#    format that gSOAP uses to specify SOAP interfaces instead of WSDL.
+#    (The reason for this appears to be that gSOAP predates WSDL and
+#    thus needed some format to describe the syntax of a web service.)
+#
+#	 Note that gSOAP now also comes with its own WSDL-to-gsoap.h converter,
+#    but the readme mentions some funny license restrictions, so instead we
+#    have our own converter in XSLT.
+#
+# 3) We then feed that pseudo-header file to gSOAP's soapcpp2 compiler,
+#    which generates a ton of files in $(VBOXWEB_OUT_DIR), most importantly:
+#
+#    SOAP_CLIENT_H = $(VBOXWEB_OUT_DIR)/soapStub.h (header file for webservice clients)
+#    SOAP_SERVER_H = $(VBOXWEB_OUT_DIR)/soapH.h (header file for webservice servers)
+#
+#    These are "real" header files that one can use to program a) a webservice client
+#    and b) a webservice server. Of course to build b) one will have to write method
+#    implementations with useful code that does something. This is where more
+#    code generation via XSLT comes in:
+#
+# 4) We use xsltproc to generate tons of C++ code directly from the XIDL that
+#    maps each SOAP method to our COM methods. This large C++ file is
+#    $(VBOXWEB_OUT_DIR)/methodmaps.cpp. The actual webservice executable (vboxwebsrv,
+#    which acts as an HTTP server) is composed of this file, plus hard-coded
+#    method implementations in vboxweb.cpp, plus gSOAP library code for the HTTP
+#    server.
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Find the gSOAP toolkit.
+#
+# Note! We're not using the gSOAP toolkit correctly. The main issue is that
+#       compiling soapcpp2.cpp instead of using the library. So, in order
+#       to make this work with a locally installed gSOAP toolkit there are
+#       some hoops to jump thru to say the least... Shipping soapcpp2.cpp/h
+#       is out of the question without also including the two soap tools.
+#
+# Some observations on distros for OSE / configure:
+#       The proposed gentoo ebuild screws up several things in the install phase
+#       and thus fails to ship stdsoap2.cpp and relatives.
+#
+#       debian (2.7.9l-0.2) stuffs stdsoap2.cpp and a handful of the import files
+#       into /usr/include/gsoap.
+#
+#       fedora (2.7.12-fc10.x86_64) uses the default install layout and does not
+#       ship stdsoap2.cpp and friends.
+#
+ifeq ($(VBOX_GSOAP_INSTALLED),)
+ VBOX_GSOAP_INSTALLED = 1
+ VBOX_PATH_GSOAP := $(firstfile $(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS)/common/gsoap/*)))
+ ifeq ($(VBOX_PATH_GSOAP),)
+  VBOX_PATH_GSOAP := $(firstfile $(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST)/gsoap/*)))
+ endif
+ if "$(VBOX_PATH_GSOAP)" == "" && defined(KBUILD_DEVTOOLS_HST)
+  VBOX_PATH_GSOAP := $(firstfile $(rversortfiles $(qwildcard ,$(KBUILD_DEVTOOLS_HST_ALT)/gsoap/*)))
+ endif
+ ifeq ($(VBOX_PATH_GSOAP),)
+  $(warning VBOX_PATH_GSOAP not found...)
+  VBOX_GSOAP_INSTALLED =
+ endif
+else
+ VBOX_PATH_GSOAP       := $(VBOX_PATH_GSOAP)
+endif
+VBOX_PATH_GSOAP_BIN    := $(strip $(VBOX_PATH_GSOAP_BIN))
+if "$(VBOX_PATH_GSOAP_BIN)" == ""
+ VBOX_PATH_GSOAP_BIN   := $(VBOX_PATH_GSOAP)/bin
+ if "$(KBUILD_HOST)" == "darwin"
+  VBOX_PATH_GSOAP_BIN  := $(VBOX_PATH_GSOAP_BIN)/macosx
+ else if "$(KBUILD_HOST)" == "win"
+  VBOX_PATH_GSOAP_BIN  := $(VBOX_PATH_GSOAP_BIN)/win32
+ else
+  VBOX_PATH_GSOAP_BIN  := $(VBOX_PATH_GSOAP_BIN)/$(KBUILD_HOST).x86
+ endif
+ if !exists($(VBOX_PATH_GSOAP_BIN))
+  VBOX_PATH_GSOAP_BIN  := $(VBOX_PATH_GSOAP)/bin
+ endif
+endif
+VBOX_SOAPCPP2          := $(VBOX_PATH_GSOAP_BIN)/soapcpp2$(HOSTSUFF_EXE)
+VBOX_WSDL2H            := $(VBOX_PATH_GSOAP_BIN)/wsdl2h$(HOSTSUFF_EXE)
+VBOX_STUBMAKER          = $(firstword $(which stubmaker stubmaker.pl) stubmaker_not_found)
+# Keep in mind that Python ZSI only exists for Python 2.x, so this hardcodes
+# some things. If you want to build using Python 3.x only you need to disable
+# the creation of the Python webservice bindings anyway.
+if "$(KBUILD_HOST)" != "win"
+ VBOX_WSDL2PY           = $(firstword $(which wsdl2py) wsdl2py_not_found)
+else
+ VBOX_WSDL2PY           = $(firstword $(wildcard C:/Python27/Scripts/wsdl2py.exe) wsdl2py_not_found)
+endif
+
+VBOX_PATH_GSOAP_IMPORT := $(strip $(if $(VBOX_PATH_GSOAP_IMPORT),$(VBOX_PATH_GSOAP_IMPORT),$(VBOX_PATH_GSOAP)/import))
+VBOX_GSOAP_INCS        := $(strip $(if $(VBOX_GSOAP_INCS),$(VBOX_GSOAP_INCS),$(VBOX_PATH_GSOAP) $(VBOX_PATH_GSOAP_IMPORT) ))
+# note: $(if $(defined FOO)) does not work here!
+VBOX_GSOAP_CXX_SOURCES := $(strip $(if-expr "$(origin VBOX_GSOAP_CXX_SOURCES)" != "undefined",$(VBOX_GSOAP_CXX_SOURCES),$(VBOX_PATH_GSOAP)/stdsoap2.cpp))
+VBOX_GSOAP_CXX_LIBS    := $(strip $(if-expr "$(origin VBOX_GSOAP_CXX_LIBS)" != "undefined",$(VBOX_GSOAP_CXX_LIBS),))
+
+
+#
+# Globals
+#
+VBOXWEB_OUT_DIR := $(PATH_TARGET)/webservice
+BLDDIRS += $(VBOXWEB_OUT_DIR)
+
+# The webservice location
+VBOX_PATH_WEBSERVICE          := $(PATH_SUB_CURRENT)
+
+# The IDL subdirectory (contains some XSLT files)
+VBOX_PATH_IDL                 := $(abspath $(PATH_SUB_CURRENT)/../idl)
+
+# If this is set, all webservice files are considered out-of-date every time
+# this makefile is touched. Otherwise, set this to empty.
+RECOMPILE_ON_MAKEFILE_CURRENT := $(MAKEFILE_CURRENT)
+
+PATH_TARGET_SOAPDEMOXML       := $(VBOXWEB_OUT_DIR)/demo_soapxml
+PATH_TARGET_SOAPDEMOHEADERS   := $(VBOXWEB_OUT_DIR)/demo_headers
+PATH_TARGET_SOAPDEMONSMAPS    := $(VBOXWEB_OUT_DIR)/demo_namespacemaps
+PATH_TARGET_WEBTEST           := $(VBOXWEB_OUT_DIR)/webtest
+
+# the original XIDL file (has to include documentation as we need it):
+VBOXWEB_IDL_SRC_ORIG          := $(VBOX_XIDL_FILE_SRC)
+# the original XIDL file without documentation
+VBOXWEB_IDL_SRC_STRIPPED      := $(VBOX_XIDL_FILE)
+# platform-specific XIDL file generated from $(VBOXWEB_IDL_SRC_STRIPPED):
+VBOXWEB_IDL_SRC               := $(VBOXWEB_OUT_DIR)/VirtualBox.xidl
+
+VBOXWEB_WSDL                   = $(VBOXWEB_OUT_DIR)/vboxweb.wsdl
+VBOXWEBSERVICE_WSDL            = $(VBOXWEB_OUT_DIR)/vboxwebService.wsdl
+
+VBOXWEB_TYPEMAP               := $(VBOXWEB_OUT_DIR)/typemap.dat
+
+VBOXWEB_GSOAPH_FROM_XSLT      := $(VBOXWEB_OUT_DIR)/gsoapH_from_xslt.h
+ifdef VBOX_GSOAP_INSTALLED
+ VBOXWEB_GSOAPH_FROM_GSOAP    := $(VBOXWEB_OUT_DIR)/gsoapH_from_gsoap.h
+else
+ VBOXWEB_GSOAPH_FROM_GSOAP    :=
+endif
+VBOXWEB_SOAP_CLIENT_H         := $(VBOXWEB_OUT_DIR)/soapStub.h
+VBOXWEB_SOAP_SERVER_H         := $(VBOXWEB_OUT_DIR)/soapH.h
+
+
+ifdef VBOX_GSOAP_VERBOSE
+ VBOXWEB_XSLTPROC_VERBOSE      = --stringparam G_argDebug '1'
+ VBOXWEB_WSDL_VERBOSE          = -v
+else
+ VBOXWEB_SOAPCPP2_SKIP_FILES   = -x
+endif
+
+
+## @todo VBOXWEB_GSOAPH_FROM_XSLT should probably be a indirect dep of something.
+VBOXWEB_OTHERS += \
+	$(VBOXWEB_GSOAPH_FROM_XSLT)
+
+
+# GCC 9.2 doesn't cope ver well with the split soapC.cpp files (internal error).
+# Seemingly, the issue goes away when we strip inline functions from soapH.h.
+ifdef VBOX_WITHOUT_NOINLINE_SOAPH
+ if !defined(VBOX_WITHOUT_SPLIT_SOAPC) && !defined(VBOX_WITH_SPLIT_SOAPC) && $(VBOX_GCC_VERSION_CXX) >= 90200
+  $(info Triggering VBOX_WITHOUT_SPLIT_SOAPC because of VBOX_GCC_VERSION_CXX=$(VBOX_GCC_VERSION_CXX) and VBOX_WITHOUT_NOINLINE_SOAPH)
+  VBOX_WITHOUT_SPLIT_SOAPC := 1
+ endif
+endif
+
+#
+# Template that disables -fvisibility=hidden as the SOAP stuff does not
+# properly set the visibility attributes (or at least it didn't).
+#
+TEMPLATE_VBoxWebR3Exe = Webservices without -fvisibility=hidden
+TEMPLATE_VBoxWebR3Exe_EXTENDS = VBoxR3Exe
+TEMPLATE_VBoxWebR3Exe_DEFS.win += WIN32_LEAN_AND_MEAN $(TEMPLATE_VBoxR3Exe_DEFS.win) # Makes the redefinition warnings go away.
+TEMPLATE_VBoxWebR3Exe_CXXFLAGS = $(filter-out $(VBOX_GCC_fvisibility-hidden) $(VBOX_GCC_fvisibility-inlines-hidden), \
+	$(TEMPLATE_VBoxR3Exe_CXXFLAGS))
+ifn1of ($(KBUILD_TARGET), win)
+ TEMPLATE_VBoxWebR3Exe_CXXFLAGS += $(VBOX_GCC_Wno-misleading-indentation)
+endif
+if "$(VBOX_VCC_TOOL_STEM)" >= "VCC140"
+ # -wd4774: string(532): warning C4774: 'sprintf_s' : format string expected in argument 3 is not a string literal
+ # -wd4458: stdsoap2.h(2644): warning C4458: declaration of 'type' hides class member
+ # -wd5039: x509v3.h(883): warning C5039: 'OPENSSL_sk_set_cmp_func': pointer or reference to potentially throwing function passed to 'extern "C"' function under -EHc. Undefined behavior may occur if this function throws an exception.
+ # soapc-1.cpp(182) : warning C4883: 'soap_getelement': function size suppresses optimizations
+ TEMPLATE_VBoxWebR3Exe_CXXFLAGS.win = $(TEMPLATE_VBoxR3Exe_CXXFLAGS.win) -wd4774 -wd4458 -wd4883 -wd5039
+endif
+
+
+ifdef VBOX_GSOAP_INSTALLED
+ ifndef VBOX_ONLY_SDK
+  #
+  # soapC and soapH-noinline file splitter.
+  #
+  BLDPROGS += split-soapC
+  split-soapC_TEMPLATE = VBoxBldProg
+  split-soapC_SOURCES = split-soapC.cpp
+
+  #
+  # vboxsoap - Library used by both the programs (save build time).
+  #
+  LIBRARIES += vboxsoap
+  vboxsoap_TEMPLATE = VBoxWebR3Exe
+  ifndef VBOX_WITHOUT_PRECOMPILED_HEADERS
+   ifeq ($(KBUILD_TARGET),win)
+    vboxsoap_USES     = vccprecomp
+    vboxsoap_PCH_HDR := $(VBOXWEB_SOAP_SERVER_H)
+    vboxsoap_CXXFLAGS += -Zm127
+   endif
+  endif
+  vboxsoap_CXXFLAGS += $(VBOX_C_CXX_FLAGS_NO_UNUSED_PARAMETERS)
+  vboxsoap_CXXFLAGS.win += -bigobj
+  vboxsoap_CXXFLAGS.win += -wd4702 # soapc-4.cpp(16) : warning C4702: unreachable code
+  ifn1of ($(KBUILD_TARGET), win)
+   vboxsoap_CXXFLAGS += -Wno-shadow -Wno-parentheses $(VBOX_GCC_Wno-literal-suffix) \
+   	$(VBOX_GCC_Wno-stringop-overflow) $(VBOX_GCC_Wno-stringop-truncation) \
+   	$(VBOX_GCC_Wno-vla) -Wno-format -Wno-deprecated-declarations $(VBOX_GCC_fno-printf-return-value)
+   ifn1of ($(KBUILD_TYPE), debug) # Save time+memory by using -O0 instead of -O2.
+    vboxsoap_CXXFLAGS += -O0 ## @todo this could be interesting for g++ (not clang++): -fcprop-registers
+   endif
+  endif
+  vboxsoap_INCS := \
+  	$(VBOX_GSOAP_INCS) \
+  	$(VBOXWEB_OUT_DIR) \
+  	$(PATH_SUB_CURRENT)
+  ifdef VBOX_WITH_WEBSERVICES_SSL
+   vboxsoap_DEFS += WITH_OPENSSL
+   vboxsoap_SDKS += VBoxOpenSsl
+  endif
+  ifdef VBOX_WITHOUT_SPLIT_SOAPC
+   vboxsoap_SOURCES = \
+   	$(VBOXWEB_OUT_DIR)/soapC.cpp
+  else
+   vboxsoap_SOURCES = \
+   	$(VBOXWEB_OUT_DIR)/soapC-1.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-2.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-3.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-4.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-5.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-6.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-7.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-8.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-9.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-10.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-11.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-12.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-13.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-14.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-15.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-16.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-17.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-18.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-19.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-20.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-21.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-22.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-23.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-24.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-25.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-26.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-27.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-28.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapC-29.cpp
+  endif
+  ifndef VBOX_WITHOUT_NOINLINE_SOAPH
+   vboxsoap_SOURCES += \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-1.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-2.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-3.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-4.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-5.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-6.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-7.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-8.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-9.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-10.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-11.cpp \
+   	$(VBOXWEB_OUT_DIR)/soapH-noinline-12.cpp
+  endif
+  vboxsoap_CLEAN := $(vboxsoap_SOURCES) # lazy bird
+  vboxsoap_SOURCES <= \
+  	$(VBOX_GSOAP_CXX_SOURCES)
+  vboxsoap_ORDERDEPS = \
+  	$(VBOXWEB_IDL_SRC) \
+  	$(VBOXWEB_OUT_DIR)/gsoap_copy_all_ts
+  ifn1of ($(KBUILD_TARGET), win)
+   $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS = \
+   	-Wno-format \
+   	$(VBOX_GCC_Wno-int-in-bool-context) \
+   	$(VBOX_GCC_Wno-logical-op)
+   # currently necessary when compiling against OpenSSL 1.0 due to a missing
+   # typecase from 'const v3_ext_method*' to 'aka v3_ext_method*'.
+   $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS += -fpermissive
+   # Necessary with gcc 9.2.1 for some reason:
+   $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS += -Wno-deprecated-declarations
+  endif
+
+  if "$(KBUILD_TARGET)" == "win" && "$(VBOX_GSOAP_CXX_SOURCES)" != ""
+   $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS.win += -wd4668 # preprocessor / windows.h
+   $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS.win += -wd4211 # nonstandard extension used: redefined extern to static
+   $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS.win += -wd4310 # cast truncates constant value
+   if1of ($(VBOX_VCC_TOOL_STEM), VCC120)
+    $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS.win += -wd4056 # v2.8.36/stdsoap2.cpp(14008) : warning C4056: overflow in floating-point constant arithmetic
+    $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS.win += -wd4756 # v2.8.36/stdsoap2.cpp(14008) : warning C4756: overflow in constant arithmetic
+   endif
+   if "$(VBOX_VCC_TOOL_STEM)" >= "VCC140"
+    $(VBOX_GSOAP_CXX_SOURCES)_CXXFLAGS.win += -wd4456 # stdsoap2.cpp(3127): warning C4456: declaration of 'i' hides previous local declaration
+   endif
+  endif
+
+  ifdef VBOX_SOAP_PRECOMPILED_HEADER
+   # This'll save a few seconds, but the compiler invocation currently makes it impracticable. This will
+   # be addressed in a future kBuild version, by adding PCH support or/and by adding some helpers to
+   # gather the required data (DEFS,INCS,CXXTOOL,CXXFLAGS).
+   vboxsoap_INTERMEDIATES += $(VBOXWEB_OUT_DIR)/soapH.h.gch
+   vboxsoap_CXXFLAGS += -Winvalid-pch -H
+   vboxsoap_CLEAN += $(VBOXWEB_OUT_DIR)/soapH.h.gch
+
+   $(VBOXWEB_OUT_DIR)/soapH.h.gch: $(VBOXWEB_OUT_DIR)/soapH.h
+	g++ -x c++-header -g -g -Wall -pedantic -Wno-long-long -Wno-trigraphs -Wno-variadic-macros -pipe -O0 -fno-omit-frame-pointer \
+		-fno-strict-aliasing -fvisibility-inlines-hidden -fvisibility=hidden -DVBOX_HAVE_VISIBILITY_HIDDEN \
+		-mmacosx-version-min=10.4 -isysroot /Developer/SDKs/MacOSX10.4u.sdk -m32 \
+		-I/Volumes/ScratchHFS/bird/vbox/svn/trunk/src/VBox/Main/webservice/gsoap \
+		-I/Volumes/ScratchHFS/bird/vbox/svn/trunk/out/darwin.x86/debug/obj/src/VBox/Main \
+		-I/Volumes/ScratchHFS/bird/vbox/svn/trunk/src/VBox/Main/webservice \
+		-I/Volumes/ScratchHFS/bird/vbox/svn/trunk/include -I/Volumes/ScratchHFS/bird/vbox/svn/trunk/out/darwin.x86/debug
+		\-DVBOX -DVBOX_WITH_DEBUGGER -DVBOX_WITH_DEBUGGER_GUI -DDEBUG -DDEBUG_bird -DDEBUG_USERNAME=bird -DRT_OS_DARWIN \
+		-D__DARWIN__ -DRT_ARCH_X86 -D__X86__ -DVBOX_WITH_HYBRID_32BIT_KERNEL -DIN_RING3 -DHC_ARCH_BITS=32 -DGC_ARCH_BITS=32 \
+		-DMAC_OS_X_VERSION_MIN_REQUIRED=1040 -DMAC_OS_X_VERSION_MAX_ALLOWED=1040 \
+		$< -o $@
+  endif
+
+  # Tweak for systems with too many CPUs compared to memory.
+  ifdef VBOX_WITH_SOAP_NOT_PARALLEL
+   .NOTPARALLEL: $$(vboxsoap_2_OBJS)
+  endif
+ endif # !VBOX_ONLY_SDK
+
+
+ ifndef VBOX_ONLY_SDK
+  #
+  # vboxwebsrv - webservice server process
+  #
+  PROGRAMS += vboxwebsrv
+  vboxwebsrv_TEMPLATE = VBoxMainClientExe
+  vboxwebsrv_DEFS += SOCKET_CLOSE_ON_EXEC
+  vboxwebsrv_DEFS.win += WIN32_LEAN_AND_MEAN
+  vboxwebsrv_INCS = \
+  	$(VBOX_GSOAP_INCS) \
+  	$(VBOXWEB_OUT_DIR) \
+  	.
+  vboxwebsrv_CXXFLAGS.win += -bigobj
+  if "$(VBOX_VCC_TOOL_STEM)" >= "VCC140"
+   vboxwebsrv_CXXFLAGS.win += -wd4774 # string(532): warning C4774: 'sprintf_s' : format string expected in argument 3 is not a string literal
+   vboxwebsrv_CXXFLAGS.win += -wd4458 # stdsoap2.h(2644): warning C4458: declaration of 'type' hides class member
+   vboxwebsrv_CXXFLAGS.win += -wd5039 # x509v3.h(883): warning C5039: 'OPENSSL_sk_set_cmp_func': pointer or reference to potentially throwing function passed to 'extern "C"' function under -EHc. Undefined behavior may occur if this function throws an exception.
+  endif
+  ifn1of ($(KBUILD_TARGET), win)
+   vboxwebsrv_CXXFLAGS += -Wno-shadow $(VBOX_GCC_Wno-literal-suffix) $(VBOX_GCC_Wno-misleading-indentation)
+   ifn1of ($(KBUILD_TYPE), debug) # Save time+memory by using -O1 instead of -O2.
+    vboxwebsrv_CXXFLAGS += -O0
+   endif
+  endif
+  vboxwebsrv_LIBS += \
+  	$(PATH_STAGE_LIB)/vboxsoap$(VBOX_SUFF_LIB) \
+  	$(VBOX_GSOAP_CXX_LIBS) \
+  	$(LIB_RUNTIME)
+  vboxwebsrv_LIBS.solaris += socket nsl
+  ifdef VBOX_WITH_WEBSERVICES_SSL
+   vboxwebsrv_DEFS += WITH_OPENSSL
+   vboxwebsrv_SDKS += VBoxOpenSsl
+  endif
+  vboxwebsrv_SOURCES = \
+  	vboxweb.cpp \
+  	$(VBOXWEB_OUT_DIR)/methodmaps.cpp \
+  	$(VBOXWEB_OUT_DIR)/soapServer.cpp \
+  	$(VBOXWEB_OUT_DIR)/vboxweb-wsdl.c
+  vboxwebsrv_SOURCES.win = \
+  	VBoxWebSrv.rc
+  vboxwebsrv_CLEAN = \
+  	$(VBOXWEB_OUT_DIR)/methodmaps.cpp \
+  	$(VBOXWEB_OUT_DIR)/soapServer.cpp \
+  	$(VBOXWEB_OUT_DIR)/vboxweb-wsdl.c
+  vboxwebsrv_ORDERDEPS = $(VBOXWEB_OUT_DIR)/gsoap_copy_all_ts
+ endif # !VBOX_ONLY_SDK
+
+ ifdef VBOX_WITH_JWS
+  INSTALLS += VBoxJWs-inst-jar
+
+  #
+  # Java glue JAR files
+  #
+  VBOX_JWS_JAR   = $(VBoxJWs-inst-jar_0_OUTDIR)/vboxjws.jar
+  VBOX_JWSDOC_JAR = $(VBoxJWs-inst-jar_0_OUTDIR)/vboxjws-doc.jar
+  VBOX_JWSSRC_JAR = $(VBoxJWs-inst-jar_0_OUTDIR)/vboxjws-src.jar
+  VBOX_JWS_TARGET := $(PATH_TARGET)/vboxjws-gen
+  VBOX_JWS_GEN   = $(VBOX_JWS_TARGET)/jwsgen
+  VBOX_JWS_GEN_RAWSRC = $(VBOX_JWS_GEN)/merged.file
+  VBOX_JWS_JDEST := $(VBOX_JWS_TARGET)/jdest
+  VBOX_JWSDOC_JDEST := $(VBOX_JWS_TARGET)/jdest-doc
+  VBOX_GLUE_XSLT_DIR := $(PATH_ROOT)/src/VBox/Main/glue
+  VBOX_JAXLIB_DIR  := $(PATH_ROOT)/src/VBox/Main/webservice/jaxlibs
+
+  VBoxJWs-inst-jar_INST = $(INST_SDK)bindings/webservice/java/jax-ws/
+  VBoxJWs-inst-jar_MODE = a+r,u+w
+  VBoxJWs-inst-jar_SOURCES = \
+  	$(VBOX_JWS_JAR) \
+  	$(VBOX_JWSDOC_JAR) \
+  	$(VBOX_JWSSRC_JAR)
+  VBoxJWs-inst-jar_CLEAN = \
+  	$(VBOX_JWS_JAR) \
+  	$(VBOX_JWSDOC_JAR) \
+  	$(VBOX_JWSSRC_JAR) \
+  	$(VBOX_JWS_GEN)/jwsglue.list \
+  	$(VBOX_JWSDOC_JDEST)/package-list \
+  	$(wildcard \
+  	$(VBOX_JWS_GEN)/java/*/*/*.java \
+  	$(VBOX_JWS_GEN)/java/*/*/*/*.java \
+  	$(VBOX_JWS_JDEST)/*.class \
+  	$(VBOX_JWS_JDEST)/*/*.class \
+  	$(VBOX_JWS_JDEST)/*/*/*.class \
+  	$(VBOX_JWS_JDEST)/*/*/*/*.class \
+  	$(VBOX_JWSDOC_JDEST)/*.html \
+  	$(VBOX_JWSDOC_JDEST)/*.css \
+  	$(VBOX_JWSDOC_JDEST)/*/*.gif \
+  	$(VBOX_JWSDOC_JDEST)/*/*/*.html \
+  	$(VBOX_JWSDOC_JDEST)/*/*/*/*.html \
+  	)
+  VBoxJWs-inst-jar_BLDDIRS += $(VBOX_JWS_GEN)/java
+  VBoxJWs-inst-jar_GENERATEDSOURCES = $(addprefix $(VBoxJWs-inst-jar_BLDDIRS)/,$(VBoxJWS_VBOX_JWSGLUEFILES))
+
+  VBoxJWSGlue_KMK = $(PATH_OUT)/vboxjwsglue.kmk
+  include $(VBoxJWSGlue_KMK)
+
+  $(VBoxJWSGlue_KMK).ts +| $(VBoxJWSGlue_KMK): $(VBOXWEB_IDL_SRC_ORIG) $(VBOX_GLUE_XSLT_DIR)/glue-java.xsl $(VBOX_VERSION_STAMP)
+	$(call MSG_GENERATE,,$(VBoxJWSGlue_KMK))
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(MKDIR) -p $(@D)
+	$(QUIET)$(VBOX_XSLTPROC) \
+              --stringparam filelistonly VBoxJWS_VBOX_JWSGLUEFILES \
+              --stringparam G_vboxApiSuffix $(VBOX_API_SUFFIX) \
+              --stringparam G_vboxGlueStyle jaxws              \
+              --stringparam G_vboxDirPrefix org/virtualbox$(VBOX_API_SUFFIX)/ \
+              -o $@ $(VBOX_GLUE_XSLT_DIR)/glue-java.xsl $<
+	$(QUIET)$(CP) --changed -fv $@ $(VBoxJWSGlue_KMK)
+
+  $(VBOX_JWS_GEN_RAWSRC) \
+  +| $(VBoxJWs-inst-jar_GENERATEDSOURCES): \
+  		$(VBOXWEB_IDL_SRC_ORIG) \
+  		$(VBOX_GLUE_XSLT_DIR)/glue-java.xsl \
+  		$(VBOX_FILESPLIT) \
+  		$(VBOX_VERSION_STAMP)
+	$(call MSG_L1,Generating JAX-WS Java glue files from XIDL)
+	$(QUIET)$(RM) -f $(filter-out $(VBoxJWs-inst-jar_GENERATEDSOURCES),$(wildcard $(VBOX_JWS_GEN)/java/*/*/*.java))
+	$(QUIET)$(MKDIR) -p $(@D)
+	$(QUIET)$(VBOX_XSLTPROC) \
+              --stringparam filelistonly "" \
+              --stringparam G_vboxApiSuffix $(VBOX_API_SUFFIX) \
+              --stringparam G_vboxGlueStyle jaxws              \
+              --stringparam G_vboxDirPrefix org/virtualbox$(VBOX_API_SUFFIX)/ \
+              -o $(VBOX_JWS_GEN_RAWSRC) $(VBOX_GLUE_XSLT_DIR)/glue-java.xsl $<
+	$(QUIET)$(MKDIR) -p $(VBOX_JWS_GEN)/java/org/virtualbox$(VBOX_API_SUFFIX)
+	$(QUIET)$(VBOX_FILESPLIT) $(VBOX_JWS_GEN_RAWSRC) $(VBOX_JWS_GEN)/java
+
+  ## @todo somehow also find out the authoritative list of files generated by
+  # wsimport (before running it), then we could rely on proper dependencies
+  # instead of creating jwsglue.list. Would allow avoiding a lot of unnecessary
+  # compilation with incremental builds, when almost nothing changed in the IDL
+  # file. Currently everything is recompiled if only one file is changed.
+  $(VBOX_JWS_GEN)/jwsglue.list.ts +| $(VBOX_JWS_GEN)/jwsglue.list: \
+  		$(VBOXWEB_IDL_SRC) \
+  		$(VBOX_FILESPLIT) \
+  		$(VBOXWEBSERVICE_WSDL) \
+  		$(VBOXWEB_WSDL) \
+  		$(VBoxJWs-inst-jar_GENERATEDSOURCES) \
+  		| $(VBOX_JWS_GEN)/java/
+	$(QUIET)$(RM) -f -- $(wildcard $(VBOX_JWS_GEN)/java/*/*/*/*.java)
+	$(call MSG_GENERATE,,$(VBOX_JWS_GEN)/jwsglue.list,JAX-WS for Java 1.6 bindings using $(VBOXWEBSERVICE_WSDL))
+	$(VBOX_WSIMPORT) -Xnocompile -p $(VBOX_JAVA_PACKAGE).jaxws -d $(VBOX_JWS_GEN)/java $(VBOXWEBSERVICE_WSDL)
+	$(QUIET)echo $(VBoxJWs-inst-jar_GENERATEDSOURCES) > $@
+	$(QUIET)echo $(VBOX_JWS_GEN)/java/*/*/*/*.java >> $@
+	$(QUIET)$(CP) --changed -fv $@ $(VBOX_JWS_GEN)/jwsglue.list
+
+  $$(VBOX_JWS_JAR): $(VBOX_JWS_GEN)/jwsglue.list $(VBOXWEB_WSDL) $(VBOXWEBSERVICE_WSDL) $(VBOX_JWS_GEN)/MANIFEST.MF | $$(dir $$@)
+	$(call MSG_TOOL,javac,$(notdir $@),jwsgen.list,)
+	$(QUIET)$(RM) -Rf $(VBOX_JWS_JDEST)
+	$(QUIET)$(MKDIR) -p $(VBOX_JWS_JDEST)
+	$(call MSG_L1,Compiling bridge code)
+	$(VBOX_JAVAC) $(VBOX_JAVAC_OPTS) $(VBOX_JAVA_WS_OPTS) \
+                @$(VBOX_JWS_GEN)/jwsglue.list \
+		-d $(VBOX_JWS_JDEST) -classpath $(VBOX_JWS_JDEST)$(VBOX_SEP)$(VBOX_JAVA_WS_EXTRA_JARS)
+	$(QUIET)$(SED) -e "s/vboxweb.wsdl/vboxweb$(VBOX_API_SUFFIX).wsdl/" <  $(VBOXWEBSERVICE_WSDL) > $(VBOX_JWS_JDEST)/vboxwebService$(VBOX_API_SUFFIX).wsdl
+	$(QUIET)$(CP) -f $(VBOXWEB_WSDL) $(VBOX_JWS_JDEST)/vboxweb$(VBOX_API_SUFFIX).wsdl
+	$(call MSG_LINK,$(notdir $@),$@)
+	$(VBOX_JAR) cfm $@ $(VBOX_JWS_GEN)/MANIFEST.MF -C $(VBOX_JWS_JDEST) .
+
+  $(VBOX_JWS_GEN)/MANIFEST.MF: $(VBOX_PATH_WEBSERVICE)/MANIFEST.MF.in
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(MKDIR) -p $(VBOX_JWS_GEN)
+	$(QUIET)$(SED) \
+		-e 's/@VBOX_VERSION_STRING@/$(VBOX_VERSION_STRING)/' \
+		-e 's/@VBOX_VERSION_MAJOR@/$(VBOX_VERSION_MAJOR)/' \
+		-e 's/@VBOX_VERSION_MINOR@/$(VBOX_VERSION_MINOR)/' \
+		-e 's/@VBOX_API_SUFFIX@/$(VBOX_API_SUFFIX)/' \
+		<  $< >  $@
+
+  $$(VBOX_JWSDOC_JAR): $(VBOX_JWS_GEN)/jwsglue.list $$(VBoxJWs-inst-jar_GENERATEDSOURCES) $(VBOXWEB_WSDL) $(VBOXWEBSERVICE_WSDL) $$(VBOX_JWS_JAR) | $$(dir $$@)
+	$(call MSG_TOOL,javadoc,$(notdir $@),jwsgen.list,)
+	$(QUIET)$(RM) -Rf $(VBOX_JWSDOC_JDEST)
+	$(QUIET)$(MKDIR) -p $(VBOX_JWSDOC_JDEST)
+	$(call MSG_L1,Generating javadoc html documentation)
+	$(VBOX_JAVADOC) $(VBOX_JAVADOC_OPTS) $(VBOX_JAVA_WS_OPTS) -quiet \
+		-sourcepath $(VBOX_JWS_GEN)/java org.virtualbox$(VBOX_API_SUFFIX) \
+		-d $(VBOX_JWSDOC_JDEST) -classpath $(VBOX_SEP)$(VBOX_JAVA_WS_EXTRA_JARS)
+	$(call MSG_LINK,$(notdir $@),$@)
+	$(VBOX_JAR) cf $@ -C $(VBOX_JWSDOC_JDEST) .
+
+  $$(VBOX_JWSSRC_JAR): $$(VBOX_JWS_JAR) | $$(dir $$@)
+	$(call MSG_LINK,$(notdir $@),$@)
+	$(VBOX_JAR) cf $@ -C $(VBOX_JWS_GEN)/java .
+
+  ## @todo compile ../glue/tests/TestVBox.java to have sanity checking
+
+ endif # VBOX_WITH_JWS
+
+ ifndef VBOX_ONLY_SDK
+  #
+  # webtest - webservice sample client in C++
+  #
+  PROGRAMS += webtest
+  webtest_TEMPLATE = VBoxWebR3Exe
+  webtest_CXXFLAGS.win += -bigobj
+  ifn1of ($(KBUILD_TARGET), win)
+   webtest_CXXFLAGS += -Wno-shadow
+  endif
+  webtest_INCS := \
+  	$(VBOX_GSOAP_INCS) \
+  	$(VBOXWEB_OUT_DIR) \
+  	.
+  webtest_LIBS += \
+  	$(PATH_STAGE_LIB)/vboxsoap$(VBOX_SUFF_LIB) \
+  	$(VBOX_GSOAP_CXX_LIBS) \
+  	$(LIB_RUNTIME)
+  webtest_LIBS.solaris += nsl
+  ifdef VBOX_WITH_WEBSERVICES_SSL
+   webtest_DEFS += WITH_OPENSSL
+   webtest_SDKS += VBoxOpenSsl
+  endif
+  webtest_SOURCES = \
+  	webtest.cpp \
+  	$(VBOXWEB_OUT_DIR)/soapClient.cpp
+  webtest_CLEAN = \
+  	$(VBOXWEB_OUT_DIR)/soapClient.cpp
+
+  webtest_ORDERDEPS = $(VBOXWEB_OUT_DIR)/gsoap_copy_all_ts
+ endif # !VBOX_ONLY_SDK
+
+
+ #
+ # Additional mess to cleanup (applies to both webtest and vboxwebsrv).
+ #
+ ## @todo figure out whether the SDK really needs this or not...
+ OTHER_CLEAN += \
+ 	$(wildcard $(VBOXWEB_OUT_DIR)/soap*.h) \
+ 	$(wildcard $(VBOXWEB_OUT_DIR)/soap*.cpp) \
+ 	$(wildcard $(VBOXWEB_OUT_DIR)/*.nsmap) \
+ 	$(VBOXWEB_GSOAPH_FROM_XSLT) \
+ 	$(VBOXWEB_GSOAPH_FROM_GSOAP) \
+ 	$(VBOXWEB_SOAP_CLIENT_H) \
+ 	$(VBOXWEB_SOAP_SERVER_H) \
+ 	$(VBOXWEB_OUT_DIR)/gsoap_generate_all_ts \
+ 	$(VBOXWEB_OUT_DIR)/gsoap_copy_all_ts \
+ 	$(wildcard $(PATH_TARGET_SOAPDEMOXML)/*) \
+ 	$(PATH_TARGET_SOAPDEMOXML)/dummy_file \
+ 	$(wildcard $(PATH_TARGET_SOAPDEMOHEADERS)/*) \
+ 	$(PATH_TARGET_SOAPDEMOHEADERS)/dummy_file \
+ 	$(wildcard $(PATH_TARGET_SOAPDEMONSMAPS)/*) \
+ 	$(PATH_TARGET_SOAPDEMONSMAPS)/dummy_file
+
+endif # VBOX_GSOAP_INSTALLED
+
+
+if defined(VBOX_ONLY_SDK) && ("$(KBUILD_TARGET)" != "win" || defined(VBOX_FORCE_SDK))
+ #
+ # Globals relevant to the SDK.
+ #
+ VBOXWEB_GLUE_PYTHON           = $(VBOX_PATH_SDK)/bindings/webservice/python/lib/VirtualBox_wrappers.py
+ # The following 3 files are generated by Python ZSI 2.1_a1 (alpha version
+ # shipped by many Linux distributions). Only the first two are actually used.
+ # The 4th and 5th file is created by ZSI 2.0 (released in 2007), and gets
+ # renamed to the 1st/2nd file for simplicity reasons.
+ # ZSI 1.x used different file names. Not worth supporting any more. If you're
+ # curious, check the VirtualBox 4.3 sources.
+ VBOXWEB_WS_PYTHON             = $(VBOX_PATH_SDK)/bindings/webservice/python/lib/VirtualBox_client.py
+ VBOXWEB_WS_PYTHON_TYPES       = $(VBOX_PATH_SDK)/bindings/webservice/python/lib/VirtualBox_types.py
+ VBOXWEB_WS_PYTHON_SERVER      = $(VBOX_PATH_SDK)/bindings/webservice/python/lib/VirtualBox_server.py
+ VBOXWEB_WS_PYTHON_ALTERNATIVE = $(VBOX_PATH_SDK)/bindings/webservice/python/lib/VirtualBox_services.py
+ VBOXWEB_WS_PERL               = $(VBOX_PATH_SDK)/bindings/webservice/perl/lib/vboxService.pm
+ VBOXWEB_WS_PHP                = $(VBOX_PATH_SDK)/bindings/webservice/php/lib/vboxServiceWrappers.php
+ VBOXWEB_SAMPLES_JAXWS_DIR     = $(VBOX_PATH_SDK)/bindings/webservice/java/jax-ws/samples
+ VBOXWEB_JAXWSSAMPLE           = $(VBOXWEB_SAMPLES_JAXWS_DIR)/clienttest.java
+ VBOXWEB_METRICSAMPLE          = $(VBOXWEB_SAMPLES_JAXWS_DIR)/metrictest.java
+
+ VBOXWEB_OTHERS               += \
+ 	$(if $(VBOX_WITH_PYTHON),$(VBOXWEB_GLUE_PYTHON),) \
+ 	$(if $(VBOX_WITH_PYTHON),$(VBOXWEB_WS_PYTHON),) \
+ 	$(if $(VBOX_WITH_PYTHON),$(VBOXWEB_WS_PYTHON_TYPES),) \
+ 	$(if $(VBOX_WITH_PERL),$(VBOXWEB_WS_PERL),) \
+ 	$(if $(VBOX_WITH_PHP),$(VBOXWEB_WS_PHP),)
+
+
+ #
+ # Install sample code.
+ #
+ INSTALLS += vboxwebinst
+ vboxwebinst_INST = $(INST_SDK)bindings/webservice/
+ vboxwebinst_MODE = a+rx,u+w
+ vboxwebinst_SOURCES = \
+ 	$(if   $(VBOX_WITH_PERL),samples/perl/clienttest.pl=>perl/samples/clienttest.pl,) \
+ 	$(if    $(VBOX_WITH_PHP),samples/php/clienttest.php=>php/samples/clienttest.php,) \
+ 	$(if $(VBOX_WITH_PYTHON),samples/python/clienttest.py=>python/samples/clienttest.py,)
+
+ INSTALLS += vboxwebinst_nox
+ vboxwebinst_nox_INST = $(INST_SDK)bindings/webservice/
+ vboxwebinst_nox_MODE = a+r,u+w
+ vboxwebinst_nox_SOURCES = \
+ 	$(if $(VBOX_WITH_PYTHON),samples/python/Makefile=>python/samples/Makefile,) \
+ 	$(if $(VBOX_WITH_PYTHON),samples/python/Makefile.glue=>python/lib/Makefile,) \
+ 	$(if ($VBOX_WITH_JWS),$(PATH_ROOT)/COPYING.LIB=>java/jax-ws/COPYING.LIB,)
+
+ INSTALLS += vboxwebinst_wsdl
+ vboxwebinst_wsdl_INST = $(INST_SDK)bindings/webservice/
+ vboxwebinst_wsdl_MODE = a+r,u+w
+ vboxwebinst_wsdl_SOURCES = \
+ 	$(VBOXWEB_WSDL)=>vboxweb.wsdl \
+ 	$(VBOXWEBSERVICE_WSDL)=>vboxwebService.wsdl
+
+ INSTALLS += vboxwebinst_webtest
+ vboxwebinst_webtest_INST = $(INST_SDK)bindings/webservice/
+ vboxwebinst_webtest_MODE = a+r,u+w
+ vboxwebinst_webtest_SOURCES = \
+ 	$(VBOX_PATH_WEBSERVICE)/websrv-wsdl2gsoapH.xsl=>xsl/websrv-wsdl2gsoapH.xsl \
+ 	$(VBOX_PATH_WEBSERVICE)/websrv-nsmap.xsl=>xsl/websrv-nsmap.xsl \
+ 	$(VBOX_PATH_IDL)/typemap-shared.inc.xsl=>idl/typemap-shared.inc.xsl \
+ 	$(VBOX_PATH_WEBSERVICE)/split-soapC.cpp=>tools/split-soapC.cpp \
+ 	$(VBOX_PATH_WEBSERVICE)/webtest.cpp=>cpp/samples/webtest/webtest.cpp \
+ 	$(VBOX_PATH_WEBSERVICE)/Makefile.webtest=>cpp/samples/webtest/Makefile
+
+endif # VBOX_ONLY_SDK
+
+#
+# Update the OTHERS and OTHER_CLEAN lists with VBOXWEB_OTHERS and some more stuff.
+#
+# We can't just built up OTHERS and append it to OTHER_CLEAN because we're sharing
+# OTHERS with all the other VBox makefiles, thus VBOXWEB_OTHERS.
+#
+OTHERS += $(VBOXWEB_OTHERS)
+OTHER_CLEAN += \
+	$(VBOXWEB_OTHERS) \
+	$(if $(VBOX_WITH_PYTHON),$(VBOXWEB_WS_PYTHON_SERVER),) \
+	$(VBOXWEB_WSDL) \
+	$(VBOXWEBSERVICE_WSDL) \
+	$(VBOXWEB_TYPEMAP) \
+	$(VBOXWEB_IDL_SRC)
+
+# generate platform-specific XIDL file from original XIDL file
+$(VBOXWEB_IDL_SRC): $(VBOXWEB_IDL_SRC_STRIPPED) $(VBOX_PATH_WEBSERVICE)/platform-xidl.xsl | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_IDL_SRC) using platform-xidl.xsl)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(VBOX_XSLTPROC) $(VBOXWEB_XSLTPROC_VERBOSE) -o $@ $(VBOX_PATH_WEBSERVICE)/platform-xidl.xsl $<
+
+# generate WSDL from main XIDL file
+$(VBOXWEB_WSDL): $(VBOXWEB_IDL_SRC) $(VBOX_PATH_WEBSERVICE)/websrv-wsdl.xsl $(VBOX_PATH_IDL)/typemap-shared.inc.xsl $(RECOMPILE_ON_MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_IDL_SRC) using websrv-wsdl.xsl)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(VBOX_XSLTPROC) $(VBOXWEB_XSLTPROC_VERBOSE) -o $@ $(VBOX_PATH_WEBSERVICE)/websrv-wsdl.xsl $<
+
+$(VBOXWEBSERVICE_WSDL): $(VBOXWEB_IDL_SRC) $(VBOX_PATH_WEBSERVICE)/websrv-wsdl-service.xsl $(VBOX_PATH_IDL)/typemap-shared.inc.xsl $(RECOMPILE_ON_MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_IDL_SRC) using websrv-wsdl-service.xsl)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(VBOX_XSLTPROC) $(VBOXWEB_XSLTPROC_VERBOSE) -o $@ $(VBOX_PATH_WEBSERVICE)/websrv-wsdl-service.xsl $<
+
+ifdef VBOX_ONLY_SDK
+
+ $(VBOXWEB_GLUE_PYTHON): $(VBOXWEB_IDL_SRC) $(VBOXWEB_WSDL) $(VBOXWEBSERVICE_WSDL) $(VBOX_PATH_WEBSERVICE)/websrv-python.xsl
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_IDL_SRC) using websrv-python.xsl)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(MKDIR) -p $(@D)
+	$(QUIET)$(VBOX_XSLTPROC) $(VBOXWEB_XSLTPROC_VERBOSE) -o $@ $(VBOX_PATH_WEBSERVICE)/websrv-python.xsl $<
+
+ $(VBOXWEB_WS_PYTHON) \
+ + $(VBOXWEB_WS_PYTHON_TYPES): $(VBOXWEB_WSDL) $(VBOXWEBSERVICE_WSDL)
+	$(call MSG_GENERATE,,$@, WS Python bindings)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(MKDIR) -p $(@D)
+ # Change directory to the "source", as otherwise ZSI 2.0 has trouble finding
+ # the 2nd WSDL file included in the main one. ZSI 2.1 is smarter, but some
+ # versions floating around (especially on Linux) lack the --file option.
+ if "$(KBUILD_HOST)" != "win"
+	$(QUIET)$(REDIRECT) -C $(dir $(VBOXWEBSERVICE_WSDL)) -- $(SHELL) -c "$(VBOX_WSDL2PY) -b --output-dir $(@D) $(VBOXWEBSERVICE_WSDL) || $(VBOX_WSDL2PY) -b --file $(VBOXWEBSERVICE_WSDL) --output-dir $(@D)"
+ else
+	$(QUIET)$(REDIRECT) -C $(dir $(VBOXWEBSERVICE_WSDL)) -- $(VBOX_WSDL2PY) -b --file $(subst /,\\\\,$(VBOXWEBSERVICE_WSDL)) --output-dir $(@D)
+ endif
+ # Hack: some wsdl2py versions generate VirtualBox_client.py, some generate
+ # VirtualBox_services.py. Standardize on the former.
+	-$(QUIET)$(MV) -f $(VBOXWEB_WS_PYTHON_ALTERNATIVE) $(VBOXWEB_WS_PYTHON)
+ # We do not ever need the VirtualBox_server.py file. Delete it immediately
+ # so that it will not get packaged in the SDK.
+	$(QUIET)$(RM) -f -- $(VBOXWEB_WS_PYTHON_SERVER)
+	$(QUIET)$(APPEND) $@ ''
+
+ $(VBOXWEB_WS_PERL): $(VBOXWEB_WSDL) $(VBOXWEBSERVICE_WSDL)
+	$(call MSG_GENERATE,,$@, WS Perl bindings)
+	$(QUIET)$(MKDIR) -p $(@D)
+	$(QUIET)$(REDIRECT) -C $(@D) -- $(VBOX_STUBMAKER) file://$(VBOXWEBSERVICE_WSDL)
+ # Ugly, ugly, ugly, make me right once
+	$(QUIET)$(SED) -e "s+http://www.virtualbox.org/Service+http://www.virtualbox.org/+" --output $(VBOXWEB_WS_PERL).tmp $(VBOXWEB_WS_PERL)
+	$(QUIET)$(MV) $(VBOXWEB_WS_PERL).tmp $(VBOXWEB_WS_PERL)
+	$(QUIET)$(APPEND) $@ ''
+
+ $(VBOXWEB_WS_PHP): $(VBOXWEB_IDL_SRC) $(VBOX_PATH_WEBSERVICE)/websrv-php.xsl
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_IDL_SRC) using websrv-php.xsl)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(MKDIR) -p $(@D)
+	$(QUIET)$(VBOX_XSLTPROC) $(VBOXWEB_XSLTPROC_VERBOSE) -o $@ $(VBOX_PATH_WEBSERVICE)/websrv-php.xsl $<
+
+endif # VBOX_ONLY_SDK
+
+# generate typemap.dat (used by wsdl2h) from main XIDL file
+$(VBOXWEB_TYPEMAP): $(VBOXWEB_IDL_SRC) $(VBOX_PATH_WEBSERVICE)/websrv-typemap.xsl $(VBOX_PATH_IDL)/typemap-shared.inc.xsl $(RECOMPILE_ON_MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_IDL_SRC) using websrv-typemap.xsl)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(VBOX_XSLTPROC) $(VBOXWEB_XSLTPROC_VERBOSE) -o $@ $(VBOX_PATH_WEBSERVICE)/websrv-typemap.xsl $<
+
+# generate gsoap pseudo-C header file from that WSDL; once via XSLT...
+$(VBOXWEB_GSOAPH_FROM_XSLT): $(VBOXWEB_WSDL) $(VBOX_PATH_WEBSERVICE)/websrv-wsdl2gsoapH.xsl $(VBOX_PATH_IDL)/typemap-shared.inc.xsl $(RECOMPILE_ON_MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_WSDL) using websrv-wsdl2gsoapH.xsl)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(VBOX_XSLTPROC) $(VBOXWEB_XSLTPROC_VERBOSE) -o $@ $(VBOX_PATH_WEBSERVICE)/websrv-wsdl2gsoapH.xsl $<
+
+VBOX_NSMAP = $(VBOXWEB_OUT_DIR)/vboxwebsrv.nsmap
+$(VBOX_NSMAP): $(VBOXWEB_IDL_SRC) $(VBOX_PATH_WEBSERVICE)/websrv-nsmap.xsl $(VBOX_PATH_IDL)/typemap-shared.inc.xsl $(RECOMPILE_ON_MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_IDL_SRC) using websrv-nsmap.xsl)
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(VBOX_XSLTPROC) $(VBOXWEB_XSLTPROC_VERBOSE) -o $@ $(VBOX_PATH_WEBSERVICE)/websrv-nsmap.xsl $<
+
+ifdef VBOX_GSOAP_INSTALLED
+ # ... and once with the gSOAP tool (just for comparison, we don't use it for licensing reasons)
+ $(VBOXWEB_GSOAPH_FROM_GSOAP): $(VBOXWEB_WSDL) $(VBOXWEB_TYPEMAP) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,)
+	$(QUIET)$(RM) -f -- $@
+	$(VBOX_WSDL2H) $(VBOXWEB_WSDL_VERBOSE) -t$(VBOXWEB_TYPEMAP) -nvbox -o $@ $<
+
+ # this sets the gsoap header that we use for further compilation; if stuff works, then the
+ # one we generate via XSLT produces the same end result as the one from the gSOAP tool;
+ # with this variable we can swap for testing, but shipped code must use VBOXWEB_GSOAPH_FROM_XSLT
+ GSOAPH_RELEVANT = $(VBOXWEB_GSOAPH_FROM_XSLT)
+
+ # wsdl2h -v: verbose
+ # wsdl2h -e: don't qualify enum names
+ # wsdl2h -n<prefix>: namespace header prefix
+
+ ## @todo change this to state explicitly what will be generated?
+
+ #
+ # Generate server and client code from gsoap pseudo-C header file.
+ #
+ # Options for soapcpp2:
+ #   -2: generate SOAP 1.2 calls
+ #   -L: don't generate soapClientLib/soapServerLib
+ #   -w: don't generate WSDL and schema files
+ #   -x: don't generate sample XML files (VBOXWEB_SOAPCPP2_SKIP_FILES).
+ #
+ $(VBOXWEB_OUT_DIR)/gsoap_generate_all_ts \
+ + $(VBOXWEB_OUT_DIR)/soapH.h \
+ $(if-expr !defined(VBOX_WITHOUT_NOINLINE_SOAPH), \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-1.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-2.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-3.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-4.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-5.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-6.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-7.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-8.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-9.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-10.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-11.cpp \
+ 	+ $(VBOXWEB_OUT_DIR)/soapH-noinline-12.cpp,) \
+ + $(VBOXWEB_SOAP_CLIENT_H) \
+ + $(VBOXWEB_OUT_DIR)/soapC.cpp \
+ + $(VBOXWEB_OUT_DIR)/soapClient.cpp \
+ + $(VBOXWEB_OUT_DIR)/soapServer.cpp: \
+ 		$(VBOXWEB_GSOAPH_FROM_GSOAP) $(VBOXWEB_GSOAPH_FROM_XSLT) $(VBOX_NSMAP) \
+ 		$(VBOX_PATH_WEBSERVICE)/stdsoap2.sed \
+ 		$(VBOX_PATH_WEBSERVICE)/soap-header-to-inline-source-file.sed \
+ 		$(VBOX_PATH_WEBSERVICE)/soap-header-strip-inline.sed \
+ 		$$(split-soapC_1_TARGET) \
+ 		$(RECOMPILE_ON_MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,,lots of files,$(GSOAPH_RELEVANT))
+	$(RM) -f $@
+	$(REDIRECT) -C $(VBOXWEB_OUT_DIR) -- $(VBOX_SOAPCPP2) $(VBOXWEB_SOAPCPP2_SKIP_FILES) -L -2 -w -I$(VBOX_PATH_GSOAP_IMPORT) $(GSOAPH_RELEVANT)
+ ifeq ($(KBUILD_TARGET),win) # MSC -Wall workaround.
+	$(CP) -f "$(VBOXWEB_SOAP_CLIENT_H)" "$(VBOXWEB_SOAP_CLIENT_H).tmp"
+	$(SED) -f $(VBOX_PATH_WEBSERVICE)/stdsoap2.sed --output "$(VBOXWEB_SOAP_CLIENT_H)" "$(VBOXWEB_SOAP_CLIENT_H).tmp"
+	$(RM) -f "$(VBOXWEB_SOAP_CLIENT_H).tmp"
+ endif
+ ifndef VBOX_WITHOUT_NOINLINE_SOAPH
+	$(MV) -f -- "$(VBOXWEB_OUT_DIR)/soapH.h" "$(VBOXWEB_OUT_DIR)/soapH.h.tmp"
+	$(SED) -f $(VBOX_PATH_WEBSERVICE)/soap-header-to-inline-source-file.sed \
+		--output "$(VBOXWEB_OUT_DIR)/soapH-noinline.cpp" \
+		"$(VBOXWEB_OUT_DIR)/soapH.h.tmp"
+	$(split-soapC_1_TARGET) $(VBOXWEB_OUT_DIR)/soapH-noinline.cpp $(VBOXWEB_OUT_DIR)/soapH-noinline- 12
+	$(SED) -f $(VBOX_PATH_WEBSERVICE)/soap-header-strip-inline.sed \
+		--output "$(VBOXWEB_OUT_DIR)/soapH.h" \
+		"$(VBOXWEB_OUT_DIR)/soapH.h.tmp"
+	$(RM) -f -- "$(VBOXWEB_OUT_DIR)/soapH.h.tmp" "$(VBOXWEB_OUT_DIR)/soapH-noinline.cpp"
+ endif
+	$(APPEND) $@ done
+
+ # Copy the generated headers and stuff.  This was split into a separate rule
+ # way back because we thought we could use $(wildcard ) and avoid the shell,
+ # however we cannot as it is subject to caching.  Let the shell do the globbing.
+ # GSOAP versions 2.8 and later do not generate the unneeded soapvbox*.h files
+ # any more. Ignoring the exit code is the simple solution, accepting the error.
+ $(VBOXWEB_OUT_DIR)/gsoap_copy_all_ts: $(VBOXWEB_OUT_DIR)/gsoap_generate_all_ts | $$(dir $$@)
+	$(RM) -f $@
+	$(MKDIR) -p $(PATH_TARGET_SOAPDEMOXML) $(PATH_TARGET_SOAPDEMOHEADERS) $(PATH_TARGET_SOAPDEMONSMAPS)
+ ifdef VBOX_GSOAP_VERBOSE
+	$(MV_EXT) -f -- $(VBOXWEB_OUT_DIR)/*.req.xml $(VBOXWEB_OUT_DIR)/*.res.xml $(PATH_TARGET_SOAPDEMOXML)/
+ endif
+	-$(MV_EXT) -f -- $(VBOXWEB_OUT_DIR)/soapvbox*.h $(PATH_TARGET_SOAPDEMOHEADERS)/
+	$(MV_EXT) -f -- $(VBOXWEB_OUT_DIR)/vboxBinding.nsmap $(PATH_TARGET_SOAPDEMONSMAPS)/
+	$(APPEND) $@ done
+
+ $(PATH_TARGET_SOAPDEMONSMAPS) \
+ $(PATH_TARGET_SOAPDEMOHEADERS)/soapvboxBindingProxy.h \
+ $(PATH_TARGET_SOAPDEMOHEADERS)/soapvboxBindingObject.h: $(VBOXWEB_OUT_DIR)/gsoap_copy_all_ts
+
+ hack: $(VBOXWEB_OUT_DIR)/gsoap_copy_all_ts
+
+ ifndef VBOX_WITHOUT_SPLIT_SOAPC
+  #
+  # Split up the soapC.cpp monster into manageable bits that can be
+  # built in parallel and without exhausting all available memory.
+  #
+  $(VBOXWEB_OUT_DIR)/soapC-1.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-2.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-3.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-4.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-5.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-6.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-7.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-8.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-9.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-10.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-11.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-12.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-13.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-14.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-15.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-16.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-17.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-18.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-19.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-20.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-21.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-22.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-23.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-24.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-25.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-26.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-27.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-28.cpp \
+  + $(VBOXWEB_OUT_DIR)/soapC-29.cpp: \
+  		$(VBOXWEB_OUT_DIR)/soapC.cpp $$(split-soapC_1_TARGET) | $$(dir $$@)
+	$(RM) -f -- $(wildcard $(VBOXWEB_OUT_DIR)/soapC-?.cpp $(VBOXWEB_OUT_DIR)/soapC-??.cpp)
+	$(split-soapC_1_TARGET) $(VBOXWEB_OUT_DIR)/soapC.cpp $(VBOXWEB_OUT_DIR)/soapC- 29
+ endif # !VBOX_WITHOUT_SPLIT_SOAPC
+
+endif # VBOX_GSOAP_INSTALLED
+
+
+
+# generate method maps in server: map wsdl operations to com/xpcom method calls
+$(VBOXWEB_OUT_DIR)/methodmaps.cpp: $(VBOXWEB_IDL_SRC) $(VBOX_PATH_WEBSERVICE)/websrv-cpp.xsl $(VBOX_PATH_IDL)/typemap-shared.inc.xsl $(RECOMPILE_ON_MAKEFILE_CURRENT) | $$(dir $$@)
+	$(call MSG_GENERATE,,$@,$(VBOXWEB_IDL_SRC) using websrv-cpp.xsl)
+	$(QUIET)$(VBOX_XSLTPROC) -o $@ $(VBOX_PATH_WEBSERVICE)/websrv-cpp.xsl $<
+
+# generate C file which contains vboxweb.wsdl
+$$(VBOXWEB_OUT_DIR)/vboxweb-wsdl.c: $(VBOXWEB_WSDL) $(VBOX_BIN2C)
+	$(call MSG_TOOL,bin2c,vboxweb-wsdl,$<,$@)
+	$(QUIET)$(VBOX_BIN2C) -ascii VBoxWebWSDL $< $@
+
+
+ifdef VBOX_ONLY_SDK
+
+ $(VBOXWEB_JAXWSSAMPLE): $(VBOX_PATH_WEBSERVICE)/samples/java/jax-ws/clienttest.java
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(MKDIR) -p $(VBOXWEB_SAMPLES_JAXWS_DIR)
+	$(QUIET)$(SED) -e 's/{VBOX_API_SUFFIX}/$(VBOX_API_SUFFIX)/' <  $< >  $@
+
+ $(VBOXWEB_METRICSAMPLE): $(VBOX_PATH_WEBSERVICE)/samples/java/jax-ws/metrictest.java
+	$(QUIET)$(RM) -f -- $@
+	$(QUIET)$(MKDIR) -p $(VBOXWEB_SAMPLES_JAXWS_DIR)
+	$(QUIET)$(SED) -e 's/{VBOX_API_SUFFIX}/$(VBOX_API_SUFFIX)/' <  $< >  $@
+
+endif # VBOX_ONLY_SDK
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

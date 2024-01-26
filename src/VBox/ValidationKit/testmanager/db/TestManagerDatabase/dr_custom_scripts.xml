@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<dr_custom_scripts>
+	<scr id="D36CE536-D575-BE5C-625F-23DE23913C6B" name="Complex rule - check comments demo" object="Table" engine="Mozilla Rhino" type="Warning" var="table" library="my first library" method="checkcomments" purpose="validation" >
+		<script>
+			<![CDATA[var ruleMessage;
+var errType;
+var table;
+function checkcomments(object){
+ result = true;
+ ruleMessage="";
+ if(table.getCommentInRDBMS().equals("")){
+  ruleMessage="no comments in RDBMS defined";
+  errType="Problem:";
+  result = false;
+ }
+ if(table.getComment().equals("")){
+  if(ruleMessage.equals("")){
+   ruleMessage="no comments defined";
+  }else{
+   ruleMessage= ruleMessage +" , no comments defined";
+   }
+   errType="Error";
+  return false;
+ }
+ return result;
+}]]>
+		</script>
+	</scr>
+	<scr id="0BAA564F-AB5F-D776-2E4F-31FDB3047F69" name="Tables to lower case - Rhino" object="relational" engine="Mozilla Rhino" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[tables = model.getTableSet().toArray();
+for (var t = 0; t<tables.length;t++){
+ table = tables[t];
+ name = table.getName().toLowerCase();
+ table.setName(name);
+ columns = table.getElements();
+ size = table.getElementsCollection().size();
+ for (var i = 0; i < size; i++) {
+	column = columns[i];
+	cname = column.getName().toLowerCase();
+	column.setName(cname);
+ }
+ table.setDirty(true);
+ keys = table.getKeys();
+ for (var i = 0; i < keys.length; i++) {
+  key = keys[i];
+    if(!key.isFK()){
+     kname = key.getName().toLowerCase();
+     key.setName(kname);
+   }else{
+     kname = key.getFKAssociation().getName().toLowerCase();
+     key.getFKAssociation().setName(kname);
+     key.getFKAssociation().setDirty(true);
+   }
+ }
+}]]>
+		</script>
+	</scr>
+	<scr id="B673F271-4836-DD48-15AC-487DDECCAF49" name="Tables to upper case - JRuby" object="relational" engine="JSR 223 JRuby Engine" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[tables =$model.getTableSet().toArray()
+for t in 0..tables.length-1
+ table = tables[t]
+ name = table.getName().upcase
+ table.setName(name)
+ columns = table.getElements()
+ size = table.getElementsCollection().size()-1
+ for i in 0..size
+	column = columns[i]
+	cname = column.getName().upcase
+	column.setName(cname)
+ end
+ keys = table.getKeys()
+ for i in 0..keys.length-1
+  key = keys[i]
+  kname = key.getName().upcase
+  key.setName(kname)
+ end
+end]]>
+		</script>
+	</scr>
+	<scr id="3E7C4F9E-9FCB-56C7-086F-F976F9A66384" name="Tables to upper case - JRuby - library usage" object="relational" engine="JSR 223 JRuby Engine" type="" var="model" library="Jruby lib" method="tables_up" purpose="transformation" >
+		<script>
+			<![CDATA[def tables_up(model)
+tables = model.getTableSet().toArray()
+for t in 0..tables.length-1
+ table = tables[t]
+ name = table.getName().upcase
+ table.setName(name)
+ columns = table.getElements()
+ size = table.getElementsCollection().size()-1
+ for i in 0..size
+	column = columns[i]
+	cname = column.getName().upcase
+	column.setName(cname)
+ end
+ keys = table.getKeys()
+ for i in 0..keys.length-1
+  key = keys[i]
+  kname = key.getName().upcase
+  key.setName(kname)
+ end
+end
+return true
+end]]>
+		</script>
+	</scr>
+	<scr id="E60A5A28-BB9B-3787-10E7-259DF900B9E6" name="Table abbreviation to column" object="relational" engine="Mozilla Rhino" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[tables = model.getTableSet().toArray();
+for (var t = 0; t<tables.length;t++){
+ table = tables[t];
+ abbr = table.getAbbreviation()+"_";
+ if(!"_".equals(abbr)){
+     columns = table.getElements();
+     for (var i = 0; i < columns.length; i++) {
+        column = columns[i];
+        cname = column.getName();
+        if(!cname.startsWith(abbr)){
+         column.setName(abbr+cname);
+        }
+     }
+ }
+}]]>
+		</script>
+	</scr>
+	<scr id="9BE4E26C-36D8-A92C-ADEA-F183327DC239" name="Remove Table abbr from column" object="relational" engine="Mozilla Rhino" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[tables = model.getTableSet().toArray();
+for (var t = 0; t<tables.length;t++){
+ table = tables[t];
+ abbr = table.getAbbreviation()+"_";
+ count = table.getAbbreviation().length()+1;
+ if(!"_".equals(abbr)){
+     columns = table.getElements();
+     for (var i = 0; i < columns.length; i++) {
+        column = columns[i];
+        cname = column.getName();
+        if(cname.startsWith(abbr)){
+         column.setName(cname.substring(count));
+         table.setDirty(true);
+        }
+     }
+ }
+}]]>
+		</script>
+	</scr>
+	<scr id="23BE8827-D732-72B0-C6E6-266EFE116EDD" name="Table template" object="relational" engine="Mozilla Rhino" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[var t_name = "table_template";
+var p_name = "ctemplateID";
+template = model.getTableSet().getByName(t_name);
+if(template!=null){
+    tcolumns = template.getElements();
+    tables = model.getTableSet().toArray();
+    for (var t = 0; t<tables.length;t++){
+     table = tables[t];
+    // compare name ignoring the case
+     if(!table.getName().equalsIgnoreCase(t_name)){
+         for (var i = 0; i < tcolumns.length; i++) {
+            column = tcolumns[i];
+            col = table.getColumnByProperty(p_name,column.getObjectID());
+            if(col==null){
+             col = table.createColumn();
+            }
+            column.copy(col);
+            //set property after copy otherwise it'll be cleared
+            col.setProperty(p_name,column.getObjectID());
+            table.setDirty(true);
+         }
+     }
+    }
+}]]>
+		</script>
+	</scr>
+	<scr id="5A8A151A-13FD-4B0A-E233-E3C5126BA02C" name="Tables to upper case - Rhino" object="relational" engine="Mozilla Rhino" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[tables = model.getTableSet().toArray();
+for (var t = 0; t<tables.length;t++){
+ table = tables[t];
+ name = table.getName().toUpperCase();
+ table.setName(name);
+ columns = table.getElements();
+ size = table.getElementsCollection().size();
+ for (var i = 0; i < size; i++) {
+	column = columns[i];
+	cname = column.getName().toUpperCase();
+	column.setName(cname);
+ }
+ table.setDirty(true);
+ keys = table.getKeys();
+ for (var i = 0; i < keys.length; i++) {
+  key = keys[i];
+    if(!key.isFK()){
+     kname = key.getName().toUpperCase();
+     key.setName(kname);
+   }else{
+     kname = key.getFKAssociation().getName().toUpperCase();
+     key.getFKAssociation().setName(kname);
+     key.getFKAssociation().setDirty(true);
+   }
+ }
+}]]>
+		</script>
+	</scr>
+	<scr id="0528C35C-F29B-E7BB-57AC-37BA2780A98D" name="Table template - uses column name" object="relational" engine="Mozilla Rhino" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[// version without usage of dynamic properties, columns are found by column name
+// this allow reuse of already existing columns
+var t_name = "table_template";
+template = model.getTableSet().getByName(t_name);
+if(template!=null){
+    tcolumns = template.getElements();
+    tables = model.getTableSet().toArray();
+    for (var t = 0; t<tables.length;t++){
+     table = tables[t];
+    // compare name ignoring the case
+     if(!table.getName().equalsIgnoreCase(t_name)){
+         for (var i = 0; i < tcolumns.length; i++) {
+            column = tcolumns[i];
+            col = table.getElementByName(column.getName());
+            if(col==null){
+             col = table.createColumn();
+            }
+            column.copy(col);
+            table.setDirty(true);
+         }
+     }
+    }
+}]]>
+		</script>
+	</scr>
+	<scr id="6279C414-90DD-A52B-4CEB-8D49AB31DC10" name="Copy Comments to Comments in RDBMS" object="relational" engine="Mozilla Rhino" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[max_length = 4000;
+function copyComments(object){
+ if(object.getCommentInRDBMS().equals("")){
+   if(!object.getComment().equals("")){
+     if(object.getComment().length()>max_length){
+       object.setCommentInRDBMS(object.getComment().substring(0, max_length));
+     }else{
+       object.setCommentInRDBMS(object.getComment());
+     }
+     object.setDirty(true);
+   }
+ }
+}
+
+tables = model.getTableSet().toArray();
+for (var t = 0; t<tables.length;t++){
+ table = tables[t]
+ copyComments(table);
+ columns = table.getElements();
+ size = table.getElementsCollection().size();
+ for (var i = 0; i < columns.length; i++) {
+	column = columns[i];
+	copyComments(column);
+ }
+ keys = table.getKeys();
+ for (var i = 0; i < keys.length; i++) {
+   key = keys[i];
+   if(!key.isFK()){
+     copyComments(key);
+   }else{
+     copyComments(key.getFKAssociation());
+   }
+ }
+}]]>
+		</script>
+	</scr>
+	<scr id="7C4EDFC0-26EA-859C-DBD9-AC9345DEAF98" name="Create index on FK" object="relational" engine="Mozilla Rhino" type="" var="model" library="" method="" purpose="transformation" >
+		<script>
+			<![CDATA[function getIndex(tab,cols){
+ keys = tab.getKeys();
+ for (var i = 0; i < keys.length; i++) {
+  index = keys[i];
+  if(!(index.isPK() || index.isUnique()) && !index.isFK() && index.isIndexForColumns(cols)){
+     return index
+   }
+ }
+ return null;
+}
+
+tables = model.getTableSet().toArray();
+for (var t = 0; t<tables.length;t++){
+ table = tables[t];
+ indexes = table.getKeys();
+ for (var i = 0; i < indexes.length; i++) {
+    index = indexes[i];
+    if(index.isFK()){
+     columns = index.getColumns();
+     if(columns.length>0){
+       newIndex = getIndex(table,columns);
+       if(newIndex==null){
+         newIndex = table.createIndex()
+         table.setDirty(true);
+         for (var k = 0; k < columns.length; k++){
+           newIndex.add(columns[k]);
+         }
+       }
+     }
+   }
+ }
+}]]>
+		</script>
+	</scr>
+
+	<lib id="B310E434-78AE-6AED-EA94-6808B0262483" name="my first library" engine="Mozilla Rhino" methods="checkcomments" >
+		<script>
+			<![CDATA[var ruleMessage;
+var errType;
+var table;
+function checkcomments(object){
+ result = true;
+ ruleMessage="";
+ if(table.getCommentInRDBMS().equals("")){
+  ruleMessage="no comments in RDBMS defined";
+  errType="Problem:";
+  result = false;
+ }
+ if(table.getComment().equals("")){
+  if(ruleMessage.equals("")){
+   ruleMessage="no comments defined";
+  }else{
+   ruleMessage= ruleMessage +" , no comments defined";
+   }
+   errType="Error";
+  return false;
+ }
+ return result;
+}]]>
+		</script>
+	</lib>
+	<lib id="2518F33A-DE50-9E1D-7216-DD2A0FD6B84C" name="Jruby lib" engine="JRuby Engine" methods="tables_up" >
+		<script>
+			<![CDATA[def tables_up(model)
+tables = model.getTableSet().toArray()
+for t in 0..tables.length-1
+ table = tables[t]
+ name = table.getName().upcase
+ table.setName(name)
+ columns = table.getElements()
+ size = table.getElementsCollection().size()-1
+ for i in 0..size
+	column = columns[i]
+	cname = column.getName().upcase
+	column.setName(cname)
+ end
+ keys = table.getKeys()
+ for i in 0..keys.length-1
+  key = keys[i]
+  kname = key.getName().upcase
+  key.setName(kname)
+ end
+end
+return true
+end]]>
+		</script>
+	</lib>
+</dr_custom_scripts>

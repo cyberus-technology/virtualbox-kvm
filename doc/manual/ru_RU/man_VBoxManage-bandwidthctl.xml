@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage bandwidthctl
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-bandwidthctl" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage bandwidthctl</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-bandwidthctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-bandwidthctl</refname>
+    <refpurpose>управление группами полосы пропускания</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-bandwidthctl-add">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage bandwidthctl</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="plain">add</arg>
+      <arg choice="req"><replaceable>имя-группы-полосы-пропускания</replaceable></arg>
+      <arg choice="req">--limit=<replaceable>лимит-полосы-пропускания</replaceable>[k|m|g|K|M|G]</arg>
+      <arg choice="req">--type=disk|network</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-bandwidthctl-list">
+      <command>VBoxManage bandwidthctl</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="plain">list</arg>
+      <arg>--machinereadable</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-bandwidthctl-remove">
+      <command>VBoxManage bandwidthctl</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="plain">remove</arg>
+      <arg choice="req"><replaceable>имя-группы-полосы-пропускания</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-bandwidthctl-set">
+      <command>VBoxManage bandwidthctl</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-ВМ</replaceable></arg>
+      </group>
+      <arg choice="plain">set</arg>
+      <arg choice="req"><replaceable>имя-группы-полосы-пропускания</replaceable></arg>
+      <arg choice="req">--limit=<replaceable>лимит-полосы-пропускания</replaceable>[k|m|g|K|M|G]</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage bandwidthctl</command> позволяет управлять
+      группами полосы пропускания для виртуальных машин (ВМ). Группа полосы
+      пропускания указывает лимит полосы пропускания для дисков или сетевых
+      адаптеров ВМ.
+    </para>
+    <para>
+      Обратите внимание, что лимит полосы пропускания сети применяется только
+      к исходящему траффику ВМ. Входящий траффик не ограничивается.
+    </para>
+    <refsect2 id="vboxmanage-bandwidthctl-add">
+      <title>Создание группы полосы пропускания</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage bandwidthctl add</command> создает группу
+        полосы пропускания для указанной ВМ. Вы должны указать назначение
+        группы полосы пропускания: для дисков или сетей, а также указать
+        лимит полосы пропускания.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable> | <replaceable>имя-ВМ</replaceable></term>
+          <listitem><para>
+              Указывает Универсальный Уникальный Идентификатор (UUID) или
+              имя ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option><replaceable>имя-группы-полосы-пропускания</replaceable></option></term>
+          <listitem><para>
+              Указывает имя группы полосы пропускания.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--type=disk|network</option></term>
+          <listitem><para>
+              Указывает тип группы полосы пропускания:
+              <literal>disk</literal> и <literal>network</literal>.
+              Для дополнительной информации смотрите
+              <xref linkend="storage-bandwidth-limit" /> или <xref linkend="network_bandwidth_limit" />.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--limit=<replaceable>лимит-полосы-пропускания</replaceable>[k|m|g|K|M|G]</option></term>
+          <listitem><para>
+              Указывает лимит для группы полосы пропускания. По умолчанию,
+              указывается в мегабайтах в секунду. Можно изменить это значение
+              пока ВМ работает.
+            </para><para>
+              Можно изменить единицы измерения, добавляя следующие спецификаторы
+              к лимиту полосы пропускания:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>k</literal> &ndash; килобит в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>m</literal> &ndash; мегабит в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>g</literal> &ndash; гигабит в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>K</literal> &ndash; килобайт в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>M</literal> &ndash; мегабайт в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>G</literal> &ndash; гигабайт в секунду
+                </para></listitem>
+            </itemizedlist></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-bandwidthctl-list">
+      <title>Отображение групп полосы пропускания</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage bandwidthctl list</command> показывает
+        все группы полосы пропускания, определенные для указанной ВМ.
+        Используйте опцию <option>--machinereadable</option> для вывода
+        в машино-читаемом формате, который использует пары имя-значение.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable> | <replaceable>имя-ВМ</replaceable></term>
+          <listitem><para>
+              Указывает UUID или имя ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--machinereadable</option></term>
+          <listitem><para>
+              Выводит информацию о группах полосы пропускания в виде
+              пар имя-значение.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-bandwidthctl-remove">
+      <title>Удаление группы полосы пропускания</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage bandwidthctl remove</command> удаляет
+        группу полосы пропускания.
+      </para>
+      <note>
+        <para>
+          Для успешного удаления группы полосы пропускания, убедитесь
+          что она не ссылается на диск или адаптер работающей ВМ.
+        </para>
+      </note>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable> | <replaceable>имя-ВМ</replaceable></term>
+          <listitem><para>
+              Указывает UUID или имя ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option><replaceable>имя-группы-полосы-пропускания</replaceable></option></term>
+          <listitem><para>
+              Указывает имя группы полосы пропускания.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-bandwidthctl-set">
+      <title>Изменение лимита группы полосы пропускания</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Команда <command>VBoxManage bandwidthctl set</command> изменяет
+        лимит группы полосы пропускания.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>uuid</replaceable> | <replaceable>имя-ВМ</replaceable></term>
+          <listitem><para>
+              Указывает UUID или имя ВМ.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option><replaceable>bandwidth-group-name</replaceable></option></term>
+          <listitem><para>
+              Указывает имя группы полосы пропускания.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--limit=<replaceable>лимит-полосы-пропускания</replaceable>[k|m|g|K|M|G]</option></term>
+          <listitem><para>
+              Указывает лимит для группы полосы пропускания. По умолчанию,
+              указывается в мегабайтах в секунду. Можно изменить это значение
+              пока ВМ работает.
+            </para><para>
+              Можно изменить единицы измерения, добавляя следующие спецификаторы
+              к лимиту полосы пропускания:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>k</literal> &ndash; килобит в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>m</literal> &ndash; мегабит в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>g</literal> &ndash; гигабит в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>K</literal> &ndash; килобайт в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>M</literal> &ndash; мегабайт в секунду
+                </para></listitem>
+              <listitem><para>
+                  <literal>G</literal> &ndash; гигабайт в секунду
+                </para></listitem>
+            </itemizedlist></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      Следующий пример показывает, как использовать команду
+      <command>VBoxManage bandwidthctl</command> для создания группы
+      полосы пропускания <literal>Limit</literal> с лимитом в 20 Мбит/с.
+      Затем используется команда <command>VBoxManage modifyvm</command>
+      для назначения этой группы первому и второму адаптерам ВМ
+      <literal>vm1</literal>.
+    </para>
+<screen>$ VBoxManage bandwidthctl "vm1" add Limit --type network --limit 20m
+$ VBoxManage modifyvm "vm1" --nicbandwidthgroup1 Limit
+$ VBoxManage modifyvm "vm1" --nicbandwidthgroup2 Limit</screen>
+    <para>
+      Можно динамически менять лимит группы полосы пропускания пока
+      ВМ работает. Следующий пример показывает как изменить лимит
+      для группы полосы пропускания <literal>Limit</literal> с 20
+      Мбит/с в 100 кбит/с:
+    </para>
+<screen>$ VBoxManage bandwidthctl "vm1" set Limit --limit 100k</screen>
+    <para>
+      Следующая команда отключает ограничения для всех адаптеров в
+      группе полосы пропускания <literal>Limit</literal> путем установки
+      лимита в ноль (<literal>0</literal>):
+    </para>
+<screen>$ VBoxManage bandwidthctl "vm1" set Limit --limit 0</screen>
+  </refsect1>
+</refentry>

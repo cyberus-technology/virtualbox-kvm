@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage cloud image
+-->
+<!--
+    Copyright (C) 2018-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-cloudimage" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage cloud image</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-cloudimage</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-cloudimage</refname>
+    <refpurpose>Manage the cloud images</refpurpose>
+    <refclass>Oracle VM VirtualBox</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-create" sepchar=" "> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage cloud</command>
+        <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+        <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+        <arg choice="plain">image</arg>
+        <arg choice="plain">create</arg>
+        <arg choice="req">--display-name=<replaceable>name</replaceable></arg>
+        <arg>--bucket-name=<replaceable>name</replaceable></arg>
+        <arg>--object-name=<replaceable>name</replaceable></arg>
+        <arg>--instance-id=<replaceable>unique id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-info" sepchar=" ">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">image</arg>
+      <arg choice="plain">info</arg>
+      <arg choice="req">--id=<replaceable>unique id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-delete" sepchar=" ">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">image</arg>
+      <arg choice="plain">delete</arg>
+      <arg choice="req">--id=<replaceable>unique id</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-import" sepchar=" ">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">image</arg>
+      <arg choice="plain">import</arg>
+      <arg choice="req">--id=<replaceable>unique id</replaceable></arg>
+      <arg>--bucket-name=<replaceable>name</replaceable></arg>
+      <arg>--object-name=<replaceable>name</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-cloudimage-export" sepchar=" ">
+      <command>VBoxManage cloud</command>
+      <arg choice="req">--provider=<replaceable>name</replaceable></arg>
+      <arg choice="req">--profile=<replaceable>name</replaceable></arg>
+      <arg choice="plain">image</arg>
+      <arg choice="plain">export</arg>
+      <arg choice="req">--id=<replaceable>unique id</replaceable></arg>
+      <arg choice="req">--display-name=<replaceable>name</replaceable></arg>
+      <arg>--bucket-name=<replaceable>name</replaceable></arg>
+      <arg>--object-name=<replaceable>name</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <refsect2 id="vboxmanage-cloudimage-common-options">
+      <title>Common options</title>
+      <remark role="help-scope" condition="GLOBAL"/>
+      <para>The subcommands of <command>cloudimage</command> implement the standard operations for a cloud image
+        like create/delete/show/import/export. The next common options must be placed between the "cloud" and  the following sub-commands:</para>
+      <variablelist>
+        <varlistentry>
+          <term>--provider=<replaceable>name</replaceable></term>
+          <listitem><para>Short cloud provider name.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>--profile=<replaceable>name</replaceable></term>
+          <listitem><para>Cloud profile name. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-create">
+      <title>cloud image create</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Creates new image in the Cloud.
+        There are two standard ways to create an image in the Cloud:
+        1. Create an image from an object in the Cloud Storage;
+        2. Create an image from an existing cloud instance.
+        For the 1st approach next parameters are required:
+        bucket-name - cloud bucket name where an object is located;
+        object-name - name of object in the bucket;
+        display-name - name for new image in the Cloud.
+        For the 2d approach next parameters are required:
+        instance-id - Id of instance in the Cloud;
+        display-name - name for new image in the Cloud.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--display-name</option></term><listitem><para>Name for new image in the Cloud.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Cloud bucket name where an object is located.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term><listitem><para>Name of object in the bucket.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--instance-id</option></term><listitem><para>Unique identifier which fully identifies the instance in the Cloud.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-info">
+      <title>cloud image info</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Display information about a cloud image with a specified id.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Unique identifier which fully identifies the image in the Cloud.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-delete">
+      <title>cloud image delete</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Delete an image with a specified id from the Cloud.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Unique identifier which fully identifies the image in the Cloud.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-import">
+      <title>cloud image import</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Import an image with a specified id from the Cloud to a local host.
+        The result is an object in the local "temp" folder on the local host.
+        Possible approach may have two general steps:
+        1. Create an object from an image in the Cloud Storage;
+        2. Download the object to the local host.
+        So the next parameters may be required:
+        bucket-name - cloud bucket name where the object will be created;
+        object-name - name of object in the bucket. if parameter "object-name" is absent a displayed image name is used.
+        If the first step isn't needed only the parameter "id" is required.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Unique identifier which fully identifies the image in the Cloud.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Cloud bucket name where an object will be created.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term>
+            <listitem>
+              <para>
+                Name of created object in the bucket. The downloaded object will have this name.
+              </para>
+            </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-cloudimage-export">
+      <title>cloud image export</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Export an existing VBox image with a specified uuid from a local host to the Cloud.
+        The result is new image in the Cloud.
+        Possible approach may have two general steps:
+        1. Upload VBox image to the Cloud Storage;
+        2. Create an image from the uploaded object.
+        So the next parameters may be required:
+        bucket-name -cloud bucket name where the object will be uploaded;
+        object-name - name of object in the bucket. If parameter "object-name" is absent the image id is used;
+        display-name - name for new image in the Cloud.
+        If the first step isn't needed the parameters "id" and "display-name" are required only.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--id</option></term><listitem><para>Unique identifier of the image in the VirtualBox.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--display-name</option></term><listitem><para>Name for new image in the Cloud.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--bucket-name</option></term><listitem><para>Cloud bucket name where the image (object) will be uploaded.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--object-name</option></term><listitem><para>Name of object in the bucket.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+</refentry>
+

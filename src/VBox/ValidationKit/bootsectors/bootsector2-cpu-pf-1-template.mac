@@ -1,0 +1,1061 @@
+; $Id: bootsector2-cpu-pf-1-template.mac $
+;; @file
+; Bootsector test for various types of #PFs - multi mode template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+%include "bootsector2-template-header.mac"
+
+
+;*******************************************************************************
+;*      Defined Constants And Macros                                           *
+;*******************************************************************************
+%undef BIG_PAGE_SIZE
+%undef PXE_SIZE
+%ifdef TMPL_CMN_PP
+ %define BIG_PAGE_SIZE  _4M
+ %define PXE_SIZE       4
+%else
+ %define BIG_PAGE_SIZE  _2M
+ %define PXE_SIZE       8
+%endif
+
+
+;;
+; Do the tests for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(DoTestsForMode_rm)
+        push    bp
+        mov     bp, sp
+        push    ax
+
+        ;
+        ; Check if the mode and NX is supported, do the switch.
+        ;
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        mov     ax, [bp - 2]
+        test    al, al
+        jz      .nx_disabled
+        call    Bs2IsNXSupported_r86
+        jz      .done
+        call    Bs2EnableNX_r86
+.nx_disabled:
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+
+        ;
+        ; Do the tests.
+        ;
+        call    TMPL_NM(TestNotPresent)
+        ;; @todo call    TMPL_NM(TestReadOnly)
+        ;; @todo call    TMPL_NM(TestSupervisor)
+        ;; @todo call    TMPL_NM(TestReservedBits)
+
+        ;
+        ; Back to real mode.
+        ;
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+        call    Bs2DisableNX_r86
+
+.done:
+        pop     ax
+        leave
+        ret
+ENDPROC TMPL_NM(DoTestsForMode_rm)
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+;;
+; Do the tests for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(DoBenchmarksForMode_rm)
+        push    bp
+        mov     bp, sp
+        push    ax
+
+        ;
+        ; Check if the mode and NX is supported, do the switch.
+        ;
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+
+        ;
+        ; Do the tests.
+        ;
+        call    TMPL_NM(BenchmarkNotPresent)
+
+        ;
+        ; Back to real mode.
+        ;
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+.done:
+        pop     ax
+        leave
+        ret
+ENDPROC TMPL_NM(DoBenchmarksForMode_rm)
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+;;
+; Does the page-not-present tests.
+;
+; @param    al          Set if NXE=1, clear if NXE=0.
+;
+; @uses nothing
+;
+BEGINPROC TMPL_NM(TestNotPresent)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    xCX
+        push    xDX
+        push    xDI
+        push    xSI
+
+        ;
+        ; Setup sCX for all the following tests.
+        ;
+        xor     sCX, sCX
+        test    al, al
+        jz      .no_nxe
+        mov     sCX, X86_TRAP_PF_ID
+.no_nxe:
+
+        ;
+        ; First test, big page not present.
+        ;
+        mov     xAX, .s_szBigPageNotPresent
+        test    sCX, sCX
+        jz      .test1_nxe
+        mov     xAX, .s_szBigPageNotPresentNX
+.test1_nxe:
+        call    TMPL_NM_CMN(TestSub)
+        call    TMPL_NM(TestFillTestAreaWithRet)
+
+        mov     sAX, TST_SCRATCH_PD_BASE
+        call    TMPL_NM(TestGetPdeAddr)
+        and     byte [sAX], ~X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        mov     sAX, TST_SCRATCH_PD_BASE
+        mov     sDX, 0                  ; err code
+        call    TMPL_NM(TestHammerPage)
+        jz      .test1_cleanup
+
+        mov     sAX, TST_SCRATCH_PD_BASE + (BIG_PAGE_SIZE / 2 - _4K)
+        call    TMPL_NM(TestHammerPage)
+        jz      .test1_cleanup
+
+        mov     sAX, TST_SCRATCH_PD_BASE + (BIG_PAGE_SIZE - _4K)
+        call    TMPL_NM(TestHammerPage)
+        jz      .test1_cleanup
+
+.test1_cleanup:
+        mov     sAX, TST_SCRATCH_PD_BASE
+        call    TMPL_NM(TestGetPdeAddr)
+        or      byte [sAX], X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        ;
+        ; The second test, normal page not present.
+        ;
+        mov     xAX, .s_szPageNotPresent
+        test    sCX, sCX
+        jz      .test2_nxe
+        mov     xAX, .s_szPageNotPresentNX
+.test2_nxe:
+        call    TMPL_NM_CMN(TestSub)
+
+        mov     sAX, TST_SCRATCH_PD_BASE
+        call    TMPL_NM(TstPutPageTableAt)
+
+        ; Make the first and last page not-present.
+        and     byte [BS2_USER_PX_0_ADDR], ~X86_PTE_P
+        and     byte [BS2_USER_PX_0_ADDR + 01000h - PXE_SIZE], ~X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        ; Do the tests.
+        mov     sAX, TST_SCRATCH_PD_BASE
+        mov     sDX, 0                  ; err code
+        call    TMPL_NM(TestHammerPage)
+        jz      .test2_cleanup
+
+        mov     sAX, TST_SCRATCH_PD_BASE + (BIG_PAGE_SIZE - _4K)
+        call    TMPL_NM(TestHammerPage)
+        jz      .test2_cleanup
+
+.test2_cleanup:
+        mov     sAX, TST_SCRATCH_PD_BASE
+        call    TMPL_NM(TstRestoreBigPageAt)
+
+
+%if PXE_SIZE == 8 ; PAE or LM
+        ;
+        ; The third test, mark a page directory pointer entry not present.
+        ;
+        mov     xAX, .s_szPdpeNotPresent
+        test    sCX, sCX
+        jz      .test3_nxe
+        mov     xAX, .s_szPdpeNotPresentNX
+.test3_nxe:
+        call    TMPL_NM_CMN(TestSub)
+        call    TMPL_NM(TestFillTestAreaWithRet)
+
+        mov     sAX, TST_SCRATCH_PDPT_BASE
+        call    TMPL_NM(TestGetPdpeAddr)
+        and     byte [sAX], ~X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        mov     sAX, TST_SCRATCH_PDPT_BASE
+        mov     sDX, 0                  ; err code
+        call    TMPL_NM(TestHammerPage)
+        jz      .test3_cleanup
+
+        mov     sAX, TST_SCRATCH_PDPT_BASE + (BIG_PAGE_SIZE / 2 - _4K)
+        call    TMPL_NM(TestHammerPage)
+        jz      .test3_cleanup
+
+        mov     sAX, TST_SCRATCH_PDPT_BASE + (BIG_PAGE_SIZE - _4K)
+        call    TMPL_NM(TestHammerPage)
+        jz      .test3_cleanup
+
+.test3_cleanup:
+        mov     sAX, TST_SCRATCH_PDPT_BASE
+        call    TMPL_NM(TestGetPdpeAddr)
+        or      byte [sAX], X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+%endif ; PAE || LM
+
+
+%ifdef TMPL_LM64
+        ;
+        ; The fourth test, mark a page map level 4 entry not present.
+        ;
+        mov     xAX, .s_szPml4eNotPresent
+        test    sCX, sCX
+        jz      .test4_nxe
+        mov     xAX, .s_szPml4eNotPresentNX
+.test4_nxe:
+        call    TMPL_NM_CMN(TestSub)
+        call    TMPL_NM(TestFillTestAreaWithRet)
+
+        mov     sAX, TST_SCRATCH_PML4_BASE
+        call    TMPL_NM(TestGetPml4eAddr)
+        and     byte [sAX], ~X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        mov     sAX, TST_SCRATCH_PML4_BASE
+        mov     sDX, 0                  ; err code
+        call    TMPL_NM(TestHammerPage)
+        jz      .test4_cleanup
+
+        mov     sAX, TST_SCRATCH_PML4_BASE + (BIG_PAGE_SIZE / 2 - _4K)
+        call    TMPL_NM(TestHammerPage)
+        jz      .test4_cleanup
+
+        mov     sAX, TST_SCRATCH_PML4_BASE + (BIG_PAGE_SIZE - _4K)
+        call    TMPL_NM(TestHammerPage)
+        jz      .test4_cleanup
+
+.test4_cleanup:
+        mov     sAX, TST_SCRATCH_PML4_BASE
+        call    TMPL_NM(TestGetPml4eAddr)
+        or      byte [sAX], X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+%endif
+
+        ;
+        ; Done.
+        ;
+        call    TMPL_NM_CMN(TestSubDone)
+
+        pop     xSI
+        pop     xDI
+        pop     xDX
+        pop     xCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szBigPageNotPresent:
+        db      TMPL_MODE_STR, ', !NX, big page NP', 0
+.s_szBigPageNotPresentNX:
+        db      TMPL_MODE_STR, ',  NX, big page NP', 0
+.s_szPageNotPresent:
+        db      TMPL_MODE_STR, ', !NX, page NP', 0
+.s_szPageNotPresentNX:
+        db      TMPL_MODE_STR, ',  NX, page NP', 0
+%if PXE_SIZE == 8 ; PAE or LM
+.s_szPdpeNotPresent:
+        db      TMPL_MODE_STR, ', !NX, PDPE NP', 0
+.s_szPdpeNotPresentNX:
+        db      TMPL_MODE_STR, ',  NX, PDPE NP', 0
+%endif
+%ifdef TMPL_LM64
+.s_szPml4eNotPresent:
+        db      TMPL_MODE_STR, ', !NX, PML4E NP', 0
+.s_szPml4eNotPresentNX:
+        db      TMPL_MODE_STR, ',  NX, PML4E NP', 0
+%endif
+ENDPROC   TMPL_NM(TestNotPresent)
+
+
+
+;;
+; Does the page-not-present benchmark.
+;
+; @uses nothing
+;
+BEGINPROC TMPL_NM(BenchmarkNotPresent)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    xBX
+        push    sCX
+        push    sDX
+        push    xDI
+        push    xSI
+        sub     xSP, 20h
+
+        call    TMPL_NM(TestFillTestAreaWithRet)
+
+        ;
+        ; The First benchmark: Big page not present.
+        ;
+
+        ; Mark the big test page not present.
+        mov     sAX, TST_SCRATCH_PD_BASE
+        call    TMPL_NM(TestGetPdeAddr)
+        and     byte [sAX], ~X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        ; Benchmark.
+        mov     sAX, TST_SCRATCH_PD_BASE
+        mov     xDX, .s_szBigPageNotPresent
+        mov     xCX, .s_szBigPageNotPresentFailed
+        call    TMPL_NM(TstBenchmark32BitReads)
+
+        ; Cleanup.
+        mov     sAX, TST_SCRATCH_PD_BASE
+        call    TMPL_NM(TestGetPdeAddr)
+        or      byte [sAX], X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        ;
+        ; The second benchmark: Normal page not present.
+        ;
+
+        ; Replace the big page with a page table and make the first and last
+        ; pages not-present.
+        mov     sAX, TST_SCRATCH_PD_BASE
+        call    TMPL_NM(TstPutPageTableAt)
+
+        and     byte [BS2_USER_PX_0_ADDR], ~X86_PTE_P
+        and     byte [BS2_USER_PX_0_ADDR + 01000h - PXE_SIZE], ~X86_PTE_P
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        ; Benchmark.
+        mov     sAX, TST_SCRATCH_PD_BASE
+        mov     xDX, .s_szPageNotPresent
+        mov     xCX, .s_szPageNotPresentFailed
+        call    TMPL_NM(TstBenchmark32BitReads)
+
+        ; Cleanup
+        mov     sAX, TST_SCRATCH_PD_BASE
+        call    TMPL_NM(TstRestoreBigPageAt)
+
+
+        ;
+        ; Done.
+        ;
+        add     xSP, 20h
+        pop     xSI
+        pop     xDI
+        pop     sDX
+        pop     sCX
+        pop     xBX
+        pop     sAX
+        leave
+        ret
+
+.s_szBigPageNotPresent:
+        db      TMPL_MODE_STR, ', read NP big page', 0
+.s_szBigPageNotPresentFailed:
+        db      TMPL_MODE_STR, ', reading NP big page failed', 13, 10, 0
+.s_szPageNotPresent:
+        db      TMPL_MODE_STR, ', read NP page', 0
+.s_szPageNotPresentFailed:
+        db      TMPL_MODE_STR, ', reading NP page failed', 13, 10, 0
+ENDPROC   TMPL_NM(BenchmarkNotPresent)
+
+
+;;
+; Benchmark 32-bit reads at a give location.
+;
+; Will report the result under the name given via xDX.  Will report any test
+; failure giving the string pointed to by xCX as explanation.
+;
+; @param    sAX         The location to do the reads.
+; @param    xDX         The test value name.
+; @param    xCX         The failure string
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(TstBenchmark32BitReads)
+        push    xBP
+        mov     xBP, xSP
+%define a_pu32Test              [xBP - sCB]
+        push    sAX
+%define a_pszValue              [xBP - sCB*2]
+        push    sDX
+%define a_pszFailure            [xBP - sCB*3]
+        push    sCX
+        push    sSI
+        push    sDI
+%define u64NanoTS               [xBP - sCB*5 - 8h]
+        sub     xSP, 8h
+
+        ;
+        ; Calibrate the test so it doesn't take forever.
+        ;
+        mov     xAX, .calibrate_resume
+        mov     dl, 0eh
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+        mov     ecx, TST_CALIBRATE_LOOP_COUNT
+
+        lea     xAX, u64NanoTS
+        call    TMPL_NM_CMN(GetNanoTS)
+
+.calibrate_loop:
+        mov     sAX, a_pu32Test
+        mov     esi, [sAX]
+.calibrate_resume:
+        test    sAX, sAX
+        jnz     .failure
+        dec     ecx
+        jnz     .calibrate_loop
+
+        lea     xAX, u64NanoTS
+        call    TMPL_NM_CMN(GetElapsedNanoTS)
+        call    TMPL_NM_CMN(Bs2TrapReset)
+
+        ; Figure out how many iterations is required for the full benchmark.
+        mov     ecx, TST_BENCHMARK_PERIOD_IN_SECS
+        mov     edx, TST_CALIBRATE_LOOP_COUNT
+        mov     xAX, xSP
+        call    TMPL_NM_CMN(CalcBenchmarkIterations)
+        mov     ecx, eax                ; iteration count.
+
+        ;
+        ; Do the full benchmark run.
+        ;
+        mov     xAX, .bench_resume
+        mov     dl, 0eh
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+        mov     edx, ecx                ; save test count for ReportResult.
+
+        lea     xAX, u64NanoTS
+        call    TMPL_NM_CMN(GetNanoTS)
+.bench_loop:
+        mov     xAX, a_pu32Test
+        mov     esi, [eax]
+.bench_resume:
+        test    eax, eax
+        jnz     .failure
+        dec     ecx
+        jnz     .bench_loop
+
+        lea     xAX, u64NanoTS
+        call    TMPL_NM_CMN(GetElapsedNanoTS)
+        call    TMPL_NM_CMN(Bs2TrapReset)
+
+        mov     xCX, a_pszValue
+        lea     xAX, u64NanoTS
+        call    TMPL_NM_CMN(ReportResult)
+
+.return:
+        pop     sDI
+        pop     sSI
+        pop     sCX
+        pop     sDX
+        pop     sAX
+        leave
+        ret
+
+.failure:
+        call    TMPL_NM_CMN(Bs2TrapReset)
+        mov     xAX, a_pszFailure
+        call    TMPL_NM_CMN(TestFailed)
+        jmp     .return
+
+%undef a_pszFailure
+%undef a_pu32Test
+%undef a_pszValue
+%undef a_pszFailure
+%undef u64NanoTS
+ENDPROC   TMPL_NM(TstBenchmark32BitReads)
+
+
+;;
+; Fills the test area with return instructions.
+;
+; @uses     nothing.
+;
+BEGINPROC TMPL_NM(TestFillTestAreaWithRet)
+        push    xBP
+        mov     xBP, xSP
+        push    xDI
+        push    xCX
+        push    xAX
+
+        mov     xDI, TST_SCRATCH_PD_BASE
+        mov     xCX, (_4M + _4M) / 4
+        mov     eax, 0c3c3c3c3h
+        rep stosd
+
+        mov     xDI, TST_SCRATCH_PDPT_BASE
+        mov     xCX, (_4M + _4M) / 4
+        mov     eax, 0c3c3c3c3h
+        rep stosd
+
+%ifdef TMPL_LM64
+        mov     xDI, TST_SCRATCH_PML4_BASE
+        mov     xCX, (_4M + _4M) / 8
+        mov     rax, 0c3c3c3c3c3c3c3c3h
+        rep stosq
+%endif
+
+        pop     xAX
+        pop     xCX
+        pop     xDI
+        leave
+        ret
+ENDPROC   TMPL_NM(TestFillTestAreaWithRet)
+
+
+;;
+; Gets the page directory address.
+;
+; ASSUMES identity mapped page translation tables.
+;
+; @returns  ds:xAX      The page directory address.
+; @param    sAX         The virtual address in question.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(TestGetPdeAddr)
+        push    xBP
+        mov     xBP, xSP
+        push    sBX
+        push    sCX
+
+%ifdef TMPL_CMN_PP
+        ; PDPE
+        shr     sAX, X86_PD_SHIFT
+        and     sAX, X86_PD_MASK
+        shl     sAX, 2
+        mov     sBX, cr3
+        and     sBX, X86_CR3_PAGE_MASK
+        add     sAX, sBX
+
+%else
+ %ifdef TMPL_CMN_LM
+        ; PML4E
+        mov     sCX, sAX
+        shr     sCX, X86_PML4_SHIFT
+        and     sCX, X86_PML4_MASK
+        shl     sCX, 3
+        mov     sBX, cr3
+        and     sBX, X86_CR3_AMD64_PAGE_MASK & 0ffffffffh
+        add     sBX, sCX
+        mov     sBX, [sBX]
+        and     sBX, X86_PDPE_PG_MASK & 0ffffffffh
+ %else
+        mov     sBX, cr3
+        and     sBX, X86_CR3_PAE_PAGE_MASK
+ %endif
+
+        ; PDPE
+        mov     sCX, sAX
+        shr     sCX, X86_PDPT_SHIFT
+ %ifdef TMPL_CMN_LM
+        and     sCX, X86_PDPT_MASK_AMD64
+ %else
+        and     sCX, X86_PDPT_MASK_PAE
+ %endif
+        shl     sCX, 3
+        add     sBX, xCX
+        mov     sBX, [sBX]
+        and     sBX, X86_PDPE_PG_MASK & 0ffffffffh
+
+        ; PDE
+        shr     sAX, X86_PD_PAE_SHIFT
+        and     sAX, X86_PD_PAE_MASK
+        shl     sAX, 3
+        add     sAX, sBX
+%endif
+
+        pop     sCX
+        pop     sBX
+        leave
+        ret
+ENDPROC   TMPL_NM(TestGetPdeAddr)
+
+
+%if PXE_SIZE == 8 ; PAE or LM
+;;
+; Gets the page directory pointer entry for an address.
+;
+; ASSUMES identity mapped page translation tables.
+;
+; @returns  ds:xAX      The pointer to the PDPE.
+; @param    sAX         The virtual address in question.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(TestGetPdpeAddr)
+        push    xBP
+        mov     xBP, xSP
+        push    sBX
+        push    sCX
+
+%ifdef TMPL_CMN_PP
+ %error "misconfig"
+%endif
+
+%ifdef TMPL_CMN_LM
+        ; PML4E
+        mov     sCX, sAX
+        shr     sCX, X86_PML4_SHIFT
+        and     sCX, X86_PML4_MASK
+        shl     sCX, 3
+        mov     sBX, cr3
+        and     sBX, X86_CR3_AMD64_PAGE_MASK & 0ffffffffh
+        add     sBX, sCX
+        mov     sBX, [sBX]
+        and     sBX, X86_PDPE_PG_MASK & 0ffffffffh
+%else
+        mov     sBX, cr3
+        and     sBX, X86_CR3_PAE_PAGE_MASK
+%endif
+
+        ; PDPE
+        shr     sAX, X86_PDPT_SHIFT
+%ifdef TMPL_CMN_LM
+        and     sAX, X86_PDPT_MASK_AMD64
+%else
+        and     sAX, X86_PDPT_MASK_PAE
+%endif
+        shl     sAX, 3
+        add     sAX, sBX
+
+        pop     sCX
+        pop     sBX
+        leave
+        ret
+ENDPROC   TMPL_NM(TestGetPdpeAddr)
+%endif ; PAE or LM
+
+
+%ifdef TMPL_CMN_LM
+;;
+; Gets the page map level 4 entry for an address.
+;
+; ASSUMES identity mapped page translation tables.
+;
+; @returns  rax        The pointer to the PML4E.
+; @param    rax        The virtual address in question.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(TestGetPml4eAddr)
+        push    xBP
+        mov     xBP, xSP
+        push    rbx
+
+        ; PML4E
+        shr     rax, X86_PML4_SHIFT
+        and     rax, X86_PML4_MASK
+        shl     rax, 3
+        mov     rbx, cr3
+        and     rbx, X86_CR3_AMD64_PAGE_MASK & 0ffffffffh
+        add     rax, rbx
+
+        pop     rbx
+        leave
+        ret
+ENDPROC   TMPL_NM(TestGetPml4eAddr)
+%endif ; TMPL_CMN_LM
+
+
+;;
+; Initialize page table #0 and hooks it up at the specified address.
+;
+; The page table will have identity mapped pages.  The TLBs are flushed
+; wholesale.  The caller will have to reconstruct the PDE when finished.
+;
+; @param    sAX         The virtual address (big page -> page table).
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(TstPutPageTableAt)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sCX
+        push    sDI
+        push    sSI
+
+        ; initialize a page table.
+        mov     sDI, BS2_USER_PX_0_ADDR
+        mov     sSI, sAX
+.init_loop:
+%if PXE_SIZE == 8
+        mov     [sDI + 4], dword 0
+        mov     [sDI], sSI
+%else
+        mov     [sDI], esi
+%endif
+        or      byte [sDI], X86_PTE_P | X86_PTE_RW
+        add     sSI, _4K
+        add     sDI, PXE_SIZE
+        test    sDI, 0fffh
+        jnz     .init_loop
+
+        ; hook it up instead of the big page.
+        and     sAX, ~(BIG_PAGE_SIZE - 1)
+        mov     sDI, sAX
+        call    TMPL_NM(TestGetPdeAddr)
+        mov     dword [sAX], BS2_USER_PX_0_ADDR | X86_PDE_P | X86_PDE_RW | X86_PDE_RW
+%if PXE_SIZE == 8
+        mov     dword [sAX + 4], 0
+%endif
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        ; Make sure it works.
+        mov     eax, 0c3c3c3c3h
+        mov     ecx, BIG_PAGE_SIZE / 4
+        rep stosd
+
+        pop     sSI
+        pop     sDI
+        pop     sCX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM(TstPutPageTableAt)
+
+
+;;
+; Restores the big page for a virtual address, undoing harm done by a
+; previous TstPutPageTableAt call.
+;
+; @param    sAX         The virtual address to restore to a big page.
+; @uses     nothing
+;
+BEGINPROC TMPL_NM(TstRestoreBigPageAt)
+        push    xBP
+        mov     xBP, xSP
+        push    sAX
+        push    sCX
+        push    sDI
+
+        ; Set it up, inheriting bits from the previous PDE.
+        and     sAX, ~(BIG_PAGE_SIZE - 1)
+        mov     sDI, sAX                ; save it for later.
+        call    TMPL_NM(TestGetPdeAddr)
+        mov     sCX, [sAX - PXE_SIZE]
+        and     sCX, X86_PDE4M_US | X86_PDE4M_RW | X86_PDE4M_G | X86_PDE4M_PAT | X86_PDE4M_AVL | X86_PDE4M_PCD | X86_PDE4M_PWT
+        or      sCX, X86_PDE4M_P | X86_PDE4M_PS
+        or      sCX, sDI
+%if PXE_SIZE == 8
+        mov     dword [sAX + 4], 0
+        mov     [sAX], sCX
+%else
+        mov     [sAX], ecx
+%endif
+        mov     sAX, cr3
+        mov     cr3, sAX
+
+        ; Make sure it works.
+        mov     eax, 0c3c3c3c3h
+        mov     ecx, BIG_PAGE_SIZE / 4
+        rep stosd
+
+        pop     sDI
+        pop     sCX
+        pop     sAX
+        leave
+        ret
+ENDPROC   TMPL_NM(TstRestoreBigPageAt)
+
+
+
+;;
+; Hammers a page.
+;
+; Accesses a page in a few different ways, expecting all of the accesses to
+; cause some kind of page fault.  The caller just makes sure the page causes
+; a fault and points us to it.
+;
+; @returns  al=1, ZF=0 on success.
+; @returns  al=0, ZF=1 on failure.
+; @param    sAX                 The page.
+; @param    sDX                 The base error code to expect.
+; @param    xCX                 X86_TRAP_PF_ID if NXE, otherwise 0.
+; @uses     al
+;
+BEGINPROC TMPL_NM(TestHammerPage)
+        push    xBP
+        mov     xBP, xSP
+        push    sBX
+%define a_uErrorExec    sPRE [xBP - sCB*2]
+        push    sCX
+%define a_uErrorFixed   sPRE [xBP - sCB*3]
+        push    sDX
+        push    sDI
+        push    sSI
+%define a_pPage         sPRE [xBP - sCB*6]
+        push    sAX
+
+        ;
+        ; First reads of different sizes.
+        ;
+        mov     sDI, a_pPage
+.read_byte_loop:
+        mov     dl, 0ffh
+        mov     xAX, .read_byte_resume
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+.read_byte:
+        mov     cl, byte [sDI]
+.read_byte_resume:
+        mov     eax, 0eh                ; trap #
+        mov     sDX, a_uErrorFixed      ; err
+        mov     sCX, .read_byte         ; fault eip
+        mov     sBX, sDI                ; fault address.
+        call    TMPL_NM_CMN(TestCheckTrap)
+        jz      .failed
+        inc     sDI
+        test    sDI, 0fffh
+        jnz     .read_byte_loop
+
+        mov     sDI, a_pPage
+.read_word_loop:
+        mov     dl, 0ffh
+        mov     xAX, .read_word_resume
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+.read_word:
+        mov     cx, word [sDI]
+.read_word_resume:
+        mov     eax, 0eh                ; trap #
+        mov     sDX, a_uErrorFixed      ; err
+        mov     sCX, .read_word         ; fault eip
+        mov     sBX, sDI                ; fault address.
+        call    TMPL_NM_CMN(TestCheckTrap)
+        jz      .failed
+        inc     sDI
+        test    sDI, 0fffh
+        jnz     .read_word_loop
+
+        mov     sDI, a_pPage
+.read_dword_loop:
+        mov     dl, 0ffh
+        mov     xAX, .read_dword_resume
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+.read_dword:
+        mov     ecx, dword [sDI]
+.read_dword_resume:
+        mov     eax, 0eh                ; trap #
+        mov     sDX, a_uErrorFixed      ; err
+        mov     sCX, .read_dword        ; fault eip
+        mov     sBX, sDI                ; fault address.
+        call    TMPL_NM_CMN(TestCheckTrap)
+        jz      .failed
+        inc     sDI
+        test    sDI, 0fffh
+        jnz     .read_dword_loop
+
+        ;
+        ; Then writes of different sizes.
+        ;
+        mov     sDI, a_pPage
+.write_byte_loop:
+        mov     dl, 0ffh
+        mov     xAX, .write_byte_resume
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+.write_byte:
+        mov     byte [sDI], 0c3h        ; (ret instruction)
+.write_byte_resume:
+        mov     eax, 0eh                ; trap #
+        mov     sDX, a_uErrorFixed      ; err
+        or      sDX, X86_TRAP_PF_RW
+        mov     sCX, .write_byte        ; fault eip
+        mov     sBX, sDI                ; fault address.
+        call    TMPL_NM_CMN(TestCheckTrap)
+        jz      .failed
+        inc     sDI
+        test    sDI, 0fffh
+        jnz     .write_byte_loop
+
+        mov     sDI, a_pPage
+.write_word_loop:
+        mov     dl, 0ffh
+        mov     xAX, .write_word_resume
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+.write_word:
+        mov     word [sDI], 0c3c3h      ; (2 ret instructions)
+.write_word_resume:
+        mov     eax, 0eh                ; trap #
+        mov     sDX, a_uErrorFixed      ; err
+        or      sDX, X86_TRAP_PF_RW
+        mov     sCX, .write_word        ; fault eip
+        mov     sBX, sDI                ; fault address.
+        call    TMPL_NM_CMN(TestCheckTrap)
+        jz      .failed
+        inc     sDI
+        test    sDI, 0fffh
+        jnz     .write_word_loop
+
+        mov     sDI, a_pPage
+.write_dword_loop:
+        mov     dl, 0ffh
+        mov     xAX, .write_dword_resume
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+.write_dword:
+        mov     dword [sDI], 0c3c3c3c3h ; (4 ret instructions)
+.write_dword_resume:
+        mov     eax, 0eh                ; trap #
+        mov     sDX, a_uErrorFixed      ; err
+        or      sDX, X86_TRAP_PF_RW
+        mov     sCX, .write_dword       ; fault eip
+        mov     sBX, sDI                ; fault address.
+        call    TMPL_NM_CMN(TestCheckTrap)
+        jz      .failed
+        inc     sDI
+        test    sDI, 0fffh
+        jnz     .write_dword_loop
+
+        ;
+        ; Execute access.
+        ;
+        mov     sDI, a_pPage
+        mov     xSI, xSP
+.call_loop:
+        mov     dl, 0ffh
+        mov     xAX, .call_resume
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+        call    sDI
+.call_resume:
+        mov     xSP, xSI                ; restore xSP since the call will change it before #PF'ing.
+        mov     eax, 0eh                ; trap #
+        mov     sDX, a_uErrorFixed      ; err
+        or      sDX, a_uErrorExec
+        mov     sCX, sDI                ; fault eip
+        mov     sBX, sDI                ; fault address.
+        call    TMPL_NM_CMN(TestCheckTrap)
+        jz      .failed
+        inc     sDI
+        test    sDI, 0fffh
+        jnz     .call_loop
+
+
+        mov     sDI, a_pPage
+        mov     xSI, xSP
+.jmp_loop:
+        mov     dl, 0ffh
+        mov     xAX, .jmp_resume
+        call    TMPL_NM_CMN(Bs2TrapPrepare)
+        push    .jmp_resume             ; push a return address in case of failure.
+        jmp     sDI
+.jmp_resume:
+        mov     xSP, xSI                ; restore xSP in case the jmp didn't trap.
+        mov     eax, 0eh                ; trap #
+        mov     sDX, a_uErrorFixed      ; err
+        or      sDX, a_uErrorExec
+        mov     sCX, sDI                ; fault eip
+        mov     sBX, sDI                ; fault address.
+        call    TMPL_NM_CMN(TestCheckTrap)
+        jz      .failed
+        inc     sDI
+        test    sDI, 0fffh
+        jnz     .jmp_loop
+
+        ; successfull return.
+        pop     sAX
+        xor     al, al
+        inc     al
+.return:
+        pop     sSI
+        pop     sDI
+        pop     sDX
+        pop     sCX
+        pop     sBX
+        leave
+        ret
+
+.failed:
+        pop     sAX
+        xor     al, al
+        jmp     .return
+%undef a_uErrorFixed
+%undef a_uErrorExec
+%undef a_pPage
+ENDPROC   TMPL_NM(TestHammerPage)
+
+
+%include "bootsector2-template-footer.mac"
+

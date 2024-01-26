@@ -1,0 +1,165 @@
+# $Id: VBoxXGccAmd64LinuxGnu.kmk $
+## @file
+# VBox kBuild Tool Config - GCC Cross compiler for Debian 4.0 AMD64.
+#
+
+#
+# Copyright (C) 2013-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+TOOL_VBoxXGccAmd64LinuxGnu := GCC Cross compiler for Debian 4.0.
+
+# Tool Specific Properties:
+ifndef TOOL_VBoxXGccAmd64LinuxGnu_PREFIX
+ TOOL_VBoxXGccAmd64LinuxGnu_PREFIX := x86_64-linux-gnu-
+endif
+ifndef PATH_TOOL_VBoxXGccAmd64LinuxGnu
+ PATH_TOOL_VBoxXGccAmd64LinuxGnu := $(lastword $(wildcard $(KBUILD_DEVTOOLS_HST)/x86_64-linux-gnu/*))
+ ifeq ($(PATH_TOOL_VBoxXGccAmd64LinuxGnu),)
+  PATH_TOOL_VBoxXGccAmd64LinuxGnu := $(lastword $(sort $(wildcard $(KBUILD_DEVTOOLS_HST_ALT)/x86_64-linux-gnu/*)))
+ endif
+endif
+TOOL_VBoxXGccAmd64LinuxGnu_PREFIX := $(PATH_TOOL_VBoxXGccAmd64LinuxGnu)/usr/bin/$(TOOL_VBoxXGccAmd64LinuxGnu_PREFIX)
+
+TOOL_VBoxXGccAmd64LinuxGnu_CC  ?= $(TOOL_VBoxXGccAmd64LinuxGnu_PREFIX)gcc-4.1$(HOSTSUFF_EXE)
+TOOL_VBoxXGccAmd64LinuxGnu_CXX ?= $(TOOL_VBoxXGccAmd64LinuxGnu_PREFIX)g++-4.1$(HOSTSUFF_EXE)
+TOOL_VBoxXGccAmd64LinuxGnu_AS  ?= $(TOOL_VBoxXGccAmd64LinuxGnu_PREFIX)gcc-4.1$(HOSTSUFF_EXE)
+TOOL_VBoxXGccAmd64LinuxGnu_AR  ?= $(TOOL_VBoxXGccAmd64LinuxGnu_PREFIX)ar$(HOSTSUFF_EXE)
+TOOL_VBoxXGccAmd64LinuxGnu_LD  ?= $(TOOL_VBoxXGccAmd64LinuxGnu_PREFIX)gcc-4.1$(HOSTSUFF_EXE)
+TOOL_VBoxXGccAmd64LinuxGnu_LD_SYSMOD ?= $(TOOL_VBoxXGccAmd64LinuxGnu_PREFIX)ld$(HOSTSUFF_EXE)
+
+TOOL_VBoxXGccAmd64LinuxGnu_LD_SONAME ?= -Wl,-soname=$(firstword $($(1)_SONAME.$(KBUILD_TARGET).$(KBUILD_TYPE)) $($(1)_SONAME.$(KBUILD_TARGET)) $($(1)_SONAME.$(KBUILD_TYPE)) $($(1)_SONAME) $(notdir $(2)))
+TOOL_VBoxXGccAmd64LinuxGnu_LD_MAP ?= -Wl,-Map -Wl,$(1)
+TOOL_VBoxXGccAmd64LinuxGnu_LD_SYSMOD_MAP ?= -Map $(1)
+TOOL_VBoxXGccAmd64LinuxGnu_LDFLAGS.dll ?= -shared
+TOOL_VBoxXGccAmd64LinuxGnu_LDFLAGS.sysmod ?= -r
+
+ifdef SLKRUNS
+ TOOL_VBoxXGccAmd64LinuxGnu_CC  += -fmessage-length=0
+ TOOL_VBoxXGccAmd64LinuxGnu_CXX += -fmessage-length=0
+endif
+
+# General Properties used by kBuild:
+TOOL_VBoxXGccAmd64LinuxGnu_COBJSUFF         ?= .o
+TOOL_VBoxXGccAmd64LinuxGnu_CFLAGS           ?= -g
+TOOL_VBoxXGccAmd64LinuxGnu_CFLAGS.debug     ?= -O0
+TOOL_VBoxXGccAmd64LinuxGnu_CFLAGS.release   ?= -O2
+TOOL_VBoxXGccAmd64LinuxGnu_CFLAGS.profile   ?= -O2
+TOOL_VBoxXGccAmd64LinuxGnu_CINCS            ?=
+TOOL_VBoxXGccAmd64LinuxGnu_CDEFS            ?=
+
+TOOL_VBoxXGccAmd64LinuxGnu_CXXOBJSUFF       ?= .o
+TOOL_VBoxXGccAmd64LinuxGnu_CXXOBJSUFF       ?= .o
+TOOL_VBoxXGccAmd64LinuxGnu_CXXFLAGS         ?= -g
+TOOL_VBoxXGccAmd64LinuxGnu_CXXFLAGS.debug   ?= -O0
+TOOL_VBoxXGccAmd64LinuxGnu_CXXFLAGS.release ?= -O2
+TOOL_VBoxXGccAmd64LinuxGnu_CXXFLAGS.profile ?= -O2
+TOOL_VBoxXGccAmd64LinuxGnu_CXXINCS          ?=
+TOOL_VBoxXGccAmd64LinuxGnu_CXXDEFS          ?=
+
+TOOL_VBoxXGccAmd64LinuxGnu_ASFLAGS          ?= -g -x assembler-with-cpp
+TOOL_VBoxXGccAmd64LinuxGnu_ASOBJSUFF        ?= .o
+
+TOOL_VBoxXGccAmd64LinuxGnu_ARFLAGS          ?= cr
+TOOL_VBoxXGccAmd64LinuxGnu_ARLIBSUFF        ?= .a
+
+TOOL_VBoxXGccAmd64LinuxGnu_LDFLAGS          ?=
+TOOL_VBoxXGccAmd64LinuxGnu_LDFLAGS.debug    ?= -g
+TOOL_VBoxXGccAmd64LinuxGnu_LDFLAGS.release  ?= -s
+
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_C_OUTPUT =
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_C_DEPEND =
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_C_DEPORD =
+define TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VBoxXGccAmd64LinuxGnu_CC) -c \
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs)) \
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP \
+		-o $(obj) \
+		$(abspath $(source))
+endef
+
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_CXX_OUTPUT =
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_CXX_DEPEND =
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_CXX_DEPORD =
+define TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VBoxXGccAmd64LinuxGnu_CXX) -c \
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs)) \
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP \
+		-o $(obj) \
+		$(abspath $(source))
+endef
+
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_AS_OUTPUT =
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_AS_DEPEND =
+TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_AS_DEPORD =
+define TOOL_VBoxXGccAmd64LinuxGnu_COMPILE_AS_CMDS
+	$(QUIET)$(TOOL_VBoxXGccAmd64LinuxGnu_AS) -c \
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs)) \
+		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP \
+		-o $(obj) \
+		$(abspath $(source))
+endef
+
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_LIBRARY_OUTPUT = $(out).ar-script
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_LIBRARY_DEPORD =
+define TOOL_VBoxXGccAmd64LinuxGnu_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) $(out).ar-script 'CREATE $(out)'
+	$(QUIET)$(APPEND) -n $(out).ar-script \
+		$(foreach o,$(objs), 'ADDMOD $(o)') \
+		$(foreach o,$(othersrc), 'ADDLIB $(o)')
+	$(QUIET)$(APPEND) $(out).ar-script 'SAVE'
+	$(QUIET)$(APPEND) $(out).ar-script 'END'
+	$(QUIET)$(REDIRECT) -rti $(out).ar-script -- $(TOOL_VBoxXGccAmd64LinuxGnu_AR) -M
+endef
+
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_PROGRAM_OUTPUT = $(outbase).map
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_PROGRAM_DEPORD =
+define TOOL_VBoxXGccAmd64LinuxGnu_LINK_PROGRAM_CMDS
+	$(QUIET)$(TOOL_VBoxXGccAmd64LinuxGnu_LD) $(flags) -o $(out) $(objs) \
+		$(foreach p,$(libpath), -L$(p)) \
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(basename $(lib))), $(lib))) \
+		$(call TOOL_VBoxXGccAmd64LinuxGnu_LD_MAP,$(outbase).map)
+endef
+
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_DLL_OUTPUT = $(outbase).map
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_DLL_DEPORD =
+define TOOL_VBoxXGccAmd64LinuxGnu_LINK_DLL_CMDS
+	$(QUIET)$(TOOL_VBoxXGccAmd64LinuxGnu_LD) $(TOOL_VBoxXGccAmd64LinuxGnu_LDFLAGS.dll) $(flags) -o $(out) \
+		$(if $(filter-out win32 os2, $(KBUILD_TARGET)),$(call TOOL_VBoxXGccAmd64LinuxGnu_LD_SONAME,$(target),$(out))) \
+		$(objs) \
+		$(foreach p,$(libpath), -L$(p)) \
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(basename $(lib))), $(lib))) \
+		$(call TOOL_VBoxXGccAmd64LinuxGnu_LD_MAP,$(outbase).map)
+endef
+
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_SYSMOD_OUTPUT = $(outbase).map
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
+TOOL_VBoxXGccAmd64LinuxGnu_LINK_SYSMOD_DEPORD =
+define TOOL_VBoxXGccAmd64LinuxGnu_LINK_SYSMOD_CMDS
+	$(QUIET)$(TOOL_VBoxXGccAmd64LinuxGnu_LD_SYSMOD) $(TOOL_VBoxXGccAmd64LinuxGnu_LDFLAGS.sysmod) $(flags) -o $(out) $(objs) \
+		$(foreach p,$(libpath), -L$(p)) \
+		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(basename $(lib))), $(lib))) \
+		$(call TOOL_VBoxXGccAmd64LinuxGnu_LD_SYSMOD_MAP,$(outbase).map)
+endef
+

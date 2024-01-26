@@ -1,0 +1,98 @@
+# $Id: WINDDK80.kmk 3418 2020-08-21 11:02:13Z bird $
+## @file
+# kBuild SDK - The Microsoft Windows 8 DDK.
+#              Defaults to $(KBUILD_TARGET_ARCH). Base SDK.
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_WINDDK80 := The Microsoft Windows 8 DDK. \
+                Defaults to $(KBUILD_TARGET_ARCH). Base SDK.
+
+# SDK Specific Properties
+ifndef PATH_SDK_WINDDK80
+ PATH_SDK_WINDDK80 := $(wildcard $(KBUILD_DEVTOOLS_TRG)/ddk/v8*)
+ ifeq ($(PATH_SDK_WINDDK80),)
+  PATH_SDK_WINDDK80 := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/ddk/v8*)
+ endif
+ ifeq ($(PATH_SDK_WINDDK80),)
+  PATH_SDK_WINDDK80 := $(wildcard $(KBUILD_DEVTOOLS)/win.amd64/ddk/v8*)
+ endif
+ ifneq ($(PATH_SDK_WINDDK80),)
+  PATH_SDK_WINDDK80 := $(lastword $(sort $(PATH_SDK_WINDDK80)))
+ else
+  $(warning kBuild: PATH_SDK_WINDDK80 couldn't be determined!)
+  PATH_SDK_WINDDK80 := $(KBUILD_DEVTOOLS)/win.x86/ddk/v8.0/not/found
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_SDK_WINDDK80 := $(PATH_SDK_WINDDK80)
+endif
+
+PATH_SDK_WINDDK80_INC           ?= $(PATH_SDK_WINDDK80)/Include
+PATH_SDK_WINDDK80_INC_UM        ?= $(PATH_SDK_WINDDK80_INC)/um
+PATH_SDK_WINDDK80_INC_KM        ?= $(PATH_SDK_WINDDK80_INC)/km
+PATH_SDK_WINDDK80_INC_KM_CRT    ?= $(PATH_SDK_WINDDK80_INC_KM)/crt
+PATH_SDK_WINDDK80_INC_SHARED    ?= $(PATH_SDK_WINDDK80_INC)/Shared
+
+PATH_SDK_WINDDK80_LIB_ROOT      ?= $(PATH_SDK_WINDDK80)/Lib
+PATH_SDK_WINDDK80_LIB_W8_ROOT   ?= $(PATH_SDK_WINDDK80_LIB_ROOT)/win8
+PATH_SDK_WINDDK80_LIB_W7_ROOT   ?= $(PATH_SDK_WINDDK80_LIB_ROOT)/win7
+PATH_SDK_WINDDK80_LIB_WLH_ROOT  ?= $(PATH_SDK_WINDDK80_LIB_ROOT)/wlh
+PATH_SDK_WINDDK80_LIB_WDF_ROOT  ?= $(PATH_SDK_WINDDK80_LIB_ROOT)/wdf
+PATH_SDK_WINDDK80_LIB_MFC_ROOT  ?= $(PATH_SDK_WINDDK80_LIB_ROOT)/Mfc
+PATH_SDK_WINDDK80_LIB_ATL_ROOT  ?= $(PATH_SDK_WINDDK80_LIB_ROOT)/Atl
+
+PATH_SDK_WINDDK80_LIB_W8.amd64  ?= $(PATH_SDK_WINDDK80_LIB_W8_ROOT)/km/x64
+PATH_SDK_WINDDK80_LIB_W8.x86    ?= $(PATH_SDK_WINDDK80_LIB_W8_ROOT)/km/x86
+PATH_SDK_WINDDK80_LIB_W8        ?= $(PATH_SDK_WINDDK80_LIB_W8.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK80_LIB_W7.amd64  ?= $(PATH_SDK_WINDDK80_LIB_W7_ROOT)/km/x64
+PATH_SDK_WINDDK80_LIB_W7.x86    ?= $(PATH_SDK_WINDDK80_LIB_W7_ROOT)/km/x86
+PATH_SDK_WINDDK80_LIB_W7        ?= $(PATH_SDK_WINDDK80_LIB_W7.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK80_LIB_WLH.amd64 ?= $(PATH_SDK_WINDDK80_LIB_WLH_ROOT)/km/x64
+PATH_SDK_WINDDK80_LIB_WLH.x86   ?= $(PATH_SDK_WINDDK80_LIB_WLH_ROOT)/km/x86
+PATH_SDK_WINDDK80_LIB_WLH       ?= $(PATH_SDK_WINDDK80_LIB_WLH.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK80_LIB.amd64     ?= $(PATH_SDK_WINDDK80_LIB_WLH.amd64)
+PATH_SDK_WINDDK80_LIB.x86       ?= $(PATH_SDK_WINDDK80_LIB_WLH.x86)
+PATH_SDK_WINDDK80_LIB           ?= $(PATH_SDK_WINDDK80_LIB.$(KBUILD_TARGET_ARCH))
+
+# General Properties used by kBuild
+SDK_WINDDK80_DEFS.amd64    ?= _AMD64_ AMD64 _WIN64
+SDK_WINDDK80_DEFS.x86      ?= _X86_=1 i386=1 STD_CALL
+SDK_WINDDK80_INCS          ?= \
+	$(PATH_SDK_WINDDK80_INC_KM) \
+	$(PATH_SDK_WINDDK80_INC_UM) \
+	$(PATH_SDK_WINDDK80_INC_SHARED) \
+# The compiler tool(s) will have to select the appropriate crt includes.
+SDK_WINDDK80_LIBPATH.amd64 ?= $(PATH_SDK_WINDDK80_LIB_WLH.amd64)
+SDK_WINDDK80_LIBPATH.x86   ?= $(PATH_SDK_WINDDK80_LIB_WLH.x86)
+

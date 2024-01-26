@@ -1,0 +1,43 @@
+# $Id: Makefile.kmk 2343 2009-04-19 21:44:50Z bird $
+## @file
+# kBuild Example no. 1 - Makefile.kmk - The top-level makefile.
+#
+
+#
+# The author disclaims copyright to this example script and places
+# it in the public domain.
+#
+# include full-legal-disclaimer.kmk
+#
+
+SUB_DEPTH = .
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# Include sub-makefiles.
+#
+include $(PATH_CURRENT)/libhello/Makefile.kmk
+
+#
+# The targets.
+#
+PROGRAMS += \
+	hello \
+	hellolib
+
+#
+# Hello world program.
+#
+hello_TEMPLATE = ExampleNo1Exe
+hello_SOURCES = hello.c
+
+#
+# A hello world variant that has some of the code in the libhello directory,
+# i.e. linking with a library built by the sub-makefile included above.
+#
+hellolib_TEMPLATE = ExampleNo1Exe
+hellolib_SOURCES = hellolib.c
+hellolib_LIBS = $(libhello_1_TARGET)
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

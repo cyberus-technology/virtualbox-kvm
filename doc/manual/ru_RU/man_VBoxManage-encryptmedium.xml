@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage encryptmedium
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-encryptmedium" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage encryptmedium</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-encryptmedium</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-encryptmedium</refname>
+    <refpurpose>управляет образом или носителем, зашифрованными DEK</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-encryptmedium">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage encryptmedium</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-файла</replaceable></arg>
+      </group>
+      <arg>--cipher=<replaceable>ID-шифра</replaceable></arg>
+      <arg>--newpassword=<replaceable>пароль</replaceable></arg>
+      <arg>--newpasswordid=<replaceable>ID-пароля</replaceable></arg>
+      <arg>--oldpassword=<replaceable>пароль</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage encryptmedium</command> позволяет
+      создавать или управлять образом или носителем, зашифрованными DEK.
+      Можно зашифровать образ, расшифровать образ, изменить пароль
+      шифрования образа. Смотрите <xref linkend="diskencryption-encryption" />.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>имя-файла</replaceable></term>
+        <listitem><para>
+            Задает Универсальный Уникальный Идентификатор (UUID) или
+            абсолютный путь шифруемого носителя или образа.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--newpassword=<replaceable>пароль</replaceable></option></term>
+        <listitem><para>
+            Задает новый пароль шифрования. <replaceable>пароль</replaceable>
+            - это или абсолютный путь к файлу с паролем в хост-системе
+            или <literal>-</literal>. Во втором случае будет предложено
+            ввести пароль.
+          </para><para>
+            Необходимо использовать опцию <option>--newpasswordid</option>
+            вместе с этой опцией <option>--newpassword</option>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--oldpassword=<replaceable>пароль</replaceable></option></term>
+        <listitem><para>
+            Задает исходный пароль шифрования. <replaceable>пароль</replaceable>
+            - это или абсолютный путь к файлу с паролем в хост-системе
+            или <literal>-</literal>. Во втором случае будет предложено
+            ввести пароль.
+          </para><para>
+            Эта опция позволяет получить доступ к зашифрованному
+            носителю или образу, чтобы произвести следующее:
+          </para><itemizedlist>
+            <listitem><para>
+                Расшифровать зашифрованный образ используя эту опцию.
+              </para></listitem>
+            <listitem><para>
+                Изменить пароль зашифрованного образа используя опцию
+                <option>--newpassword</option>.
+              </para></listitem>
+            <listitem><para>
+                Изменить шифр образа используя опцию
+                <option>--cipher</option>.
+              </para></listitem>
+          </itemizedlist></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--cipher=<replaceable>ID-шифра</replaceable></option></term>
+        <listitem><para>
+            Указывает шифр для шифрования. Допустимые значения
+            <literal>AES-XTS128-PLAIN64</literal> или
+            <literal>AES-XTS256-PLAIN64</literal>.
+          </para><para>
+            Эта опция позволяет установить или изменить шифрование
+            носителя или образа.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--newpasswordid=<replaceable>ID-пароля</replaceable></option></term>
+        <listitem><para>
+            Указывает новый идентификатор пароля, используемого для
+            корректной идентификации, когда передаются несколько паролей
+            во время старта ВМ.
+          </para><para>
+            Если вы используете одни и те же пароль и идентификатор
+            пароля при шифровании нескольких образов то вам достаточно
+            указать пароль один раз во время старта ВМ.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      Следующий пример показывает как зашифровать образ
+      <filename>ol7u4-1.vdi</filename>, используя шифр
+      <literal>AES-XTS128-PLAIN64</literal>, задавая идентификатор
+      пароля <literal>1001</literal> и используя файл пароля
+      <filename>$HOME/pwfile</filename>:
+    </para>
+<screen>$ VBoxManage encryptmedium "$HOME/VirtualBox VMs/ol7u4/ol7u4-1.vdi" \
+  --cipher="AES-XTS128-PLAIN64" --newpasswordid="1001" --newpassword=$HOME/pwfile</screen>
+    <para>
+      Следующий пример показывает как расшифровать зашифрованный образ
+      называемый <filename>ol7u4-2.vdi</filename>:
+    </para>
+<screen>$ VBoxManage encryptmedium "$HOME/VirtualBox VMs/ol7u4/ol7u4-2.vdi" \
+  --oldpassword=-
+  Пароль: <replaceable>исходный-пароль</replaceable></screen>
+    <para>
+      Следующий пример показывает как изменить пароль зашифрованного
+      образа называемого <filename>ol7u4-3.vdi</filename>. Команда
+      читает исходный пароль из файла <filename>$HOME/pwfile.orig</filename>
+      и назначает идентификатор пароля <literal>1001</literal>.
+    </para>
+<screen>$ VBoxManage encryptmedium "$HOME/VirtualBox VMs/ol7u4/ol7u4-3.vdi" \
+  --oldpassword=$HOME/pwfile.orig --newpassword=$HOME/pwfile --newpasswordid="1001"</screen>
+  </refsect1>
+</refentry>

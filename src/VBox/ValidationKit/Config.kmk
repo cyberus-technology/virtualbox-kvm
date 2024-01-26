@@ -1,0 +1,282 @@
+# $Id: Config.kmk $
+## @file
+# kBuild Configuration file for the VirtualBox Validation Kit.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+VBOX_VALIDATIONKIT_CONFIG_KMK_INCLUDED = 1
+
+# Include the top-level configure file.
+ifndef VBOX_ROOT_CONFIG_KMK_INCLUDED
+ include $(PATH_ROOT)/Config.kmk
+endif
+
+#
+# Globals
+#
+VBOX_PATH_VALIDATIONKIT_SRC := $(PATH_ROOT)/src/VBox/ValidationKit
+
+
+#
+# Base template for Validation Kit R3 programs that drops the -static flag since we only want to use the
+# static version of our own libraries and not the system libs.
+#
+TEMPLATE_VBoxValidationKitR3Base = VBox Validation Kit ring-3 program base, both guest and host.
+TEMPLATE_VBoxValidationKitR3Base_EXTENDS = VBoxR3Static
+ifeq ($(KBUILD_TARGET),win)
+ TEMPLATE_VBoxValidationKitR3Base_LDFLAGS         = $(filter-out -IntegrityCheck, $(TEMPLATE_VBoxR3Static_LDFLAGS))
+else ifn1of ($(KBUILD_TARGET), darwin solaris win)
+ TEMPLATE_VBoxValidationKitR3Base_CFLAGS          = $(filter-out -static, $(TEMPLATE_VBoxR3Static_CFLAGS))
+ TEMPLATE_VBoxValidationKitR3Base_CXXFLAGS        = $(filter-out -static, $(TEMPLATE_VBoxR3Static_CXXFLAGS))
+ TEMPLATE_VBoxValidationKitR3Base_OBJCFLAGS       = $(filter-out -static, $(TEMPLATE_VBoxR3Static_OBJCFLAGS))
+ TEMPLATE_VBoxValidationKitR3Base_LDFLAGS         = $(filter-out -static, $(TEMPLATE_VBoxR3Static_LDFLAGS))
+endif
+TEMPLATE_VBoxValidationKitR3Base_DEFS = $(filter-out VBOX_WITH_DTRACE,$(TEMPLATE_VBoxR3Static_DEFS))
+TEMPLATE_VBoxValidationKitR3Base_LIBS = $(TEMPLATE_VBoxR3Static_LIBS)
+if1of ($(KBUILD_TARGET), linux)
+ if $(VBOX_GCC_VERSION_CXX) < 40800
+  TEMPLATE_VBoxValidationKitR3Base_LIBS += supc++
+  TEMPLATE_VBoxValidationKitR3Base_LDTOOL = $(subst GXX,GCC,$(TEMPLATE_VBoxR3Static_TOOL))
+ endif
+endif
+TEMPLATE_VBoxValidationKitR3Base_LDFLAGS.darwin = $(TEMPLATE_VBoxR3Static_LDFLAGS.darwin) -framework IOKit
+
+
+#
+# Template for building ring-3 programs for the Validation Kit.
+# These programs can run on any host or guest.
+#
+TEMPLATE_VBoxValidationKitR3 = VBox Validation Kit ring-3 program, both guest and host.
+TEMPLATE_VBoxValidationKitR3_EXTENDS = VBoxValidationKitR3Base
+TEMPLATE_VBoxValidationKitR3_EXTENDS_BY = appending
+TEMPLATE_VBoxValidationKitR3_INST = $(INST_VALIDATIONKIT)$(KBUILD_TARGET)/$(KBUILD_TARGET_ARCH)/
+TEMPLATE_VBoxValidationKitR3_SDKS.win = ReorderCompilerIncs $(VBOX_WINPSDK) $(VBOX_WINDDK) VBoxNtDll
+TEMPLATE_VBoxValidationKitR3_DEFS = IN_RT_R3
+TEMPLATE_VBoxValidationKitR3_LIBS.darwin = iconv
+TEMPLATE_VBoxValidationKitR3_LIBS.freebsd = iconv
+TEMPLATE_VBoxValidationKitR3_LIBS = \
+	$(PATH_STAGE_LIB)/RuntimeR3$(VBOX_SUFF_LIB)
+ifeq ($(KBUILD_TARGET),solaris)
+ TEMPLATE_VBoxValidationKitR3_LIBS += \
+ 	kstat \
+ 	nsl \
+ 	contract
+ if1of ($(KBUILD_TARGET_ARCH), amd64 x86)
+  TEMPLATE_VBoxValidationKitR3_LIBS += \
+  	smbios
+ endif
+endif
+ifneq ($(KBUILD_TARGET),win)
+ TEMPLATE_VBoxValidationKitR3_LIBS += \
+ 	$(SDK_VBoxZlib_LIBS)
+endif
+
+# Make VCC100 output work on NT3.x, NT4, W2K, XP and W2K3.
+ifndef VBOX_WITH_NOCRT_STATIC
+ TEMPLATE_VBoxValidationKitR3_LIBS.win.x86 = \
+ 	$(PATH_TOOL_$(TEMPLATE_VBoxValidationKitR3_TOOL.win.x86)_LIB)/oldnames.lib \
+ 	$(PATH_TOOL_$(TEMPLATE_VBoxValidationKitR3_TOOL.win.x86)_LIB)/libcmt$(VBOX_VCC_CRT_TYPE).lib \
+ 	$(PATH_TOOL_$(TEMPLATE_VBoxValidationKitR3_TOOL.win.x86)_LIB)/libcpmt$(VBOX_VCC_CRT_TYPE).lib \
+ 	$(PATH_STAGE_LIB)/RuntimeR3VccTricks$(VBOX_SUFF_LIB)
+ TEMPLATE_VBoxValidationKitR3_LDFLAGS.win.x86 = \
+ 	-Include:_vcc100_shell32_fakes_cpp \
+ 	-Include:_vcc100_shell32_fakes_asm \
+ 	-Section:.bss,RW!K
+endif
+TEMPLATE_VBoxValidationKitR3_LDFLAGS.win.x86 += -NoOptIData
+TEMPLATE_VBoxValidationKitR3_POST_CMDS.win.x86   = $(if $(eq $(tool_do),LINK_LIBRARY),,$(VBOX_PE_SET_VERSION) $(out)$$(NLTAB))$(TEMPLATE_VBoxValidationKitR3Base_POST_CMDS.win.x86)$$(NLTAB)
+TEMPLATE_VBoxValidationKitR3_POST_CMDS.win.amd64 = $(if $(eq $(tool_do),LINK_LIBRARY),,$(VBOX_PE_SET_VERSION) $(out)$$(NLTAB))$(TEMPLATE_VBoxValidationKitR3Base_POST_CMDS.win.amd64)$$(NLTAB)
+TEMPLATE_VBoxValidationKitR3_LNK_DEPS.win.x86    = $(if $(eq $(tool_do),LINK_LIBRARY),,$(VBOX_PE_SET_VERSION)) $(TEMPLATE_VBoxValidationKitR3Base_LNK_DEPS.win.x86)
+TEMPLATE_VBoxValidationKitR3_LNK_DEPS.win.amd64  = $(if $(eq $(tool_do),LINK_LIBRARY),,$(VBOX_PE_SET_VERSION)) $(TEMPLATE_VBoxValidationKitR3Base_LNK_DEPS.win.amd64)
+
+#TODO: TEMPLATE_VBoxValidationKitR3_EXTENDS = VBoxGuestR3Exe
+
+TEMPLATE_VBoxValidationKitR3_USES.win += vboximportchecker
+TEMPLATE_VBoxValidationKitR3_VBOX_IMPORT_CHECKER.win.x86   = nt31
+TEMPLATE_VBoxValidationKitR3_VBOX_IMPORT_CHECKER.win.amd64 = xp64
+
+
+#
+# Template for ring-3 testcases to be included on the Validation Kit .ISO.
+#
+# Needed for running the ring-3 testcases on older guests (like NT4 / XP).
+# Those testcases then run as part of the Validation Kit and are included on the Validation Kit .ISO.
+# See @bugref:10195.
+#
+TEMPLATE_VBoxValidationKitR3TstExe         = VBox Ring 3 Testcase Exe for Validation Kit .ISO
+TEMPLATE_VBoxValidationKitR3TstExe_EXTENDS = VBoxValidationKitR3
+TEMPLATE_VBoxValidationKitR3TstExe_INST    = $(INST_VALIDATIONKIT)/testcase/$(KBUILD_TARGET)/$(KBUILD_TARGET_ARCH)/testcase/
+
+
+#
+# Template for building ring-3 programs for the Validation Kit.
+# When these programs run on the host they may take advantage of the
+# support driver if installed.
+#
+TEMPLATE_VBoxValidationKitR3SupDrv = VBox Validation Kit ring-3 program, mainly host.
+TEMPLATE_VBoxValidationKitR3SupDrv_EXTENDS = VBoxValidationKitR3
+TEMPLATE_VBoxValidationKitR3SupDrv_EXTENDS_BY = appending
+TEMPLATE_VBoxValidationKitR3SupDrv_DEFS = IN_SUP_R3
+TEMPLATE_VBoxValidationKitR3SupDrv_LIBS = \
+	$(PATH_STAGE_LIB)/SUPR3Static$(VBOX_SUFF_LIB) \
+	$(PATH_STAGE_LIB)/RuntimeR3$(VBOX_SUFF_LIB)
+ifndef VBOX_WITH_NOCRT_STATIC
+ TEMPLATE_VBoxValidationKitR3SupDrv_LDFLAGS.win.x86 = \
+ 	-Include:_vcc100_ntdll_fakes_cpp \
+ 	-Include:_vcc100_ntdll_fakes_asm
+endif
+
+#
+# Template for building agnostic ring-0 host modules for the Validation Kit.
+#
+TEMPLATE_VBoxValidationKitR0 = VBox Validation Kit agnostic ring-0 host module.
+TEMPLATE_VBoxValidationKitR0_EXTENDS = VBoxR0
+TEMPLATE_VBoxValidationKitR0_EXTENDS_BY = appending
+TEMPLATE_VBoxValidationKitR0_INST = $(INST_VALIDATIONKIT)$(KBUILD_TARGET)/$(KBUILD_TARGET_ARCH)/
+TEMPLATE_VBoxValidationKitR0_DEFS = IN_RT_R0
+TEMPLATE_VBoxValidationKitR0_LIBS = \
+	$(PATH_STAGE_LIB)/RuntimeR0$(VBOX_SUFF_LIB) \
+	$(VBOX_LIB_SUPR0)
+
+#
+# List of python sources that should be linted and unittested.
+#
+VBOX_VALIDATIONKIT_PYTHON_SOURCES     :=
+VBOX_VALIDATIONKIT_PYLINT_TARGETS     :=
+VBOX_VALIDATIONKIT_PYUNITTEST_EXCLUDE :=
+
+ifdef VBOX_WITH_PYLINT
+ TESTING +=
+endif
+
+#
+# Process python sources.
+#
+if1of ($(KBUILD_TARGET), win os2)
+ VBOX_PYTHONPATH_VALIDATIONKIT = $(PYTHONPATH);$(VBOX_PATH_VALIDATIONKIT_SRC);$(VBOX_PATH_VALIDATIONKIT_SRC)/testboxscript;$(VBOX_PATH_VALIDATIONKIT_SRC)/testmanager;$(VBOX_PATH_VALIDATIONKIT_SRC)/tests/additions;$(VBOX_PATH_VALIDATIONKIT_SRC)/../VMM/VMMAll
+else
+ VBOX_PYTHONPATH_VALIDATIONKIT = $(PYTHONPATH):$(VBOX_PATH_VALIDATIONKIT_SRC):$(VBOX_PATH_VALIDATIONKIT_SRC)/testboxscript:$(VBOX_PATH_VALIDATIONKIT_SRC)/testmanager:$(VBOX_PATH_VALIDATIONKIT_SRC)/tests/additions:$(VBOX_PATH_VALIDATIONKIT_SRC)/../VMM/VMMAll
+endif
+BLDDIRS += $(PATH_TARGET)/pylint $(PATH_TARGET)/pyunittest
+
+define def_vbox_validationkit_py_check
+ $(eval name:=$(basename $(notdir $(py))))
+
+ pylint: $(name)-py-phony.o
+ $(name).o: $(name)-py-phony.o
+ $(PATH_TARGET)/pylint/$(name).o $(name)-py-phony.o:: $(py) | $(PATH_TARGET)/pylint/
+ ifdef VBOX_WITH_PYLINT
+	$(QUIET2)$(call MSG_L1,Subjecting $(py) to pylint...)
+	$(QUIET)$(REDIRECT) -C "$(dir $(py))" -E LC_ALL=C -E PYTHONPATH="$(VBOX_PYTHONPATH_VALIDATIONKIT)" -- \
+		$(VBOX_PYLINT) --rcfile=$(VBOX_PATH_VALIDATIONKIT_SRC)/pylintrc $$(VBOX_PYLINT_FLAGS) $$($(py)_VBOX_PYLINT_FLAGS) ./$(notdir $(py))
+ endif
+	$(QUIET)$(APPEND) -t "$(PATH_TARGET)/pylint/$(name).o"
+
+ ifn1of ($(py), $(VBOX_VALIDATIONKIT_PYUNITTEST_EXCLUDE))
+  pyunittest: $(name)-pyunittest.o
+  $(PATH_TARGET)/pyunittest/$(name).o $(name)-pyunittest.o:: $(py) | $(PATH_TARGET)/pyunittest/
+	$(QUIET2)$(call MSG_L1,Unittesting Python source $(py)...)
+	$(QUIET)$(REDIRECT) -E LC_ALL=C -E PYTHONPATH="$(VBOX_PYTHONPATH_VALIDATIONKIT)" -C $(dir $(py)) \
+		-- $(VBOX_UNITTEST_PYTHON) -m unittest -v $(notdir $(basename $(py)))
+	$(QUIET)$(APPEND) -t "$(PATH_TARGET)/pyunittest/$(name).o"
+  VBOX_VALIDATIONKIT_PYUNITTEST_TARGETS += $(PATH_TARGET)/pyunittest/$(name).o
+
+  TESTING += $(name)-pyunittest.o
+ endif
+ TESTING += $(name)-py-phony.o
+ VBOX_VALIDATIONKIT_PYLINT_TARGETS    += $(PATH_TARGET)/pylint/$(name).o
+endef # def_vbox_validationkit_py_check
+
+
+define def_vbox_validationkit_process_python_sources
+ if $(words $(_SUB_MAKEFILE_STACK)) <= 0 || "$1" == "FORCE"
+  $(foreach py, $(VBOX_VALIDATIONKIT_PYTHON_SOURCES), $(eval $(def_vbox_validationkit_py_check)))
+ endif
+endef
+
+
+
+#
+# http://www.jshint.com
+#
+VBOX_JSHINT       ?= jshint
+VBOX_JSHINT_FLAGS := --config $(VBOX_PATH_VALIDATIONKIT_SRC)/jshintrc.js --verbose
+ifndef VBOX_WITH_JSHINT
+ VBOX_WITH_JSHINT := $(which $(VBOX_JSHINT))
+endif
+
+#
+# List of javascript sources that should be checked and linted.
+#
+VBOX_VALIDATIONKIT_JS_SOURCES :=
+
+define def_vbox_validationkit_js_check
+ $(eval name:=$(basename $(notdir $(js))))
+ $(name).o $(name).obj: # $(PATH_SUB_CURRENT)/$(js)
+	-$(REDIRECT) -E LC_ALL=C  -C $(dir $(js)) -- $$(VBOX_JSHINT) ./$(notdir $(js)) $$(VBOX_JSHINT_FLAGS)
+ jslint: $(name).o
+endef
+
+ifdef VBOX_WITH_JSHINT
+ define def_vbox_validationkit_process_js_sources
+  if $(words $(_SUB_MAKEFILE_STACK)) <= 0
+   $(foreach js, $(VBOX_VALIDATIONKIT_JS_SOURCES), $(eval $(def_vbox_validationkit_js_check)))
+  endif
+ endef
+endif
+
+
+#
+# List of IPRT testcases that will be included in the ValKit.
+#
+ifdef VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+ VALKIT_UNITTESTS_WHITELIST_IPRT := \
+ 	tstFile \
+ 	tstFileLock \
+ 	tstRTPathQueryInfo \
+ 	tstRTPipe \
+ 	tstRTProcCreateEx \
+ 	tstRTProcCreatePrf \
+ 	tstRTProcQueryUsername \
+ 	tstThread-1 \
+ 	tstUtf8
+
+ VALKIT_UNITTESTS_WHITELIST_IPRT.linux += \
+ 	tstRTProcWait \
+ 	tstRTProcIsRunningByName
+
+ VALKIT_UNITTESTS_WHITELIST_IPRT.win += \
+ 	tstRTProcWait
+
+endif # VBOX_WITH_VALIDATIONKIT_UNITTESTS_PACKING
+

@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage convertfromraw
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-convertfromraw" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-05-30 22:24:41 +0200 (Tue, 30 May 2023) $</pubdate>
+    <title>VBoxManage convertfromraw</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-convertfromraw</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-convertfromraw</refname>
+    <refpurpose>convert a raw disk image to a virtual disk image</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+    <cmdsynopsis id="synopsis-vboxmanage-convertfromraw-file">
+      <command>VBoxManage convertfromraw</command>
+      <arg choice="req"><replaceable>inputfile</replaceable></arg>
+      <arg choice="req"><replaceable>outputfile</replaceable></arg>
+      <arg>--format=<group choice="plain">
+          <arg choice="plain">VDI</arg>
+          <arg choice="plain">VMDK</arg>
+          <arg choice="plain">VHD</arg>
+        </group></arg>
+      <arg>--uuid=<replaceable>uuid</replaceable></arg>
+      <arg>--variant=Standard,Fixed,Split2G,Stream,ESX</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-convertfromraw-stdin">
+      <command>VBoxManage convertfromraw stdin</command>
+      <arg choice="req"><replaceable>outputfile</replaceable></arg>
+      <arg choice="req"><replaceable>bytes</replaceable></arg>
+      <arg>--format=<group choice="plain">
+          <arg choice="plain">VDI</arg>
+          <arg choice="plain">VMDK</arg>
+          <arg choice="plain">VHD</arg>
+        </group></arg>
+      <arg>--uuid=<replaceable>uuid</replaceable></arg>
+      <arg>--variant=Standard,Fixed,Split2G,Stream,ESX</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage convertfromraw</command> command enables
+      you to convert a raw disk image to an &product-name; virtual disk
+      image (VDI).
+    </para>
+    <note>
+      <para>
+        For compatibility with earlier versions of &product-name;, you
+        can use the <command>VBoxManage convertdd</command> command
+        instead of the <command>VBoxManage convertfromraw</command>
+        command.
+      </para>
+    </note>
+    <refsect2 id="vboxmanage-convertfromraw-file">
+      <title>Convert a Raw Disk File to a Virtual Disk Image File</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage convertfromraw</command> command
+        converts the specified raw disk image input file to an
+        &product-name; VDI file.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>inputfile</replaceable></term>
+          <listitem><para>
+              Specifies the name of the raw disk image file to convert.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>outputfile</replaceable></term>
+          <listitem><para>
+              Specifies the name of the file in which to write the VDI
+              output.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--format=VDI | VMDK | VHD</option></term>
+          <listitem><para>
+              Specifies the format of the disk image to create. Valid
+              values are <literal>VDI</literal>,
+              <literal>VMDK</literal>, and <literal>VHD</literal>. The
+              default format is <literal>VDI</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uuid=<replaceable>uuid</replaceable></option></term>
+          <listitem><para>
+              Specifies the Universally Unique Identifier (UUID) of the
+              output file.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--variant=Standard,Fixed,Split2G,Stream,ESX</option></term>
+          <listitem><para>
+              Specifies any required file format variants for the output
+              file. This is a comma-separated list of variant values.
+              Following are the valid values:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>Standard</literal> is the default disk image
+                  type, which has a dynamically allocated file size.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Fixed</literal> uses a disk image that has a
+                  fixed file size.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Split2G</literal> indicates that the disk
+                  image is split into 2GB segments. This value is for
+                  VMDK only.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Stream</literal> optimizes the disk image for
+                  downloading. This value is for VMDK only.
+                </para></listitem>
+              <listitem><para>
+                  <literal>ESX</literal> is used for some VMWare
+                  products. This value is for VMDK only.
+                </para></listitem>
+            </itemizedlist><para>
+              Note that not all variant combinations are valid.
+              Specifying incompatible variant values in the list will
+              produce an error message.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-convertfromraw-stdin">
+      <title>Convert Raw Data From Standard Input to a Virtual Disk Image File</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage convertfromraw stdin</command> command
+        reads the content of the disk image from standard input.
+        Consider using this form of the command in a pipe sequence.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>outputfile</replaceable></term>
+          <listitem><para>
+              Specifies the name of the file in which to write the disk image
+              output.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>bytes</replaceable></term>
+          <listitem><para>
+              Specifies the capacity of the targe image name. Needs to be
+              given explicitly, because generally pipes do not support
+              querying the overall size of the data stream.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--format=VDI | VMDK | VHD</option></term>
+          <listitem><para>
+              Specifies the format of the disk image to create. Valid
+              values are <literal>VDI</literal>,
+              <literal>VMDK</literal>, and <literal>VHD</literal>. The
+              default format is <literal>VDI</literal>.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uuid=<replaceable>uuid</replaceable></option></term>
+          <listitem><para>
+              Specifies the UUID of the output file.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--variant=Standard,Fixed,Split2G,Stream,ESX</option></term>
+          <listitem><para>
+              Specifies any required file format variants for the output
+              file. This is a comma-separated list of variant values.
+              Following are the valid values:
+            </para><itemizedlist>
+              <listitem><para>
+                  <literal>Standard</literal> is the default disk image
+                  type, which has a dynamically allocated file size.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Fixed</literal> uses a disk image that has a
+                  fixed file size.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Split2G</literal> indicates that the disk
+                  image is split into 2GB segments. This value is for
+                  VMDK only.
+                </para></listitem>
+              <listitem><para>
+                  <literal>Stream</literal> optimizes the disk image for
+                  downloading. This value is for VMDK only.
+                </para></listitem>
+              <listitem><para>
+                  <literal>ESX</literal> is used for some VMWare
+                  products. This value is for VMDK only.
+                </para></listitem>
+            </itemizedlist><para>
+              Note that not all variant combinations are valid.
+              Specifying incompatible variant values in the list will
+              produce an error message.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      The following command converts the raw disk image input file
+      <filename>disk01.raw</filename>. The output file is a VDI disk
+      image called <filename>disk02.vdi</filename>.
+    </para>
+<screen>$ VBoxManage convertfromraw disk01.raw disk02.vdi</screen>
+    <para>
+      The following command converts the raw disk image input file
+      <filename>disk01.raw</filename>. The output file is a VMDK disk
+      image called <filename>disk02.vmdk</filename>.
+    </para>
+<screen>$ VBoxManage convertfromraw disk01.raw disk02.vmdk --format VMDK</screen>
+    <para>
+      The following command reads from disk <filename>/dev/sda</filename>
+      using a pipe and therefore needs the exact disk size in bytes as an
+      additional parameter, which is assumed to be <literal>10737418240</literal>.
+      The output file is a VDI disk image called <filename>disk.vdi</filename>.
+    </para>
+<screen>$ dd if=/dev/sda bs=512 | VBoxManage convertfromraw stdin disk.vdi 10737418240</screen>
+  </refsect1>
+</refentry>

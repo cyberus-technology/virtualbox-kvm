@@ -1,0 +1,459 @@
+# $Id: VCC141X86.kmk 3346 2020-05-22 20:56:11Z bird $
+## @file
+# kBuild Tool Config - Visual C++ 14.1 (aka Visual 2017 and MSC v19.10), targeting x86.
+#
+
+#
+# Copyright (c) 2004-2020 knut st. osmundsen <bird-kBuild-spam-xx@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+ifndef TOOL_VCC141
+ include $(KBUILD_PATH)/tools/VCC141.kmk
+endif
+
+TOOL_VCC141X86 := Visual C++ 14.1 (aka Visual 2017 and MSC v19.1), targeting x86
+
+#
+# Tool Specific Properties
+#
+ifndef PATH_TOOL_VCC141X86
+ PATH_TOOL_VCC141X86 := $(PATH_TOOL_VCC141)
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_TOOL_VCC141X86 := $(PATH_TOOL_VCC141X86)
+endif
+
+ifndef PATH_TOOL_VCC141X86_BIN
+PATH_TOOL_VCC141X86_BIN     := $(PATH_TOOL_VCC141_HOST_BIN)/x86
+else
+PATH_TOOL_VCC141X86_BIN     := $(PATH_TOOL_VCC141X86_BIN)
+endif
+PATH_TOOL_VCC141X86_BIN_QSH := $(requote sh,$(PATH_TOOL_VCC141X86_BIN))
+
+# A bunch of DLLs are only in the subdir matching the host one, so we need to add it to the PATH when cross compiling.
+ifndef PATH_TOOL_VCC141X86_DLL_BIN
+ ifneq ($(PATH_TOOL_VCC141_HOST_DLL_BIN),$(PATH_TOOL_VCC141X86_BIN))
+PATH_TOOL_VCC141X86_DLL_BIN := $(PATH_TOOL_VCC141_HOST_DLL_BIN)
+ endif
+endif
+
+ifndef PATH_TOOL_VCC141X86_LIB
+PATH_TOOL_VCC141X86_LIB     := $(PATH_TOOL_VCC141_LIB.x86)
+endif
+ifndef PATH_TOOL_VCC141_ONECORE_LIB
+PATH_TOOL_VCC141_ONECORE_LIB  := $(PATH_TOOL_VCC141_ONECORE_LIB.x86)
+endif
+
+ifndef PATH_TOOL_VCC141X86_INC
+PATH_TOOL_VCC141X86_INC     := $(PATH_TOOL_VCC141_INC)
+endif
+
+ifndef PATH_TOOL_VCC141X86_ATLMFC_INC
+PATH_TOOL_VCC141X86_ATLMFC_INC := $(PATH_TOOL_VCC141_ATLMFC_INC.x86)
+endif
+ifndef PATH_TOOL_VCC141X86_ATLMFC_LIB
+PATH_TOOL_VCC141X86_ATLMFC_LIB := $(PATH_TOOL_VCC141_ATLMFC_LIB.x86)
+endif
+
+TOOL_VCC141X86_CC      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC141X86_BIN_QSH)/cl.exe
+TOOL_VCC141X86_CXX     ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC141X86_BIN_QSH)/cl.exe
+TOOL_VCC141X86_AS      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC141X86_BIN_QSH)/ml.exe
+#TOOL_VCC141X86_AR      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC141X86_BIN_QSH)/lib.exe - just an exec wrapper for the below
+TOOL_VCC141X86_AR      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC141X86_BIN_QSH)/link.exe /LIB
+TOOL_VCC141X86_LD      ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC141X86_BIN_QSH)/link.exe
+TOOL_VCC141X86_DUMPBIN ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC141X86_BIN_QSH)/dumpbin.exe
+TOOL_VCC141X86_EDITBIN ?= $(EXEC_X86_WIN32) $(PATH_TOOL_VCC141X86_BIN_QSH)/editbin.exe
+
+TOOL_VCC141X86_RC ?= $(EXEC_X86_WIN32) $(call TOOL_VCC141_FN_FIND_SDK_TOOL,rc.exe,[Rr][Cc].[Ee][Xx][Ee],TOOL_VCC141_RC_CACHED)
+TOOL_VCC141X86_MT ?= $(EXEC_X86_WIN32) $(call TOOL_VCC141_FN_FIND_SDK_TOOL,mt.exe,[Mm][Tt].[Ee][Xx][Ee],TOOL_VCC141_MT_CACHED)
+
+undefine TOOL_VCC141X86_USE_KSUBMIT # for now
+ifdef TOOL_VCC141X86_USE_KSUBMIT
+ ifeq ($(KBUILD_HOST),win)
+  ifneq ($(substr $(qdir un,$(PATH_TOOL_VCC141X86_BIN)),-3),64/)
+   TOOL_VCC141X86_KSUBMIT ?= kmk_builtin_kSubmit --64-bit
+  else
+   TOOL_VCC141X86_KSUBMIT ?= kmk_builtin_kSubmit --32-bit
+  endif
+  ifdef PATH_TOOL_VCC141X86_DLL_BIN
+   TOOL_VCC141X86_KSUBMIT := $(TOOL_VCC141X86_KSUBMIT) --prepend "PATH=$(requote shell-in-dq,$(PATH_TOOL_VCC141X86_DLL_BIN));"
+  endif
+  TOOL_VCC141X86_KSUBMIT_DD := $(TOOL_VCC141X86_KSUBMIT) --
+ endif
+endif
+ifdef PATH_TOOL_VCC141X86_DLL_BIN
+ TOOL_VCC141X86_SETUP_ENV   := $(REDIRECT) --prepend "PATH=$(requote shell-in-dq,$(PATH_TOOL_VCC141X86_DLL_BIN));" --$(SP)
+ ifndef TOOL_VCC141X86_KSUBMIT_DD
+  TOOL_VCC141X86_KSUBMIT_DD := $(TOOL_VCC141X86_SETUP_ENV)
+ endif
+endif
+
+# Redist (more stuff in VCC141.kmk).
+PATH_TOOL_VCC141X86_REDIST           ?= $(PATH_TOOL_VCC141_REDIST)/x86
+PATH_TOOL_VCC141X86_REDIST_CRT        = $(PATH_TOOL_VCC141X86_REDIST)/$(TOOL_VCC141_REDIST_CRT_SUBDIR)
+PATH_TOOL_VCC141X86_REDIST_DEBUG     ?= $(PATH_TOOL_VCC141_REDIST_DEBUG)/x86
+PATH_TOOL_VCC141X86_REDIST_DEBUG_CRT  = $(PATH_TOOL_VCC141X86_REDIST_DEBUG)/$(TOOL_VCC141_REDIST_CRT_SUBDIR)
+TOOL_VCC141X64_REDIST_CRT_DLLS        = $(TOOL_VCC141_REDIST_CRT_DLLS.x86)
+TOOL_VCC141X64_REDIST_CONCRT_DLLS     = $(TOOL_VCC141_REDIST_CONCRT_DLLS.x86)
+TOOL_VCC141X64_REDIST_CPP_DLLS        = $(TOOL_VCC141_REDIST_CPP_DLLS.x86)
+TOOL_VCC141X64_REDIST_WINRT_DLLS      = $(TOOL_VCC141_REDIST_WINRT_DLLS.x86)
+
+
+#
+# Properties used by kBuild
+#
+TOOL_VCC141X86_COBJSUFF         ?= .obj
+TOOL_VCC141X86_CFLAGS           ?= -TC -nologo -Zi -ZH:SHA_256
+TOOL_VCC141X86_CFLAGS.debug     ?=
+TOOL_VCC141X86_CFLAGS.dbgopt    ?= -O2
+TOOL_VCC141X86_CFLAGS.release   ?= -O2
+TOOL_VCC141X86_CFLAGS.profile   ?= -O2
+TOOL_VCC141X86_CINCS            ?= $(PATH_TOOL_VCC141X86_INC)
+TOOL_VCC141X86_CDEFS            ?=
+
+TOOL_VCC141X86_CXXOBJSUFF       ?= .obj
+TOOL_VCC141X86_CXXFLAGS         ?= -TP -nologo -Zi -ZH:SHA_256
+TOOL_VCC141X86_CXXFLAGS.debug   ?=
+TOOL_VCC141X86_CXXFLAGS.dbgopt  ?= -O2
+TOOL_VCC141X86_CXXFLAGS.release ?= -O2
+TOOL_VCC141X86_CXXFLAGS.profile ?= -O2
+TOOL_VCC141X86_CXXINCS          ?= $(PATH_TOOL_VCC141X86_INC) $(PATH_TOOL_VCC141X86_ATLMFC_INC)
+TOOL_VCC141X86_CXXDEFS          ?=
+
+TOOL_VCC141X86_ASOBJSUFF        ?= .obj
+
+TOOL_VCC141X86_RCOBJSUFF        ?= .res
+TOOL_VCC141X86_RCINCS           ?= $(PATH_TOOL_VCC141X86_INC) $(PATH_TOOL_VCC141X86_ATLMFC_INC)
+
+TOOL_VCC141X86_ARFLAGS          ?= -nologo -machine:x86
+TOOL_VCC141X86_ARLIBSUFF        ?= .lib
+
+TOOL_VCC141X86_LDFLAGS          ?= -nologo -machine:x86
+TOOL_VCC141X86_LDFLAGS.debug    ?= -debug
+TOOL_VCC141X86_LDFLAGS.dbgopt   ?= -debug
+TOOL_VCC141X86_LDFLAGS.profile  ?= -debug
+TOOL_VCC141X86_LDFLAGS.release  ?=
+
+
+
+## Compile C source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC141X86_COMPILE_C_DEPEND =
+TOOL_VCC141X86_COMPILE_C_DEPORD =
+TOOL_VCC141X86_COMPILE_C_OUTPUT =
+TOOL_VCC141X86_COMPILE_C_OUTPUT_MAYBE = $(call TOOL_VCC141_PDB, $(outbase)-obj,pdb) $(call TOOL_VCC141_PDB, $(outbase)-obj,idb)
+ifdef TOOL_VCC141X86_KSUBMIT
+ TOOL_VCC141X86_COMPILE_C_DONT_PURGE_OUTPUT := 1 # speed
+ define TOOL_VCC141X86_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VCC141X86_KSUBMIT) -P $(DEP_OBJ_INT) -f -s -q -o $(dep) -t $(obj) $(obj)\
+		-- $(TOOL_VCC141X86_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Fd$(outbase)-obj.pdb \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC141X86_COMPILE_C_CMDS
+	$(QUIET)$(TOOL_VCC141X86_SETUP_ENV)$(TOOL_VCC141X86_CC) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		-Fd$(outbase)-obj.pdb \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q -o $(dep) -t $(obj) $(obj)
+ endef
+endif # !TOOL_VCC141X86_KSUBMIT
+
+
+## Compile C++ source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC141X86_COMPILE_CXX_DEPEND = $($(target)_1_VCC_PCH_FILE)
+TOOL_VCC141X86_COMPILE_CXX_DEPORD =
+TOOL_VCC141X86_COMPILE_CXX_OUTPUT =
+TOOL_VCC141X86_COMPILE_CXX_OUTPUT_MAYBE = $(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB)\
+	,,$(call TOOL_VCC141_PDB, $(outbase)-obj,pdb) $(call TOOL_VCC141_PDB, $(outbase)-obj,idb))
+ifdef TOOL_VCC141X86_KSUBMIT
+ TOOL_VCC141X86_COMPILE_CXX_DONT_PURGE_OUTPUT := 1 # speed
+ define TOOL_VCC141X86_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VCC141X86_KSUBMIT) -P $(DEP_OBJ_INT) -f -s -q -o $(dep) -t $(obj) $(obj)\
+		-- $(TOOL_VCC141X86_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		$(if-expr defined($(target)_PCH_HDR)\
+		,-FI$($(target)_PCH_HDR) -Yu$($(target)_PCH_HDR) -Fp$($(target)_1_VCC_PCH_FILE) -FS,)\
+		-Fd$(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB),$($(target)_1_VCC_COMMON_OBJ_PDB),$(outbase)-obj.pdb) \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC141X86_COMPILE_CXX_CMDS
+	$(QUIET)$(TOOL_VCC141X86_SETUP_ENV)$(TOOL_VCC141X86_CXX) -c\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+		$(if-expr defined($(target)_PCH_HDR)\
+		,-FI$($(target)_PCH_HDR) -Yu$($(target)_PCH_HDR) -Fp$($(target)_1_VCC_PCH_FILE) -FS,)\
+		-Fd$(if-expr defined($(target)_1_VCC_COMMON_OBJ_PDB),$($(target)_1_VCC_COMMON_OBJ_PDB),$(outbase)-obj.pdb) \
+		-Fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q -o $(dep) -t $(obj) $(obj)
+ endef
+endif # !TOOL_VCC141X86_KSUBMIT
+
+
+#
+# Helper tool for creating the precompiled C++ header.
+#
+# It only have the C++ compile bits and it's purpose is to skip bits
+# related _1_VCC_PCH_FILE and add -Yc.
+#
+TOOL_VCC141X86-PCH                         := Helper for creating precompiled header using CXX handling.
+TOOL_VCC141X86-PCH_EXTENDS                 := VCC141X86
+TOOL_VCC141X86-PCH_CXXOBJSUFF              := .obj
+TOOL_VCC141X86-PCH_CXXINCS                  = $(TOOL_VCC141X86_CXXINCS)
+TOOL_VCC141X86-PCH_CXXFLAGS                 = $(TOOL_VCC141X86_CXXFLAGS) -FS
+TOOL_VCC141X86-PCH_CXXFLAGS.debug           = $(TOOL_VCC141X86_CXXFLAGS.debug)
+TOOL_VCC141X86-PCH_CXXFLAGS.dbgopt          = $(TOOL_VCC141X86_CXXFLAGS.dbgopt)
+TOOL_VCC141X86-PCH_CXXFLAGS.release         = $(TOOL_VCC141X86_CXXFLAGS.release)
+TOOL_VCC141X86-PCH_CXXFLAGS.profile         = $(TOOL_VCC141X86_CXXFLAGS.profile)
+TOOL_VCC141X86-PCH_COMPILE_CXX_DEPEND       = $(NO_SUCH_VARIABLE)
+TOOL_VCC141X86-PCH_COMPILE_CXX_DEPORD       = $(NO_SUCH_VARIABLE)
+TOOL_VCC141X86-PCH_COMPILE_CXX_OUTPUT       = $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+TOOL_VCC141X86-PCH_COMPILE_CXX_OUTPUT_MAYBE = $(NO_SUCH_VARIABLE)
+ifdef TOOL_VCC141X86_KSUBMIT
+ define TOOL_VCC141X86-PCH_COMPILE_CXX_CMDS
+	$(QUIET)$(RM) -f -- $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+	$(QUIET)$(TOOL_VCC141X86_KSUBMIT) --no-pch-caching -P $(DEP_OBJ_INT) -f -s -q -e .pch -o $(dep) -t $(obj) $(obj)\
+		-- $(TOOL_VCC141X86_CXX) -c -Yc\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+               -Fp$($(target)_1_VCC_PCH_FILE) \
+		-Fd$($(target)_1_VCC_COMMON_OBJ_PDB) \
+		-Fo$(obj)\
+               -TP \
+		$(subst /,\\,$(abspath $(source)))
+ endef
+else
+ define TOOL_VCC141X86-PCH_COMPILE_CXX_CMDS
+	$(QUIET)$(RM) -f -- $($(target)_1_VCC_PCH_FILE) $($(target)_1_VCC_COMMON_OBJ_PDB)
+	$(QUIET)$(TOOL_VCC141X86_SETUP_ENV)$(TOOL_VCC141X86_CXX) -c -Yc\
+		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
+               -Fp$($(target)_1_VCC_PCH_FILE) \
+		-Fd$($(target)_1_VCC_COMMON_OBJ_PDB) \
+		-Fo$(obj)\
+               -TP \
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(DEP_OBJ) -f -s -q  -e .pch -o $(dep) -t $(obj) $(obj)
+
+ endef
+endif # !TOOL_VCC141X86_KSUBMIT
+
+
+## @todo configure the assembler template.
+
+## Compile resource source.
+# @param    $(target)   Normalized main target name.
+# @param    $(source)   Source filename (relative).
+# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
+# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
+# @param    $(flags)    Flags.
+# @param    $(defs)     Definitions. No -D or something.
+# @param    $(incs)     Includes. No -I or something.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+# @param    $(objsuff)  Object suffix.
+TOOL_VCC141X86_COMPILE_RC_DEPEND =
+TOOL_VCC141X86_COMPILE_RC_DEPORD =
+TOOL_VCC141X86_COMPILE_RC_OUTPUT =
+define TOOL_VCC141X86_COMPILE_RC_CMDS
+	$(QUIET)$(TOOL_VCC141X86_RC) \
+		$(flags) $(qaddprefix sh,/i, $(subst /,\\,$(incs))) $(qaddprefix sh,/d, $(defs))\
+		/fo$(obj)\
+		$(subst /,\\,$(abspath $(source)))
+endef
+
+
+## Link library
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      Library name.
+# @param    $(objs)     Object files to put in the library.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc) Unhandled sources.
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+#
+TOOL_VCC141X86_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_VCC141X86_LINK_LIBRARY_DEPORD =
+TOOL_VCC141X86_LINK_LIBRARY_OUTPUT = $(outbase).rsp
+TOOL_VCC141X86_LINK_LIBRARY_OUTPUT_MAYBE = $(outbase).lst $(outbase).exp $(outbase).pdb
+define TOOL_VCC141X86_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(qforeachfile u,arg, $(objs) $(filter-out %.def,$(othersrc)),$(quote-sh "$(subst /,\,$(arg))")) \
+		$(qforeachfile u,arg, $(filter %.def,$(othersrc)),$(quote-sh "/DEF:$(subst /,\,$(arg))"))
+	$(QUIET)$(TOOL_VCC141X86_KSUBMIT_DD) $(TOOL_VCC141X86_AR) $(flags) /OUT:$(out) @$(outbase).rsp
+endef
+
+
+## Link program
+# @param    $(target)       Normalized main target name.
+# @param    $(out)          Program name.
+# @param    $(objs)         Object files to link together.
+# @param    $(libs)         Libraries to search.
+# @param    $(libpath)      Library search paths.
+# @param    $(flags)        Flags.
+# @param    $(dirdep)       Directory creation dependency.
+# @param    $(deps)         Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+# @param    $(outbase)      Output basename (full). Use this for list files and such.
+#
+TOOL_VCC141X86_LINK_PROGRAM_DEPEND = $(foreachfile lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC141X86_LINK_PROGRAM_DEPORD =
+TOOL_VCC141X86_LINK_PROGRAM_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_VCC141X86_LINK_PROGRAM_OUTPUT_MAYBE = $(outbase).lib $(outbase).exp $(outbase).ilk $(out).manifest
+TOOL_VCC141X86_LINK_PROGRAM_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC141X86_LINK_PROGRAM_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC141X86_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(qforeachfile u,arg, $(objs) $(libs),$(quote-sh "$(subst /,\,$(arg))"))
+	$(QUIET)$(TOOL_VCC141X86_KSUBMIT_DD) $(TOOL_VCC141X86_LD) $(flags) \
+		/OUT:$(out) \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(qaddprefix sh,/LIBPATH:,$(libpath)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC141X86_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC141X86_MT) -manifest $(subst /,\\,$(out)).manifest -outputresource:$(subst /,\\,$(out))
+endif
+endef
+
+
+## Link DLL.
+# @param    $(target)   Normalized main target name.
+# @param    $(out)      DLL name.
+# @param    $(objs)     Object files to link together.
+# @param    $(libs)     Libraries to search.
+# @param    $(libpath)  Library search paths.
+# @param    $(flags)    Flags.
+# @param    $(dirdep)   Directory creation dependency.
+# @param    $(deps)     Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VCC141X86_LINK_DLL_DEPEND = $(foreachfile lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC141X86_LINK_DLL_DEPORD = $(call DIRDEP,$(PATH_STAGE_LIB))
+TOOL_VCC141X86_LINK_DLL_OUTPUT = $(outbase).lib $(outbase).exp
+TOOL_VCC141X86_LINK_DLL_OUTPUT_MAYBE = $(outbase).ilk $(out).manifest $(PATH_STAGE_LIB)/$(notdir $(outbase)).exp
+TOOL_VCC141X86_LINK_DLL_OUTPUT_MAYBE_PRECIOUS = $(PATH_STAGE_LIB)/$(notdir $(outbase)).lib $(outbase).map $(outbase).rsp
+TOOL_VCC141X86_LINK_DLL_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC141X86_LINK_DLL_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC141X86_LINK_DLL_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(qforeachfile u,arg, $(objs) $(libs),$(quote-sh "$(subst /,\,$(arg))"))
+	$(QUIET)$(TOOL_VCC141X86_KSUBMIT_DD) $(TOOL_VCC141X86_LD) $(flags) \
+		/OUT:$(out) \
+		/IMPLIB:$(outbase).lib \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		/DLL \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(qaddprefix sh,/LIBPATH:,$(libpath)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC141X86_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC141X86_MT) -manifest $(subst /,\\,$(out)).manifest '-outputresource:$(subst /,\\,$(out));#2'
+endif
+	$(QUIET)$(TEST) -f $(outbase).lib -- $(KLIBTWEAKER_EXT) --clear-timestamps $(outbase).lib
+	$(QUIET)$(CP) --changed -v --ignore-non-existing $(outbase).exp $(outbase).lib $(PATH_STAGE_LIB)/
+$(eval _DIRS += $(PATH_STAGE_LIB))
+endef
+
+
+## Link system module (windows aka driver, linux aka kernel module)
+# @param    $(target)       Normalized main target name.
+# @param    $(out)          System module name.
+# @param    $(objs)         Object files to link together.
+# @param    $(libs)         Libraries to search.
+# @param    $(libpath)      Library search paths.
+# @param    $(flags)        Flags.
+# @param    $(dirdep)       Directory creation dependency.
+# @param    $(deps)         Other dependencies.
+# @param    $(othersrc)     Unhandled sources.
+# @param    $(custom_pre)   Custom step invoked before linking.
+# @param    $(custom_post)  Custom step invoked after linking.
+#
+# @param    $(outbase)  Output basename (full). Use this for list files and such.
+TOOL_VCC141X86_LINK_SYSMOD_DEPEND = $(foreachfile lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_VCC141X86_LINK_SYSMOD_DEPORD =
+TOOL_VCC141X86_LINK_SYSMOD_OUTPUT_MAYBE = $(outbase).lib $(outbase).exp $(outbase).ilk $(out).manifest
+TOOL_VCC141X86_LINK_SYSMOD_OUTPUT_MAYBE_PRECIOUS = $(outbase).map $(outbase).rsp
+TOOL_VCC141X86_LINK_SYSMOD_OUTPUT_DEBUG = $(outbase).pdb
+TOOL_VCC141X86_LINK_SYSMOD_DEBUG_INSTALL_FN = $(2).pdb=>$(basename $(3)).pdb
+define TOOL_VCC141X86_LINK_SYSMOD_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(qforeachfile u,arg, $(objs) $(libs),$(quote-sh "$(subst /,\,$(arg))"))
+	$(QUIET)$(TOOL_VCC141X86_KSUBMIT_DD) $(TOOL_VCC141X86_LD) $(flags) \
+		/OUT:$(out) \
+		/MAPINFO:EXPORTS /INCREMENTAL:NO \
+		/MAP:$(outbase).map \
+		$(foreach def,$(filter %.def,$(othersrc)), /DEF:$(def)) \
+		$(subst /,\\,$(filter %.exp %.res,$(othersrc))) \
+		$(qaddprefix sh,/LIBPATH:,$(libpath)) \
+		@$(outbase).rsp
+ifndef TOOL_VCC141X86_NO_AUTO_MANIFEST
+	$(QUIET)$(TEST) -f $(out).manifest -- \
+		$(TOOL_VCC141X86_MT) -manifest $(subst /,\\,$(out)).manifest '-outputresource:$(subst /,\\,$(out));#2'
+endif
+endef
+

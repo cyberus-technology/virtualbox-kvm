@@ -1,0 +1,114 @@
+#!/bin/sh
+# $Id: postinst $
+## @file
+# VirtualBox postinst
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# we can be called with the following arguments (6.5 of Debian policy):
+#  configure:         (our version): installing/configuring new version
+#  abort-upgrade:     (old version): upgrading to a new version failed
+#  abort-remove:      (our version): removing this package failed
+#  abort-deconfigure: (our version): error during resolving conflicts
+
+## @todo Do we really gain anything from not just executing everything
+##       unconditionally?
+
+LOG="/var/log/vbox-install.log"
+
+# defaults
+[ -r /etc/default/virtualbox ] && . /etc/default/virtualbox
+
+if [ "$1" = "configure" ]; then
+
+  # for debconf
+  . /usr/share/debconf/confmodule
+  db_version 2.0
+
+  # remove old cruft
+  if [ -f /etc/init.d/vboxdrv.sh ]; then
+    echo "Found old version of /etc/init.d/vboxdrv.sh, removing."
+    rm /etc/init.d/vboxdrv.sh
+    update-rc.d vboxdrv.sh remove >/dev/null
+  fi
+  if [ -f /etc/vbox/vbox.cfg ]; then
+    echo "Found old version of /etc/vbox/vbox.cfg, removing."
+    rm /etc/vbox/vbox.cfg
+  fi
+
+  # create users groups (disable with INSTALL_NO_GROUP=1 in /etc/default/virtualbox)
+  if [ "$INSTALL_NO_GROUP" != "1" ]; then
+    db_input low virtualbox/group-vboxusers || true
+    db_go || true
+    addgroup --system vboxusers || true
+  fi
+
+  # The starters need to be Suid root. They drop the privileges before starting
+  # the real frontend.
+  if test -e /usr/lib/virtualbox/VirtualBoxVM; then
+    if ! dpkg-statoverride --list /usr/lib/virtualbox/VirtualBoxVM > /dev/null 2>&1; then
+      chmod 4511 /usr/lib/virtualbox/VirtualBoxVM
+    fi
+  else
+    if ! dpkg-statoverride --list /usr/lib/virtualbox/VirtualBox > /dev/null 2>&1; then
+      chmod 4511 /usr/lib/virtualbox/VirtualBox
+    fi
+  fi
+  if ! dpkg-statoverride --list /usr/lib/virtualbox/VBoxHeadless > /dev/null 2>&1; then
+    chmod 4511 /usr/lib/virtualbox/VBoxHeadless
+  fi
+  if [ -x /usr/lib/virtualbox/VBoxSDL ]; then
+    if ! dpkg-statoverride --list /usr/lib/virtualbox/VBoxSDL > /dev/null 2>&1; then
+      chmod 4511 /usr/lib/virtualbox/VBoxSDL
+    fi
+  fi
+  if ! dpkg-statoverride --list /usr/lib/virtualbox/VBoxNetDHCP > /dev/null 2>&1; then
+    chmod 4511 /usr/lib/virtualbox/VBoxNetDHCP
+  fi
+  if ! dpkg-statoverride --list /usr/lib/virtualbox/VBoxNetNAT > /dev/null 2>&1; then
+    chmod 4511 /usr/lib/virtualbox/VBoxNetNAT
+  fi
+  if ! dpkg-statoverride --list /usr/lib/virtualbox/VBoxNetAdpCtl > /dev/null 2>&1; then
+    chmod 4511 /usr/lib/virtualbox/VBoxNetAdpCtl
+  fi
+  if [ -x /usr/lib/virtualbox/VBoxVolInfo ]; then
+    if ! dpkg-statoverride --list /usr/lib/virtualbox/VBoxVolInfo > /dev/null 2>&1; then
+      chmod 4511 /usr/lib/virtualbox/VBoxVolInfo
+    fi
+  fi
+fi # $1 = "configure"
+
+#DEBHELPER#
+
+if test "${INSTALL_NO_VBOXDRV}" = 1; then
+  POSTINST_START=--nostart
+else
+  POSTINST_START=
+fi
+
+# Install and start the new service scripts.
+/usr/lib/virtualbox/prerm-common.sh || true
+/usr/lib/virtualbox/postinst-common.sh ${POSTINST_START} > /dev/null || true
+
+exit 0

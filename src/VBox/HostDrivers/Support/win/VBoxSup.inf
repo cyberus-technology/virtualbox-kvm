@@ -1,0 +1,100 @@
+; $Id: VBoxSup.inf $
+;; @file
+; VirtualBox Support Driver - Windows Driver INF file.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+[Version]
+Signature="$Windows NT$"
+Class=System
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318}
+Provider=%ORACLE%
+;edit-DriverVer=08/26/2008,2.00.0000
+DriverPackageType=KernelService
+;cat CatalogFile=VBoxSup.cat
+
+[DestinationDirs]
+DefaultDestDir = 12
+
+[DefaultInstall@DOT-NT-ARCH@]
+CopyFiles=VBoxSup_CopyFiles
+
+[DefaultInstall@DOT-NT-ARCH@.Services]
+AddService=VBoxSup,0x00000002,VBoxSup_Service
+
+[DefaultUninstall@DOT-NT-ARCH@]
+DefFiles=VBoxSup_CopyFiles
+LegacyUninstall=1
+
+[DefaultUninstall@DOT-NT-ARCH@.Services]
+DelService=VBoxSup,0x00000200
+LegacyUninstall=1
+
+;; This does not actually work either (see VBoxUSBMon), though it triggers in the
+;; installer rather at manual installation on my test system (could be polluted & confused).
+;; This may apparently also causes unloading trouble due to 'root\VBoxSup' or something related to that.
+;; [Manufacturer]
+;; %ORACLE%=VBoxSup@COMMA-NT-ARCH@
+;;
+;; ; Models section (referenced by [Manufacturer]).
+;; [VBoxSup@DOT-NT-ARCH@]
+;; %VBoxSup.DRVDESC%=VBoxSup_Install,root\VBoxSup
+;;
+;; [VBoxSup_Install@DOT-NT-ARCH@]
+;; CopyFiles=VBoxSup_CopyFiles
+;;
+;; [VBoxSup_Install@DOT-NT-ARCH@.Services]
+;; AddService=VBoxSup,0x00000002,VBoxSup_Service
+
+[SourceDisksFiles]
+VBoxSup.sys=1
+
+[SourceDisksNames]
+1=%VBoxSup.DSKDESC%,
+
+[VBoxSup_CopyFiles]
+VBoxSup.sys
+
+[VBoxSup_Service]
+DisplayName    = %VBoxSup.SVCDESC%
+ServiceType    = 1                  ; SERVICE_KERNEL_DRIVER
+;StartType      = 3                  ; SERVICE_DEMAND_START
+StartType      = 1                  ; autostart to fix Vista problem
+ErrorControl   = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\VBoxSup.sys
+
+[Strings]
+ORACLE = "Oracle Corporation"
+VBoxSup.SVCDESC = "VirtualBox Service"
+VBoxSup.DRVDESC = "VirtualBox Support Driver"
+VBoxSup.DSKDESC = "VirtualBox Support Driver Installation Disk"

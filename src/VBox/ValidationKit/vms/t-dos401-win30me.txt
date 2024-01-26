@@ -1,0 +1,88 @@
+
+Test VM - t-dos401-win30me - DOS 4.01 /w patch and Windows 3.0 Multimedia Edition
+=================================================================================
+
+Setup:
+ - Create a default DOS VM 't-dos401-win30me', but restrict the memory to 4MB.
+ - Install DOS (single partition, etc).
+ - Install CDROM driver (e.g. OAK).
+ - Install Window 3.0 multimedia edition into C:\MWINDOWS.
+     - Select tandy soundblaster driver, make sure to configure
+       them correctly (port 220, irq 5, dma 5/7) or they will hang
+       the system.  Check that it works.
+     - Disable the tandy welcome screen.
+ - Copy DosSleep.exe, DosVmOff.com, and WinExit.exe onto the disk.
+ - Start the macro recorder (recorder.exe) in windows and record two different
+   macro files, both which are associated with Shift-F7 and play in normal time.
+   First C:\WinExit.Rec:
+     - [Anything that might be useful+easy to test in read mode]
+     - File->Run in the program manager using keyboard (Alt-F, R)
+     - Type in "C:\WinExit.exe" and enter (no mouse).
+     - Save macro.
+   Second (hit File->New first) C:\TestMM.Rec:
+     - File->Run in the program manager using keyboard (Alt-F, R)
+     - Type in "welcome.exe" and enter (no mouse).
+     - Wait for the tandy welcome animation to finish.
+     - [Anything else that might be useful+easy to test]
+     - File->Run in program manager again.
+     - Type in "C:\WinExit.exe" and enter (no mouse).
+     - Save macro.
+ - Edit win.ini changing the REC file association to:
+       rec=RECORDER.EXE -H +F7  ^.REC
+   This allows us to load .REC with Shift-F7 macros inside them at startup and
+   execute them.  (Windows 3.0 didn't have a startup folder.)
+ - Make a copy of win.ini called win-mm.ini changing the 'load=scrnsvr.exe'
+   statement to 'load=c:\testmm.rec'.
+ - Make a copy of win.ini called win-exit.ini changing the 'load=scrnsvr.exe'
+   statement to 'load=c:\winexit.rec'.
+ - Create c:\test.bat with the following content:
+       :dos-stuff
+       echo TESTING chkdsk C: >COM1
+       dossleep 1
+       chkdsk c:
+       if not errorlevel 0 goto fail
+
+       echo TESTING c:\mwindows\msd.exe /f nul >COM1
+       dossleep 1
+       c:\mwindows\msd.exe /f nul
+       if not errorlevel 0 goto fail
+
+       :386mode
+       echo TESTING win /3 >COM1
+       dossleep 1
+       copy c:\mwindows\win-mm.ini c:\mwindows\win.ini
+       win /3
+       if not errorlevel 0 goto fail
+
+       :standardmode-max-4mb
+       echo TESTING win /s >COM1
+       dossleep 1
+       copy c:\mwindows\win-mm.ini c:\mwindows\win.ini
+       win /s
+       if not errorlevel 0 goto fail
+
+       :realmode
+       echo TESTING win /r >COM1
+       dossleep 1
+       copy c:\mwindows\win-exit.ini c:\mwindows\win.ini
+       win /r
+       if not errorlevel 0 goto fail
+
+       :success
+       echo PASSED>COM1
+       goto done
+
+       :fail
+       echo ERRORLEVEL=%ERRORLEVEL%
+       echo FAILED>COM1
+
+       :done
+       echo powering off the vm in 5 seconds...
+       dossleep 1
+       dossleep 1
+       dossleep 1
+       dossleep 1
+       dossleep 1
+       dosvmoff
+ - Edit c:\autoexec.bat appending "echo on" and "call c:\test.bat".
+

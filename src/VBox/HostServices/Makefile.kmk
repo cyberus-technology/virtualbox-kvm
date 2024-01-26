@@ -1,0 +1,56 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for the VBox Host Services.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefiles.
+include $(PATH_SUB_CURRENT)/auth/Makefile.kmk
+ifdef VBOX_WITH_SHARED_FOLDERS
+ include $(PATH_SUB_CURRENT)/SharedFolders/Makefile.kmk
+endif
+if1of ($(KBUILD_TARGET), win linux solaris darwin freebsd)
+ ifdef VBOX_WITH_SHARED_CLIPBOARD
+  include $(PATH_SUB_CURRENT)/SharedClipboard/Makefile.kmk
+ endif
+endif
+ifdef VBOX_WITH_GUEST_PROPS
+ include $(PATH_SUB_CURRENT)/GuestProperties/Makefile.kmk
+endif
+ifdef VBOX_WITH_GUEST_CONTROL
+ include $(PATH_SUB_CURRENT)/GuestControl/Makefile.kmk
+endif
+ifdef VBOX_WITH_DRAG_AND_DROP
+ include $(PATH_SUB_CURRENT)/DragAndDrop/Makefile.kmk
+endif
+ifdef VBOX_WITH_HOST_CHANNEL
+ include $(PATH_SUB_CURRENT)/HostChannel/Makefile.kmk
+endif
+include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

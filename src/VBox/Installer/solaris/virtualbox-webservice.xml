@@ -1,0 +1,125 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!--
+# Solaris SMF service manifest for VirtualBox webservice server.
+# $Id: virtualbox-webservice.xml $
+-->
+<!--
+    Copyright (C) 2008-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<service_bundle type='manifest' name='SUNWvbox:webservice'>
+
+<service
+    name='application/virtualbox/webservice'
+    type='service'
+    version='1'>
+
+    <single_instance />
+
+    <dependency
+        name='fs-local'
+        grouping='require_all'
+        restart_on='none'
+        type='service'>
+            <service_fmri value='svc:/system/filesystem/local' />
+    </dependency>
+
+    <dependency
+        name='fs-autofs'
+        grouping='optional_all'
+        restart_on='none'
+        type='service'>
+            <service_fmri value='svc:/system/filesystem/autofs' />
+    </dependency>
+
+    <dependency
+        name='network-service'
+        grouping='require_all'
+        restart_on='none'
+        type='service'>
+            <service_fmri value='svc:/network/service' />
+    </dependency>
+
+    <dependency
+        name='name-services'
+        grouping='require_all'
+        restart_on='refresh'
+        type='service'>
+            <service_fmri value='svc:/milestone/name-services' />
+    </dependency>
+
+    <instance name='default' enabled='false'>
+
+        <dependent
+            name='virtualbox-webservice_multi-user'
+            grouping='optional_all'
+            restart_on='none'>
+                <service_fmri value='svc:/milestone/multi-user' />
+        </dependent>
+
+        <exec_method
+            type='method'
+            name='start'
+            exec='/opt/VirtualBox/smf-vboxwebsrv.sh %m'
+            timeout_seconds='15'>
+            <method_context>
+                <method_credential user='root' group='root' />
+            </method_context>
+        </exec_method>
+
+        <exec_method
+            type='method'
+            name='stop'
+            exec=':kill'
+            timeout_seconds='15'>
+            <method_context>
+                <method_credential user='root' group='root' />
+            </method_context>
+        </exec_method>
+
+        <property_group name='startd' type='framework'>
+            <!-- sub-process core dumps/signals shouldn't restart session -->
+            <propval name='ignore_error' type='astring' value='core,signal' />
+        </property_group>
+
+        <property_group name='config' type='application'>
+            <propval name='user' type='astring' value='root' />
+            <propval name='host' type='astring' value='localhost' />
+            <propval name='port' type='integer' value='18083' />
+            <propval name='keyfile' type='astring' value='' />
+        </property_group>
+
+        <template>
+            <common_name>
+                <loctext xml:lang='C'>
+                    VirtualBox Webservice
+                </loctext>
+            </common_name>
+        </template>
+
+    </instance>
+
+    <stability value='External' />
+
+</service>
+
+</service_bundle>

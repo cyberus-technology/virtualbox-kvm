@@ -1,0 +1,278 @@
+;$Id: HMInternal.mac $
+;; @file
+; HM - Internal header file.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; SPDX-License-Identifier: GPL-3.0-only
+;
+
+%ifndef VMX_VMCS_GUEST_FIELD_ES
+ %include "VBox/vmm/hm_vmx.mac"  ; For VMXRESTOREHOST
+%endif
+
+struc VMXVMCSINFOSHARED
+    .fWasInRealMode                 resb    1
+    alignb 8
+    .RealMode.AttrCS                resd    1
+    .RealMode.AttrDS                resd    1
+    .RealMode.AttrES                resd    1
+    .RealMode.AttrFS                resd    1
+    .RealMode.AttrGS                resd    1
+    .RealMode.AttrSS                resd    1
+    .RealMode.Eflags                resd    1   ; should be EFlags?
+    .RealMode.fRealOnV86Active      resb    1
+
+    alignb 8
+    .au64LbrFromIpMsr               resq    32
+    .au64LbrToIpMsr                 resq    32
+    .au64LbrInfoMsr                 resq    32
+    .u64LbrTosMsr                   resq    1
+    .u64LerFromIpMsr                resq    1
+    .u64LerToIpMsr                  resq    1
+endstruc
+
+
+struc VMXVMCSINFO
+    .pShared                        RTR0PTR_RES 1
+
+    .HCPhysEPTP                     RTHCPHYS_RES 1
+    .fVmcsState                     resd    1
+    .fShadowVmcsState               resd    1
+    .idHostCpuState                 resd    1
+    .idHostCpuExec                  resd    1
+    .cEntryMsrLoad                  resd    1
+    .cExitMsrStore                  resd    1
+    .cExitMsrLoad                   resd    1
+
+    .u32PinCtls                     resd    1
+    .u32ProcCtls                    resd    1
+    .u32ProcCtls2                   resd    1
+    .u64ProcCtls3                   resq    1
+    .u32EntryCtls                   resd    1
+    .u32ExitCtls                    resd    1
+    .u32XcptBitmap                  resd    1
+    .u32XcptPFMask                  resd    1
+    .u32XcptPFMatch                 resd    1
+
+    alignb 8
+    .u64TscOffset                   resq    1
+    .u64VmcsLinkPtr                 resq    1
+    .u64Cr0Mask                     resq    1
+    .u64Cr4Mask                     resq    1
+    .uHostRip                       resq    1
+    .uHostRsp                       resq    1
+
+    .pvVmcs                         RTR0PTR_RES 1
+    .pvShadowVmcs                   RTR0PTR_RES 1
+    .pbVirtApic                     RTR0PTR_RES 1
+    .pvMsrBitmap                    RTR0PTR_RES 1
+    .pvGuestMsrLoad                 RTR0PTR_RES 1
+    .pvGuestMsrStore                RTR0PTR_RES 1
+    .pvHostMsrLoad                  RTR0PTR_RES 1
+
+    alignb 8
+    .HCPhysVmcs                     RTHCPHYS_RES 1
+    .HCPhysShadowVmcs               RTHCPHYS_RES 1
+    .HCPhysVirtApic                 RTHCPHYS_RES 1
+    .HCPhysMsrBitmap                RTHCPHYS_RES 1
+    .HCPhysGuestMsrLoad             RTHCPHYS_RES 1
+    .HCPhysGuestMsrStore            RTHCPHYS_RES 1
+    .HCPhysHostMsrLoad              RTHCPHYS_RES 1
+
+    .hMemObj                        RTR0PTR_RES  1
+endstruc
+
+%define VMX_RESTORE_HOST_SEL_DS                                 0001h   ;RT_BIT(0)
+%define VMX_RESTORE_HOST_SEL_ES                                 0002h   ;RT_BIT(1)
+%define VMX_RESTORE_HOST_SEL_FS                                 0004h   ;RT_BIT(2)
+%define VMX_RESTORE_HOST_SEL_GS                                 0008h   ;RT_BIT(3)
+%define VMX_RESTORE_HOST_SEL_TR                                 0010h   ;RT_BIT(4)
+%define VMX_RESTORE_HOST_GDTR                                   0020h   ;RT_BIT(5)
+%define VMX_RESTORE_HOST_IDTR                                   0040h   ;RT_BIT(6)
+%define VMX_RESTORE_HOST_GDT_READ_ONLY                          0080h   ;RT_BIT(7)
+%define VMX_RESTORE_HOST_GDT_NEED_WRITABLE                      0100h   ;RT_BIT(8)
+%define VMX_RESTORE_HOST_CAN_USE_WRFSBASE_AND_WRGSBASE          0200h   ;RT_BIT(9)
+%define VMX_RESTORE_HOST_REQUIRED                               0400h   ;RT_BIT(10) - must be the highest bit!
+struc VMXRESTOREHOST
+    .uHostSelDS                     resw    1
+    .uHostSelES                     resw    1
+    .uHostSelFS                     resw    1
+    .HostGdtr                       resb    10
+    .uHostSelGS                     resw    1
+    .uHostSelTR                     resw    1
+    .uHostSelSS                     resw    1
+    .HostGdtrRw                     resb    10
+    .uHostSelCS                     resw    1
+    .abPadding1                     resb    4
+    .HostIdtr                       resb    10
+    alignb 8
+    .uHostFSBase                    resq    1
+    .uHostGSBase                    resq    1
+endstruc
+
+struc HMCPUVMX
+    .VmcsInfo                       resb    VMXVMCSINFOSHARED_size
+    .VmcsInfoNstGst                 resb    VMXVMCSINFOSHARED_size
+    .fSwitchedToNstGstVmcsCopyForRing3 resb 1
+    .fMergedNstGstCtls              resb    1
+    .fCopiedNstGstToShadowVmcs      resb    1
+    .fSwitchedNstGstFlushTlb        resb    1
+
+    alignb 8
+    .u64GstMsrApicBase              resq    1
+
+    .LastError.idCurrentCpu         resd    1
+    .LastError.idEnteredCpu         resd    1
+    .LastError.HCPhysCurrentVmcs    resq    1
+    .LastError.u32VmcsRev           resd    1
+    .LastError.u32InstrError        resd    1
+    .LastError.u32ExitReason        resd    1
+    .LastError.u32GuestIntrState    resd    1
+endstruc
+
+struc HMCPUSVM
+    .fEmulateLongModeSysEnterExit   resb    1
+
+    alignb 8
+    .NstGstVmcbCache                resb    40
+endstruc
+
+struc HMCPU
+    .fCheckedTLBFlush               resb    1
+    .fActive                        resb    1
+    .fUseDebugLoop                  resb    1
+
+    .fGIMTrapXcptUD                 resb    1
+    .fTrapXcptGpForLovelyMesaDrv    resb    1
+    .fSingleInstruction             resb    1
+    alignb 8
+
+    .u32HMError                     resd    1
+    .rcLastExitToR3                 resd    1
+    alignb 8
+    .fCtxChanged                    resq    1
+
+    alignb 8
+    .vmx                            resb    HMCPUVMX_size
+    alignb 8
+    .svm                            resb    HMCPUSVM_size
+
+    .Event.fPending                 resd    1
+    .Event.u32ErrCode               resd    1
+    .Event.cbInstr                  resd    1
+    alignb 8
+    .Event.u64IntInfo               resq    1
+    .Event.GCPtrFaultAddress        RTGCPTR_RES 1
+
+    .enmShadowMode                  resd    1
+    alignb 8
+    .aPdpes                         resq    4
+
+    .StatVmxWriteHostRip            resq    1
+    .StatVmxWriteHostRsp            resq    1
+
+    ; The remainer is disassembly state and statistics.
+endstruc
+
+struc HMR0CPUVMX
+    .pfnStartVm                     RTR0PTR_RES  1
+    .uTscDeadline                   resq    1
+    .uTscDeadlineVersion            resq    1
+
+
+    .VmcsInfo                       resb    VMXVMCSINFO_size
+    .VmcsInfoNstGst                 resb    VMXVMCSINFO_size
+    .fSwitchedToNstGstVmcs          resb    1
+    alignb 8
+    .pVmxTransient                  RTR0PTR_RES  1
+
+    .u64HostMsrLStar                resq    1
+    .u64HostMsrStar                 resq    1
+    .u64HostMsrSfMask               resq    1
+    .u64HostMsrKernelGsBase         resq    1
+    .fLazyMsrs                      resd    1
+    .fUpdatedHostAutoMsrs           resb    1
+    alignb 4
+    .fRestoreHostFlags              resd    1
+    alignb 8
+    .RestoreHost                    resb    VMXRESTOREHOST_size
+endstruc
+
+struc HMR0CPUSVM
+    .pfnVMRun                       RTR0PTR_RES  1
+
+    alignb 8
+    .HCPhysVmcbHost                 RTHCPHYS_RES 1
+
+    alignb 8
+    .hMemObjVmcbHost                RTR0PTR_RES  1
+
+    alignb 8
+    .HCPhysVmcb                     RTHCPHYS_RES 1
+    .hMemObjVmcb                    RTR0PTR_RES  1
+    .pVmcb                          RTR0PTR_RES  1
+
+    alignb 8
+    .HCPhysMsrBitmap                RTHCPHYS_RES 1
+    .hMemObjMsrBitmap               RTR0PTR_RES  1
+    .pvMsrBitmap                    RTR0PTR_RES  1
+
+    .fSyncVTpr                      resb    1
+
+    alignb 8
+    .pSvmTransient                  RTR0PTR_RES  1
+    .u64HostTscAux                  resq    1
+
+    alignb 8
+    .DisState                       resb    0d8h
+endstruc
+
+struc HMR0PERVCPU
+    .cWorldSwitchExits              resd    1
+    .cTlbFlushes                    resd    1
+    .idLastCpu                      resd    1
+    .idEnteredCpu                   resd    1
+    .uCurrentAsid                   resd    1
+
+    .fForceTLBFlush                 resb    1
+    .fLeaveDone                     resb    1
+    .fUsingHyperDR7                 resb    1
+    .fUsingDebugLoop                resb    1
+    .fDebugWantRdTscExit            resb    1
+    .fLoadSaveGuestXcr0             resb    1
+    .fClearTrapFlag                 resb    1
+
+    alignb 4
+    .fWorldSwitcher                 resd    1
+    .uTscExit                       resq    1
+
+    alignb 8
+    .vmx                            resb    HMR0CPUVMX_size
+    alignb 8
+    .svm                            resb    HMR0CPUSVM_size
+endstruc
+
+%define HM_WSF_IBPB_EXIT            RT_BIT_32(0)
+%define HM_WSF_IBPB_ENTRY           RT_BIT_32(1)
+%define HM_WSF_L1D_ENTRY            RT_BIT_32(2)
+%define HM_WSF_MDS_ENTRY            RT_BIT_32(3)
+

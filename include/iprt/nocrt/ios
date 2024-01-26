@@ -1,0 +1,525 @@
+/** @file
+ * IPRT / No-CRT - Minimal C++ ios header.
+ */
+
+/*
+ * Copyright (C) 2022-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+#ifndef VBOX_INCLUDED_SRC_nocrt_ios
+#define VBOX_INCLUDED_SRC_nocrt_ios
+#ifndef RT_WITHOUT_PRAGMA_ONCE
+# pragma once
+#endif
+
+#include <iprt/nocrt/iosfwd>
+#include <iprt/nocrt/string>
+
+/** @todo something for cdecl.h   */
+#define RTNOCRT_IOS_ENUM_BIT_OPS(a_EnumType, a_IntType) \
+    inline a_EnumType operator~(a_EnumType a_fLeft) RT_NOEXCEPT \
+    { return a_EnumType(~static_cast<a_IntType>(a_fLeft)); } \
+    \
+    inline a_EnumType operator&(a_EnumType a_fLeft, a_EnumType a_fRight) RT_NOEXCEPT \
+    { return a_EnumType(static_cast<a_IntType>(a_fLeft) & static_cast<a_IntType>(a_fRight)); } \
+    inline a_EnumType operator|(a_EnumType a_fLeft, a_EnumType a_fRight) RT_NOEXCEPT \
+    { return a_EnumType(static_cast<a_IntType>(a_fLeft) | static_cast<a_IntType>(a_fRight)); } \
+    inline a_EnumType operator^(a_EnumType a_fLeft, a_EnumType a_fRight) RT_NOEXCEPT \
+    { return a_EnumType(static_cast<a_IntType>(a_fLeft) ^ static_cast<a_IntType>(a_fRight)); } \
+    \
+    inline const a_EnumType &operator&=(a_EnumType &a_rfLeft, a_EnumType a_fRight) RT_NOEXCEPT \
+    { return a_rfLeft = a_rfLeft & a_fRight; } \
+    inline const a_EnumType &operator|=(a_EnumType &a_rfLeft, a_EnumType a_fRight) RT_NOEXCEPT \
+    { return a_rfLeft = a_rfLeft | a_fRight; } \
+    inline const a_EnumType &operator^=(a_EnumType &a_rfLeft, a_EnumType a_fRight) RT_NOEXCEPT \
+    { return a_rfLeft = a_rfLeft ^ a_fRight; } \
+
+namespace std
+{
+    typedef ptrdiff_t streamsize;
+
+    /**
+     * I/O stream format flags.
+     */
+    class rtNoCrtIosEnums
+    {
+    public:
+        enum fmtflags
+        {
+            /* int: */
+            dec         = 0x00000001,
+            oct         = 0x00000002,
+            hex         = 0x00000004,
+            basefield   = 0x00000007,
+            /* float: */
+            scientific  = 0x00000010,
+            fixed       = 0x00000020,
+            floatfield  = 0x00000030,
+            /* int and float output tweaks: */
+            showbase    = 0x00000100,
+            showpoint   = 0x00000200,
+            showpos     = 0x00000400,
+            /* bool: */
+            boolalpha   = 0x00000800,
+            /* adjustment: */
+            left        = 0x00001000,
+            right       = 0x00002000,
+            internal    = 0x00004000,
+            adjustfield = 0x00007000,
+            /* misc: */
+            skipws      = 0x00010000,
+            unitbuf     = 0x00020000,
+            uppercase   = 0x00040000,
+        };
+
+        enum seekdir
+        {
+            beg = 1,
+            end,
+            cur,
+        };
+
+        enum openmode
+        {
+            app = 1,
+            binary,
+            in,
+            out,
+            trunc,
+            ate
+        };
+
+        enum iostate
+        {
+            goodbit = 0,
+            badbit  = 1,
+            failbit = 2,
+            eofbit  = 4
+        };
+    };
+    RTNOCRT_IOS_ENUM_BIT_OPS(rtNoCrtIosEnums::fmtflags, int)
+    RTNOCRT_IOS_ENUM_BIT_OPS(rtNoCrtIosEnums::seekdir, int)
+    RTNOCRT_IOS_ENUM_BIT_OPS(rtNoCrtIosEnums::openmode, int)
+    RTNOCRT_IOS_ENUM_BIT_OPS(rtNoCrtIosEnums::iostate, int)
+
+
+    /**
+     * I/O stream base class.
+     */
+    class ios_base : public rtNoCrtIosEnums
+    {
+    public:
+        //typedef rtNoCrtIosFmtFlags fmtflags;
+        //typedef rtNoCrtIosSeekDir  seekdir;
+        //typedef rtNoCrtIosOpenMode openmode;
+        //typedef rtNoCrtIosState    iostate;
+
+    protected:
+        streamsize  m_cWidth;
+        streamsize  m_cPrecision;
+        fmtflags    m_fFlags;
+        iostate     m_fState;
+
+    protected:
+        ios_base()
+            : m_cWidth(0)
+            , m_cPrecision(0)
+            , m_fFlags(dec | skipws)
+            , m_fState(goodbit)
+        {
+        }
+    private:
+        ios_base(const ios_base &);                 /* not copyable */
+        ios_base &operator=(const ios_base &);  /* not copyable */
+
+    public:
+        virtual ~ios_base()
+        {
+        }
+
+        streamsize width() const RT_NOEXCEPT
+        {
+            return m_cWidth;
+        }
+
+        streamsize width(streamsize a_cWidth) RT_NOEXCEPT
+        {
+            streamsize cOldWidth = m_cWidth;
+            m_cWidth = a_cWidth;
+            return cOldWidth;
+        }
+
+        streamsize precision() const RT_NOEXCEPT
+        {
+            return m_cPrecision;
+        }
+
+        streamsize precision(streamsize a_cPrecision) RT_NOEXCEPT
+        {
+            streamsize cOldPrecision = m_cPrecision;
+            m_cPrecision = a_cPrecision;
+            return cOldPrecision;
+        }
+
+        fmtflags flags() const RT_NOEXCEPT
+        {
+            return m_fFlags;
+        }
+
+        fmtflags flags(fmtflags a_fNew) RT_NOEXCEPT
+        {
+            fmtflags const fOld = m_fFlags;
+            m_fFlags = a_fNew;
+            return fOld;
+        }
+
+        fmtflags setf(fmtflags a_fAdd) RT_NOEXCEPT
+        {
+            fmtflags const fOld = m_fFlags;
+            m_fFlags = static_cast<fmtflags>(fOld | a_fAdd);
+            return fOld;
+        }
+
+        fmtflags setf(fmtflags a_fAdd, fmtflags a_fMask) RT_NOEXCEPT
+        {
+            fmtflags const fOld = m_fFlags;
+            m_fFlags = static_cast<fmtflags>((fOld & ~a_fMask) | (a_fAdd & a_fMask));
+            return fOld;
+        }
+
+        void unsetf(fmtflags a_fClear) RT_NOEXCEPT
+        {
+            m_fFlags = static_cast<fmtflags>(m_fFlags & ~a_fClear);
+        }
+    };
+
+
+    /**
+     * Stream buffer.
+     */
+    template<typename a_CharType, typename a_CharTraits /*= std::char_traits<a_CharType>*/ >
+    class basic_streambuf
+    {
+    public:
+        typedef a_CharType                          char_type;
+        typedef a_CharTraits                        traits_type;
+        typedef typename a_CharTraits::int_type     int_type;
+        typedef typename a_CharTraits::pos_type     pos_type;
+        typedef typename a_CharTraits::off_type     off_type;
+
+    protected:
+        /** @name Put buffering
+         * @{ */
+        char_type   *m_pachPut;     /**< The put buffer pointer. */
+        std::size_t  m_cchPut;      /**< Put buffer size. */
+        std::size_t  m_offPutNext;  /**< The current put buffer position (where to write next). */
+        std::size_t  m_offPutStart; /**< Where the buffered put sequence starts. */
+
+        void setp(char_type *a_pachNewBuf, char_type *a_pachNewBufEnd)
+        {
+            Assert((uintptr_t)a_pachNewBuf <= (uintptr_t)a_pachNewBufEnd);
+            m_pachPut     = a_pachNewBuf;
+            m_cchPut      = static_cast<std::size_t>(a_pachNewBufEnd - a_pachNewBuf);
+            m_offPutNext  = 0;
+            m_offPutStart = 0;
+        }
+
+        char_type *pbbase() const RT_NOEXCEPT
+        {
+            Assert(m_offPutNext >= m_offPutStart); Assert(m_offPutNext <= m_cchPut); Assert(m_offPutStart <= m_cchPut);
+            return &m_pachPut[m_offPutStart];
+        }
+
+        char_type *pptr()  const RT_NOEXCEPT
+        {
+            Assert(m_offPutNext <= m_cchPut);
+            return &m_pachPut[m_offPutNext];
+        }
+
+        char_type *epptr()  const RT_NOEXCEPT
+        {
+            return &m_pachBuf[m_cchPut];
+        }
+
+        void pbump(int a_cchAdvance)  const RT_NOEXCEPT
+        {
+            Assert(m_offPutNext <= m_cchPut);
+            m_offPutNext      += a_cchAdvance;
+            Assert(m_offPutNext <= m_cchPut);
+        }
+        /** @} */
+
+    protected:
+        basic_streambuf() RT_NOEXCEPT
+            : m_pachPut(NULL)
+            , m_cchPut(0)
+            , m_offPutNext(0)
+            , m_offPutStart(0)
+        {
+        }
+
+        basic_streambuf(const basic_streambuf &a_rSrc) RT_NOEXCEPT
+            : m_pachPut(a_rSrc.m_pachPut)
+            , m_cchPut(a_rSrc.m_cchPut)
+            , m_offPutNext(a_rSrc.m_offPutNext)
+            , m_offPutStart(a_rSrc.m_offPutStart)
+        {
+        }
+
+    public:
+        virtual ~basic_streambuf()
+        {
+        }
+
+        /** @name Positioning
+         * @{ */
+    protected:
+        virtual basic_streambuf *setbuf(char_type *a_pchBuf, std::streamsize a_cchBuf)
+        {
+            RT_NOREF(a_pchBuf, a_cchBuf);
+            return this;
+        }
+    public:
+        basic_streambuf *pubsetbuf(char_type *a_pchBuf, std::streamsize a_cchBuf)
+        {
+            return setbuf(a_pchBuf, a_cchBuf);
+        }
+
+    protected:
+        virtual pos_type seekoff(off_type a_off, std::ios_base::seekdir a_enmDir,
+                                 std::ios_base::openmode a_enmTarget = ios_base::in | ios_base::out)
+        {
+            RT_NOREF(a_off, a_enmDir, a_enmTarget);
+            return pos_type(off_type(-1));
+        }
+    public:
+        pos_type pubseekoff(off_type a_off, std::ios_base::seekdir a_enmDir,
+                            std::ios_base::openmode a_enmTarget = ios_base::in | ios_base::out)
+        {
+            return seekoff(a_off, a_enmDir, a_enmTarget);
+        }
+
+    protected:
+        virtual pos_type seekpos(pos_type a_pos, std::ios_base::openmode a_enmTarget = ios_base::in | ios_base::out)
+        {
+            RT_NOREF(a_pos, a_enmTarget);
+            return pos_type(off_type(-1));
+        }
+    public:
+        pos_type pubseekpos(pos_type a_pos, std::ios_base::openmode a_enmTarget = ios_base::in | ios_base::out)
+        {
+            return seekpos(a_pos, a_enmTarget);
+        }
+
+    protected:
+        virtual int sync()
+        {
+            return 0;
+        }
+    public:
+        pos_type pubsync()
+        {
+            return sync();
+        }
+        /** @} */
+
+        /** @name Output
+         * @{ */
+    protected:
+        virtual int_type overflow(int_type a_iChar)
+        {
+            RT_NOREF(a_iChar);
+            return traits_type::eof();
+        }
+
+        virtual std::streamsize xsputn(char_type const *a_pchSrc, std::streamsize a_cchSrc)
+        {
+            std::streamsize cchWritten = 0;
+            while (a_cchSrc > 0)
+            {
+                std::size_t cchCopied = m_cchPut - m_offPutNext;
+                if (cchCopied > 0)
+                {
+                    cchCopied = RT_MIN(cchCopied, static_cast<std::size_t>(a_cchSrc));
+                    traits_type::copy(&m_pachPut[m_offPutNext], a_pchSrc, cchCopied);
+                    m_cchPut += cchCopied;
+                }
+                else
+                {
+                    if (overflow(traits_type::to_int_type(m_pachPut[m_offPutNext])) != traits_type::eof())
+                        cchCopied = 1;
+                    else
+                        break;
+                }
+                a_pchSrc += cchCopied;
+                a_cchSrc -= cchCopied;
+            }
+            return cchWritten;
+        }
+
+    public:
+        int_type sputc(char_type a_ch)
+        {
+            if (m_offPutNext < m_cchPut)
+            {
+                m_pachPut[m_offPutNext++] = a_ch;
+                return traits_type::to_int_type(a_ch);
+            }
+            return overflow(traits_type::to_int_type(a_ch));
+        }
+
+        std::streamsize sputn(char_type const *a_pchSrc, std::streamsize a_cchSrc)
+        {
+            AssertReturn(a_cchSrc >= 0, 0);
+            return xsputn(a_pchSrc, a_cchSrc);
+        }
+
+        /** @} */
+
+        /** @todo add the remaining members... */
+    };
+
+
+    /**
+     * Basic I/O stream.
+     */
+    template<typename a_CharType, typename a_CharTraits /*= std::char_traits<a_CharType>*/ >
+    class basic_ios : public ios_base
+    {
+    public:
+        typedef a_CharType                          char_type;
+        typedef a_CharTraits                        traits_type;
+        typedef typename a_CharTraits::int_type     int_type;
+        typedef typename a_CharTraits::pos_type     pos_type;
+        typedef typename a_CharTraits::off_type     off_type;
+
+    protected:
+        basic_streambuf<a_CharType, a_CharTraits>  *m_pBuf;
+        basic_ostream<a_CharType, a_CharTraits>    *m_pTiedStream;
+
+    protected:
+        void init(std::basic_streambuf<a_CharType, a_CharTraits> *a_pBuf)
+        {
+            m_pBuf         = a_pBuf;
+            m_cWidth       = 0;
+            m_cPrecision   = 6;
+            m_fFlags       = ios_base::dec | ios_base::skipws;
+            m_fState       = ios_base::goodbit;
+        }
+
+    public:
+        basic_ios()
+            : ios_base()
+            , m_pBuf(NULL)
+            , m_pTiedStream(NULL)
+        {
+        }
+
+        basic_ios(std::basic_streambuf<a_CharType, a_CharTraits> *a_pBuf)
+            : ios_base()
+            , m_pBuf(NULL)
+            , m_pTiedStream(NULL)
+        {
+            init(a_pBuf);
+        }
+    private:
+        basic_ios(const basic_ios &a_rSrc);             /* not copyable */
+        basic_ios &operator=(const basic_ios &a_rSrc);  /* not copyable */
+
+    public:
+        virtual ~basic_ios()
+        {
+        }
+
+        /** @name State methods
+         * @{ */
+        bool good() const RT_NOEXCEPT { return m_fState == ios_base::goodbit; }
+        bool fail() const RT_NOEXCEPT { return (m_fState & (ios_base::failbit | ios_base::badbit)) != ios_base::goodbit; }
+        bool bad()  const RT_NOEXCEPT { return (m_fState & ios_base::badbit) == ios_base::badbit; }
+        bool eof()  const RT_NOEXCEPT { return (m_fState & ios_base::eofbit) != ios_base::eofbit; }
+#if RT_CPLUSPLUS_PREREQ(201100)
+        operator bool()  const RT_NOEXCEPT { return good(); }
+#else
+        operator void*() const RT_NOEXCEPT { return good() ? NULL : this; }
+#endif
+        bool operator!() const RT_NOEXCEPT { return fail(); }
+
+        iostate rdstate() const RT_NOEXCEPT
+        {
+            return m_fState;
+        }
+
+        void    clear(iostate a_fNewState = goodbit)
+        {
+            m_fState = a_fNewState;
+            if (!m_pBuf)
+                m_fState |= badbit;
+            /** @todo failure exception */
+        }
+
+        void    setstate(iostate a_fNewState)
+        {
+            clear(m_fState | a_fNewState);
+        }
+        /** @} */
+
+        /** @name Misc
+         * @{ */
+        std::basic_streambuf<a_CharType, a_CharTraits> *rdbuf() const RT_NOEXCEPT
+        {
+            return m_pBuf;
+        }
+
+        std::basic_streambuf<a_CharType, a_CharTraits> *rdbuf(std::basic_streambuf<a_CharType, a_CharTraits> *a_pNewbuf) RT_NOEXCEPT
+        {
+            std::basic_streambuf<a_CharType, a_CharTraits> *pOldBuf = m_pBuf;
+            m_pBuf = a_pNewBuf;
+            return pOldBuf;
+        }
+
+        std::basic_ostream<a_CharType, a_CharTraits> *tie() const
+        {
+            return m_pTiedStream;
+        }
+
+        std::basic_ostream<a_CharType, a_CharTraits> tie(std::basic_ostream<a_CharType, a_CharTraits> *a_pNew) const RT_NOEXCEPT
+        {
+            std::basic_ostream<a_CharType, a_CharTraits> * const pOld = m_pTiedStream;
+            m_pTiedStream = a_pNew;
+            return pOld;
+        }
+        /** @}  */
+
+        /** @todo implement the rest... */
+    };
+}
+
+#endif /* !VBOX_INCLUDED_SRC_nocrt_ios */
+

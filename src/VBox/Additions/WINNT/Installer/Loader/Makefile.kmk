@@ -1,0 +1,72 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Guest Additions loader.
+#
+
+#
+# Copyright (C) 2008-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# This has to be 32-bit.
+PROGRAMS += VBoxWindowsAdditions
+VBoxWindowsAdditions_TEMPLATE = VBoxGuestR3Exe
+VBoxWindowsAdditions_BLD_TRG_ARCH = x86
+VBoxWindowsAdditions_DEFS    = _WIN32_WINNT=0x0400
+VBoxWindowsAdditions_INCS    = ../../include
+VBoxWindowsAdditions_SOURCES = \
+	VBoxWindowsAdditions.cpp \
+	VBoxWindowsAdditions.rc
+ifdef VBOX_WITH_NOCRT_STATIC
+ VBoxWindowsAdditions_LDFLAGS = /SubSystem:Windows
+else
+ VBoxWindowsAdditions_LDFLAGS = \
+ 	/DISALLOWLIB:msvcrt.lib \
+ 	/DISALLOWLIB:msvcprt.lib \
+ 	/DISALLOWLIB:libcmt.lib
+ VBoxWindowsAdditions_LIBS    = \
+ 	$(PATH_TOOL_$(TEMPLATE_VBoxR3Exe_TOOL.win.$(KBUILD_TARGET_ARCH))_LIB)/oldnames.lib \
+ 	$(PATH_TOOL_$(TEMPLATE_VBoxR3Exe_TOOL.win.$(KBUILD_TARGET_ARCH))_LIB)/libcmt.lib \
+ 	$(PATH_TOOL_$(TEMPLATE_VBoxR3Exe_TOOL.win.$(KBUILD_TARGET_ARCH))_LIB)/libcpmt.lib
+endif
+VBoxWindowsAdditions_VBOX_IMPORT_CHECKER.win.x86 := nt4
+
+# Version stuff.
+VBoxWindowsAdditions.cpp_DEFS += VBOX_SVN_REV=$(VBOX_SVN_REV)
+VBoxWindowsAdditions.cpp_DEPS = $(VBOX_SVN_REV_KMK)
+
+# The icon location is configurable.
+VBoxWindowsAdditions.rc_INCS += $(VBoxWindowsAdditions_0_OUTDIR)
+VBoxWindowsAdditions.rc_DEPS += $(VBoxWindowsAdditions_0_OUTDIR)/VBoxWindowsAdditions-icon.rc
+VBoxWindowsAdditions.rc_CLEAN = $(VBoxWindowsAdditions_0_OUTDIR)/VBoxWindowsAdditions-icon.rc
+
+
+# Icon include file.
+$$(VBoxWindowsAdditions_0_OUTDIR)/VBoxWindowsAdditions-icon.rc: \
+		$(VBOX_WINDOWS_ADDITIONS_ICON_FILE) $(MAKEFILE_CURRENT) | $$(dir $$@)
+	$(RM) -f $@
+	$(APPEND) $@ 'IDI_VIRTUALBOX ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ADDITIONS_ICON_FILE))"'
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

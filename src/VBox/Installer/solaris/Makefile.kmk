@@ -1,0 +1,771 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the Solaris installer.
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+ifneq ($(KBUILD_HOST),solaris)
+ $(error "The Solaris installer can only be built on Solaris!") # yeah, right.
+endif
+
+
+#
+# Globals
+#
+VBOX_PATH_SOL_INST_SRC     := $(PATH_SUB_CURRENT)
+VBOX_PATH_SI_SCRATCH       := $(PATH_TARGET)/Installer-solaris
+VBOX_PATH_SI_SCRATCH_PKG   := $(PATH_TARGET)/Installer-solaris/pkg
+VBOX_PATH_SI_SCRATCH_DBG   := $(PATH_TARGET)/Installer-solaris/DebugPkg
+VBOX_SI_ARCH               := $(subst x86,i386,$(KBUILD_TARGET_ARCH))
+VBOX_SI_ICON_TYPES         := ova ovf vbox vbox-extpack vdi vmdk vhd hdd
+VBOX_SI_ICON_SIZES         := 16 20 24 32 48 64 72 96 128 256
+VBOX_SI_GTAR               := /usr/sfw/bin/gtar
+VBOX_SI_OBJCOPY_STRIP      := /usr/sfw/bin/gobjcopy --strip-debug -R .comment
+ifeq ($(KBUILD_TARGET_ARCH),amd64)
+ VBOX_SI_OBJCOPY_DBGINFO   := /usr/sfw/bin/gobjcopy --only-keep-debug
+else
+ VBOX_SI_OBJCOPY_DBGINFO   := $(CP) -p # Solaris ld/gobjcopy(2.15) don't get along on x86, works only on amd64. So just using cp for now.
+endif
+
+# Unset this to speed up things during makefile hacking.
+VBOX_SI_DEP_ON_MAKEFILE    := $(MAKEFILE_CURRENT)
+
+
+# Base package
+PKGINFO_ARCH      = $(shell uname -p)
+PKGINFO_DATE      = $(date %Y.%m.%d.%H.%M.%S)
+PKGINFO_REVSTAMP  = $(PKGINFO_DATE).$(VBOX_SVN_REV)
+PKGINFO_PSTAMP    = vbox_$(subst .,,$(PKGINFO_DATE))_r$(VBOX_SVN_REV)
+PKG_FILENAME     := VirtualBox-$(VBOX_VERSION_STRING)-SunOS-$(KBUILD_TARGET_ARCH)-r$(VBOX_SVN_REV)
+
+# For Alpha, Beta, RC and  releases VBOX_VERSION_STRING needs to be converted into the variant
+# which complies to Solaris 11 Image Packaging System (IPS) versioning convention. For GA release,
+# we add '.3.0' to the end of the version string in order to make its version look newer from
+# IPS point of view.
+VBOX_VERSION_SMF_STYLE := $(subst _ALPHA,.0.,$(VBOX_VERSION_STRING))
+VBOX_VERSION_SMF_STYLE := $(subst _BETA,.1.,$(VBOX_VERSION_SMF_STYLE))
+VBOX_VERSION_SMF_STYLE := $(subst _RC,.2.,$(VBOX_VERSION_SMF_STYLE))
+VBOX_VERSION_SMF_STYLE := $(if $(VBOX_VERSION_PRERELEASE),$(VBOX_VERSION_SMF_STYLE),$(VBOX_VERSION_SMF_STYLE).3.0)
+PKG_FILENAME_SMF_STYLE := VirtualBox-$(VBOX_VERSION_SMF_STYLE)-SunOS-$(KBUILD_TARGET_ARCH)-r$(VBOX_SVN_REV)
+
+#
+# Targets
+#
+PROGRAMS         += VBoxZoneAccess VBoxISAExec
+INSTALLS         += solaris-doc solaris-bin solaris-drv-confs solaris-icons
+BLDDIRS          += $(VBOX_PATH_SI_SCRATCH)
+PACKING          += \
+	$(PATH_STAGE_BIN)/$(PKG_FILENAME).tar.gz \
+	$(if $(VBOX_WITH_SOLARIS_IPS_PACKAGE),$(PATH_STAGE_BIN)/$(PKG_FILENAME_SMF_STYLE).p5p,) \
+	$(PATH_STAGE_BIN)/VirtualBoxDebug.tar.bz2
+OTHER_CLEAN      += \
+	$(VBOX_PATH_SI_SCRATCH)/$(PKG_FILENAME).pkg \
+	$(PATH_STAGE_BIN)/$(PKG_FILENAME).tar.gz \
+	$(PATH_STAGE_BIN)/$(PKG_FILENAME_SMF_STYLE).p5p \
+	$(PATH_STAGE_BIN)/VirtualBoxDebug.tar.bz2 \
+	$(VBOX_PATH_SI_SCRATCH)/dist-copy.ts
+
+#
+# VBoxZoneAccess
+#
+VBoxZoneAccess_TEMPLATE = VBoxR3Exe
+VBoxZoneAccess_DEPS     = $(VBOX_SVN_REV_KMK)
+VBoxZoneAccess_SOURCES  = VBoxZoneAccess.c
+VBoxZoneAccess_LIBS     = $(LIB_RUNTIME)
+
+#
+# VBoxISAExec
+#
+VBoxISAExec_TEMPLATE = VBoxR3Exe
+VBoxISAExec_DEPS     = $(VBOX_SVN_REV_KMK)
+VBoxISAExec_SOURCES  = VBoxISAExec.c
+
+#
+# Solaris installs.
+#
+solaris-doc_INST    = bin/
+solaris-doc_MODE    = a+r,u+w
+solaris-doc_SOURCES = \
+	$(VBOX_BRAND_LICENSE_TXT)=>LICENSE \
+	$(PATH_ROOT)/src/VBox/Frontends/VirtualBox/images/$(if $(VBOX_OSE),OSE,NonOSE)/VirtualBox_64px.png=>VBox.png \
+	$(PATH_ROOT)/src/VBox/Artwork/$(if $(VBOX_OSE),OSE,NonOSE)/virtualbox-128px.png=>virtualbox.png
+
+solaris-bin_INST = bin/
+solaris-bin_MODE = a+rx,u+w
+solaris-bin_SOURCES = \
+	$(if $(VBOX_WITH_PYTHON),$(PATH_ROOT)/src/VBox/Frontends/VBoxShell/vboxshell.py,) \
+	$(VBOX_PATH_SOL_INST_SRC)/vboxconfig.sh \
+	$(VBOX_PATH_SOL_INST_SRC)/VBox.sh \
+	$(VBOX_PATH_SOL_INST_SRC)/pkginstall.sh \
+	$(VBOX_PATH_SOL_INST_SRC)/smf-vboxballoonctrl.sh \
+	$(VBOX_PATH_SOL_INST_SRC)/smf-vboxautostart.sh \
+	$(if $(VBOX_WITH_WEBSERVICES),$(VBOX_PATH_SOL_INST_SRC)/smf-vboxwebsrv.sh,)
+
+solaris-drv-confs_INST = bin/
+solaris-drv-confs_MODE = a+r,u+w
+solaris-drv-confs_SOURCES = \
+	$(PATH_ROOT)/src/VBox/HostDrivers/Support/solaris/vboxdrv.conf \
+	$(if $(VBOX_WITH_NETFLT),$(PATH_ROOT)/src/VBox/HostDrivers/VBoxNetFlt/solaris/vboxflt.conf) \
+	$(if $(VBOX_WITH_NETFLT_CROSSBOW),$(PATH_ROOT)/src/VBox/HostDrivers/VBoxNetFlt/solaris/vboxbow.conf) \
+	$(if $(VBOX_WITH_NETADP),$(PATH_ROOT)/src/VBox/HostDrivers/VBoxNetAdp/solaris/vboxnet.conf) \
+	$(if $(VBOX_WITH_USB),$(PATH_ROOT)/src/VBox/HostDrivers/VBoxUSB/solaris/vboxusbmon.conf) \
+	$(if $(VBOX_WITH_USB),$(PATH_ROOT)/src/VBox/HostDrivers/VBoxUSB/solaris/vboxusb.conf)
+
+solaris-icons_INST = bin/icons/
+solaris-icons_MODE = a+r,u+w
+solaris-icons_SOURCES = $(foreach f,$(VBOX_SI_ICON_TYPES), $(foreach s,$(VBOX_SI_ICON_SIZES) \
+	,$(PATH_ROOT)/src/VBox/Artwork/other/virtualbox-$(f)-$(s)px.png=>$(s)x$(s)/mimetypes/virtualbox-$(f).png))
+
+
+#
+# What follows is various files lists (and a symlink list) that lists various
+# types of files going from/to various places during installation.
+#
+# Each list has the following attributes (used by makefile command and
+# dependency generation):
+#       .SUBDIRS := <yes|no>
+#       .STRIP   := <yes|objcopy|no>
+#       .MODE    := <0644|0755>
+#       .SRC     := <Directory to copy the files from>
+#       .DST     := <Directory to copy the files to>
+#
+
+
+## List of file list variable names.
+SOLARIS_FILE_LIST_VARS :=
+
+## @def SOLARIS_ETC_FILES
+# System-wide configuration files to copy from VBOX_PATH_SOL_INST_SRC to /etc.
+SOLARIS_FILE_LIST_VARS += SOLARIS_ETC_FILES
+SOLARIS_ETC_FILES.SUBDIRS := yes
+SOLARIS_ETC_FILES.STRIP   := no
+SOLARIS_ETC_FILES.MODE    := 0644
+SOLARIS_ETC_FILES.SRC     := $(PATH_ROOT)/src/VBox/HostDrivers/VBoxNetAdp/solaris
+SOLARIS_ETC_FILES.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/etc
+SOLARIS_ETC_FILES := $(if-expr defined(VBOX_WITH_NETADP),hostname.vboxnet0,)
+
+## @def SOLARIS_SMF_FILES
+# Service management facility manifest files to copy from VBOX_PATH_SOL_INST_SRC to /var/svc/manifest/application/virtualbox/.
+SOLARIS_FILE_LIST_VARS += SOLARIS_SMF_FILES
+SOLARIS_SMF_FILES.SUBDIRS := yes
+SOLARIS_SMF_FILES.STRIP   := no
+SOLARIS_SMF_FILES.MODE    := 0644
+SOLARIS_SMF_FILES.SRC     := $(VBOX_PATH_SOL_INST_SRC)
+SOLARIS_SMF_FILES.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/var/svc/manifest/application/virtualbox
+SOLARIS_SMF_FILES = \
+	virtualbox-zoneaccess.xml \
+	virtualbox-balloonctrl.xml \
+	virtualbox-autostart.xml \
+	$(if-expr defined(VBOX_WITH_WEBSERVICES),virtualbox-webservice.xml,)
+
+## @def SOLARIS_MIME_INFO_FILES
+# MIME info files to be copied directly from VBOX_PATH_SOL_INST_SRC to /usr/share/mime-info/.
+SOLARIS_FILE_LIST_VARS += SOLARIS_MIME_INFO_FILES
+SOLARIS_MIME_INFO_FILES.SUBDIRS := yes
+SOLARIS_MIME_INFO_FILES.STRIP   := no
+SOLARIS_MIME_INFO_FILES.MODE    := 0644
+SOLARIS_MIME_INFO_FILES.SRC     := $(VBOX_PATH_SOL_INST_SRC)
+SOLARIS_MIME_INFO_FILES.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/mime-info
+SOLARIS_MIME_INFO_FILES = \
+	virtualbox.keys \
+	virtualbox.mime
+
+## @def SOLARIS_PIXMAP_FILES
+# Bitmap files to copy directly from INST_BIN to /usr/share/pixmaps/.
+SOLARIS_FILE_LIST_VARS += SOLARIS_PIXMAP_FILES
+SOLARIS_PIXMAP_FILES.SUBDIRS = no
+SOLARIS_PIXMAP_FILES.STRIP   = no
+SOLARIS_PIXMAP_FILES.MODE    = 0644
+SOLARIS_PIXMAP_FILES.SRC     = $(PATH_STAGE_BIN)
+SOLARIS_PIXMAP_FILES.DST     = $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/pixmaps
+SOLARIS_PIXMAP_FILES = \
+	VBox.png \
+	virtualbox.png
+
+
+## @def SOLARIS_INSTALLER_SCRIPTS
+# Installer shell scripts that gets copied directly from VBOX_PATH_SOL_INST_SRC to VBOX_PATH_SI_SCRATCH_PKG (/).
+SOLARIS_FILE_LIST_VARS += SOLARIS_INSTALLER_SCRIPTS
+SOLARIS_INSTALLER_SCRIPTS.SUBDIRS = no
+SOLARIS_INSTALLER_SCRIPTS.STRIP   = no
+SOLARIS_INSTALLER_SCRIPTS.MODE    = 0755
+SOLARIS_INSTALLER_SCRIPTS.SRC     = $(VBOX_PATH_SOL_INST_SRC)
+SOLARIS_INSTALLER_SCRIPTS.DST     = $(VBOX_PATH_SI_SCRATCH_PKG)
+SOLARIS_INSTALLER_SCRIPTS = \
+	postinstall.sh \
+	checkinstall.sh \
+	preremove.sh \
+	makepackage.sh
+
+## @def SOLARIS_INSTALLER_FILES
+# Installer files that gets copied directly from VBOX_PATH_SOL_INST_SRC to VBOX_PATH_SI_SCRATCH_PKG (/).
+SOLARIS_FILE_LIST_VARS += SOLARIS_INSTALLER_FILES
+SOLARIS_INSTALLER_FILES.SUBDIRS = no
+SOLARIS_INSTALLER_FILES.STRIP   = no
+SOLARIS_INSTALLER_FILES.MODE    = 0644
+SOLARIS_INSTALLER_FILES.SRC     = $(VBOX_PATH_SOL_INST_SRC)
+SOLARIS_INSTALLER_FILES.DST     = $(VBOX_PATH_SI_SCRATCH_PKG)
+SOLARIS_INSTALLER_FILES = \
+	vbox.space
+
+## @def SOLARIS_INSTALLER_LICENSE
+# List of files that are copied directly from INST_BIN to VBOX_PATH_SI_SCRATCH_PKG (/).
+# LICENSE is needed by IPS packaging only.
+SOLARIS_FILE_LIST_VARS += SOLARIS_INSTALLER_LICENSE
+SOLARIS_INSTALLER_LICENSE.SUBDIRS := no
+SOLARIS_INSTALLER_LICENSE.STRIP   := no
+SOLARIS_INSTALLER_LICENSE.MODE    := 0644
+SOLARIS_INSTALLER_LICENSE.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_INSTALLER_LICENSE.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)
+SOLARIS_INSTALLER_LICENSE = \
+	LICENSE
+
+## @def SOLARIS_DRIVER_BINS
+# List of kernel module files that are copied from INST_BIN to platform/i86pc/kernel/drv/[amd64/] and stripped of debug info.
+SOLARIS_FILE_LIST_VARS += SOLARIS_DRIVER_BINS
+SOLARIS_DRIVER_BINS.SUBDIRS := no
+SOLARIS_DRIVER_BINS.STRIP   := no
+SOLARIS_DRIVER_BINS.MODE    := 0644
+SOLARIS_DRIVER_BINS.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_DRIVER_BINS.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/platform/i86pc/kernel/drv/$(subst x86,,$(KBUILD_TARGET_ARCH))
+SOLARIS_DRIVER_BINS = \
+	vboxdrv \
+	$(if $(VBOX_WITH_NETFLT),vboxflt,) \
+	$(if $(VBOX_WITH_NETFLT_CROSSBOW),vboxbow,) \
+	$(if $(VBOX_WITH_NETADP),vboxnet,) \
+	$(if $(VBOX_WITH_USB),vboxusbmon,) \
+	$(if $(VBOX_WITH_USB),vboxusb,)
+
+## @def SOLARIS_DRIVER_CONFS
+# List of kernel module configuration files that are copied directly from INST_BIN to platform/i86pc/kernel/drv/.
+SOLARIS_FILE_LIST_VARS += SOLARIS_DRIVER_CONFS
+SOLARIS_DRIVER_CONFS.SUBDIRS := no
+SOLARIS_DRIVER_CONFS.STRIP   := no
+SOLARIS_DRIVER_CONFS.MODE    := 0644
+SOLARIS_DRIVER_CONFS.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_DRIVER_CONFS.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/platform/i86pc/kernel/drv
+SOLARIS_DRIVER_CONFS = \
+	vboxdrv.conf \
+	$(if $(VBOX_WITH_NETFLT),vboxflt.conf,) \
+	$(if $(VBOX_WITH_NETFLT_CROSSBOW),vboxbow.conf,) \
+	$(if $(VBOX_WITH_NETADP),vboxnet.conf,) \
+	$(if $(VBOX_WITH_USB),vboxusbmon.conf,) \
+	$(if $(VBOX_WITH_USB),vboxusb.conf,)
+
+## @def SOLARIS_COMMON
+# List of files that are copied directly from INST_BIN to /opt/VirtualBox/.
+SOLARIS_FILE_LIST_VARS += SOLARIS_COMMON
+SOLARIS_COMMON.SUBDIRS := yes
+SOLARIS_COMMON.STRIP   := no
+SOLARIS_COMMON.MODE    := 0644
+SOLARIS_COMMON.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_COMMON.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox
+SOLARIS_COMMON = \
+	LICENSE
+
+## @def SOLARIS_COMMON_EXES
+# List of executable script (and VBoxISAExec) files that are copied directly from INST_BIN to /opt/VirtualBox/.
+SOLARIS_FILE_LIST_VARS += SOLARIS_COMMON_EXES
+SOLARIS_COMMON_EXES.SUBDIRS := no
+SOLARIS_COMMON_EXES.STRIP   := no
+SOLARIS_COMMON_EXES.MODE    := 0755
+SOLARIS_COMMON_EXES.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_COMMON_EXES.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox
+SOLARIS_COMMON_EXES = \
+	VBoxISAExec
+
+## @def SOLARIS_COMMON_BINS
+# List of INST_BIN shared libraries that should be copied into /opt/VirtualBox/ and stripped.
+SOLARIS_FILE_LIST_VARS += SOLARIS_COMMON_STRIP_BINS
+SOLARIS_COMMON_STRIP_BINS.SUBDIRS := yes
+SOLARIS_COMMON_STRIP_BINS.STRIP   := yes
+SOLARIS_COMMON_STRIP_BINS.MODE    := 0644
+SOLARIS_COMMON_STRIP_BINS.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_COMMON_STRIP_BINS.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/
+SOLARIS_COMMON_STRIP_BINS =
+
+## @def SOLARIS_STRIP_EXES
+# List of exectuables files that are copied from INST_BIN to /opt/VirtualBox/$(VBOX_SI_ARCH)/ and stripped of debug info.
+SOLARIS_FILE_LIST_VARS += SOLARIS_STRIP_EXES
+SOLARIS_STRIP_EXES.SUBDIRS := no
+SOLARIS_STRIP_EXES.STRIP   := yes
+SOLARIS_STRIP_EXES.MODE    := 0755
+SOLARIS_STRIP_EXES.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_STRIP_EXES.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/$(VBOX_SI_ARCH)
+SOLARIS_STRIP_EXES = \
+	VBoxZoneAccess \
+	$(if $(VBOX_WITH_QTGUI),VirtualBox VirtualBoxVM,) \
+	VBoxManage \
+	$(if $(VBOX_WITH_VBOXSDL),VBoxSDL,) \
+	$(if $(VBOX_WITH_NETADP),VBoxNetAdpCtl,) \
+	VBoxNetDHCP \
+	VBoxNetNAT \
+	$(if $(VBOX_WITH_EXTPACK),VBoxExtPackHelperApp,) \
+	VBoxSVC \
+	$(if $(VBOX_WITH_VMSVGA3D), VBoxTestOGL,) \
+	VBoxXPCOMIPCD \
+	$(if $(VBOX_WITH_DTRACE),VBoxDTrace,) \
+	$(if $(VBOX_WITH_HOST_SHIPPING_AUDIO_TEST),VBoxAudioTest,)
+
+## @def SOLARIS_STRIP_BINS
+# List of shared libraries that are copied from INST_BIN to /opt/VirtualBox/$(VBOX_SI_ARCH)/ and stripped of debug info.
+SOLARIS_FILE_LIST_VARS += SOLARIS_STRIP_BINS
+SOLARIS_STRIP_BINS.SUBDIRS := yes
+SOLARIS_STRIP_BINS.STRIP   := yes
+SOLARIS_STRIP_BINS.MODE    := 0644
+SOLARIS_STRIP_BINS.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_STRIP_BINS.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/$(VBOX_SI_ARCH)
+SOLARIS_STRIP_BINS = \
+	VBoxDD.so \
+	VBoxDD2.so \
+	VBoxRT.so \
+	VBoxDDU.so \
+	VBoxVMM.so \
+	$(if $(VBOX_WITH_LIBSSH),VBoxLibSsh.so,) \
+	VBoxXPCOM.so \
+	VBoxXPCOMC.so \
+	$(if $(VBOX_WITH_SHARED_FOLDERS),VBoxSharedFolders.so,) \
+	$(if $(VBOX_WITH_SHARED_CLIPBOARD),VBoxSharedClipboard.so,) \
+	$(if $(VBOX_WITH_DRAG_AND_DROP),VBoxDragAndDropSvc.so,) \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBoxGuestPropSvc.so,) \
+	$(if $(VBOX_WITH_GUEST_CONTROL),VBoxGuestControlSvc.so,) \
+	VBoxHostChannel.so \
+	$(if $(VBOX_WITH_JXPCOM),libvboxjxpcom.so,) \
+	$(if $(VBOX_WITH_QTGUI), \
+	VBoxKeyboard.so) \
+	$(if $(VBOX_WITH_DEBUGGER_GUI),VBoxDbg.so DbgPlugInDiggers.so,) \
+	components/VBoxC.so \
+	components/VBoxSVCM.so \
+	components/VBoxXPCOMIPCC.so
+
+ifdef VBOX_WITH_QTGUI
+ ifdef VBOX_WITH_ORACLE_QT
+  SOLARIS_STRIP_BINS += \
+  	$(notdir $(wildcard $(PATH_STAGE_BIN)/lib*VBox*)) \
+  	$(VBOX_QT_PLUGINS)
+ endif
+endif #VBOX_WITH_QTGUI
+
+ifdef VBOX_WITH_32_ON_64_MAIN_API
+ SOLARIS_STRIP_BINS += \
+ 	VBoxRT-x86.so \
+ 	VBoxXPCOM-x86.so \
+ 	components/VBoxClient-x86.so \
+ 	components/VBoxSVCM-x86.so \
+ 	components/VBoxXPCOMIPCC-x86.so
+endif
+ifdef VBOX_WITH_HARDENING
+ SOLARIS_STRIP_BINS += \
+ 	VBoxNetDHCP.so \
+ 	VBoxNetNAT.so \
+ 	$(if $(VBOX_WITH_VBOXSDL),VBoxSDL.so,) \
+ 	$(if $(VBOX_WITH_QTGUI),VirtualBoxVM.so UICommon.so,)
+endif
+
+## @def SOLARIS_STRIP_OBJS
+# List of relocable object files to be copied from INST_BIN to /opt/VirtualBox/$(VBOX_SI_ARCH)/ and carefully
+# stripped of debug info but not relocation information.  These are the ring-0 and raw-mode context modules.
+SOLARIS_FILE_LIST_VARS += SOLARIS_STRIP_OBJS
+SOLARIS_STRIP_OBJS.SUBDIRS := no
+SOLARIS_STRIP_OBJS.STRIP   := objcopy
+SOLARIS_STRIP_OBJS.MODE    := 0644
+SOLARIS_STRIP_OBJS.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_STRIP_OBJS.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/$(VBOX_SI_ARCH)
+SOLARIS_STRIP_OBJS = \
+	VBoxDDR0.r0 \
+	VMMR0.r0
+ifdef VBOX_WITH_RAW_MODE
+ SOLARIS_STRIP_OBJS += \
+ 	VBoxDDRC.rc \
+ 	VMMRC.rc
+endif
+
+## @def SOLARIS_NO_STRIP
+# List of data files that should be copied from INST_BIN to /opt/VirtualBox/$(VBOX_SI_ARCH)/.
+SOLARIS_FILE_LIST_VARS += SOLARIS_NO_STRIP
+SOLARIS_NO_STRIP.SUBDIRS := yes
+SOLARIS_NO_STRIP.STRIP   := no
+SOLARIS_NO_STRIP.MODE    := 0644
+SOLARIS_NO_STRIP.SRC     := $(PATH_STAGE_BIN)
+SOLARIS_NO_STRIP.DST     := $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/$(VBOX_SI_ARCH)
+SOLARIS_NO_STRIP = \
+	components/VBoxXPCOMBase.xpt \
+	components/VirtualBox_XPCOM.xpt \
+	$(if $(and $(VBOX_LICENSE_FILES),$(VBOX_WITH_QTGUI)),$(VBOX_LICENSE_FILES))
+
+## @def SOLARIS_USRBIN_LINKS
+# List of links to create in /usr/bin to /opt/VirtualBox/VBox.sh.
+# Naturally no subdirectories.
+SOLARIS_USRBIN_LINKS = \
+	$(if $(VBOX_WITH_QTGUI),VirtualBox VirtualBoxVM,) \
+	$(if $(VBOX_WITH_HEADLESS),VBoxHeadless,) \
+	$(if $(VBOX_WITH_VBOXSDL),VBoxSDL,) \
+	VBoxManage \
+	$(if $(VBOX_WITH_DTRACE),VBoxDTrace,) \
+	$(if $(VBOX_WITH_HOST_SHIPPING_AUDIO_TEST),VBoxAudioTest,)
+
+SOLARIS_COMMON_EXES += \
+	vboxconfig.sh \
+	VBox.sh \
+	pkginstall.sh \
+	smf-vboxballoonctrl.sh \
+	smf-vboxautostart.sh \
+	$(if $(VBOX_WITH_WEBSERVICES),smf-vboxwebsrv.sh,)
+
+
+# Documentation (packed as DOCS as they are arch. neutral)
+ifdef VBOX_WITH_DOCS_PACKING
+ SOLARIS_COMMON += \
+ 	$(if-expr defined(VBOX_WITH_DOCS_CHM_PACKING),VirtualBox.chm,) \
+ 	$(if-expr defined(VBOX_WITH_DOCS_QHELP_PACKING),UserManual.qch UserManual.qhc,) \
+ 	UserManual.pdf \
+ 	$(foreach f,$(VBOX_MANUAL_ADD_LANGUAGES), \
+ 	$(if-expr defined(VBOX_WITH_DOCS_CHM_PACKING),VirtualBox_$(f).chm,) \
+ 	$(if-expr defined(VBOX_WITH_DOCS_QHELP_PACKING),UserManual_$(f).qch UserManual_$(f).qhc,) \
+ 	UserManual_$(f).pdf)
+endif
+
+# Python XPCOM glue
+ifdef VBOX_WITH_PYTHON
+ SOLARIS_COMMON += \
+ 	$(VBOXINST_SDK_BINDINGS_XPCOM_PYTHON_FILES) \
+ 	$(VBOXINST_SDK_INSTALLER_PYTHON_FILES)
+ ifeq ($(KBUILD_TARGET_ARCH),amd64)
+  SOLARIS_PYTHON_32_ON_64_BINS = $(notdir $(wildcard $(PATH_STAGE_BIN)/VBoxPython*_x86.so))
+  ifdef VBOX_WITH_32_ON_64_MAIN_API
+   SOLARIS_COMMON_STRIP_BINS   += $(SOLARIS_PYTHON_32_ON_64_BINS)
+  endif
+  SOLARIS_COMMON_STRIP_BINS    += $(filter-out $(SOLARIS_PYTHON_32_ON_64_BINS), $(notdir $(wildcard $(PATH_STAGE_BIN)/VBoxPython*.so)))
+ else
+  SOLARIS_COMMON_STRIP_BINS    += $(notdir $(wildcard $(PATH_STAGE_BIN)/VBoxPython*.so)))
+ endif
+endif
+
+ifdef VBOX_WITH_JXPCOM
+ SOLARIS_COMMON += \
+ 	sdk/bindings/xpcom/java/vboxjxpcom.jar
+endif
+
+# auth stuff
+SOLARIS_STRIP_BINS += \
+	VBoxAuth.so \
+	VBoxAuthSimple.so
+
+# VRDP
+ifdef VBOX_WITH_VRDP
+ ifndef VBOX_WITH_EXTPACK_PUEL
+  SOLARIS_STRIP_BINS += \
+  	VBoxVRDP.so
+ endif
+endif
+
+SOLARIS_STRIP_BINS += \
+	$(if $(and $(VBOX_WITH_HARDENING),$(VBOX_WITH_HEADLESS)),VBoxHeadless.so,)
+
+SOLARIS_STRIP_EXES += \
+	$(if $(VBOX_WITH_HEADLESS),VBoxHeadless) \
+	VBoxBugReport \
+	VBoxBalloonCtrl \
+	VBoxAutostart \
+	$(if $(VBOX_WITH_WEBSERVICES),vboxwebsrv) \
+	$(if $(VBOX_WITH_VBOX_IMG)$(VBOX_WITH_TESTCASES),vbox-img)
+
+# Guest Additions
+ifdef VBOX_WITH_ADDITIONS_PACKING
+ # SOLARIS_COMMON += \
+ #	additions/VBoxGuestAdditions.iso
+endif
+
+
+# EFI firmware
+ifdef VBOX_WITH_EFIFW_PACKING
+ SOLARIS_COMMON += \
+ 	VBoxEFI32.fd \
+ 	VBoxEFI64.fd
+endif
+
+# Unattended installation template scripts.
+ifdef VBOX_UNATTENDED_TEMPLATES
+ SOLARIS_COMMON += $(addprefix UnattendedTemplates/,$(VBOX_UNATTENDED_TEMPLATES))
+endif
+
+# DTrace library, testcase and scripts (as the rest of this file, this makes bold
+# ASSUMPTIONS about VBPX_INST_XXX variable values).
+ifdef VBOX_WITH_DTRACE
+ SOLARIS_COMMON += \
+ 	$(addprefix dtrace/lib/$(KBUILD_TARGET_ARCH)/,$(VBOXINST_DTRACE_LIB_ARCH_FILES)) \
+ 	$(addprefix dtrace/testcase/$(KBUILD_TARGET_ARCH)/,$(VBOXINST_DTRACE_TESTCASE_ARCH_FILES)) \
+ 	$(addprefix dtrace/scripts/,$(VBOXINST_DTRACE_SCRIPTS_FILES))
+endif
+
+
+#
+# End of file lists.
+#
+
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+
+
+#
+# Copy all files needed for packaging into the final directory structure
+#
+$(VBOX_PATH_SI_SCRATCH)/dist-copy.ts: \
+		$(VBOX_VERSION_STAMP) \
+		\
+		$(VBOX_PATH_INST_COMMON_SRC)/virtualbox.desktop.in \
+		$(VBOX_PATH_INST_COMMON_SRC)/virtualboxvm.desktop.in \
+		$(VBOX_PATH_INST_COMMON_SRC)/virtualbox.xml \
+		$(VBOX_PATH_SOL_INST_SRC)/virtualbox.applications.in \
+		$(VBOX_PATH_SOL_INST_SRC)/vbox.pkginfo \
+		$(VBOX_PATH_SOL_INST_SRC)/vbox-ips.mog \
+		\
+		$(if-expr defined(VBOX_WITH_ADDITIONS_PACKING),$(PATH_STAGE_BIN)/additions/VBoxGuestAdditions.iso,) \
+		$(if-expr !defined(VBOX_OSE) && defined(VBOX_WITH_VBOXSDL), $(KBUILD_DEVTOOLS_TRG)/libsdl/v1.2.13/lib/libSDL-1.2.so.0.11.2,) \
+		\
+		$(foreach var, $(SOLARIS_FILE_LIST_VARS),$(foreach file, $($(var)), $($(var).SRC)/$(file))) \
+		\
+		$(foreach size, $(VBOX_SI_ICON_SIZES), $(foreach type, $(VBOX_SI_ICON_TYPES) \
+				,$(PATH_ROOT)/src/VBox/Artwork/other/virtualbox-$(type)-$(size)px.png)) \
+		\
+		$(VBOX_SI_DEP_ON_MAKEFILE) \
+		| $$(dir $$@)
+	$(call MSG_L1,Copying files to package staging area)
+# Start with a clean slate, don't want to pick up random garbage.
+	$(RM) -Rf -- "$(VBOX_PATH_SI_SCRATCH_PKG)/"
+	$(QUIET)$(RM) -f -- "$@"
+
+# Create all the directories we need. We specify each sub directory to make sure the mode is correct.
+	$(MKDIR) -p -m 0755 -- $(sort $(VBOX_PATH_SI_SCRATCH_PKG)/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/opt/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/amd64/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/platform/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/platform/i86pc/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/platform/i86pc/kernel/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/platform/i86pc/kernel/drv/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/bin/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/applications/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/application-registry/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/icons/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/icons/hicolor/ \
+		$(foreach size, $(VBOX_SI_ICON_SIZES) \
+		,$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/icons/hicolor/$(size)x$(size)/ \
+		 $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/icons/hicolor/$(size)x$(size)/mimetypes/) \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/mime/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/mime/packages/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/var/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/var/svc/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/var/svc/manifest/ \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/var/svc/manifest/application/ \
+		$(foreach var,$(SOLARIS_FILE_LIST_VARS), $($(var).DST)/) \
+		$(foreach var,$(SOLARIS_FILE_LIST_VARS),$(if-expr "$($(var).SUBDIRS)" == "yes",$(sort $(dir $(addprefix $($(var).DST)/,$($(var))))),)) \
+	)
+
+# Generic copy file lists.
+	$(foreach var, $(SOLARIS_FILE_LIST_VARS), $(foreach file, $($(var)) \
+	,$(if-expr "$($(var).STRIP)" == "objcopy" && defined(VBOX_DO_STRIP)\
+	,$(NLTAB)$(VBOX_SI_OBJCOPY_STRIP) "$($(var).SRC)/$(file)" "$($(var).DST)/$(file)" \
+	 $(NLTAB)$(CHMOD) "$($(var).MODE)" "$($(var).DST)/$(file)" \
+	,$(NLTAB)$(INSTALL) -m "$($(var).MODE)" $(if-expr "$($(var).STRIP)" == "yes" && defined(VBOX_DO_STRIP),-s,) \
+		"$($(var).SRC)/$(file)" "$($(var).DST)/$(file)")))
+
+# VirtualBox: Common files.
+	$(if-expr defined(VBOX_WITH_ADDITIONS_PACKING) \
+	,$(INSTALL) -m 0644 $(PATH_STAGE_BIN)/additions/VBoxGuestAdditions.iso  $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/,)
+	$(LN_SYMLINK) -f ./pkginstall.sh $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/ipsinstall.sh
+	$(SED) -e "s/_HARDENED_/$(if $(VBOX_WITH_HARDENED),hardened,)/" \
+		--output $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/vboxconfig.sh \
+		 $(VBOX_PATH_SOL_INST_SRC)/vboxconfig.sh
+	$(CHMOD) 0755 $(VBOX_PATH_SOL_INST_SRC)/vboxconfig.sh
+	$(INSTALL) -m 0644 $(VBOX_PATH_SOL_INST_SRC)/vbox.pkgresponse $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/autoresponse
+	$(if-expr defined(VBOX_WITH_PYTHON) \
+	,$(SED) -e "s@^#!.*@#!/usr/bin/python3@" \
+		--output $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/vboxshell.py \
+		$(PATH_STAGE_BIN)/vboxshell.py \
+	$(NLTAB)$(CHMOD) 0755 $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/vboxshell.py,)
+
+# VirtualBox: Arch specific files.
+	$(if-expr defined(VBOX_WITH_ADDITIONS_PACKING) \
+	,$(NLTAB)$(LN_SYMLINK) ../VBoxGuestAdditions.iso $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/$(VBOX_SI_ARCH)/,)
+
+	$(if-expr !defined(VBOX_OSE) && defined(VBOX_WITH_VBOXSDL) \
+	,$(INSTALL) -s -m 0644 $(KBUILD_DEVTOOLS_TRG)/libsdl/v1.2.13/lib/libSDL-1.2.so.0.11.2 \
+		$(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/$(VBOX_SI_ARCH)/libSDL-1.2.so.0,)
+
+	$(if-expr defined(VBOX_WITH_EFIFW_PACKING) \
+	,$(LN_SYMLINK) ../VBoxEFI32.fd ../VBoxEFI64.fd $(VBOX_PATH_SI_SCRATCH_PKG)/opt/VirtualBox/$(VBOX_SI_ARCH)/,)
+
+# Links to /usr/bin.
+	$(foreach link,$(SOLARIS_USRBIN_LINKS) \
+	,$(NLTAB)$(LN_SYMLINK) ../../opt/VirtualBox/VBox.sh $(VBOX_PATH_SI_SCRATCH_PKG)/usr/bin/$(link))
+
+# Desktop stuff in /usr/share/applications/.
+	$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+" \
+		--output $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/applications/virtualbox.desktop \
+		$(VBOX_PATH_INST_COMMON_SRC)/virtualbox.desktop.in
+	$(CHMOD) 0644 $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/applications/virtualbox.desktop
+
+	$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+" \
+		--output $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/applications/virtualboxvm.desktop \
+		$(VBOX_PATH_INST_COMMON_SRC)/virtualboxvm.desktop.in
+	$(CHMOD) 0644 $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/applications/virtualboxvm.desktop
+
+# Desktop stuff in /usr/share/mime/packages/ (S10 cannot deal with icon information in virtualbox.xml).
+	$(SED) -e '/<icon/d' \
+		--output $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/mime/packages/virtualbox.xml \
+		$(VBOX_PATH_INST_COMMON_SRC)/virtualbox.xml
+	$(CHMOD) 0644 $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/mime/packages/virtualbox.xml
+
+# Desktop stuff in /usr/share/application-registry.
+	$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+" \
+		--output $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/application-registry/virtualbox.applications \
+		$(VBOX_PATH_SOL_INST_SRC)/virtualbox.applications.in
+	$(CHMOD) 0644 $(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/application-registry/virtualbox.applications
+
+# Icons stuff under /usr/share/icons/hicolor/<size>x<size>/mimetypes/.
+	$(foreach size, $(VBOX_SI_ICON_SIZES), $(foreach type, $(VBOX_SI_ICON_TYPES) \
+		,$(NLTAB)$(INSTALL) -m 0644 \
+			$(PATH_ROOT)/src/VBox/Artwork/other/virtualbox-$(type)-$(size)px.png \
+			$(VBOX_PATH_SI_SCRATCH_PKG)/usr/share/icons/hicolor/$(size)x$(size)/mimetypes/virtualbox-$(type).png))
+
+# Files related to package creation.
+	$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+g" \
+		-e "s+@VBOX_VENDOR@+$(VBOX_VENDOR)+g" \
+		-e "s+@VBOX_VERSION_STRING@+$(VBOX_VERSION_STRING)+g" \
+		-e "s+@VBOX_VERSION_REVSTAMP@+$(PKGINFO_REVSTAMP)+g" \
+		-e "s+@UNAME_P@+$(PKGINFO_ARCH)+g" \
+		-e "s+@VBOX_PSTAMP@+$(PKGINFO_PSTAMP)+g" \
+		--output $(VBOX_PATH_SI_SCRATCH_PKG)/vbox.pkginfo \
+		$(VBOX_PATH_SOL_INST_SRC)/vbox.pkginfo
+	$(SED) -e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+g" \
+		-e "s+@VBOX_VENDOR@+$(VBOX_VENDOR)+g" \
+		-e "s+@VBOX_VERSION_STRING@+$(VBOX_VERSION_SMF_STYLE)+g" \
+		-e "s+@VBOX_SVN_REV@+$(VBOX_SVN_REV)+g" \
+		-e "s+@UNAME_P@+$(PKGINFO_ARCH)+g" \
+		--output $(VBOX_PATH_SI_SCRATCH_PKG)/vbox-ips.mog \
+		$(VBOX_PATH_SOL_INST_SRC)/vbox-ips.mog
+	$(APPEND) -t $@ "done"
+
+#
+# Creates the System V style installer package.
+#
+solaris-package:: $(VBOX_PATH_SI_SCRATCH)/$(PKG_FILENAME).pkg
+$(VBOX_PATH_SI_SCRATCH)/$(PKG_FILENAME).pkg: \
+		$(VBOX_PATH_SI_SCRATCH)/dist-copy.ts \
+		$(VBOX_SI_DEP_ON_MAKEFILE) \
+		| $$(dir $$@)
+	$(call MSG_L1,Creating install package: $(PKG_FILENAME).pkg)
+	$(VBOX_PATH_SI_SCRATCH_PKG)/makepackage.sh \
+		$(if-expr defined(VBOX_WITH_HARDENING),--hardened,) \
+		$(VBOX_PATH_SI_SCRATCH_PKG) \
+		$(PKG_FILENAME) \
+		$(KBUILD_TARGET_ARCH) \
+		$(VBOX_SVN_REV)
+	$(MV) -- "$(VBOX_PATH_SI_SCRATCH_PKG)/$(PKG_FILENAME).pkg" "$@"
+
+#
+# Creates the tar file containing license, readme and autoresponse file in addition to the System V package.
+#
+solaris-package-tar-gz:: $(PATH_STAGE_BIN)/$(PKG_FILENAME).tar.gz
+$(PATH_STAGE_BIN)/$(PKG_FILENAME).tar.gz: \
+		$(VBOX_PATH_SI_SCRATCH)/$(PKG_FILENAME).pkg \
+		$(PATH_STAGE_BIN)/LICENSE \
+		$(VBOX_PATH_SOL_INST_SRC)/vbox.pkgresponse \
+		$(PATH_ROOT)/doc/ReadMe-Solaris.txt \
+		$(VBOX_SI_DEP_ON_MAKEFILE) \
+		| $(VBOX_PATH_SI_SCRATCH)/
+	$(call MSG_L1,Creating final tar.gz package: $(PKG_FILENAME).tar.gz)
+	$(QUIET)$(RM) -f -- $(VBOX_PATH_SI_SCRATCH)/ReadMe.txt "$@"
+	$(QUIET)$(SED) \
+		-e "s+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+g" \
+		-e "s+@VBOX_VENDOR@+$(VBOX_VENDOR)+g" \
+		-e "s+@VBOX_VERSION_STRING@+$(VBOX_VERSION_STRING)+g" \
+		-e "s+@KBUILD_TARGET_ARCH@+$(KBUILD_TARGET_ARCH)+g" \
+		-e "s+@VBOX_SVN_REV@+$(VBOX_SVN_REV)+g" \
+		--output $(VBOX_PATH_SI_SCRATCH)/ReadMe.txt \
+		$(PATH_ROOT)/doc/ReadMe-Solaris.txt
+	$(QUIET)$(VBOX_SI_GTAR) -C $(VBOX_PATH_SI_SCRATCH) -czvf "$@" --show-transformed-name \
+		--xform 's,^.*/,,g' --xform 's,vbox.pkgresponse,autoresponse,' \
+		$(VBOX_PATH_SI_SCRATCH)/ReadMe.txt \
+		$(PATH_STAGE_BIN)/LICENSE \
+		$(VBOX_PATH_SOL_INST_SRC)/vbox.pkgresponse \
+		$(VBOX_PATH_SI_SCRATCH)/$(PKG_FILENAME).pkg
+	$(QUIET)$(RM) -f -- $(VBOX_PATH_SI_SCRATCH)/ReadMe.txt
+	$(call MSG_L1,Packaging $@ is completed.)
+
+#
+# Creates the IPS style installer package.
+#
+solaris-package-ips:: $(PATH_STAGE_BIN)/$(PKG_FILENAME_SMF_STYLE).p5p
+$(PATH_STAGE_BIN)/$(PKG_FILENAME_SMF_STYLE).p5p: \
+		$(VBOX_PATH_SI_SCRATCH)/dist-copy.ts \
+		$(VBOX_SI_DEP_ON_MAKEFILE) \
+		| $$(dir $$@)
+	$(call MSG_L1,Creating install package: $(PKG_FILENAME_SMF_STYLE).p5p)
+	$(VBOX_PATH_SI_SCRATCH_PKG)/makepackage.sh \
+		--ips \
+		$(if-expr defined(VBOX_WITH_HARDENING),--hardened,) \
+		$(VBOX_PATH_SI_SCRATCH_PKG) \
+		$(PKG_FILENAME_SMF_STYLE) \
+		$(KBUILD_TARGET_ARCH) \
+		$(VBOX_SVN_REV)
+	$(MV) -- "$(VBOX_PATH_SI_SCRATCH_PKG)/$(PKG_FILENAME_SMF_STYLE).p5p" "$@"
+
+
+## List of file list variable names relevant for debug info.
+SOLARIS_FILE_LIST_DBGINFO_VARS := $(foreach var, $(SOLARIS_FILE_LIST_VARS), $(if-expr "$($(var).STRIP)" != "no",$(var),))
+## Adds a .DBGDST property to each of the debug info file lists. Simplifies our job below
+$(foreach var,$(SOLARIS_FILE_LIST_DBGINFO_VARS) \
+	,$(eval $(var).DBGDST := $(subst $(VBOX_PATH_SI_SCRATCH_PKG)/,$(VBOX_PATH_SI_SCRATCH_DBG)/,$(subst /opt/VirtualBox,,$($(var).DST)))))
+
+#
+# Creates a tar file containing the debug info.
+#
+$(PATH_STAGE_BIN)/VirtualBoxDebug.tar.bz2: \
+		$(VBOX_VERSION_STAMP) \
+		$(VBOX_SI_DEP_ON_MAKEFILE) \
+		$(foreach var, $(SOLARIS_FILE_LIST_DBGINFO_VARS), $(foreach file, $($(var)), $($(var).SRC)/$(file)))
+	$(call MSG_L1,Preparing $@)
+	$(RM) -Rf -- "$(VBOX_PATH_SI_SCRATCH_DBG)/"
+	$(RM) -f -- "$@"
+	$(MKDIR) -p -m 0755 \
+		$(VBOX_PATH_SI_SCRATCH_DBG)/ \
+		$(sort $(foreach var, $(SOLARIS_FILE_LIST_DBGINFO_VARS), $($(var).DBGDST)/ $(if-expr "$($(var).SUBDIRS)" == "yes" \
+		,$(sort $(dir $(foreach file, $($(var)), $($(var).DBGDST)/$(file)))),)))
+	$(foreach var, $(SOLARIS_FILE_LIST_DBGINFO_VARS),$(foreach file, $($(var)) \
+	,$(NLTAB)$(VBOX_SI_OBJCOPY_DBGINFO) "$($(var).SRC)/$(file)" "$($(var).DBGDST)/$(file)"))
+	$(call MSG_L1,Packing $@)
+	$(QUIET)$(VBOX_SI_GTAR) --dereference --owner 0 --group 0 \
+		-cvjRhf "$@" -C "$(VBOX_PATH_SI_SCRATCH_DBG)/.." "./$(notdir $(VBOX_PATH_SI_SCRATCH_DBG))/"
+	$(QUIET)$(CHMOD) 0644 $@
+	$(call MSG_L1,Packaging $@ is completed.)
+	$(RM) -Rf "$(VBOX_PATH_SI_SCRATCH_DBG)/"
+

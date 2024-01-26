@@ -1,0 +1,69 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - Makefile for generating .html from .txt.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+DEPTH = ../../../..
+include $(KBUILD_PATH)/header.kmk
+
+# Figure out where rst2html.py is.
+ifndef VBOX_RST2HTML
+ VBOX_RST2HTML := $(firstword $(which $(foreach pyver, 3.2 3.1 3.0 2.8 2.7 2.6 2.5 2.4 ,rst2html-$(pyver).py) ) )
+ ifeq ($(VBOX_RST2HTML),)
+  if $(KBUILD_HOST) == "win" && $(VBOX_BLD_PYTHON) != "" && $(dir $(VBOX_BLD_PYTHON)) != "./"
+   VBOX_RST2HTML := $(dir $(VBOX_BLD_PYTHON))Scripts/rst2html.py
+  else
+   VBOX_RST2HTML := rst2html.py
+  endif
+ endif
+ if1of ($(KBUILD_HOST), win)
+  VBOX_RST2HTML := $(VBOX_BLD_PYTHON) $(VBOX_RST2HTML)
+ endif
+endif
+
+GENERATED_FILES = \
+	AutomaticTestingRevamp.html \
+	VBoxValidationKitReadMe.html \
+	VBoxAudioValidationKitReadMe.html \
+	TestBoxImaging.html
+
+all: $(GENERATED_FILES)
+
+$(foreach html,$(GENERATED_FILES) \
+,$(eval $(html): $(basename $(html)).txt ; $$(REDIRECT) -E LC_ALL=C -- $$(VBOX_RST2HTML) --no-generator $$< $$@))
+
+$(foreach html,$(GENERATED_FILES), $(eval $(basename $(html)).o:: $(html)))  # editor compile aliases
+
+clean:
+	kmk_builtin_rm -f -- $(GENERATED_FILES)

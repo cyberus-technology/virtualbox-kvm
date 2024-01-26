@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi"
+         xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+<?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+    <CustomAction Id="ca_InstallNetLwf" BinaryKey="VBoxInstallHelper" DllEntry="InstallNetLwf" Execute="deferred" Return="check" Impersonate="no"/>
+    <CustomAction Id="ca_InstallNetLwfArgs" Property="ca_InstallNetLwf" Value="[msm_VBoxNetworkLwfFolder]" Execute="immediate"/>
+
+    <CustomAction Id="ca_RollbackInstallNetLwf" BinaryKey="VBoxInstallHelper" DllEntry="UninstallNetLwf" Execute="rollback" Impersonate="no"/>
+    <CustomAction Id="ca_RollbackInstallNetLwfArgs" Property="ca_RollbackInstallNetLwf" Value="[msm_VBoxNetworkLwfFolder]" Execute="immediate"/>
+
+    <CustomAction Id="ca_UninstallNetLwf" BinaryKey="VBoxInstallHelper" DllEntry="UninstallNetLwf" Execute="deferred" Return="check" Impersonate="no"/>
+    <CustomAction Id="ca_UninstallNetLwfArgs" Property="ca_UninstallNetLwf" Value="[msm_VBoxNetworkLwfFolder]" Execute="immediate"/>
+
+    <CustomAction Id="ca_RollbackUninstallNetLwf" BinaryKey="VBoxInstallHelper" DllEntry="InstallNetLwf" Execute="rollback" Impersonate="no"/>
+    <CustomAction Id="ca_RollbackUninstallNetLwfArgs" Property="ca_RollbackUninstallNetLwf" Value="[msm_VBoxNetworkLwfFolder]" Execute="immediate"/>
+<?endif ?>
+
+</Include>

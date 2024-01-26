@@ -1,0 +1,166 @@
+/* $Id: bs3-cpu-state64-1.c64 $ */
+/** @file
+ * BS3Kit - bs3-cpu-state64-1, 64-bit C code.
+ */
+
+/*
+ * Copyright (C) 2007-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * The contents of this file may alternatively be used under the terms
+ * of the Common Development and Distribution License Version 1.0
+ * (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+ * in the VirtualBox distribution, in which case the provisions of the
+ * CDDL are applicable instead of those of the GPL.
+ *
+ * You may elect to license modified versions of this file under the
+ * terms and conditions of either the GPL or the CDDL or both.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+ */
+
+
+/*********************************************************************************************************************************
+*   Header Files                                                                                                                 *
+*********************************************************************************************************************************/
+#include <bs3kit.h>
+#include <iprt/asm-amd64-x86.h>
+
+
+/*********************************************************************************************************************************
+*   Internal Functions                                                                                                           *
+*********************************************************************************************************************************/
+BS3_DECL(void) bs3CpuState64Worker_Nop(void);
+BS3_DECL(void) bs3CpuState64Worker_ModAll32BitGrps(void);
+BS3_DECL(void) bs3CpuState64Worker_ModAll16BitGrps(void);
+BS3_DECL(void) bs3CpuState64Worker_ModAll8BitGrps(void);
+BS3_DECL(void) bs3CpuState64Worker_ModCr2(void);
+BS3_DECL(void) bs3CpuState64Worker(PFNBS3NEAR pfnWorker);
+
+
+/*********************************************************************************************************************************
+*   Global Variables                                                                                                             *
+*********************************************************************************************************************************/
+extern BS3REGCTX        g_bs3CpuState64CtxToLoad;
+extern BS3REGCTX const  g_bs3CpuState64CtxSaved;
+
+
+static void bs3CpuState64InitCtx(uint64_t uTweak)
+{
+    Bs3RegCtxSave(&g_bs3CpuState64CtxToLoad);
+    g_bs3CpuState64CtxToLoad.rax.u = UINT64_C(0x8877f055443322e0) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.rcx.u = UINT64_C(0x8877f155443322e1) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.rdx.u = UINT64_C(0x8877f255443322e2) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.rbx.u = UINT64_C(0x8877f355443322e3) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.rsp.u = UINT64_C(0x8877f455443322e4) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.rbp.u = UINT64_C(0x8877f555443322e5) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.rsi.u = UINT64_C(0x8877f655443322e6) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.rdi.u = UINT64_C(0x8877f755443322e7) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.r8.u  = UINT64_C(0x8877f855443322e8) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.r9.u  = UINT64_C(0x8877f955443322e9) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.r10.u = UINT64_C(0x8877fa55443322ea) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.r11.u = UINT64_C(0x8877fb55443322eb) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.r12.u = UINT64_C(0x8877fc55443322ec) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.r13.u = UINT64_C(0x8877fd55443322ed) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.r14.u = UINT64_C(0x8877fe55443322ee) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.r15.u = UINT64_C(0x8877ff55443322ef) ^ uTweak;
+    g_bs3CpuState64CtxToLoad.cr2.u = UINT64_C(0x89abcdef76543210) ^ uTweak;
+    //Bs3TestPrintf("** Input:\n");
+    //Bs3RegCtxPrint(&g_bs3CpuState64CtxToLoad);
+}
+
+
+static void bs3CpuState64Comp(bool fModRbx)
+{
+    //Bs3TestPrintf("** Result:\n");
+    //Bs3RegCtxPrint(&g_bs3CpuState64CtxSaved);
+    g_bs3CpuState64CtxToLoad.rax         = g_bs3CpuState64CtxSaved.rax;
+    g_bs3CpuState64CtxToLoad.rip         = g_bs3CpuState64CtxSaved.rip;
+    g_bs3CpuState64CtxToLoad.rflags      = g_bs3CpuState64CtxSaved.rflags;
+    g_bs3CpuState64CtxToLoad.rsp         = g_bs3CpuState64CtxSaved.rsp;
+    if (!fModRbx)
+        g_bs3CpuState64CtxToLoad.rbx.au16[0] = g_bs3CpuState64CtxSaved.rbx.au16[0];
+    if (1)
+        g_bs3CpuState64CtxToLoad.ds      = g_bs3CpuState64CtxSaved.ds;
+
+    Bs3TestCheckRegCtxEx(&g_bs3CpuState64CtxSaved, &g_bs3CpuState64CtxToLoad, 0 /*cbPcAdjust*/, 0 /*cbSpAdjust*/,
+                         0 /*fExtraEfl*/, "lm64", 0 /*idTestStep*/);
+}
+
+BS3_DECL(void) Main_lm64()
+{
+    Bs3TestInit("bs3-cpu-state64-1");
+    /*
+     * Switch to 64-bit mode and back to rm.
+     */
+    Bs3TestSub("noop");
+    bs3CpuState64InitCtx(0);
+    bs3CpuState64Worker(bs3CpuState64Worker_Nop);
+    bs3CpuState64Comp(false /*fModRbx*/);
+
+    Bs3TestSub("Modify all 32-bit GPRs");
+    bs3CpuState64InitCtx(0);
+    bs3CpuState64Worker(bs3CpuState64Worker_ModAll32BitGrps);
+    g_bs3CpuState64CtxToLoad.rax.u = UINT64_C(0xc0ffee0d);
+    g_bs3CpuState64CtxToLoad.rcx.u = UINT64_C(0xc0ffee1d);
+    g_bs3CpuState64CtxToLoad.rdx.u = UINT64_C(0xc0ffee2d);
+    g_bs3CpuState64CtxToLoad.rbx.u = UINT64_C(0xc0ffee3d);
+    g_bs3CpuState64CtxToLoad.rsp.u = UINT64_C(0xc0ffee4d);
+    g_bs3CpuState64CtxToLoad.rbp.u = UINT64_C(0xc0ffee5d);
+    g_bs3CpuState64CtxToLoad.rsi.u = UINT64_C(0xc0ffee6d);
+    g_bs3CpuState64CtxToLoad.rdi.u = UINT64_C(0xc0ffee7d);
+    bs3CpuState64Comp(true /*fModRbx*/);
+
+    Bs3TestSub("Modify all 16-bit GPRs");
+    bs3CpuState64InitCtx(0);
+    bs3CpuState64Worker(bs3CpuState64Worker_ModAll16BitGrps);
+    g_bs3CpuState64CtxToLoad.rax.au16[0] = UINT16_C(0xfad0);
+    g_bs3CpuState64CtxToLoad.rcx.au16[0] = UINT16_C(0xfad1);
+    g_bs3CpuState64CtxToLoad.rdx.au16[0] = UINT16_C(0xfad2);
+    g_bs3CpuState64CtxToLoad.rbx.au16[0] = UINT16_C(0xfad3);
+    g_bs3CpuState64CtxToLoad.rsp.au16[0] = UINT16_C(0xfad4);
+    g_bs3CpuState64CtxToLoad.rbp.au16[0] = UINT16_C(0xfad5);
+    g_bs3CpuState64CtxToLoad.rsi.au16[0] = UINT16_C(0xfad6);
+    g_bs3CpuState64CtxToLoad.rdi.au16[0] = UINT16_C(0xfad7);
+    bs3CpuState64Comp(true /*fModRbx*/);
+
+    Bs3TestSub("Modify all 8-bit GPRs");
+    bs3CpuState64InitCtx(0);
+    bs3CpuState64Worker(bs3CpuState64Worker_ModAll8BitGrps);
+    g_bs3CpuState64CtxToLoad.rax.au8[0] = 0x10;
+    g_bs3CpuState64CtxToLoad.rax.au8[1] = 0x11;
+    g_bs3CpuState64CtxToLoad.rcx.au8[0] = 0x20;
+    g_bs3CpuState64CtxToLoad.rcx.au8[1] = 0x21;
+    g_bs3CpuState64CtxToLoad.rdx.au8[0] = 0x30;
+    g_bs3CpuState64CtxToLoad.rdx.au8[1] = 0x31;
+    g_bs3CpuState64CtxToLoad.rbx.au8[0] = 0x40;
+    g_bs3CpuState64CtxToLoad.rbx.au8[1] = 0x41;
+    bs3CpuState64Comp(true /*fModRbx*/);
+
+    Bs3TestSub("Modify CR2");
+    bs3CpuState64InitCtx(0);
+    bs3CpuState64Worker(bs3CpuState64Worker_ModCr2);
+    g_bs3CpuState64CtxToLoad.cr2.u = 0xf00dface;
+    bs3CpuState64Comp(true /*fModRbx*/);
+
+        /** @todo DRx */
+    Bs3TestTerm();
+    for (;;)
+        ASMHalt();
+}
+

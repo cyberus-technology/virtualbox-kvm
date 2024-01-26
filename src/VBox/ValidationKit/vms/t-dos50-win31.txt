@@ -1,0 +1,78 @@
+
+Test VM - t-dos50-win31 - DOS 5.0 and Windows 3.1
+=================================================
+
+Setup:
+ - Create a default DOS VM 't-dos50-win31'.
+ - Install DOS (single partition, etc).
+ - Install CDROM driver (e.g. OAK).
+ - Install Window 3.1 into C:\WINDOWS.
+ - Open the control panel and install sound blaster 1.5 drivers (port 220, irq 5,
+   dma 5/7).
+ - Open the control panel and make sure all system sounds have .WAV files associated
+   with them. Test that you can hear them.
+ - Copy DosSleep.exe, DosVmOff.com, and WinExit.exe onto the disk (C:\).
+ - Start the macro recorder (recorder.exe) in windows and record a macro file
+   that can be run automatically, make sure to associate it with Shift-F7 and
+   that it plays in normal time.
+   First C:\AbtExit.rec:
+     - Help->About in the program manager using keyboard (Alt-H, A).
+     - Dismiss using the enter key after a beat (no mouse).
+     - [Anything that might be useful+easy to test]
+     - File->Run in the program manager using keyboard (Alt-F, R)
+     - Type in "C:\WinExit.exe" and enter (no mouse).
+     - Save macro.
+ - Open the startup folder and create a program item with the following command line:
+     C:\WINDOWS\RECORDER.EXE -H +F7 C:\ABTREXIT.REC
+ - Create c:\test.bat with the following content:
+     :dos-stuff
+     echo TESTING CHKDSK C: >COM1
+     dossleep 1
+     C:\DOS\CHKDSK.EXE C:
+     if not errorlevel 0 goto fail
+
+     echo TESTING msd.exe /P NUL >COM1
+     dossleep 1
+     C:\WINDOWS\MSD.EXE /P NUL
+     if not errorlevel 0 goto fail
+
+     echo TESTING qbasic.exe /RUN C:\HELLO.BAS >COM1
+     dossleep 1
+     C:\DOS\QBASIC.EXE /RUN C:\HELLO.BAS
+     if not errorlevel 0 goto fail
+
+     :386mode
+     echo TESTING win /3 >COM1
+     dossleep 1
+     win /3
+     if not errorlevel 0 goto fail
+
+     :standardmode
+     echo TESTING win /s >COM1
+     dossleep 1
+     win /s
+     if not errorlevel 0 goto fail
+
+     :success
+     echo PASSED>COM1
+     goto done
+
+     :failed
+     echo FAILED>COM1
+     goto done
+
+     :done
+     echo powering off the VM in 5 seconds...
+     dossleep 1
+     dossleep 1
+     dossleep 1
+     dossleep 1
+     dossleep 1
+     dosvmoff
+ - Create C:\HELLO.BAS with the following content:
+     PRINT "Hello World!"
+     SYSTEM
+     END
+ - Edit c:\autoexec.bat appending "echo on" and "call c:\test.bat".
+ - Check that C:\config.sys contains himem.sys from windows and no emm386.
+

@@ -1,0 +1,118 @@
+;; @file
+; IPRT - Windows - AMD64 CPU Context Record for NASM/YASM.
+;
+
+;
+; Copyright (C) 2022-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___iprt_win_context_amd64_mac
+%define ___iprt_win_context_amd64_mac
+
+%include "iprt/asmdefs.mac"
+
+struc CONTEXT
+        .P1Home                 resq 1
+        .P2Home                 resq 1
+        .P3Home                 resq 1
+        .P4Home                 resq 1
+        .P5Home                 resq 1
+        .P6Home                 resq 1
+
+        .ContextFlags           resd 1
+        .MxCsr                  resd 1
+
+        .SegCs                  resw 1          ; CONTEXT_CONTROL
+        .SegDs                  resw 1
+        .SegEs                  resw 1
+        .SegFs                  resw 1
+        .SegGs                  resw 1
+        .SegSs                  resw 1          ; CONTEXT_CONTROL
+        .EFlags                 resd 1          ; CONTEXT_CONTROL
+
+        .Dr0                    resq 1          ; CONTEXT_DEBUG_REGISTERS
+        .Dr1                    resq 1          ; CONTEXT_DEBUG_REGISTERS
+        .Dr2                    resq 1          ; CONTEXT_DEBUG_REGISTERS
+        .Dr3                    resq 1          ; CONTEXT_DEBUG_REGISTERS
+        .Dr6                    resq 1          ; CONTEXT_DEBUG_REGISTERS
+        .Dr7                    resq 1          ; CONTEXT_DEBUG_REGISTERS
+
+        .Rax                    resq 1          ; CONTEXT_INTEGER
+        .Rcx                    resq 1          ; CONTEXT_INTEGER
+        .Rdx                    resq 1          ; CONTEXT_INTEGER
+        .Rbx                    resq 1          ; CONTEXT_INTEGER
+        .Rsp                    resq 1          ; CONTEXT_CONTROL
+        .Rbp                    resq 1          ; CONTEXT_INTEGER
+        .Rsi                    resq 1          ; CONTEXT_INTEGER
+        .Rdi                    resq 1          ; CONTEXT_INTEGER
+        .R8                     resq 1          ; CONTEXT_INTEGER
+        .R9                     resq 1          ; CONTEXT_INTEGER
+        .R10                    resq 1          ; CONTEXT_INTEGER
+        .R11                    resq 1          ; CONTEXT_INTEGER
+        .R12                    resq 1          ; CONTEXT_INTEGER
+        .R13                    resq 1          ; CONTEXT_INTEGER
+        .R14                    resq 1          ; CONTEXT_INTEGER
+        .R15                    resq 1          ; CONTEXT_INTEGER
+
+        .Rip                    resq 1          ; CONTEXT_CONTROL
+
+        .FltSave                resb 512        ; X86FXSTATE - CONTEXT_FLOATING_POINT = Xmm0-Xmm15
+
+        .VectorRegisters        resb (26 * 16)
+        .VectorControl          resq 1
+
+        .DebugControl           resq 1
+        .LastBranchToRip        resq 1
+        .LastBranchFromRip      resq 1
+        .LastExceptionToRip     resq 1
+        .LastExceptionFromRip   resq 1
+endstruc
+%define CONTEXT_SIZE            (0x4d0)
+AssertCompileSize(CONTEXT, CONTEXT_SIZE)
+
+%define CONTEXT_AMD64               (0x00100000)
+%define CONTEXT_CONTROL             (0x00000001 | CONTEXT_AMD64)
+%define CONTEXT_INTEGER             (0x00000002 | CONTEXT_AMD64)
+%define CONTEXT_SEGMENTS            (0x00000004 | CONTEXT_AMD64)
+%define CONTEXT_FLOATING_POINT      (0x00000008 | CONTEXT_AMD64)
+%define CONTEXT_DEBUG_REGISTERS     (0x00000010 | CONTEXT_AMD64)
+%define CONTEXT_FULL                (0x0000000b | CONTEXT_AMD64)
+%define CONTEXT_ALL                 (0x0000001f | CONTEXT_AMD64)
+
+%define CONTEXT_XSTATE              (0x00000040 | CONTEXT_AMD64)
+%define CONTEXT_KERNEL_CET          (0x00000080 | CONTEXT_AMD64)
+%define CONTEXT_EXCEPTION_ACTIVE    (0x08000000)
+%define CONTEXT_SERVICE_ACTIVE      (0x10000000)
+%define CONTEXT_UNWOUND_TO_CALL     (0x20000000)
+%define CONTEXT_EXCEPTION_REQUEST   (0x40000000)
+%define CONTEXT_EXCEPTION_REPORTING (0x80000000)
+
+%endif
+

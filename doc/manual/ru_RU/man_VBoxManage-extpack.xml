@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage extpack
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-extpack" lang="en">
+
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage extpack</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-extpack</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-extpack</refname>
+    <refpurpose>управление пакетами расширения</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-extpack-install"> <!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage extpack install</command>
+      <arg>--replace</arg>
+      <arg>--accept-license=<replaceable>sha256</replaceable></arg>
+      <arg choice="req"><replaceable>имя-tar-архива</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-extpack-uninstall">
+      <command>VBoxManage extpack uninstall</command>
+      <arg>--force</arg>
+      <arg choice="req"><replaceable>имя</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis id="synopsis-vboxmanage-extpack-cleanup">
+      <command>VBoxManage extpack cleanup</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+
+    <refsect2 id="vboxmanage-extpack-install">
+      <title>extpack install</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Устанавливает новый пакет расширения в систему. Эта команда завершится с ошибкой,
+        если более старая версия этого пакет уже установлена. Опция <option>--replace</option>
+        может быть использована для удаления пакетов более старой версии перед установкой
+        новой.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--replace</option></term><listitem><para>Удалить существующую версию пакета расширения.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--accept-license=<replaceable>sha256</replaceable></option></term>
+          <listitem>
+            <para>Принять текст лицензии с данным SHA-256 хеш значением.</para>
+            <para>VBoxManage отобразит SHA-256 значение при ручной установке.
+            Хэш, конечно может быть вычислен путем просмотра внутрь пакета
+            расширения и использования sha256sum или подобной на файле лицензии.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>имя-tar-архива</replaceable></term>
+          <listitem>
+            <para>Файл, содержащий устанавливаемый пакет расширения.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-extpack-uninstall">
+      <title>extpack uninstall</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Удаляет пакет расширения из системы. Подкоманда также завершится успешно, если
+        указанный пакет расширения отсутствует в системе. Можно использовать
+        <computeroutput>VBoxManage list extpacks</computeroutput> для просмотра имен
+        установленных пакетов расширений.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--force</option></term>
+          <listitem>
+            <para> Отменяет большинство отказов при удалении пакета расширений</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>имя</replaceable></term>
+          <listitem>
+            <para>Имя удаляемого пакета расширения.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2 id="vboxmanage-extpack-cleanup">
+      <title>extpack cleanup</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        Используется для удаления временных файлов и директорий, оставшихся после
+        предыдущих операций установки или удаления пакетов расширений.
+      </para>
+    </refsect2>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="EXTPACK_UNINSTALL,EXTPACK"/>
+    <para>
+          Как посмотреть список пакетов расширений:
+<screen>$ VBoxManage list extpacks
+Пакеты расширений: 1
+Пакет no. 0:   Oracle VM VirtualBox Extension Pack
+Версия:      4.1.12
+Ревизия:     77218
+Редакция:
+Описание:  USB 2.0 Host Controller, VirtualBox RDP, PXE ROM with E1000 support.
+VRDE модуль:  VBoxVRDP
+Годный:       да
+Почему не годен:</screen></para>
+
+    <para>Как удалить пакет расширения:
+<screen>$ VBoxManage extpack uninstall "Oracle VM VirtualBox Extension Pack"
+0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+Успешно удалено "Oracle VM VirtualBox Extension Pack".</screen></para>
+  </refsect1>
+
+</refentry>
+

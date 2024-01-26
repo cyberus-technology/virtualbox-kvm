@@ -1,0 +1,84 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - CPU Test Utilities.
+#
+
+#
+# Copyright (C) 2009-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+if1of ($(KBUILD_TARGET_ARCH), x86 amd64)
+ PROGRAMS += xmmsaving
+ xmmsaving_TEMPLATE = VBoxValidationKitR3
+ xmmsaving_SOURCES  = xmmsaving.cpp xmmsaving-asm.asm
+endif
+
+if1of ($(KBUILD_TARGET_ARCH), x86 amd64)
+ PROGRAMS += exceptionsR3
+ exceptionsR3_TEMPLATE = VBoxValidationKitR3
+ exceptionsR3_SOURCES  = exceptionsR3.cpp exceptionsR3-asm.asm
+endif
+
+PROGRAMS += cpu-numa
+cpu-numa_TEMPLATE = VBoxValidationKitR3
+cpu-numa_SOURCES  = cpu-numa.cpp
+
+PROGRAMS += cpu-alloc-all-mem
+cpu-alloc-all-mem_TEMPLATE = VBoxValidationKitR3
+cpu-alloc-all-mem_SOURCES  = cpu-alloc-all-mem.cpp
+
+if1of ($(KBUILD_TARGET_ARCH), x86 amd64)
+ ifneq ($(KBUILD_HOST),os2)
+  PROGRAMS += cidet-app
+ endif
+ cidet-app_TEMPLATE = VBoxValidationKitR3
+ cidet-app_SOURCES  = \
+ 	cidet-app.cpp \
+ 	cidet-appA.asm \
+ 	cidet-core.cpp \
+ 	cidet-instr-1.cpp
+ cidet-app_DEFS = IN_DIS
+ cidet-app_DEFS.linux = CIDET_REDUCED_CTX
+ cidet-app_LIBS = $(PATH_STAGE_LIB)/DisasmR3Static$(VBOX_SUFF_LIB)
+ cidet-app_VBOX_IMPORT_CHECKER.win.x86 = $(NO_SUCH_VARIABLE) # doesn't work on NT4 yet.
+endif
+
+if1of ($(KBUILD_TARGET_ARCH), x86 amd64)
+ PROGRAMS += rdtsc
+ rdtsc_TEMPLATE = VBoxValidationKitR3
+ rdtsc_SOURCES  = rdtsc.cpp rdtsc-asm.asm
+endif
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

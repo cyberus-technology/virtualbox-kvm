@@ -1,0 +1,68 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the shared DnD code for both, host and guest.
+#
+
+#
+# Copyright (C) 2014-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+ifdef VBOX_WITH_TESTCASES
+ include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+endif
+
+VBOX_PATH_HOSTSERVICES_COMMON = $(PATH_ROOT)/src/VBox/HostServices/common
+
+#
+# DnDGuestR3Lib - For tools on the guest side,
+# e.g. VBoxClient/VBoxTray.
+#
+ifdef VBOX_WITH_ADDITIONS
+ LIBRARIES += VBoxDnDGuestR3Lib
+endif
+VBoxDnDGuestR3Lib_TEMPLATE = VBoxGuestR3Lib
+VBoxDnDGuestR3Lib_SOURCES  = \
+	DnDDroppedFiles.cpp \
+	DnDMIME.cpp \
+	DnDPath.cpp \
+	DnDTransferObject.cpp \
+	DnDTransferList.cpp \
+	DnDUtils.cpp
+
+# LIBRARIES.win.amd64 += VBoxDnDGuestR3Lib-x86
+# VBoxDnDGuestR3Lib-x86_EXTENDS      := VBoxDnDGuestR3Lib
+# VBoxDnDGuestR3Lib-x86_BLD_TRG_ARCH := x86
+
+#
+# DnDHostR3Lib - For the host side, e.g. Main
+# and frontends.
+#
+LIBRARIES += VBoxDnDHostR3Lib
+VBoxDnDHostR3Lib_TEMPLATE   = VBoxR3Dll
+VBoxDnDHostR3Lib_SOURCES    = \
+	$(VBoxDnDGuestR3Lib_SOURCES) \
+	$(VBOX_PATH_HOSTSERVICES_COMMON)/client.cpp \
+	$(VBOX_PATH_HOSTSERVICES_COMMON)/message.cpp
+
+include $(FILE_KBUILD_SUB_FOOTER)

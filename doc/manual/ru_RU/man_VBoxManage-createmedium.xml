@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage createmedium
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-createmedium" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage createmedium</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-createmedium</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-createmedium</refname>
+    <refpurpose>создает новый носитель</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-createmedium">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage createmedium</command>
+      <group>
+        <arg choice="plain"><replaceable>disk</replaceable></arg>
+        <arg choice="plain"><replaceable>dvd</replaceable></arg>
+        <arg choice="plain"><replaceable>floppy</replaceable></arg>
+      </group>
+      <arg choice="req">--filename=<replaceable>имя-файла</replaceable></arg>
+      <group>
+        <arg choice="plain">--size=<replaceable>мегабайты</replaceable></arg>
+        <arg choice="plain">--sizebyte=<replaceable>байты</replaceable></arg>
+      </group>
+      <arg>--diffparent=<group choice="plain">
+          <arg choice="plain"><replaceable>UUID</replaceable></arg>
+          <arg choice="plain"><replaceable>имя-файла</replaceable></arg>
+        </group></arg>
+      <arg>--format=<group choice="plain">
+          <arg choice="plain"><replaceable>VDI</replaceable></arg>
+          <arg choice="plain"><replaceable>VMDK</replaceable></arg>
+          <arg choice="plain"><replaceable>VHD</replaceable></arg>
+        </group></arg>
+      <arg>--variant Standard,Fixed,Split2G,Stream,ESX,Formatted,RawDisk</arg>
+      <arg choice="plain" rep="repeat">--property
+          <replaceable>имя</replaceable>=<replaceable>значение</replaceable></arg>
+      <arg choice="plain" rep="repeat">--property-file
+          <replaceable>имя</replaceable>=<replaceable>/путь/к/файлу/со/значением</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage createmedium</command> создает новый
+      носитель, такой как файл образа диска.
+    </para>
+    <note>
+      <para>
+        Для совместимости с ранними версиями  &product-name; можно
+        использовать команды <command>createvdi</command> и
+        <command>createhd</command> вместо команды
+        <command>createmedium</command>.
+      </para>
+    </note>
+    <variablelist>
+      <varlistentry>
+        <term>disk | dvd | floppy</term>
+        <listitem><para>
+            Указывает тип носителя. Значение по умолчанию
+            <literal>disk</literal>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--filename=<replaceable>имя-файла</replaceable></option></term>
+        <listitem><para>
+            Указывает абсолютный путь к файлу в файловой системе хоста.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--size=<replaceable>мегабайты</replaceable></option></term>
+        <listitem><para>
+            Задает емкость образа в мегабайтах.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--sizebyte=<replaceable>байты</replaceable></option></term>
+        <listitem><para>
+            Задает емкость образа в байтах.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--diffparent=<replaceable>UUID</replaceable> | <replaceable>имя-файла</replaceable></option></term>
+        <listitem><para>
+            Указывает Универсальный Уникальный Идентификатор (UUID) или
+            абсолютный путь к родительскому файлу разностного образа в
+            файловой системе хоста.
+          </para><para>
+            Используйте этот файл для совместного использования
+            базового образа диска между ВМ.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--format=VDI | VMDK | VHD</option></term>
+        <listitem><para>
+            Задает формат выходного файла. Допустимые форматы
+            <literal>VDI</literal>, <literal>VMDK</literal> и
+            <literal>VHD</literal>. Формат по умолчанию
+            <literal>VDI</literal>.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--variant=Standard,Fixed,Split2G,Stream,ESX,Formatted,RawDisk</option></term>
+        <listitem><para>
+            Задает варианты формата файла для целевого носителя в
+            виде списка значений разделенных запятыми. Допустимы
+            следующие значения:
+          </para><itemizedlist>
+            <listitem><para>
+                <literal>Standard</literal> - это тип образа диска
+                по умолчанию. Динамически расширяющийся файл.
+              </para></listitem>
+            <listitem><para>
+                <literal>Fixed</literal> использует файл образа диска
+                фиксированного размера.
+              </para></listitem>
+            <listitem><para>
+                <literal>Split2G</literal> показывает, что образ диска
+                разделяется на сегменты по 2 ГБ. Это значение только
+                для VMDK.
+              </para></listitem>
+            <listitem><para>
+                <literal>Stream</literal> оптимизирует образ диска
+                для загрузки. Это значение только для VMDK.
+              </para></listitem>
+            <listitem><para>
+                <literal>ESX</literal> используется в некоторых
+                продуктах VMWare. Это значение только для VMDK.
+              </para></listitem>
+            <listitem><para>
+                <literal>Formatted</literal>
+              </para><para>
+                Только для образов флоппи. Автоматически форматирует
+                носитель.
+              </para></listitem>
+            <listitem><para>
+                <literal>RawDisk</literal> используется для создания
+                raw дисков. Это значение только для VMDK.
+              </para><para>
+
+              </para></listitem>
+          </itemizedlist><para>
+            Заметим, что не все комбинации вариантов допустимы. Указание
+            несовместимых значений вариантов в списке ведет к выдаче
+            сообщения об ошибке.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--property <replaceable>имя</replaceable>=<replaceable>значение</replaceable></option></term>
+        <listitem><para>
+            Задает требуемые параметры, зависящие от формата файла в
+            форме <literal>ключ=значение</literal>. Опционально.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--property-file <replaceable>name
+          </replaceable>=<replaceable>/path/to/file/with/value</replaceable></option></term>
+        <listitem><para>
+            Задает требуемые параметры, зависящие от формата файла в
+            форме <literal>key=файл/со/значением</literal>. Значение
+            берется из файла. Опционально.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда создает новый файл образа диска, называемый
+      <filename>disk01.vdi</filename>. Файл имеет размер 1024 мегабайта.
+    </para>
+<screen>$ VBoxManage createmedium --filename disk01.vdi --size 1024</screen>
+    <para>
+      Следующая команда создает новый файл образа флоппи диска, называемый
+      <filename>floppy01.vdi</filename>. Файл имеет размер 1 мегабайт.
+    </para>
+<screen>$ VBoxManage createmedium floppy --filename floppy01.img --size 1</screen>
+  </refsect1>
+</refentry>

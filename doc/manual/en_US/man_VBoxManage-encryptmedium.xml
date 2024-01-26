@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage encryptmedium
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-encryptmedium" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage encryptmedium</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-encryptmedium</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-encryptmedium</refname>
+    <refpurpose>manage a DEK-encrypted medium or image</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-encryptmedium">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage encryptmedium</command>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>filename</replaceable></arg>
+      </group>
+      <arg>--cipher=<replaceable>cipher-ID</replaceable></arg>
+      <arg>--newpassword=<replaceable>password</replaceable></arg>
+      <arg>--newpasswordid=<replaceable>password-ID</replaceable></arg>
+      <arg>--oldpassword=<replaceable>password</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage encryptmedium</command> command enables
+      you to create and manage a DEK-encrypted medium or image. You can
+      encrypt an image, decrypt an image, and change the encryption
+      password of an image. See
+      <xref linkend="diskencryption-encryption" />.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>uuid</replaceable> | <replaceable>filename</replaceable></term>
+        <listitem><para>
+            Specifies the Universally Unique Identifier (UUID) or the
+            absolute path name of the medium or image to encrypt.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--newpassword=<replaceable>password</replaceable></option></term>
+        <listitem><para>
+            Specifies the new encryption password.
+            <replaceable>password</replaceable> is either the absolute
+            path name of a password file on the host operating system or
+            <literal>-</literal>, which prompts you for the password.
+          </para><para>
+            You must use the <option>--newpasswordid</option> option
+            with this <option>--newpassword</option> option.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--oldpassword=<replaceable>password</replaceable></option></term>
+        <listitem><para>
+            Specifies the original encryption password.
+            <replaceable>password</replaceable> is either the absolute
+            path name of a password file on the host operating system or
+            <literal>-</literal>, which prompts you for the original
+            password.
+          </para><para>
+            This option enables you to gain access to an encrypted
+            medium or image to do the following:
+          </para><itemizedlist>
+            <listitem><para>
+                Decrypt an encrypted image by using this option by
+                itself.
+              </para></listitem>
+            <listitem><para>
+                Change the password of the encrypted image by using the
+                <option>--newpassword</option> option.
+              </para></listitem>
+            <listitem><para>
+                Change the encryption cipher of the image by using the
+                <option>--cipher</option> option.
+              </para></listitem>
+          </itemizedlist></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--cipher=<replaceable>cipher-ID</replaceable></option></term>
+        <listitem><para>
+            Specifies the cipher to use for encryption. Valid values are
+            <literal>AES-XTS128-PLAIN64</literal> or
+            <literal>AES-XTS256-PLAIN64</literal>.
+          </para><para>
+            This option enables you to set up or change encryption on
+            the medium or image.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--newpasswordid=<replaceable>password-ID</replaceable></option></term>
+        <listitem><para>
+            Specifies a new password identifier that is used for correct
+            identification when supplying multiple passwords during VM
+            startup.
+          </para><para>
+            If you use the same password and password identifier when
+            encrypting multiple images, you need to supply the password
+            only one time during VM startup.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      The following example shows how to encrypt the
+      <filename>ol7u4-1.vdi</filename> image by using the
+      <literal>AES-XTS128-PLAIN64</literal> cipher, specifying a
+      password identifier of <literal>1001</literal>, and using the
+      <filename>$HOME/pwfile</filename> password file:
+    </para>
+<screen>$ VBoxManage encryptmedium "$HOME/VirtualBox VMs/ol7u4/ol7u4-1.vdi" \
+  --cipher="AES-XTS128-PLAIN64" --newpasswordid="1001" --newpassword=$HOME/pwfile</screen>
+    <para>
+      The following example shows how to decrypt an encrypted image
+      called <filename>ol7u4-2.vdi</filename>:
+    </para>
+<screen>$ VBoxManage encryptmedium "$HOME/VirtualBox VMs/ol7u4/ol7u4-2.vdi" \
+  --oldpassword=-
+  Password: <replaceable>original-password</replaceable></screen>
+    <para>
+      The following example shows how to change the password for an
+      encrypted image called <filename>ol7u4-3.vdi</filename>. The
+      command reads the original password from the
+      <filename>$HOME/pwfile.orig</filename> file, reads the new
+      password from the <filename>$HOME/pwfile</filename> file, and
+      assigns a password identifier of <literal>1001</literal>.
+    </para>
+<screen>$ VBoxManage encryptmedium "$HOME/VirtualBox VMs/ol7u4/ol7u4-3.vdi" \
+  --oldpassword=$HOME/pwfile.orig --newpassword=$HOME/pwfile --newpasswordid="1001"</screen>
+  </refsect1>
+</refentry>

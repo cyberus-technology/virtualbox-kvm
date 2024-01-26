@@ -1,0 +1,2313 @@
+; $Id: bootsector2-common-init-code.mac $
+;; @file
+; Common bootsector code init.
+;
+; In addition to initialize the stack at %7bf0 it loads the first 512KB of the
+; floppy image at %7c00.  The control is handed over with interrupts disabled
+; to a 'main' function defined by the includer.
+;
+; The following defines controls the mode we call main in:
+;       - BS2_INIT_RM (default)
+;       - BS2_INIT_PE32
+;       - BS2_INIT_PP32
+;       - BS2_INIT_PAE32
+;       - BS2_INIT_LM64
+;
+; The following defines controls code inclusion:
+;       - BS2_INC_RM
+;       - BS2_INC_PE
+;       - BS2_INC_PE16
+;       - BS2_INC_PE32
+;       - BS2_INC_PEV86
+;       - BS2_INC_PP
+;       - BS2_INC_PP16
+;       - BS2_INC_PP32
+;       - BS2_INC_PPV86
+;       - BS2_INC_PAE
+;       - BS2_INC_PAE16
+;       - BS2_INC_PAE32
+;       - BS2_INC_PAEV86
+;       - BS2_INC_LM
+;       - BS2_INC_LM16
+;       - BS2_INC_LM32
+;       - BS2_INC_LM64
+;       - BS2_INC_CMN_R86
+;       - BS2_INC_CMN_V86
+;       - BS2_INC_CMN_P16
+;       - BS2_INC_CMN_P32
+;       - BS2_INC_CMN_P64
+;       - BS2_WITH_TRAPS
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+; map files should include symbols and everything.
+[map all]
+
+;*******************************************************************************
+;*      Header Files                                                           *
+;*******************************************************************************
+%include "bootsector2-structures.mac"
+%include "bootsector2-common-macros-1.mac"
+%include "VBox/bios.mac"
+
+
+;*******************************************************************************
+;*      Defined Constants And Macros                                           *
+;*******************************************************************************
+;; @name Static Memory Allocation
+; @{
+;; The boot sector load address.
+%define BS2_ADDR                07c00h
+;; The stack is located before the code (and will overflow into the interrupt
+; table and other essential system data).
+%define STACK_ADDR              (BS2_ADDR - 256)
+
+%ifdef BS2_WITH_TRAPS
+;; The address of the ring-0 stack in bs2Tss32BitDf.
+%define BS2_DF_R0_STACK_ADDR    06800h
+;; The address of the ring-0 stack in TSSxx.
+%define BS2_R0_STACK_ADDR       06000h
+;; The address of the ring-1 stack in TSSxx.
+%define BS2_R1_STACK_ADDR       05000h
+;; The address of the ring-2 stack in TSSxx.
+%define BS2_R2_STACK_ADDR       04800h
+%endif ; BS2_WITH_TRAPS
+
+;;
+; Where we save the boot registers during init.
+%define BS2_REG_SAVE_ADDR       06000h
+
+;; The start of the memory area used for paging, stacks and so forth.
+%define BS2_PXX_BASE            080000h
+
+;; The page map level 4 address (all entries point to BS2_LM_PDP_ADDR).
+%define BS2_LM_PML4_ADDR        080000h
+;; The long mode page directory pointer table address.
+%define BS2_LM_PDP_ADDR         081000h
+;; The PAE page directory pointer table address.
+%define BS2_PAE_PDP_ADDR        082000h
+;; The address of the 4 PAE page directories.  Also used by long mode.
+%define BS2_PAE_PD_ADDR         083000h
+;; The address of the 32-bit page directory.
+%define BS2_32B_PD_ADDR         087000h
+;; User page table #0.
+%define BS2_USER_PX_0_ADDR      088000h
+;; User page table #1.
+%define BS2_USER_PX_1_ADDR      089000h
+;; User page table #2.
+%define BS2_USER_PX_2_ADDR      08a000h
+;; User page table #3.
+%define BS2_USER_PX_3_ADDR      08b000h
+;; User page table #4.
+%define BS2_USER_PX_4_ADDR      08c000h
+;; User page table #5.
+%define BS2_USER_PX_5_ADDR      08d000h
+;; User page table #6.
+%define BS2_USER_PX_6_ADDR      08e000h
+;; User page table #7.
+%define BS2_USER_PX_7_ADDR      08f000h
+;; The selector to use when accessing the PDP and PD from real mode.
+%define BS2_PXX_SEL             08000h
+;; Converts a BS2_P*_ADDR into a BS2_PXX_SEL selector offset.
+%define BS2_PXX_OFF(Addr)       ( (Addr) - (BS2_PXX_SEL * 16) )
+
+;; The base address in the default address spaces of the range where we are
+; free to muck about as much as we like.  (This is a virtual address.)
+%define BS2_MUCK_ABOUT_BASE     000400000h
+
+; We have some free space here 090000h...09a000h (stacks moved)
+
+;; The address of the LDT.
+%define BS2_LDT_BASE            09b000h
+;; The size of the LDT in bytes.
+%define BS2_LDT_SIZE            001fffh
+
+;; The start of the memory area used for paging, stacks and so forth.
+%define BS2_PXX_LAST            09ffffh
+;; @}
+
+
+;;
+; @name Group of 32-bit, 16-bit and 64-bit selectors for one ring.
+; @{
+%define BS2_SEL_GRP_CS32            00h
+%define BS2_SEL_GRP_DS32            08h
+%define BS2_SEL_GRP_SS32            10h
+%define BS2_SEL_GRP_CS16            18h
+%define BS2_SEL_GRP_DS16            20h
+%define BS2_SEL_GRP_SS16            28h
+%define BS2_SEL_GRP_CS64            30h
+%define BS2_SEL_GRP_DS64            38h
+%define BS2_SEL_GRP_SS64            38h
+%define BS2_SEL_GRP_SIZE            40h
+;; @}
+
+
+;; Move to program.
+%ifndef BS2_WITHOUT_RAW_MODE
+ %define BS2_WITH_RAW_MODE
+%endif
+
+; Implicit code inclusion based on the init mode.
+%ifdef BS2_INIT_PE32
+ %define BS2_INC_PE32
+%elifdef BS2_INIT_PP32
+ %define BS2_INC_PP32
+%elifdef BS2_INIT_PAE32
+ %define BS2_INC_PAE32
+%elifdef BS2_INIT_LM64
+ %define BS2_INC_LM64
+%else
+ %define BS2_INIT_RM                    ; the default
+ %define BS2_INC_RM
+%endif
+
+; Aliases.
+%ifdef BS2_INC_PE
+ %define BS2_INC_PE16
+ %define BS2_INC_PE32
+ %define BS2_INC_PEV86
+%endif
+%ifdef BS2_INC_PP
+ %define BS2_INC_PP16
+ %define BS2_INC_PP32
+ %define BS2_INC_PPV86
+%endif
+%ifdef BS2_INC_PAE
+ %define BS2_INC_PAE16
+ %define BS2_INC_PAE32
+ %define BS2_INC_PAEV86
+%endif
+%ifdef BS2_INC_LM
+ %define BS2_INC_LM16
+ %define BS2_INC_LM32
+ %define BS2_INC_LM64
+%endif
+
+; Common code.
+%ifdef BS2_INC_RM
+ %define BS2_INC_CMN_R86
+%endif
+%ifdef BS2_INC_PE16
+ %define BS2_INC_CMN_P16
+ %define BS2_INC_CMN_PE
+ %define BS2_INC_CMN_PM
+%endif
+%ifdef BS2_INC_PE32
+ %define BS2_INC_CMN_P32
+ %define BS2_INC_CMN_PE
+ %define BS2_INC_CMN_PM
+%endif
+%ifdef BS2_INC_PEV86
+ %define BS2_INC_CMN_R86
+ %define BS2_INC_CMN_V86
+ %define BS2_INC_CMN_PE
+ %define BS2_INC_CMN_PM
+%endif
+%ifdef BS2_INC_PP16
+ %define BS2_INC_CMN_P16
+ %define BS2_INC_CMN_PP
+ %define BS2_INC_CMN_PM
+%endif
+%ifdef BS2_INC_PP32
+ %define BS2_INC_CMN_P32
+ %define BS2_INC_CMN_PP
+ %define BS2_INC_CMN_PM
+%endif
+%ifdef BS2_INC_PPV86
+ %define BS2_INC_CMN_R86
+ %define BS2_INC_CMN_V86
+ %define BS2_INC_CMN_PP
+ %define BS2_INC_CMN_PM
+%endif
+%ifdef BS2_INC_PAE16
+ %define BS2_INC_CMN_P16
+ %define BS2_INC_CMN_PAE
+ %define BS2_INC_CMN_PM
+ %define BS2_INC_CMN_PAE_LM
+%endif
+%ifdef BS2_INC_PAE32
+ %define BS2_INC_CMN_P32
+ %define BS2_INC_CMN_PAE
+ %define BS2_INC_CMN_PM
+ %define BS2_INC_CMN_PAE_LM
+%endif
+%ifdef BS2_INC_PAEV86
+ %define BS2_INC_CMN_R86
+ %define BS2_INC_CMN_V86
+ %define BS2_INC_CMN_PAE
+ %define BS2_INC_CMN_PM
+ %define BS2_INC_CMN_PAE_LM
+%endif
+%ifdef BS2_INC_LM16
+ %define BS2_INC_CMN_P16
+ %define BS2_INC_CMN_LM
+ %define BS2_INC_CMN_PAE_LM
+%endif
+%ifdef BS2_INC_LM32
+ %define BS2_INC_CMN_P32
+ %define BS2_INC_CMN_LM
+ %define BS2_INC_CMN_PAE_LM
+%endif
+%ifdef BS2_INC_LM64
+ %define BS2_INC_CMN_LM64
+ %define BS2_INC_CMN_LM
+ %define BS2_INC_CMN_PAE_LM
+%endif
+
+
+;
+; Misc defines.
+;
+;; The offset of the TSS32.CR3 field.
+%define BS2_TSS32_CR3_OFF       01ch
+
+
+;*******************************************************************************
+;*      Structures and Typedefs                                                *
+;*******************************************************************************
+
+
+;
+; Start with a jump just to follow the convention.
+; Also declare all segments/sections to establish them and their order.
+;
+        ORG BS2_ADDR
+
+section .text                                                   valign=16  align=16     progbits
+section .data       vfollows=.text          follows=.text       valign=16  align=16     progbits
+section .texthigh   vfollows=.data          follows=.data       valign=16  align=16     progbits
+section .traprecs   vfollows=.texthigh      follows=.texthigh   valign=8   align=8      progbits
+section .end        vfollows=.traprecs      follows=.traprecs   valign=512 align=512    progbits
+
+%define BEGINCODELOW    section .text     ;;< For 16-bit code.
+%define BEGINCODEHIGH   section .texthigh ;;< For 32-bit and 64-bit code.
+%define BEGINEND        section .end      ;;< For aligning image to 512 bytes.
+
+BEGINCODELOW
+BITS 16
+start:
+        jmp short bs2InitCode
+        nop
+        nop                             ; alignment
+
+;
+; Abuse the bios parameter block area for data storage.
+;
+gdtr:
+        dw  bs2GdtEnd - bs2Gdt - 1          ; limit 15:00
+        dw  bs2Gdt                          ; base  15:00
+        db  0                               ; base  23:16
+        db  0                               ; unused
+
+idtr_null:
+        dw  0                               ; limit 15:00
+        dw  bs2Gdt                          ; base  15:00
+        db  0                               ; base  23:16
+        db  0                               ; unused
+
+%ifdef BS2_WITH_TRAPS
+ %ifdef BS2_INC_CMN_PM
+idtr_32bit:
+        dw  bs2Idt32bitEnd - bs2Idt32bit -1 ; limit 15:00
+        dw  bs2Idt32bit                     ; base  15:00
+        db  0                               ; base  23:16
+        db  0                               ; unused
+ %endif
+
+ %ifdef BS2_INC_CMN_LM
+idtr_64bit:
+        dw  bs2Idt64bitEnd - bs2Idt64bit -1 ; limit 15:00
+        dw  bs2Idt64bit                     ; base  15:00
+        db  0                               ; base  23:16
+        db  0                               ; unused
+ %endif
+
+%elifdef BS2_WITH_RAW_MODE
+idtr_dummy_32bit:
+        dw  bs2DummyIdt32bitEnd - bs2DummyIdt32bit -1   ; limit 15:00
+        dw  bs2DummyIdt32bit                            ; base  15:00
+        db  0                                           ; base  23:16
+        db  0                                           ; unused
+%endif
+
+idtr_real_mode:
+        dw  01ffh                           ; limit 15:00
+        dw  0                               ; base  15:00
+        db  0                               ; base  23:16
+        db  0                               ; unused
+
+g_achHex:
+        db '0123456789abcdef', 0
+
+g_bBootDrv:
+        db  80h                             ; Not in the official BPB location, but whatever.
+g_fCpuIntel:
+        db 0
+g_fCpuAmd:
+        db 0
+
+bs2BpbPadding:
+        times 3dh - (bs2BpbPadding - start) db 0
+
+
+;
+; Where to real init code starts.
+;
+bs2InitCode:
+        cli
+
+%ifdef BS2_INIT_SAVE_REGS
+        ; save the registers if we've been asked to do so.
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.rax], eax
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.rsp], esp
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.rbp], ebp
+        mov     ax, ss
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.ss], ax
+        mov     ax, ds
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.ds], ax
+        mov     ax, es
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.es], ax
+        mov     ax, fs
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.fs], ax
+        mov     ax, gs
+%endif
+
+        ; set up the segment reisters and stack.
+        xor     eax, eax
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+        mov     ss, ax
+        mov     esp, STACK_ADDR
+        mov     [esp],  eax             ; clear the first 16 bytes
+        mov     [esp + 04h],  eax
+        mov     [esp + 08h],  eax       ; fake rbp.
+        mov     [esp + 0ch],  eax       ; fake ebp and bp
+        mov     ebp, esp
+
+%ifdef BS2_INIT_SAVE_REGS
+        ; Save more registers now that ds is known and the stack is usable.
+        pushfd
+        pop     eax
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.rflags], eax
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.rbx], ebx
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.rcx], ecx
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.rdx], edx
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.rsi], esi
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.rdi], edi
+%endif
+
+        ; Make sure caching is enabled and alignment is off.
+        mov     eax, cr0
+%ifdef BS2_INIT_SAVE_REGS
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.cr0], eax
+%endif
+        and     eax, ~(X86_CR0_NW | X86_CR0_CD | X86_CR0_AM)
+        mov     cr0, eax
+
+        ; Load all the code.
+        call    bs2InitLoadImage
+        mov     [g_bBootDrv], dl
+
+        ; Initialize the data structures for the included modes requiring this.
+%ifdef BS2_INC_CMN_PP
+        call    bs2InitPagedProtMode
+%endif
+%ifdef BS2_INC_CMN_PAE
+        call    bs2InitPaeProtMode
+%endif
+%ifdef BS2_INC_CMN_LM
+        call    bs2InitLongMode
+%endif
+
+        ; Entered the desired mode.
+%ifdef BS2_INIT_PE32
+        call    Bs2EnterMode_rm_pe32
+BITS 32
+%endif
+%ifdef BS2_INIT_PP32
+        call    Bs2EnterMode_rm_pp32
+BITS 32
+%endif
+%ifdef BS2_INIT_PAE32
+        call    Bs2EnterMode_rm_pae32
+BITS 32
+%endif
+%ifdef BS2_INIT_LM64
+        call    Bs2EnterMode_rm_lm64
+BITS 64
+%endif
+%ifdef BS2_INIT_RM
+        call    SetCpuModeGlobals_rm
+%endif
+
+%ifdef BS2_WITH_RAW_MODE
+        ;
+        ; Mask interrupts and then set IF.
+        ;
+        mov     al, 0ffh
+        out     021h, al
+        out     0a1h, al
+        sti
+%endif
+
+        jmp     bs2DoneInit
+
+
+;;
+; Loads the image off the floppy.
+;
+; This uses the the_end label to figure out the length.  For this to work
+; cleanly the label must be aligned on a sector boundrary.  Use BS2_PAD_IMAGE
+; to make sure this is the case.
+;
+; Clobbers everything except ebp and esp.  Panics on failure.
+;
+; @param    dl          The boot drive number (from BIOS).
+; @uses     ax, cx, bx, esi, di
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2InitLoadImage
+        push    bp
+        mov     bp, sp
+        push    es
+%define bSavedDiskNo    byte [bp - 04h]
+        push    dx
+%define bMaxSector      byte [bp - 06h]
+        push    0
+%define bMaxHead        byte [bp - 08h]
+        push    0
+%define bMaxCylinder    byte [bp - 0ah]
+        push    0
+
+        ;
+        ; Try figure the geometry.
+        ;
+        mov     ah, 08h
+        int     13h
+        jc      .failure
+        mov     bMaxSector, cl
+        mov     bMaxHead, dh
+        mov     bMaxCylinder, ch
+        mov     dl, bSavedDiskNo
+
+        ;
+        ; Reload all the sectors one at a time (avoids problems).
+        ;
+        lea     esi, [dword the_end]
+        sub     esi, start
+        shr     esi, 9                  ; si = number of sectors to load.
+        mov     di, BS2_ADDR / 16       ; The current load segment.
+        mov     cx, 0001h               ; ch/cylinder=0 (0-based); cl/sector=1 (1-based)
+        xor     dh, dh                  ; dh/head=0
+.the_load_loop:
+        xor     bx, bx
+        mov     es, di                  ; es:bx -> buffer
+        mov     ax, 0201h               ; al=1 sector; ah=read function
+        int     13h
+        jc      .failure
+
+        ; advance to the next sector/head/cylinder.
+        inc     cl
+        cmp     cl, bMaxSector
+        jbe     .adv_addr
+
+        mov     cl, 1
+        inc     dh
+        cmp     dh, bMaxHead
+        jbe     .adv_addr
+
+        mov     dh, 0
+        inc     ch
+
+.adv_addr:
+        add     di, 512 / 16
+        dec     si
+        jnz     .the_load_loop
+
+        add     sp, 3*2
+        pop     dx
+        pop     es
+        leave
+        ret
+
+        ;
+        ; Something went wrong, display a message.
+        ;
+.failure:
+        pusha
+
+        ; print message
+        mov     si, .s_szErrMsg
+        mov     ah, 0eh
+        xor     bx, bx
+.failure_next_char:
+        lodsb
+        int     10h
+        cmp     si, .s_szErrMsgEnd
+        jb      .failure_next_char
+
+        ; format the error number.
+        movzx   bx, byte [bp - 2 - 1]    ; read the ah of the pusha frame
+        shr     bl, 4
+        mov     al, [bx + g_achHex]
+        int     10h
+
+        movzx   bx, byte [bp - 2 - 1]    ; read the ah of the pusha frame
+        and     bl, 0fh
+        mov     al, [bx + g_achHex]
+        int     10h
+
+        ; panic
+        popa
+        call    Bs2Panic
+.s_szErrMsg:
+        db 13, 10, 'read error: '
+.s_szErrMsgEnd:
+ENDPROC bs2InitLoadImage
+
+;; Pads the image so bs2InitLoadImage can load it without trouble.
+%macro BS2_PAD_IMAGE 0
+bs2PadImageLabel:
+;        times ( (512*18*2) - ( (bs2PadImageLabel - start) % (512*18*2) ) ) db 0        ; track aligned size.
+        times ( 512 - ( (bs2PadImageLabel - start) % 512 ) ) db 0                       ; sector aligned size.
+;        times ( 10000h - BS2_ADDR - (bs2PadImageLabel - start) ) db 0                   ; full segment 0 size.
+%endmacro
+
+
+;;
+; Shutdown routine that will work in real and protected  mode, providing
+; that SS is valid that we can load it into DS.
+;
+; Does not return.
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2Shutdown
+        cli
+        mov     bl, 64
+        mov     ax, ss
+        mov     ds, ax
+        mov     dx, VBOX_BIOS_SHUTDOWN_PORT
+        mov     ax, VBOX_BIOS_OLD_SHUTDOWN_PORT
+.retry:
+        mov     ecx, 8
+        mov     esi, .s_szShutdown
+        rep outsb
+        xchg    dx, ax                  ; alternate between the new (VBox) and old (Bochs) ports.
+        dec     bl
+        jnz     .retry
+        ; Shutdown failed!
+        jmp     Bs2Panic
+.s_szShutdown:
+        db      'Shutdown', 0
+ENDPROC Bs2Shutdown
+
+
+;;
+; Panic routine for real mode.
+;
+; Does not return.
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2Panic
+        cli
+.hlt_again:
+        hlt
+        jmp     .hlt_again
+ENDPROC Bs2Panic
+
+
+;
+; Padd the remainder of the sector with zeros and
+; end it with the dos signature.
+;
+bs2Padding:
+        times 510 - (bs2Padding - start) db 0
+        db 055h, 0aah
+
+
+;
+; The GDT (X86DESCGENERIC).
+;
+align 8, db 0
+bs2Gdt:
+        dw  00000h, 00000h, 00000h, 00000h      ; null selector
+%define BS2_SEL_R0_BASE                         08h
+%define BS2_SEL_CS32                            08h
+        dw  0ffffh, 00000h, 09b00h, 000cfh      ; 32-bit flat code  segment.
+%define BS2_SEL_DS32                            10h
+        dw  0ffffh, 00000h, 09300h, 000cfh      ; 32-bit flat data  segment.
+%define BS2_SEL_SS32                            18h
+        dw  0ffffh, 00000h, 09300h, 000cfh      ; 32-bit flat stack segment.
+%define BS2_SEL_CS16                            20h
+        dw  0ffffh, 00000h, 09b00h, 00000h      ; 16-bit code segment with base 0.
+%define BS2_SEL_DS16                            28h
+        dw  0ffffh, 00000h, 09300h, 00000h      ; 16-bit data segment with base 0.
+%define BS2_SEL_SS16                            30h
+        dw  0ffffh, 00000h, 09300h, 00000h      ; 16-bit stack segment with base 0.
+%define BS2_SEL_CS64                            38h
+        dw  0ffffh, 00000h, 09a00h, 000afh      ; 64-bit code segment.
+%define BS2_SEL_DS64                            40h
+%define BS2_SEL_SS64                            40h
+        dw  0ffffh, 00000h, 09300h, 000afh      ; 64-bit stack and data segment.
+        dw  00000h, 00000h, 00000h, 00000h      ; Unused
+%define BS2_SEL_MMIO16                          50h
+%define BS2_SEL_MMIO16_BASE                     00df000h
+        dw  0ffffh, 0f000h, 0930dh, 00000h      ; 16-bit VMMDev MMIO segment with base 0df000h.
+        dw  00000h, 00000h, 00000h, 00000h      ; Unused
+%define BS2_SEL_LDT                             60h ; LDT usage requires manual LLDT and setting up.
+        dw  BS2_LDT_SIZE, BS2_LDT_BASE & 0xffff, 08200h | ((BS2_LDT_BASE >> 16) & 0xff), 00000h
+        dw  00000h, 00000h, 00000h, 00000h      ; zero for 64-bit mode.
+%define BS2_SEL_CS16_EO                         70h
+        dw  0fffeh, 00000h, 09800h, 00000h      ; 16-bit code segment with base 0, not accessed, execute only, short limit.
+        dw  00000h, 00000h, 00000h, 00000h      ; unused.
+%ifdef BS2_WITH_TRAPS
+ %ifdef BS2_INC_CMN_PM
+  %define BS2_SEL_TSS32                         80h
+        dw  (bs2Tss32BitEnd - bs2Tss32Bit) - 1  ; 32-bit TSS.
+        dw  bs2Tss32Bit
+        db  0
+        db  X86_SEL_TYPE_SYS_386_TSS_AVAIL | 0x80
+        dw  0
+  %define BS2_SEL_TSS32_DF                      88h
+        dw  (bs2Tss32BitDfEnd - bs2Tss32BitDf) - 1; 32-bit TSS, double fault.
+        dw  bs2Tss32BitDf
+        db  0
+        db  X86_SEL_TYPE_SYS_386_TSS_AVAIL | 0x80
+        dw  0
+ %else
+        dw  00000h, 00000h, 00000h, 00000h
+        dw  00000h, 00000h, 00000h, 00000h
+ %endif
+ %ifdef BS2_INC_CMN_LM
+  %define BS2_SEL_TSS64                         90h
+        dw  (bs2Tss64BitEnd - bs2Tss64Bit) - 1  ; 32-bit TSS.
+        dw  bs2Tss64Bit
+        db  0
+        db  AMD64_SEL_TYPE_SYS_TSS_AVAIL | 0x80
+        dw  0
+        dw  00000h, 00000h, 00000h, 00000h      ; 2nd half of the 64-bit selector (not necessary).
+ %else
+        dw  00000h, 00000h, 00000h, 00000h
+        dw  00000h, 00000h, 00000h, 00000h
+ %endif
+%endif
+        ; Ring-1 selectors.
+%define BS2_SEL_R1_BASE                         0a0h
+%define BS2_SEL_R1_CS32                         0a0h
+        dw  0ffffh, 00000h, 0bb00h, 000cfh      ; Ring-1 32-bit flat code  segment.
+%define BS2_SEL_R1_DS32                         0a8h
+        dw  0ffffh, 00000h, 0b300h, 000cfh      ; Ring-1 32-bit flat data  segment.
+%define BS2_SEL_R1_SS32                         0b0h
+        dw  0ffffh, 00000h, 0b300h, 000cfh      ; Ring-1 32-bit flat stack segment.
+%define BS2_SEL_R1_CS16                         0b8h
+        dw  0ffffh, 00000h, 0bb00h, 00000h      ; Ring-1 16-bit code segment with base 0.
+%define BS2_SEL_R1_DS16                         0c0h
+        dw  0ffffh, 00000h, 0b300h, 00000h      ; Ring-1 16-bit data segment with base 0.
+%define BS2_SEL_R1_SS16                         0c8h
+        dw  0ffffh, 00000h, 0b300h, 00000h      ; Ring-1 16-bit stack segment with base 0.
+%define BS2_SEL_R1_CS64                         0d0h
+        dw  0ffffh, 00000h, 0ba00h, 000afh      ; Ring-1 64-bit code segment.
+%define BS2_SEL_R1_DS64                         0d8h
+%define BS2_SEL_R1_SS64                         0d8h
+        dw  0ffffh, 00000h, 0b300h, 000afh      ; Ring-1 64-bit stack and data segment.
+
+        ; Ring-2 selectors.
+%define BS2_SEL_R2_BASE                         0e0h
+%define BS2_SEL_R2_CS32                         0e0h
+        dw  0ffffh, 00000h, 0db00h, 000cfh      ; Ring-2 32-bit flat code  segment.
+%define BS2_SEL_R2_DS32                         0e8h
+        dw  0ffffh, 00000h, 0d300h, 000cfh      ; Ring-2 32-bit flat data  segment.
+%define BS2_SEL_R2_SS32                         0f0h
+        dw  0ffffh, 00000h, 0d300h, 000cfh      ; Ring-2 32-bit flat stack segment.
+%define BS2_SEL_R2_CS16                         0f8h
+        dw  0ffffh, 00000h, 0db00h, 00000h      ; Ring-2 16-bit code segment with base 0.
+%define BS2_SEL_R2_DS16                         0f0h
+        dw  0ffffh, 00000h, 0d300h, 00000h      ; Ring-2 16-bit data segment with base 0.
+%define BS2_SEL_R2_SS16                         108h
+        dw  0ffffh, 00000h, 0d300h, 00000h      ; Ring-2 16-bit stack segment with base 0.
+%define BS2_SEL_R2_CS64                         110h
+        dw  0ffffh, 00000h, 0da00h, 000afh      ; Ring-2 64-bit code segment.
+%define BS2_SEL_R2_DS64                         118h
+%define BS2_SEL_R2_SS64                         118h
+        dw  0ffffh, 00000h, 0d300h, 000afh      ; Ring-2 64-bit stack and data segment.
+
+        ; Ring-3 selectors.
+%define BS2_SEL_R3_BASE                         120h
+%define BS2_SEL_R3_CS32                         120h
+        dw  0ffffh, 00000h, 0fb00h, 000cfh      ; Ring-3 32-bit flat code  segment.
+%define BS2_SEL_R3_DS32                         128h
+        dw  0ffffh, 00000h, 0f300h, 000cfh      ; Ring-3 32-bit flat data  segment.
+%define BS2_SEL_R3_SS32                         130h
+        dw  0ffffh, 00000h, 0f300h, 000cfh      ; Ring-3 32-bit flat stack segment.
+%define BS2_SEL_R3_CS16                         138h
+        dw  0ffffh, 00000h, 0fb00h, 00000h      ; Ring-3 16-bit code segment with base 0.
+%define BS2_SEL_R3_DS16                         140h
+        dw  0ffffh, 00000h, 0f300h, 00000h      ; Ring-3 16-bit data segment with base 0.
+%define BS2_SEL_R3_SS16                         148h
+        dw  0ffffh, 00000h, 0f300h, 00000h      ; Ring-3 16-bit stack segment with base 0.
+%define BS2_SEL_R3_CS64                         150h
+        dw  0ffffh, 00000h, 0fa00h, 000afh      ; Ring-1 64-bit code segment.
+%define BS2_SEL_R3_DS64                         158h
+%define BS2_SEL_R3_SS64                         158h
+        dw  0ffffh, 00000h, 0f300h, 000afh      ; Ring-1 64-bit stack and data segment.
+
+        ; Here follows a bunch of spare GDT entries for (ab)use in testing.
+%define BS2_SEL_SPARE0                          160h
+bs2GdtSpare0:
+        dq 0
+%define BS2_SEL_SPARE1                          (BS2_SEL_SPARE0 + 08h)
+bs2GdtSpare1:
+        dq 0
+%define BS2_SEL_SPARE2                          (BS2_SEL_SPARE0 + 10h)
+bs2GdtSpare2:
+        dq 0
+%define BS2_SEL_SPARE3                          (BS2_SEL_SPARE0 + 18h)
+bs2GdtSpare3:
+        dq 0
+bs2GdtEnd:
+
+
+%ifndef BS2_WITH_TRAPS
+ %ifdef BS2_WITH_RAW_MODE
+;
+; Dummy 32-bit IDT for making CSAM happy.
+;
+align 16, db 0
+bs2DummyIdt32bit:
+        dw 0, 0, 0, 0
+        dw 0, 0, 0, 0
+        dw 0, 0, 0, 0
+        dw 0, 0, 0, 0
+bs2DummyIdt32bitEnd
+ %endif
+%endif
+
+
+;
+; Mode initialization routines.
+;
+
+%ifdef BS2_INC_CMN_PP
+;;
+; Initializes the paged protected mode structures during init.
+;
+; @uses     ebx, esi
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2InitPagedProtMode
+        push    ds
+
+        ;
+        ; Create a paging hierarchy
+        ;
+        mov     bx, BS2_PXX_SEL
+        mov     ds, bx
+        mov     ebx, BS2_PXX_OFF(BS2_32B_PD_ADDR)
+        xor     esi, esi                    ; physical address
+
+        ; The page directory.
+.pd_loop:
+        mov     dword [bx], esi
+        or      word [bx], X86_PDE4M_P | X86_PDE4M_RW | X86_PDE4M_PS | X86_PDE4M_US
+        add     esi, _4M
+        add     bx, 4
+        test    bx, 0fffh
+        jnz     .pd_loop
+
+%ifdef BS2_WITH_RAW_MODE
+        ;
+        ; Make sure there is some free space for the hypervisor near the top
+        ; of the address space (last 4MB is mapped).
+        ;
+        and     byte [bx - 08h], 0feh
+        and     byte [bx - 0ch], 0feh
+        and     byte [bx - 10h], 0feh
+        and     byte [bx - 14h], 0feh
+%endif
+
+        pop     ds
+        ret
+ENDPROC   bs2InitPagedProtMode
+%endif ; BS2_INC_CMN_PP
+
+
+%ifdef BS2_INC_CMN_PAE_LM
+;;
+; Initializes the PAE page directories.
+;
+; Assumes ds is set to BS2_PXX_SEL already and that edx is zero.
+;
+; @uses         ebx, esi
+; @internal
+;
+BEGINPROC bs2InitPaePageDirs
+        mov     esi, X86_PDE4M_P | X86_PDE4M_RW | X86_PDE4M_PS | X86_PDE4M_US
+        mov     ebx, BS2_PXX_OFF(BS2_PAE_PD_ADDR)
+.pd_loop:
+        mov     [bx], esi
+        mov     [bx + 4], edx
+        add     esi, _2M
+        add     bx, 8
+        test    bx, 0fffh
+        jnz     .pd_loop
+        cmp     bx, BS2_PXX_OFF(BS2_PAE_PD_ADDR + 4*_4K)
+        jne     .pd_loop
+
+%ifdef BS2_WITH_RAW_MODE
+        ;
+        ; Make sure there is some free space for the hypervisor near the top
+        ; of the address space (last 4MB is mapped).
+        ;
+        and     byte [bx - 10h], 0feh
+        and     byte [bx - 18h], 0feh
+        and     byte [bx - 20h], 0feh
+        and     byte [bx - 28h], 0feh
+%endif
+
+        ret
+ENDPROC   bs2InitPaePageDirs
+%endif ; BS2_INC_CMN_PAE_LM
+
+
+%ifdef BS2_INC_CMN_PAE
+;;
+; Initializes the PAE protected mode structures during init.
+;
+; @uses     edx, ebx, esi.
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2InitPaeProtMode
+        push    ds
+
+        mov     dx, BS2_PXX_SEL
+        mov     ds, dx
+        xor     edx, edx
+
+        ;
+        ; Join paths with long mode.
+        ;
+        call    bs2InitPaePageDirs
+
+        ;
+        ; Create the page directory pointer table.
+        ;
+        mov     ebx, BS2_PXX_OFF(BS2_PAE_PDP_ADDR)
+        mov     dword [bx],       (BS2_PAE_PD_ADDR        ) | X86_PDPE_P
+        mov     dword [bx + 04h], edx
+        mov     dword [bx + 08h], (BS2_PAE_PD_ADDR + 1000h) | X86_PDPE_P
+        mov     dword [bx + 0ch], edx
+        mov     dword [bx + 10h], (BS2_PAE_PD_ADDR + 2000h) | X86_PDPE_P
+        mov     dword [bx + 14h], edx
+        mov     dword [bx + 18h], (BS2_PAE_PD_ADDR + 3000h) | X86_PDPE_P
+        mov     dword [bx + 1ch], edx
+
+        pop     ds
+        ret
+ENDPROC   bs2InitPaeProtMode
+%endif ; BS2_INC_CMN_PAE
+
+
+%ifdef BS2_INC_CMN_LM
+;;
+; Initializes the long mode structures during init.
+;
+; @uses     edx, ebx, esi
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2InitLongMode
+        push    ds
+
+        mov     dx, BS2_PXX_SEL
+        mov     ds, dx
+        xor     edx, edx
+
+        ;
+        ; Join paths with the PAE code.
+        ;
+        call    bs2InitPaePageDirs
+
+        ;
+        ; Create the long mode page directory pointer table.
+        ;
+        mov     ebx, BS2_PXX_OFF(BS2_LM_PDP_ADDR)
+.pdptr_loop:
+        mov     dword [bx],       (BS2_PAE_PD_ADDR        ) | X86_PDPE_P | X86_PDPE_RW | X86_PDPE_US
+        mov     dword [bx + 04h], edx
+        mov     dword [bx + 08h], (BS2_PAE_PD_ADDR + 1000h) | X86_PDPE_P | X86_PDPE_RW | X86_PDPE_US
+        mov     dword [bx + 0ch], edx
+        mov     dword [bx + 10h], (BS2_PAE_PD_ADDR + 2000h) | X86_PDPE_P | X86_PDPE_RW | X86_PDPE_US
+        mov     dword [bx + 14h], edx
+        mov     dword [bx + 18h], (BS2_PAE_PD_ADDR + 3000h) | X86_PDPE_P | X86_PDPE_RW | X86_PDPE_US
+        mov     dword [bx + 1ch], edx
+        add     bx, 20h
+        test    bx, 0fffh
+        jnz     .pdptr_loop
+
+        ;
+        ; Set up the page map level 4 table, all entries mapping the same PDPTR.
+        ;
+        mov     ebx, BS2_PXX_OFF(BS2_LM_PML4_ADDR)
+.pml4_loop:
+        mov     dword [bx], BS2_LM_PDP_ADDR | X86_PML4E_P | X86_PML4E_RW | X86_PML4E_US
+        mov     dword [bx + 4], edx
+        add     bx, 8
+        test    bx, 0fffh
+        jnz     .pml4_loop
+
+        pop     ds
+        ret
+ENDPROC   bs2InitLongMode
+%endif ; BS2_INC_CMN_LM
+
+
+
+;
+; Routines for entering the different modes.
+;
+
+%ifdef BS2_INC_RM
+;;
+; Dummy.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_rm
+        ret
+ENDPROC Bs2EnterMode_rm_rm
+%endif ; BS2_INC_RM
+
+
+%ifdef BS2_INC_PE16
+;;
+; Enters unpaged protected mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 16-bit selectors.
+;           ebp and esp converted to 32/16-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_pe16
+        push    eax
+        pushfd
+        cli
+%ifndef BS2_NOINC_COMMON
+        push    word SetCpuModeGlobals_pe16
+%endif
+
+        ;
+        ; Switch to protected mode.
+        ;
+        xor     ax, ax
+        mov     ds, ax
+        lgdt    [gdtr]
+%ifdef BS2_WITH_TRAPS
+        lidt    [idtr_32bit]
+%elifdef BS2_WITH_RAW_MODE
+        lidt    [idtr_dummy_32bit]
+%else
+        lidt    [idtr_null]
+%endif
+
+        mov     eax, cr0
+        or      eax, X86_CR0_PE
+        and     eax, 0ffffffffh - X86_CR0_PG
+        mov     cr0, eax
+        jmp far BS2_SEL_CS16:bs2ProtModeCode16Start_p16
+ENDPROC   Bs2EnterMode_rm_pe16
+%endif ; BS2_INC_PE16
+
+
+%ifdef BS2_INC_PE32
+;;
+; Enters unpaged protected mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 32-bit selectors.
+;           ebp and esp converted to 32-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_pe32
+        push    word 0
+        push    eax
+        pushfd
+        cli
+%ifndef BS2_NOINC_COMMON
+        push    dword SetCpuModeGlobals_pe32
+%endif
+
+        ; Do the mode switch.
+        xor     ax, ax
+        mov     ds, ax
+        lgdt    [gdtr]
+%ifdef BS2_WITH_TRAPS
+        lidt    [idtr_32bit]
+%elifdef BS2_WITH_RAW_MODE
+        lidt    [idtr_dummy_32bit]
+%else
+        lidt    [idtr_null]
+%endif
+
+        mov     eax, cr0
+        or      eax, X86_CR0_PE
+        and     eax, 0ffffffffh - X86_CR0_PG
+        mov     cr0, eax
+        jmp far BS2_SEL_CS32:bs2ProtModeCode32Start_p32
+ENDPROC   Bs2EnterMode_rm_pe32
+%endif ; BS2_INC_PE32
+
+
+;; @todo BS2_INC_PEV86
+
+
+%ifdef BS2_INC_PP16
+;;
+; Enters paged protected mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 16-bit selectors.
+;           ebp and esp converted to 16/32-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_pp16
+        push    eax
+        pushfd
+        cli
+%ifndef BS2_NOINC_COMMON
+        push    word SetCpuModeGlobals_pp16
+%endif
+
+        ; Do the mode switch.
+        xor     ax, ax
+        mov     ds, ax
+        lgdt    [gdtr]
+%ifdef BS2_WITH_TRAPS
+        lidt    [idtr_32bit]
+%elifdef BS2_WITH_RAW_MODE
+        lidt    [idtr_dummy_32bit]
+%else
+        lidt    [idtr_null]
+%endif
+
+        mov     eax, BS2_32B_PD_ADDR
+        mov     cr3, eax
+%ifdef BS2_WITH_TRAPS
+        mov     [bs2Tss32BitDf + BS2_TSS32_CR3_OFF], eax
+%endif
+
+        mov     eax, cr4
+        or      eax, X86_CR4_PSE
+        and     eax, ~X86_CR4_PAE
+        mov     cr4, eax
+
+        mov     eax, cr0
+        or      eax, X86_CR0_PE | X86_CR0_PG | X86_CR0_WP
+        mov     cr0, eax
+        jmp far BS2_SEL_CS16:bs2ProtModeCode16Start_p16
+ENDPROC   Bs2EnterMode_rm_pp16
+%endif ; BS2_INC_PP16
+
+
+%ifdef BS2_INC_PP32
+;;
+; Enters paged protected mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 32-bit selectors.
+;           ebp and esp converted to 32-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_pp32
+        push    word 0
+        push    eax
+        pushfd
+        cli
+%ifndef BS2_NOINC_COMMON
+        push    dword SetCpuModeGlobals_pp32
+%endif
+
+        ; Do the mode switch.
+        xor     ax, ax
+        mov     ds, ax
+        lgdt    [gdtr]
+%ifdef BS2_WITH_TRAPS
+        lidt    [idtr_32bit]
+%elifdef BS2_WITH_RAW_MODE
+        lidt    [idtr_dummy_32bit]
+%else
+        lidt    [idtr_null]
+%endif
+
+        mov     eax, BS2_32B_PD_ADDR
+        mov     cr3, eax
+%ifdef BS2_WITH_TRAPS
+        mov     [bs2Tss32BitDf + BS2_TSS32_CR3_OFF], eax
+%endif
+
+        mov     eax, cr4
+        or      eax, X86_CR4_PSE
+        and     eax, ~X86_CR4_PAE
+        mov     cr4, eax
+
+        mov     eax, cr0
+        or      eax, X86_CR0_PE | X86_CR0_PG | X86_CR0_WP
+        mov     cr0, eax
+        jmp far BS2_SEL_CS32:bs2ProtModeCode32Start_p32
+ENDPROC   Bs2EnterMode_rm_pp32
+%endif ; BS2_INC_PP16
+
+
+;; @todo BS2_INC_PPV86
+
+
+%ifdef BS2_INC_PAE16
+;;
+; Enters PAE protected mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 16-bit selectors.
+;           ebp and esp converted to 16/32-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_pae16
+        push    eax
+        pushfd
+        cli
+%ifndef BS2_NOINC_COMMON
+        push    word SetCpuModeGlobals_pae16
+%endif
+
+        ; Do the mode switch.
+        xor     ax, ax
+        mov     ds, ax
+        lgdt    [gdtr]
+%ifdef BS2_WITH_TRAPS
+        lidt    [idtr_32bit]
+%elifdef BS2_WITH_RAW_MODE
+        lidt    [idtr_dummy_32bit]
+%else
+        lidt    [idtr_null]
+%endif
+
+        mov     eax, BS2_PAE_PDP_ADDR
+        mov     cr3, eax
+%ifdef BS2_WITH_TRAPS
+        mov     [bs2Tss32BitDf + BS2_TSS32_CR3_OFF], eax
+%endif
+
+        mov     eax, cr4
+        or      eax, X86_CR4_PAE | X86_CR4_PSE
+        mov     cr4, eax
+
+        mov     eax, cr0
+        or      eax, X86_CR0_PE | X86_CR0_PG | X86_CR0_WP
+        mov     cr0, eax
+        jmp far BS2_SEL_CS16:bs2ProtModeCode16Start_p16
+ENDPROC   Bs2EnterMode_rm_pae16
+%endif ; BS2_INC_PAE16
+
+
+%ifdef BS2_INC_PAE32
+;;
+; Enters PAE protected mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 32-bit selectors.
+;           ebp and esp converted to 32-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_pae32
+        push    word 0
+        push    eax
+        pushfd
+        cli
+%ifndef BS2_NOINC_COMMON
+        push    dword SetCpuModeGlobals_pae32
+%endif
+
+        ; Do the mode switch.
+        xor     ax, ax
+        mov     ds, ax
+        lgdt    [gdtr]
+%ifdef BS2_WITH_TRAPS
+        lidt    [idtr_32bit]
+%elifdef BS2_WITH_RAW_MODE
+        lidt    [idtr_dummy_32bit]
+%else
+        lidt    [idtr_null]
+%endif
+
+        mov     eax, BS2_PAE_PDP_ADDR
+        mov     cr3, eax
+%ifdef BS2_WITH_TRAPS
+        mov     [bs2Tss32BitDf + BS2_TSS32_CR3_OFF], eax
+%endif
+
+        mov     eax, cr4
+        or      eax, X86_CR4_PAE | X86_CR4_PSE
+        mov     cr4, eax
+
+        mov     eax, cr0
+        or      eax, X86_CR0_PE | X86_CR0_PG | X86_CR0_WP
+        mov     cr0, eax
+        jmp far BS2_SEL_CS32:bs2ProtModeCode32Start_p32
+ENDPROC   Bs2EnterMode_rm_pae32
+%endif ; BS2_INC_PAE32
+
+
+;; @todo BS2_INC_PAEV86
+
+
+%ifdef BS2_INC_LM16
+;;
+; Enters long mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 16-bit selectors.
+;           rbp and rsp converted to 16/32/64-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_lm16
+        call    Bs2EnterMode_rm_lm64
+BITS 64
+        call    Bs2Thunk_lm64_lm16
+BITS 16
+        ret
+ENDPROC   Bs2EnterMode_rm_lm16
+%endif ; BS2_INC_LM16
+
+
+%ifdef BS2_INC_LM32
+;;
+; Enters long mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 32-bit selectors.
+;           rbp and rsp converted to 16/32/64-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_lm32
+        ; Change the return address into a 32-bit one.
+        push    word 0                  ; Reserved 2 extra bytes for 32-bit return address.
+        push    eax                     ; Save eax.
+        movzx   eax, word [esp + 6h]    ; Read narrow return address.
+        mov     [esp + 4h], eax         ; Store wide return address.
+        pop     eax                     ; Restore eax.
+
+        ; Do the mode switch and thunking.
+        call    Bs2EnterMode_rm_lm64
+BITS 64
+        call    Bs2Thunk_lm64_lm32
+BITS 32
+        ret
+ENDPROC   Bs2EnterMode_rm_lm32
+%endif ; BS2_INC_LM32
+
+
+%ifdef BS2_INC_LM64
+;;
+; Enters long mode from real mode (cs = 0).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 64-bit selectors.
+;           rbp and rsp converted to 64-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2EnterMode_rm_lm64
+        push    word 0                  ; reserve bytes for 64-bit return address.
+        push    dword 0
+        push    dword 0                 ; rax
+        push    eax
+        push    dword 0                 ; rcx
+        push    ecx
+        push    dword 0                 ; rdx
+        push    edx
+        push    dword 0                 ; rflags
+        pushfd
+        cli
+
+        ; Fix the return address.
+        mov     ax, [esp + 20h + 6h]
+        mov     word [esp + 20h + 6h], 0
+        mov     [esp + 20h], ax
+
+        ;
+        ; Switch to long mode.
+        ;
+        xor     ax, ax
+        mov     ds, ax
+        lgdt    [gdtr]
+%ifdef BS2_WITH_TRAPS
+        lidt    [idtr_64bit]
+%else
+        lidt    [idtr_null]
+%endif
+
+        mov     eax, BS2_LM_PML4_ADDR
+        mov     cr3, eax
+
+        mov     eax, cr4
+        or      eax, X86_CR4_PAE | X86_CR4_PSE
+        mov     cr4, eax
+
+        mov     ecx, MSR_K6_EFER
+        rdmsr
+        or      eax, MSR_K6_EFER_LME
+        wrmsr
+
+        mov     eax, cr0
+        or      eax, X86_CR0_PE | X86_CR0_PG | X86_CR0_WP
+        mov     cr0, eax
+        jmp far BS2_SEL_CS64:.code64_start
+
+BITS 64
+.code64_start:
+        mov     eax, BS2_SEL_DS64
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+        mov     ax, BS2_SEL_SS64
+        mov     ss, ax
+%ifdef BS2_WITH_TRAPS
+        btr     dword [bs2Gdt + BS2_SEL_TSS64 + 32/8], 1+8      ; busy -> avail
+ %ifndef BS2_WITH_MANUAL_LTR
+        mov     ax, BS2_SEL_TSS64
+        ltr     ax
+ %endif
+%endif
+
+        and     ebp, 0ffffh
+        and     esp, 0ffffh
+        and     edi, 0ffffffffh
+        and     esi, 0ffffffffh
+        and     ebx, 0ffffffffh
+
+%ifndef BS2_NOINC_COMMON
+        call    SetCpuModeGlobals_lm64
+%endif
+
+        popf
+        pop     rdx
+        pop     rcx
+        pop     rax
+        ret
+ENDPROC   Bs2EnterMode_rm_lm64
+%endif ; BS2_INC_PAE32
+
+
+
+%ifdef BS2_INC_CMN_P16
+;;
+; Code shared by the three 16-bit protected mode switchers.
+;
+; @internal
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2ProtModeCode16Start_p16
+        ; Initialize the registers.
+        mov     ax, BS2_SEL_DS16
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+        mov     ax, BS2_SEL_SS16
+        mov     ss, ax
+        and     esp, 0ffffh
+        and     ebp, 0ffffh
+%ifdef BS2_WITH_TRAPS
+        btr     word [bs2Gdt + BS2_SEL_TSS32    + 32/8], 1+8    ; busy -> avail
+        btr     word [bs2Gdt + BS2_SEL_TSS32_DF + 32/8], 1+8    ; busy -> avail
+ %ifndef BS2_WITH_MANUAL_LTR
+        mov     ax, BS2_SEL_TSS32
+        ltr     ax
+ %endif
+%endif
+
+%ifndef BS2_NOINC_COMMON
+        ; Set up mode specific global variables.
+        pop     ax
+        call    ax
+%endif
+
+        popfd
+        pop     eax
+        ret
+ENDPROC   bs2ProtModeCode16Start_p16
+%endif ; BS2_INC_CMN_P16
+
+
+%ifdef BS2_INC_CMN_P32
+;;
+; Code shared by the three 32-bit protected mode switchers.
+;
+; @internal
+;
+BEGINCODELOW
+BITS 32
+BEGINPROC bs2ProtModeCode32Start_p32
+        ; Initialize the registers.
+        mov     ax, BS2_SEL_DS32
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+        mov     ax, BS2_SEL_SS32
+        mov     ss, ax
+        and     esp, 0ffffh
+        and     ebp, 0ffffh
+%ifdef BS2_WITH_TRAPS
+        btr     dword [bs2Gdt + BS2_SEL_TSS32    + 32/8], 1+8   ; busy -> avail
+        btr     dword [bs2Gdt + BS2_SEL_TSS32_DF + 32/8], 1+8   ; busy -> avail
+ %ifndef BS2_WITH_MANUAL_LTR
+        mov     ax, BS2_SEL_TSS32
+        ltr     ax
+ %endif
+%endif
+
+%ifndef BS2_NOINC_COMMON
+        ; Set up mode specific global variables.
+        pop     eax
+        call    eax
+%endif
+
+        ; Make the return address 32-bit and then return.
+        movzx   eax, word [esp + 0ah]
+        mov     [esp + 8h], eax
+        popfd
+        pop     eax
+        ret
+ENDPROC   bs2ProtModeCode32Start_p32
+%endif ; BS2_INC_CMN_P32
+
+
+
+;
+; Routines for exitting the different modes.
+;
+
+
+%ifdef BS2_INC_RM
+;;
+; Dummy.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2ExitMode_rm
+        ret
+ENDPROC Bs2ExitMode_rm
+%endif ; BS2_INC_RM
+
+
+%ifdef BS2_INC_PE16
+;;
+; See bs2ExitMode_p16.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2ExitMode_pe16
+        push    bs2ExitModeCleanupNop_rm
+        jmp     bs2ExitMode_p16
+ENDPROC Bs2ExitMode_pe16
+%endif ; BS2_INC_PE16
+
+
+%ifdef BS2_INC_PE32
+;;
+; See bs2ExitMode_p32.
+BEGINCODEHIGH
+BITS 32
+BEGINPROC Bs2ExitMode_pe32
+        push    bs2ExitModeCleanupNop_rm
+        jmp     bs2ExitMode_p32
+ENDPROC Bs2ExitMode_pe32
+%endif ; BS2_INC_PE32
+
+
+%ifdef BS2_INC_PEV86
+;;
+; See Bs2ExitMode_v86.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2ExitMode_pev86
+        push    bs2ExitModeCleanupNop_rm
+        jmp     Bs2ExitMode_pv86
+ENDPROC Bs2ExitMode_pev86
+%endif ; BS2_INC_PEV86
+
+
+%ifdef BS2_INC_PP16
+;;
+; See bs2ExitMode_p16.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2ExitMode_pp16
+        push    bs2ExitModeCleanupNop_rm
+        jmp     bs2ExitMode_p16
+ENDPROC Bs2ExitMode_pp16
+%endif ; BS2_INC_PP16
+
+
+%ifdef BS2_INC_PP32
+;;
+; See bs2ExitMode_p32.
+BEGINCODEHIGH
+BITS 32
+BEGINPROC Bs2ExitMode_pp32
+        push    bs2ExitModeCleanupNop_rm
+        jmp     bs2ExitMode_p32
+ENDPROC Bs2ExitMode_pp32
+%endif ; BS2_INC_PP32
+
+
+%ifdef BS2_INC_PPV86
+;;
+; See Bs2ExitMode_v86.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2ExitMode_ppv86
+        push    bs2ExitModeCleanupNop_rm
+        jmp     Bs2ExitMode_pv86
+ENDPROC Bs2ExitMode_ppv86
+%endif ; BS2_INC_PPV86
+
+
+
+%ifdef BS2_INC_PAE16
+;;
+; See bs2ExitMode_p16.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2ExitMode_pae16
+        push    bs2ExitModeCleanupPae_rm
+        jmp     bs2ExitMode_p16
+ENDPROC Bs2ExitMode_pae16
+%endif ; BS2_INC_pae16
+
+
+%ifdef BS2_INC_PAE32
+;;
+; See bs2ExitMode_p32.
+BEGINCODEHIGH
+BITS 32
+BEGINPROC Bs2ExitMode_pae32
+        push    bs2ExitModeCleanupPae_rm
+        jmp     bs2ExitMode_p32
+ENDPROC Bs2ExitMode_pae32
+%endif ; BS2_INC_PAE32
+
+
+%ifdef BS2_INC_PAEV86
+;;
+; See Bs2ExitMode_v86.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2ExitMode_paev86
+        push    bs2ExitModeCleanupPae_rm
+        jmp     Bs2ExitMode_pv86
+ENDPROC Bs2ExitMode_paev86
+%endif ; BS2_INC_PAEV86
+
+
+%ifdef BS2_INC_LM16
+;;
+; See bs2ExitMode_p16.
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2ExitMode_lm16
+        push    bs2ExitModeCleanupLm_rm
+        jmp     bs2ExitMode_p16
+ENDPROC Bs2ExitMode_lm16
+%endif ; BS2_INC_lm16
+
+
+%ifdef BS2_INC_LM32
+;;
+; See bs2ExitMode_p32.
+BEGINCODEHIGH
+BITS 32
+BEGINPROC Bs2ExitMode_lm32
+        push    bs2ExitModeCleanupLm_rm
+        jmp     bs2ExitMode_p32
+ENDPROC Bs2ExitMode_lm32
+%endif ; BS2_INC_LM32
+
+
+%ifdef BS2_INC_LM64
+;;
+; See Bs2ExitMode_v86.
+BEGINCODELOW
+BITS 64
+BEGINPROC Bs2ExitMode_lm64
+        call    Bs2Thunk_lm64_lm16
+BITS 16
+        pop     dword [esp]
+        pop     word [esp]
+        push    bs2ExitModeCleanupLm_rm
+        jmp     bs2ExitMode_p16
+ENDPROC Bs2ExitMode_lm64
+%endif ; BS2_INC_LM64
+
+
+; Isn't there a better way to do this in yasm?
+%ifdef BS2_INC_CMN_P16
+ %define BS2_INC_BS2EXITMODE_P16
+%elifdef BS2_INC_CMN_LM
+ %define BS2_INC_BS2EXITMODE_P16
+%elifdef BS2_INC_CMN_P32
+ %define BS2_INC_BS2EXITMODE_P16
+%endif
+
+%ifdef BS2_INC_BS2EXITMODE_P16
+;;
+; Exit 16-bit protected or long mode (cs = CS16, ss = SS16).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with the 0 selector.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2ExitMode_p16
+        push    eax
+        pushfd
+        cli
+
+        ; Make sure we've got the right SS and CS values (paranoia).
+        mov     ax, BS2_SEL_SS16
+        mov     ss, ax
+        jmp far BS2_SEL_CS16:.code16_start
+
+.code16_start:
+        ; Turn off paging and protected mode.
+        mov     eax, cr0
+        and     eax, 0ffffffffh - X86_CR0_PE - X86_CR0_PG
+        mov     cr0, eax
+        jmp far 0000:.real_mode_start
+
+.real_mode_start:
+        ; Load the correct real mode segment registers.
+        xor     ax, ax
+        mov     ss, ax
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+
+        ; Load the real mode idtr.
+        lidt    [idtr_real_mode]
+
+        ; Cleanup.
+        mov     ax, [esp + 8h]
+        call    ax
+
+%ifndef BS2_NOINC_COMMON
+        ; Set globals.
+        call    SetCpuModeGlobals_rm
+%endif
+
+        popfd
+        pop     eax
+        add     sp, 2h                  ; cleanup routine address
+        ret
+ENDPROC   bs2ExitMode_p16
+%endif ; BS2_INC_CMN_P16
+
+
+%ifdef BS2_INC_CMN_P32
+;;
+; Exit 32-bit protected or long mode (cs = CS32, ss = SS32).
+;
+; The return address as well as the stack registers must be somewhere within
+; the first 64KB of the address space.
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with the 0 selector.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 32
+BEGINPROC bs2ExitMode_p32
+        push    eax
+        mov     eax, [esp + 8h]         ; return address
+        mov     [esp + 0ah], ax
+        mov     eax, [esp + 4h]         ; cleanup routine address
+        mov     [esp + 08h], ax
+        pop     eax
+        add     esp, 4h
+
+        call    Bs2Thunk_p32_p16
+BITS 16
+        jmp     bs2ExitMode_p16
+ENDPROC   bs2ExitMode_p32
+%endif ; BS2_INC_CMN_P32
+
+
+;;
+; Dummy cleanup routine.
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2ExitModeCleanupNop_rm
+        ret
+ENDPROC   bs2ExitModeCleanupNop_rm
+
+
+%ifdef BS2_INC_CMN_PAE
+;;
+; Cleans up after leaving PAE mode.
+; @uses     nothing
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2ExitModeCleanupPae_rm
+        push    eax
+        mov     eax, cr4
+        and     eax, ~X86_CR4_PAE
+        mov     cr4, eax
+        pop     eax
+        ret
+ENDPROC   bs2ExitModeCleanupPae_rm
+%endif
+
+
+%ifdef BS2_INC_CMN_LM
+;;
+; Cleans up after leaving long mode.
+; @uses     nothing
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2ExitModeCleanupLm_rm
+        push    eax
+        push    edx
+        push    ecx
+
+        mov     ecx, MSR_K6_EFER
+        rdmsr
+        and     eax, ~MSR_K6_EFER_LME
+        wrmsr
+
+        pop     ecx
+        pop     edx
+        pop     eax
+        ret
+ENDPROC   bs2ExitModeCleanupLm_rm
+%endif
+
+
+
+;
+; Thunking routines for switching between 16/32/64-bit code.
+;
+
+
+%ifdef BS2_INC_CMN_PM
+;;
+; Switches from 32-bit to 16-bit mode ({eip,esp,ebp} < 64KB).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 16-bit selectors.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 32
+BEGINPROC Bs2Thunk_p32_p16
+        push    eax
+        pushf
+        cli
+        mov     ax, BS2_SEL_SS16
+        jmp far BS2_SEL_CS16:.code16_start
+BITS 16
+.code16_start:
+        mov     ss, ax
+        mov     ax, BS2_SEL_DS16
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+
+        ; Fix the return address and then return.
+        mov     ax, [esp + 08h]
+        mov     [esp + 0ah], ax
+        popfd
+        pop     eax
+        add     sp, 2h
+        ret
+ENDPROC   Bs2Thunk_p32_p16
+ %define Bs2Thunk_p32_pe16  Bs2Thunk_p32_p16 ; Alternative name for TMPL_NM
+ %define Bs2Thunk_p32_pp16  Bs2Thunk_p32_p16 ; Alternative name for TMPL_NM
+ %define Bs2Thunk_p32_pae16 Bs2Thunk_p32_p16 ; Alternative name for TMPL_NM
+%endif ; BS2_INC_CMN_PM
+
+
+%ifdef BS2_INC_CMN_PM
+;;
+; Switches from 16-bit to 32-bit mode (cs = CS16, ds = DS16).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 32-bit selectors.
+;           ebp and esp converted to 32bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2Thunk_p16_p32
+        push    word 0
+        push    eax
+        pushfd
+        cli
+        jmp far BS2_SEL_CS32:.code32_start
+BITS 32
+.code32_start:
+        mov     eax, BS2_SEL_SS32
+        mov     ss, ax
+        mov     ax, BS2_SEL_DS32
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+        and     ebp, 0ffffh
+        and     esp, 0ffffh
+
+        ; Fix the return address and then return.
+        movzx   eax, word [esp + 0ah]
+        mov     [esp + 08h], eax
+        popfd
+        pop     eax
+        ret
+ENDPROC   Bs2Thunk_p16_p32
+ %define Bs2Thunk_p16_pe32  Bs2Thunk_p16_p32 ; Alternative name for TMPL_NM
+ %define Bs2Thunk_p16_pp32  Bs2Thunk_p16_p32 ; Alternative name for TMPL_NM
+ %define Bs2Thunk_p16_pae32 Bs2Thunk_p16_p32 ; Alternative name for TMPL_NM
+%endif ; BS2_INC_CMN_PM
+
+
+%ifdef BS2_INC_CMN_LM
+;;
+; Switches from 64-bit to 16-bit mode ({rip,rsp,rbp} < 64KB).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 16-bit selectors.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 64
+BEGINPROC Bs2Thunk_lm64_lm16
+        push    rax
+        pushf
+        cli
+        mov     ax, BS2_SEL_SS16
+        push    BS2_SEL_CS16
+        push    .code16_start
+        retf
+BITS 16
+.code16_start:
+        mov     ss, ax
+        mov     ax, BS2_SEL_DS16
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+
+        ; Fix the return address and then return.
+        mov     ax, [esp + 10h]
+        mov     [esp + 16h], ax
+        popfd
+        add     sp, 4h
+        pop     eax
+        add     sp, 4h + 6h
+        ret
+ENDPROC   Bs2Thunk_lm64_lm16
+ %define Bs2Thunk_p64_lm16 Bs2Thunk_lm64_lm16 ; Alternative name for TMPL_NM
+%endif ; BS2_INC_CMN_LM
+
+
+%ifdef BS2_INC_LM16
+;;
+; Switches from 16-bit to 64-bit mode (cs = CS16, ss = SS16).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 64-bit selectors.
+;           rbp and rsp converted to 16/32/64-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2Thunk_lm16_lm64
+        push    word 0
+        push    dword 0
+        push    dword 0
+        push    eax
+        push    dword 0
+        pushfd
+        cli
+        mov     eax, BS2_SEL_SS64
+        jmp far BS2_SEL_CS64:.code64_start
+BITS 64
+.code64_start:
+        mov     ss, ax
+        mov     ax, BS2_SEL_DS64
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+
+        and     ebp, 0ffffh
+        and     esp, 0ffffh
+        and     edi, 0ffffffffh
+        and     esi, 0ffffffffh
+        and     ebx, 0ffffffffh
+
+        ; Fix the return address and then return.
+        movzx   rax, word [rsp + 16h]
+        mov     [rsp + 10h], rax
+        popf
+        pop     rax
+        ret
+ENDPROC   Bs2Thunk_lm16_lm64
+ %define Bs2Thunk_p16_lm64 Bs2Thunk_lm16_lm64 ; Alternative name for TMPL_NM
+%endif ; BS2_INC_LM16
+
+
+%ifdef BS2_INC_LM32
+;;
+; Switches from 64-bit to 32-bit mode ({rip,rsp,rbp} < 4GB).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 32-bit selectors.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODEHIGH
+BITS 64
+BEGINPROC Bs2Thunk_lm64_lm32
+        push    rax
+        pushf
+        cli
+        mov     ax, BS2_SEL_SS32
+        push    BS2_SEL_CS32
+        push    .code32_start
+        retf
+BITS 32
+.code32_start:
+        mov     ss, ax
+        mov     ax, BS2_SEL_DS32
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+
+        ; Fix the return address and then return.
+        mov     eax, [esp + 10h]
+        mov     [esp + 14h], eax
+        popfd
+        mov     eax, [esp + 4h]
+        lea     esp, [esp + 10h]
+        ret
+ENDPROC   Bs2Thunk_lm64_lm32
+ %define Bs2Thunk_p64_lm32 Bs2Thunk_lm64_lm32 ; Alternative name for TMPL_NM
+%endif ; BS2_INC_LM32
+
+
+%ifdef BS2_INC_LM32
+;;
+; Switches from 32-bit to 64-bit mode (cs = CS32, ss = SS32).
+;
+; @returns  cs,ds,ss,es,gs,fs loaded with 64-bit selectors.
+;           rbp and rsp converted to 32/64-bit.
+;           All other registers are preserved.
+; @uses     nothing
+;
+BEGINCODEHIGH
+BITS 32
+BEGINPROC Bs2Thunk_lm32_lm64
+        push    dword 0
+        push    dword 0
+        push    eax
+        push    dword 0
+        pushfd
+        cli
+        mov     eax, BS2_SEL_SS64
+        jmp far BS2_SEL_CS64:.code64_start
+BITS 64
+.code64_start:
+        mov     ss, ax
+        mov     ax, BS2_SEL_DS64
+        mov     ds, ax
+        mov     es, ax
+        mov     fs, ax
+        mov     gs, ax
+
+        and     ebp, 0ffffffffh
+        and     esp, 0ffffffffh
+        and     edi, 0ffffffffh
+        and     esi, 0ffffffffh
+        and     ebx, 0ffffffffh
+
+        ; Fix the return address and then return.
+        mov     eax, [rsp + 14h]
+        mov     [rsp + 10h], rax
+        popf
+        pop     rax
+        ret
+ENDPROC   Bs2Thunk_lm32_lm64
+ %define Bs2Thunk_p32_lm64 Bs2Thunk_lm32_lm64 ; Alternative name for TMPL_NM
+%endif ; BS2_INC_LM32
+
+
+
+
+;
+; Routines for checking if mode is supported or not.
+;
+; @returns al=1 & ZF=0 if supported, al=0 & ZF=1 if not.
+; @uses    nothing.
+;
+
+; These are easy.
+BEGINCODELOW
+BITS 16
+BEGINPROC bs2IsModeSupportedYes_rm
+GLOBALNAME Bs2IsModeSupported_rm_rm
+GLOBALNAME Bs2IsModeSupported_rm_pe16
+GLOBALNAME Bs2IsModeSupported_rm_pe32
+GLOBALNAME Bs2IsModeSupported_rm_pev86
+GLOBALNAME Bs2IsModeSupported_rm_pp16
+GLOBALNAME Bs2IsModeSupported_rm_pp32
+GLOBALNAME Bs2IsModeSupported_rm_ppv86
+        mov     al, 1
+        test    al, al
+        ret
+ENDPROC   bs2IsModeSupportedYes_rm
+
+
+%ifdef BS2_INC_CMN_PAE
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2IsPaeSupported_16
+GLOBALNAME Bs2IsModeSupported_rm_pae16
+GLOBALNAME Bs2IsModeSupported_rm_pae32
+GLOBALNAME Bs2IsModeSupported_rm_paev86
+        push    eax
+        push    ebx
+        push    ecx
+        push    edx
+
+        mov     eax, 0
+        cpuid
+        cmp     eax, 1
+        jb      .no
+        cmp     eax, 1000h
+        ja      .no
+
+        mov     eax, 1
+        cpuid
+        test    edx, X86_CPUID_FEATURE_EDX_PAE
+
+        pop     edx
+        pop     ecx
+        pop     ebx
+        pop     eax
+
+        mov     al, 0
+        jz      .no
+        mov     al, 1
+.no:
+        ret
+ENDPROC   Bs2IsPaeSupported_16
+%endif ; BS2_INC_CMN_PAE
+
+
+%ifdef BS2_INC_CMN_LM
+BEGINCODELOW
+BITS 16
+BEGINPROC Bs2IsLongModeSupported_16
+GLOBALNAME Bs2IsModeSupported_rm_lm16
+GLOBALNAME Bs2IsModeSupported_rm_lm32
+GLOBALNAME Bs2IsModeSupported_rm_lm64
+        push    eax
+        push    ebx
+        push    ecx
+        push    edx
+
+        mov     eax, 080000000h
+        cpuid
+        cmp     eax, 080000001h
+        jb      .no
+        cmp     eax, 080001000h
+        ja      .no
+
+        mov     eax, 080000001h
+        cpuid
+        test    edx, X86_CPUID_EXT_FEATURE_EDX_LONG_MODE
+
+        pop     edx
+        pop     ecx
+        pop     ebx
+        pop     eax
+
+        mov     al, 0
+        jz      .no
+        mov     al, 1
+.no:
+        ret
+ENDPROC   Bs2IsLongModeSupported_16
+%endif ; BS2_INC_CMN_LM
+
+
+;
+; Include addition init/base code.
+;
+%ifdef BS2_WITH_TRAPS
+ %include "bootsector2-common-init-traps.mac"
+%endif
+
+
+;
+; Include common code.
+;
+%ifndef BS2_NOINC_COMMON
+ %include "bootsector2-common-routines.mac"
+%endif
+
+;
+; Include trap records if requested.
+;
+%ifdef BS2_WITH_TRAPRECS
+ %include "bootsector2-common-traprec.mac"
+%endif
+
+;
+; Map stuff for the initial environment.
+;
+%ifdef BS2_INIT_RM
+ %define TMPL_RM
+%endif
+%ifdef BS2_INIT_PE32
+ %define TMPL_PE32
+%endif
+%ifdef BS2_INIT_PP32
+ %define TMPL_PP32
+%endif
+%ifdef BS2_INIT_PAE32
+ %define TMPL_PAE32
+%endif
+%ifdef BS2_INIT_LM64
+ %define TMPL_LM64
+%endif
+%include "bootsector2-template-header.mac"
+
+
+;
+; Where we jump after initialization.
+;
+TMPL_BEGINCODE
+BITS TMPL_BITS
+bs2DoneInit:
+%ifdef BS2_INIT_SAVE_REGS
+        mov     eax, cr2
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.cr2], eax
+        mov     eax, cr3
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.cr3], eax
+        mov     eax, cr4
+        mov     [BS2_REG_SAVE_ADDR + BS2REGS.cr4], eax
+        mov     byte [BS2_REG_SAVE_ADDR + BS2REGS.cBits], 16
+        xor     eax, eax
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.cs], ax
+        mov     ax, start
+        mov     [cs:BS2_REG_SAVE_ADDR + BS2REGS.rip], eax
+%endif
+
+%ifdef BS2_WITH_TRAPRECS
+        ;
+        ; Install the trap records.
+        ;
+        BS2_TRAP_RECS_INSTALL
+%endif
+
+        ;
+        ; Detect the CPU.
+        ;
+        xor     eax, eax
+        mov     [g_fCpuIntel], al
+        mov     [g_fCpuAmd],   al
+        cpuid
+        cmp     ecx, 0x444d4163
+        jne     .not_amd
+        cmp     edx, 0x69746e65
+        jne     .not_amd
+        cmp     ebx, 0x68747541
+        jne     .not_amd
+        mov     byte [g_fCpuAmd], 1
+        jmp     .not_intel
+
+.not_amd:
+        cmp     ecx, 0x6c65746e
+        jne     .not_intel
+        cmp     edx, 0x49656e69
+        jne     .not_intel
+        cmp     ebx, 0x756e6547
+        jne     .not_intel
+        mov     byte [g_fCpuIntel], 1
+.not_intel:
+
+        ;
+        ; Call the user 'main' procedure (shouldn't return).
+        ;
+        call    main
+.panic_again
+        call    Bs2Panic
+        jmp     .panic_again
+

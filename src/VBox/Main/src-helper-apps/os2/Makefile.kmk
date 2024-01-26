@@ -1,0 +1,66 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for src/VBox/Main/src-helper-apps/os2.
+#
+
+#
+# Copyright (C) 2022-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# OS/2 Unattended installation helper utility.
+# This is checked in as a binary, this is just the makefile for re-builting it.
+#
+ifdef VBOX_WITH_OPEN_WATCOM
+ PROGRAMS += os2_util
+endif
+os2_util_TEMPLATE       = DUMMY
+os2_util_TOOL           = OPENWATCOM-16
+os2_util_ASTOOL         = OPENWATCOM-16
+os2_util_LDTOOL         = OPENWATCOM-WL
+os2_util_BLD_TRG        = os2
+os2_util_BLD_TRG_ARCH   = x86
+os2_util_EXESUFF        = .exe
+os2_util_INST           = $(INST_UNATTENDED_TEMPLATES)
+os2_util_MODE           = a+r,u+w
+os2_util_DEFS           = IN_RING3
+os2_util_CFLAGS         = -zl -s -ml -os
+os2_util_LDFLAGS        = \
+	SYSTEM os2 \
+	OPTION START=_Os2UtilMain \
+	OPTION STACK=8192 \
+	OPTION HEAPSize=4096 \
+	OPTION NEWFile \
+	OPTION PROTmode \
+	SEGMENT IOPL IOPL EXECUTEREAD
+if 0
+ os2_util_LDFLAGS      += Debug Watcom All
+ os2_util_CFLAGS       += -d2 -hw
+endif
+
+os2_util_INCS           = $(PATH_TOOL_OPENWATCOM)/h/os21x
+os2_util_SOURCES        = os2_util.c os2_utilA.asm
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

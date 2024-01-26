@@ -1,0 +1,88 @@
+#!/bin/ksh93
+# $Id: vbox_vendor_select $
+## @file
+# ???
+#
+
+#
+# Copyright (C) 2013-2023 Oracle and/or its affiliates.
+# This file is based on mesa_vendor_select from Solaris 11.3 with the following copyright:
+#
+# Copyright (c) 2006, 2011, Oracle and/or its affiliates. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice (including the next
+# paragraph) shall be included in all copies or substantial portions of the
+# Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+
+LINKDIR=/system/volatile/opengl
+MESA_SELECT=/lib/opengl/ogl_select/mesa_vendor_select
+
+PATH=/usr/bin:/usr/sbin
+
+ARCH="$(uname -p)"
+
+case "${ARCH}" in
+    i386)			;;
+    *)		exit 1		;; # Unsupported architecture
+esac
+
+# We need Mesa for the parts we do not supply.
+if [[ ! -x "${MESA_SELECT}" ]]; then
+	exit 0
+fi
+
+if [[ $# -eq 1 ]] && [[ $1 == "identify" ]] ; then
+	# Probe time.  Check whether this system supports pass-through.
+	# If so, emit an identity string attaching us to the current
+	# console identifier.
+	if /usr/bin/VBoxClient --check3d ; then
+	    print "$(constype) vbox"
+	fi
+	return 0
+fi
+
+# Make a file link. $1 is the source path, $2 is the target path
+function make_link {
+	if [[ $# != 2 ]]; then
+		return
+	fi
+	if [[ -h $2 ]]; then
+		rm -f $2
+	fi
+	ln -sf $1 $2
+}
+
+# Start by setting up Mesa, as we use that for everything except the user
+# libraries.
+${MESA_SELECT}
+
+# User libraries
+if [[ -f ${LINKDIR}/lib/libGL.so.1 ]] && [[ -f /usr/lib/VBoxOGL.so ]] ; then
+	make_link /usr/lib/VBoxOGL.so ${LINKDIR}/lib/libGL.so.1
+fi
+if [[ -f ${LINKDIR}/lib/i386/libGL.so.1 ]] && \
+	[[ -f /usr/lib/i386/VBoxOGL.so ]] ; then
+	make_link /usr/lib/i386/VBoxOGL.so ${LINKDIR}/lib/i386/libGL.so.1
+fi
+if [[ -f ${LINKDIR}/lib/amd64/libGL.so.1 ]] && \
+	[[ -f /usr/lib/amd64/VBoxOGL.so ]] ; then
+	make_link /usr/lib/amd64/VBoxOGL.so ${LINKDIR}/lib/amd64/libGL.so.1
+fi
+
+return 0

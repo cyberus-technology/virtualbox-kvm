@@ -1,0 +1,1054 @@
+
+kmk Quick Reference
+===================
+
+This is an attempt at summarizing all directives, functions, special variables,
+special targets, built-in commands, external commands, and ``kmk``-expressions.
+Since *all* the features are included, the quickness of this reference can be
+disputed. ;-)
+
+
+
+Directives
+----------
+
+Here is a summary of the directives ``kmk`` recognizes:
+
+    Define a multi-line, recursively-expanded variable::
+
+        define variable
+        endef
+
+    Conditionally evaluate part of the makefile::
+
+        ifdef variable
+        ifndef variable
+        ifeq (a,b)
+        ifeq "a" "b"
+        ifeq 'a' 'b'
+        ifneq (a,b)
+        ifneq "a" "b"
+        ifneq 'a' 'b'
+        if1of (set-a,set-b)   		[1]
+        ifn1of (set-a,set-b)		[1]
+        if expression			[1]
+        else
+        endif
+
+    Include another makefile::
+
+        include file
+        -include file
+        sinclude file
+
+    Include another dependency file [1]_::
+
+        includedep file
+
+    Define a variable, overriding any previous definition, even one from the
+    command line::
+
+        override variable = value
+        override variable := value
+        override variable += value
+        override variable <= value	[1]
+        override variable ?= value
+        override define variable
+        endef
+
+    Tell ``kmk`` to export all variables to child processes by default::
+
+        export
+
+    Tell ``kmk`` whether or not to export a particular variable to child
+    processes::
+
+        export variable
+        export variable = value
+        export variable := value
+        export variable += value
+        export variable <= value        [1]
+        export variable ?= value
+        unexport variable
+
+    Define a variable in the local context instead of the global one [1]_::
+
+        local variable = value
+        local variable := value
+        local variable += value
+        local variable <= value
+        local variable ?= value
+        local define variable
+        endef
+
+    Specify a search path for files matching a ``%`` pattern::
+
+        vpath pattern path
+
+    Remove all search paths previously specified for pattern::
+
+        vpath pattern
+
+    Remove all search paths previously specified in any vpath directive::
+
+        vpath
+
+
+
+Automatic variables
+-------------------
+
+Here is a summary of the automatic variables.
+
++-----------+-----------------------------------------------------------------+
+| Variable  | Description                                                     |
++===========+=================================================================+
+| ``$@``    | The file name of the target.                                    |
++-----------+-----------------------------------------------------------------+
+| ``$<``    | The name of the first prerequisite.                             |
++-----------+-----------------------------------------------------------------+
+| ``$?``    | The names of all the prerequisites that are newer than the      |
+|           | target, with spaces between them.                               |
++-----------+-----------------------------------------------------------------+
+| ``$^``    | The names of all the prerequisites, duplicates omitted.         |
++-----------+-----------------------------------------------------------------+
+| ``$+``    | The names of all the prerequisites, duplicates and order        |
+|           | preserved                                                       |
++-----------+-----------------------------------------------------------------+
+| ``$*``    | The stem with which an implicit rule matches.                   |
++-----------+-----------------------------------------------------------------+
+| ``$|``    | The name of all the order only prerequisites.                   |
++-----------+-----------------------------------------------------------------+
+| ``$(@D)`` | The directory part of ``$@``.                                   |
++-----------+-----------------------------------------------------------------+
+| ``$(<D)`` | The directory part of ``$<``.                                   |
++-----------+-----------------------------------------------------------------+
+| ``$(?D)`` | The directory part of ``$?``.                                   |
++-----------+-----------------------------------------------------------------+
+| ``$(^D)`` | The directory part of ``%^``.                                   |
++-----------+-----------------------------------------------------------------+
+| ``$(+D)`` | The directory part of ``$+``.                                   |
++-----------+-----------------------------------------------------------------+
+| ``$(*D)`` | The directory part of ``$*``.                                   |
++-----------+-----------------------------------------------------------------+
+| ``$(|D)`` | The directory part of ``$|``.                                   |
++-----------+-----------------------------------------------------------------+
+| ``$(@F)`` | The file-within-directory part of ``$@``.                       |
++-----------+-----------------------------------------------------------------+
+| ``$(<F)`` | The file-within-directory part of ``$<``.                       |
++-----------+-----------------------------------------------------------------+
+| ``$(?F)`` | The file-within-directory part of ``$?``.                       |
++-----------+-----------------------------------------------------------------+
+| ``$(^F)`` | The file-within-directory part of ``$^``.                       |
++-----------+-----------------------------------------------------------------+
+| ``$(+F)`` | The file-within-directory part of ``$+``.                       |
++-----------+-----------------------------------------------------------------+
+| ``$(*F)`` | The file-within-directory part of ``$*``.                       |
++-----------+-----------------------------------------------------------------+
+| ``$(|F)`` | The file-within-directory part of ``$|``.                       |
++-----------+-----------------------------------------------------------------+
+
+
+
+Special variables
+-----------------
+
+All variables starting with a ``.`` is reserved by ``kmk``. The following
+variables are specially used or/and defined by ``kmk``:
+
++--------------------------+--------------------------------------------------+
+| Variable                 | Description                                      |
++==========================+==================================================+
+| ``.DEFAULT_GOAL``        | The makefile default goal. You can set this in   |
+|                          | the makefile, if you don't it will default to    |
+|                          | the first target that is encountered.            |
++--------------------------+--------------------------------------------------+
+| ``.FEATURES``            | List of GNU ``make`` features. Do not set this.  |
++--------------------------+--------------------------------------------------+
+| ``.INCLUDE_DIRS``        | List of include directories, ``-I`` arguments    |
+|                          | and defaults. Do not set this.                   |
++--------------------------+--------------------------------------------------+
+| ``.RECIPEPREFIX``        | Recipe prefix, defaults to tab.                  |
++--------------------------+--------------------------------------------------+
+| ``.VARIABLES``           | Special variable which exands to the list of     |
+|                          | variable. Do not set this.                       |
++--------------------------+--------------------------------------------------+
+| ``CURDIR``               | Set to the pathname of the current working       |
+|                          | directory (after all ``-C`` options are          |
+|                          | processed, if any). Do not set this.             |
++--------------------------+--------------------------------------------------+
+| ``KBUILD_VERSION``,      | The kBuild version string and the break down     |
+| ``KBUILD_VERSION_MAJOR``,| into individual components. [1]_                 |
+| ``KBUILD_VERSION_MINOR``,|                                                  |
+| ``KBUILD_VERSION_PATCH``,|                                                  |
+| ``KBUILD_KMK_REVISION``  |                                                  |
++--------------------------+--------------------------------------------------+
+| ``KBUILD_HOST`` [1]_     | The host operating system.                       |
++--------------------------+--------------------------------------------------+
+| ``KBUILD_HOST_ARCH`` [1]_| The host architecture.                           |
++--------------------------+--------------------------------------------------+
+| ``KBUILD_HOST_CPU`` [1]_ | The host CPU ``kmk`` is built for, set to        |
+|                          | ``blend`` if not any particular CPU.             |
++--------------------------+--------------------------------------------------+
+| ``KBUILD_PATH`` [1]_     | Where the kBuild scripts are.                    |
++--------------------------+--------------------------------------------------+
+| ``KBUILD_BIN_PATH`` [1]_ | Where the host specific kBuild binaries are.     |
++--------------------------+--------------------------------------------------+
+| ``KMK`` [1]_,            | The name with which ``kmk`` was invoked. Using   |
+| ``MAKE``                 | this variable in recipes has special meaning.    |
++--------------------------+--------------------------------------------------+
+| ``KMK_BUILTIN`` [1]_     | List of built-in commands.                       |
++--------------------------+--------------------------------------------------+
+| ``KMK_FEATURES`` [1]_    | List of ``kmk`` specific features.               |
++--------------------------+--------------------------------------------------+
+| ``KMK_FLAGS`` [1]_       | The flags given to ``kmk``. You can set this in  |
+|                          | the environment or a makefile to set flags.      |
+|                          |                                                  |
+|                          | It is never appropriate to use ``KMK_FLAGS``     |
+|                          | directly in a recipe line: its contents may not  |
+|                          | be quoted correctly for use in the shell. Always |
+|                          | allow recursive ``kmk``'s to obtain these values |
+|                          | through the environment from its parent.         |
++--------------------------+--------------------------------------------------+
+| ``KMK_LEVEL`` [1]_       | The number of levels of recursion (sub-makes).   |
++--------------------------+--------------------------------------------------+
+| ``KMK_VERSION`` [1]_     | The GNU ``make`` version number.                 |
++--------------------------+--------------------------------------------------+
+| ``MAKECMDGOALS``         | The targets given to ``kmk`` on the command line.|
+|                          | Do not set this.                                 |
++--------------------------+--------------------------------------------------+
+| ``MAKEFILES``            | Makefiles to be read on every invocation of      |
+|                          | ``kmk``.                                         |
++--------------------------+--------------------------------------------------+
+| ``MAKEFILE_LIST``        | List of the makefiles that ``kmk`` has opened.   |
++--------------------------+--------------------------------------------------+
+| ``MAKESHELL``            | OS/2 and MS-DOS only, the name of the command    |
+|                          | interpreter that is to be used by ``kmk``. This  |
+|                          | value takes precedence over the value of SHELL.  |
++--------------------------+--------------------------------------------------+
+| ``SHELL``                | The name of the default command interpreter,     |
+|                          | kmk_ash. You can set SHELL in the makefile to    |
+|                          | change the shell used to run recipes. The SHELL  |
+|                          | variable is handled specially when importing     |
+|                          | from and exporting to the environment.           |
++--------------------------+--------------------------------------------------+
+| ``SUFFIXES``             | The default list of suffixes before ``kmk``      |
+|                          | reads any makefiles (always empty).              |
++--------------------------+--------------------------------------------------+
+| ``VPATH``                | Directory search path for files not found in the |
+|                          | current directory.                               |
++--------------------------+--------------------------------------------------+
+
+
+The following variables reflects ``kmk`` options. Do not set these. [1]_
+
++-------------------------------------+---------------------------------------+
+| Variable                            | Description                           |
++=====================================+=======================================+
+| ``KMK_OPTS_JOBS``                   | -j slots, ``0`` if not given.         |
++-------------------------------------+---------------------------------------+
+| ``KMK_OPTS_KEEP_GOING``             | -k indictor (``0``/``1``).            |
++-------------------------------------+---------------------------------------+
+| ``KMK_OPTS_JUST_PRINT``             | -n indicator (``0``/``1``).           |
++-------------------------------------+---------------------------------------+
+| ``KMK_OPTS_PRORITY``                | --priority level, ``0`` if not given. |
++-------------------------------------+---------------------------------------+
+| ``KMK_OPTS_AFFINITY``               | --affinity mask, ``0`` if not given.  |
++-------------------------------------+---------------------------------------+
+| ``KMK_OPTS_STATISTICS``             | --statistics indicator (``0``/``1``). |
++-------------------------------------+---------------------------------------+
+| ``KMK_OPTS_PRINT_TIME``             | The --print-time value.               |
++-------------------------------------+---------------------------------------+
+| ``KMK_OPTS_PRETTY_COMMAND_PRINTING``| --pretty-command-printing indicator.  |
++-------------------------------------+---------------------------------------+
+
+
+
+Special Targets
+---------------
+
+Certain names have special meanings if they appear as targets.
+
++-------------------------------+---------------------------------------------+
+| Target                        | Description                                 |
++===============================+=============================================+
+| ``.DEFAULT``                  | The recipe is used for any target for which |
+|                               | no rules are found.                         |
++-------------------------------+---------------------------------------------+
+| ``.DELETE_ON_ERROR``          | If mentioned, ``kmk`` will delete the       |
+|                               | targets of a rule if it has changed and its |
+|                               | recipe fails or is interrupted.             |
++-------------------------------+---------------------------------------------+
+| ``.EXPORT_ALL_VARIABLES``     | If mentioned, all variables will by default |
+|                               | be exported to child processes.             |
++-------------------------------+---------------------------------------------+
+| ``.IGNORE``                   | Ignore errors in the execution of the recipe|
+|                               | for the targets ``.IGNORE`` depends on, if  |
+|                               | no prequisites all targets are affected.    |
++-------------------------------+---------------------------------------------+
+| ``.INTERMEDIATE``             | The prerequisites are treated as            |
+|                               | intermediate files (implicite rules).       |
++-------------------------------+---------------------------------------------+
+| ``.LOW_RESOLUTION_TIME``      | ``kmk`` will assume prerequisite files are  |
+|                               | created with low resolution time stamps.    |
++-------------------------------+---------------------------------------------+
+| ``.NOTPARALLEL``              | If mentioned without any prerequisites,     |
+|                               | ``kmk`` will run serially as if -j1 was     |
+|                               | given. If it has prerequisites ``kmk`` [1]_ |
+|                               | will only do this for the targets among     |
+|                               | them.                                       |
++-------------------------------+---------------------------------------------+
+| ``.PHONY``                    | The prerequisites are considered phony and  |
+|                               | will be rebuilt unconditionally.            |
++-------------------------------+---------------------------------------------+
+| ``.PRECIOUS``                 | The targets which ``.PRECIOUS`` depends     |
+|                               | will to be deleted if ``kmk`` is killed or  |
+|                               | interrupted while their building.           |
++-------------------------------+---------------------------------------------+
+| ``.SECONDARY``                | The prerequisites are treated as            |
+|                               | intermediate files, except that they are    |
+|                               | never automatically deleted. If used with   |
+|                               | no prerequisites all targets gets this      |
+|                               | treatement.                                 |
++-------------------------------+---------------------------------------------+
+| ``.SECONDEXPANSION``          | If mentioned, all prerequisite lists after  |
+|                               | it will be expanded a second time after all |
+|                               | makefiles have been read.                   |
++-------------------------------+---------------------------------------------+
+| ``.SECONDTARGETEXPANSION``    | If mentioned, all targets after it will be  |
+| [1]_                          | expanded a second time after all makefiles  |
+|                               | have been read.                             |
++-------------------------------+---------------------------------------------+
+| ``.SILENT``                   | ``kmk`` will not print the recipe for       |
+|                               | targets listed as prerequisites, if none    |
+|                               | then it applies to all targets.             |
++-------------------------------+---------------------------------------------+
+| ``.SUFFIXES``                 | The prerequisites are the list of suffixes  |
+|                               | used in checking for suffix rules. If it    |
+|                               | appears without prerequisites it the suffix |
+|                               | will be cleared.                            |
++-------------------------------+---------------------------------------------+
+
+
+
+Commands
+--------
+
+Builtin commands [1]_ all start with ``kmk_builtin_``, so in order to save
+space this prefix has been omitted in the table below. All commands comes in an
+external edition that can be used by/in the shell, these are prefixed ``kmk_``.
+
++---------------+-------------------------------------------------------------+
+| Command       | Description                                                 |
++===============+=============================================================+
+| ``append``    | Append text to a file. The builtin version can output the   |
+|               | value of a variable or the commands of a target.            |
++---------------+-------------------------------------------------------------+
+| ``cat``       | The BSD ``cat`` command.                                    |
++---------------+-------------------------------------------------------------+
+| ``chmod``     | The BSD ``chmod`` command.                                  |
++---------------+-------------------------------------------------------------+
+| ``cmp``       | The BSD ``cmp`` command.                                    |
++---------------+-------------------------------------------------------------+
+| ``cp``        | The BSD ``cp`` command with some twaking.                   |
++---------------+-------------------------------------------------------------+
+| ``echo``      | The BSD ``echo`` command.                                   |
++---------------+-------------------------------------------------------------+
+| ``expr``      | The BSD ``expr`` command.                                   |
++---------------+-------------------------------------------------------------+
+| ``install``   | The BSD ``install`` command with some tweaking.             |
++---------------+-------------------------------------------------------------+
+| ``kDepIDB``   | Extract dependencies from a Visual C++ .IDB file.           |
++---------------+-------------------------------------------------------------+
+| ``ln``        | The BSD ``ln`` command.                                     |
++---------------+-------------------------------------------------------------+
+| ``md5sum``    | Typical MD5 sum program, custom kBuild version.             |
++---------------+-------------------------------------------------------------+
+| ``mkdir``     | The BSD ``mkdir`` command.                                  |
++---------------+-------------------------------------------------------------+
+| ``mv``        | The BSD ``mv`` command with some tweaking.                  |
++---------------+-------------------------------------------------------------+
+| ``printf``    | The BSD ``printf`` command.                                 |
++---------------+-------------------------------------------------------------+
+| ``rm``        | The BSD ``rm`` command with some tweaking.                  |
++---------------+-------------------------------------------------------------+
+| ``rmdir``     | The BSD ``rmdir`` command with some tweaking.               |
++---------------+-------------------------------------------------------------+
+| ``sleep``     | Typical ``sleep`` program, custom kBuild version.           |
++---------------+-------------------------------------------------------------+
+| ``test``      | The BSD ``test`` program with some tweaking.                |
++---------------+-------------------------------------------------------------+
+
+Some additional external commands are available in the ``kmk`` / ``kBuild``
+environment (``kSomething`` command are not prefixed with ``kmk_``):
+
++---------------+-------------------------------------------------------------+
+| Command       | Description                                                 |
++===============+=============================================================+
+| ``kDepPre``   | Extract dependencies from the C/C++ preprocessor output.    |
++---------------+-------------------------------------------------------------+
+| ``kObjCache`` | Simple object file cache program.                           |
++---------------+-------------------------------------------------------------+
+| ``ash``       | Almquist's shell (NetBSD variant).                          |
++---------------+-------------------------------------------------------------+
+| ``gmake``     | Vanilla GNU ``make`` from same sources as ``kmk``.          |
++---------------+-------------------------------------------------------------+
+| ``redirect``  | Shell avoidance tool. Sets up file descriptors, environment |
+|               | variables and current directory before kicking of program.  |
++---------------+-------------------------------------------------------------+
+| ``sed``       | GNU ``sed`` with some tweaks to avoid involving the shell.  |
++---------------+-------------------------------------------------------------+
+| ``time``      | Stopwatch utility for measuring program execution time(s).  |
++---------------+-------------------------------------------------------------+
+
+
+
+kmk-expression
+--------------
+
+``kmk``-expressions [1]_ are related to the C/C++ preprocessor in some ways as
+well as ``nmake`` and BSD ``make``. There are however some peculiarities
+because of the way GNU ``make`` choose to represent booleans in its function
+library, so, strings can be turned into boolean by taking any non-empty string
+as true.
+
+Quoting using single quotes results in hard strings, while double quotes and
+unquoted string results in soft strings that can be converted to number or
+boolean to fit the situation.
+
+Here's the operator table in decending precedence order:
+
++---------------+--------+-----------------------------------------------------+
+| Operator      | Type   | Description                                         |
++===============+========+=====================================================+
+| ``defined``   | Unary  | Checks if the following variable exists.            |
++---------------+        +-----------------------------------------------------+
+| ``exists``    |        | Checks if the following file exists.                |
++---------------+        +-----------------------------------------------------+
+| ``target``    |        | Checks if the following target exists.              |
++---------------+        +-----------------------------------------------------+
+| ``bool``      |        | Casts the following value to boolean.               |
++---------------+        +-----------------------------------------------------+
+| ``num``       |        | Casts the following value to a number.              |
++---------------+        +-----------------------------------------------------+
+| ``str``       |        | Casts the following value to a string.              |
++---------------+--------+-----------------------------------------------------+
+| ``!``         | Unary  | Logical NOT.                                        |
++---------------+        +-----------------------------------------------------+
+| ``+``         |        | Pluss prefix.                                       |
++---------------+        +-----------------------------------------------------+
+| ``-``         |        | Minus prefix.                                       |
++---------------+        +-----------------------------------------------------+
+| ``~``         |        | Bitwise one's complement.                           |
++---------------+--------+-----------------------------------------------------+
+| ``*``         | Binary | Multiplication (product).                           |
++---------------+        +-----------------------------------------------------+
+| ``/``         |        | Division (quotient).                                |
++---------------+        +-----------------------------------------------------+
+| ``%``         |        | Modulus (remainder).                                |
++---------------+--------+-----------------------------------------------------+
+| ``+``         | Binary | Addition (sum).                                     |
++---------------+        +-----------------------------------------------------+
+| ``-``         |        | Subtraction (difference).                           |
++---------------+--------+-----------------------------------------------------+
+| ``<<``        | Binary | Bitwise left shift.                                 |
++---------------+        +-----------------------------------------------------+
+| ``>>``        |        | Bitwise right shift.                                |
++---------------+--------+-----------------------------------------------------+
+| ``<=``        | Binary | Less or equal than.                                 |
++---------------+        +-----------------------------------------------------+
+| ``<``         |        | Less than.                                          |
++---------------+        +-----------------------------------------------------+
+| ``>=``        |        | Greater or equal than.                              |
++---------------+        +-----------------------------------------------------+
+| ``>``         |        | Greater than.                                       |
++---------------+--------+-----------------------------------------------------+
+| ``==``        | Binary | Equal to.                                           |
++---------------+        +-----------------------------------------------------+
+| ``!=``        |        | Not equal to.                                       |
++---------------+--------+-----------------------------------------------------+
+| ``&``         | Binary | Bitwise AND.                                        |
++---------------+--------+-----------------------------------------------------+
+| ``^``         | Binary | Bitwise XOR.                                        |
++---------------+--------+-----------------------------------------------------+
+| ``|``         | Binary | Bitwise OR.                                         |
++---------------+--------+-----------------------------------------------------+
+| ``&&``        | Binary | Logical AND.                                        |
++---------------+--------+-----------------------------------------------------+
+| ``||``        | Binary | Logical OR.                                         |
++---------------+--------+-----------------------------------------------------+
+
+
+
+Built-in functions
+------------------
+
+
+String Manipulation Functions:
+
+    Replace ``from`` with ``to`` in ``text``::
+
+        $(subst from,to,text)
+
+    Replace words matching ``pattern`` with ``replacement`` in ``text``::
+
+        $(patsubst pattern,replacement,text)
+
+    Remove excess whitespace characters from ``string``::
+
+        $(strip string)
+
+    Locate ``find`` in ``text``, returning ``find`` if found::
+
+        $(findstring find,text)
+
+    Select words in ``text`` that match one of the ``pattern`` words::
+
+        $(filter pattern...,text)
+
+    Select words in ``text`` that do not match any of the ``pattern`` words::
+
+        $(filter-out pattern...,text)
+
+    Sort the words in ``list`` lexicographically, removing duplicates::
+
+        $(sort list)
+
+    Sort the words in ``list`` lexicographically in reserve order, removing
+    duplicates [1]_::
+
+        $(rsort list)
+
+    Count the number of words in ``text``::
+
+        $(words text)
+
+    Extract the ``n``\th word (one-origin) of ``text``::
+
+        $(word n,text)
+
+    Returns the list of words in ``text`` from ``s`` to ``e`` (one-origin)::
+
+        $(wordlist s,e,text)
+
+    Extract the first word of ``names``::
+
+        $(firstword names...)
+
+    Extract the last word of ``names``::
+
+        $(lastword names...)
+
+    Join two parallel lists of words::
+
+        $(join list1,list2)
+
+    Extract the first defined variable from ``variables``, returning its name
+    (default) or value::
+
+        $(firstdefined variables[, name|value])
+
+    Extract the last defined variable from ``variables``, returning its name
+    (default) or value::
+
+        $(lastdefined variables[, name|value])
+
+    Fold ``text`` to upper case [1]_::
+
+        $(toupper text)
+
+    Fold ``text`` to lower case [1]_::
+
+        $(tolower text)
+
+    String formatting a la the unix ``printf`` command [1]_::
+
+        $(printf fmt, arg...)
+
+    Return the length of a string or a (unexpanded) variable [1]_::
+
+        $(length string)
+        $(length-var var)
+
+    Find the position of ``needle`` in ``haystack``, returns 0 if not found.
+    Negative ``start`` indices are relative to the end of ``haystack``, while
+    positive ones are one based [1]_::
+
+        $(pos needle, haystack[, start])
+        $(lastpos needle, haystack[, start])
+
+    Returns the specified substring. The ``start`` works like with ``$(pos )``.
+    If the substring is partially outside the ``string`` the result will be
+    padded with ``pad`` if present [1]_::
+
+        $(substr string, start[, length[, pad]])
+
+    Insert ``in`` into ``str`` at the specified position. ``n`` works like with
+    ``$(pos )``, except that ``0`` is the end of the string [1]_::
+
+        $(insert in, str[, n[, length[, pad]]])
+
+    Translate ``string`` exchanging characters in ``from-set`` with ``to-set``,
+    optionally completing ``to-set`` with ``pad-char`` if specified. If no
+    ``pad-char`` characters absent in ``to-set`` will be deleted [1]_::
+
+        $(translate string, from-set[, to-set[, pad-char]])
+
+
+Functions for file names:
+
+    Extract the directory part of each file ``name``::
+
+        $(dir names...)
+
+    Extract the non-directory part of each file ``name``::
+
+        $(notdir names...)
+
+    Extract the suffix (the last ``.`` and following characters) of each file
+    ``name``::
+
+        $(suffix names...)
+
+    Extract the base name (name without suffix) of each file name::
+
+        $(basename names...)
+
+    Extract the root specification of each file name (a bit complicated on
+    Windows & OS/2) [1]_::
+
+        $(root names...)
+
+    Extract the non-root part of each file name (a bit complicated on
+    Windows & OS/2) [1]_::
+
+        $(notroot names...)
+
+    Append ``suffix`` to each word in ``names``::
+
+        $(addsuffix suffix,names...)
+
+    Prepend ``prefix`` to each word in ``names``::
+
+        $(addprefix prefix,names...)
+
+    Find file names matching a shell file name ``pattern`` (not a ``%``
+    pattern)::
+
+        $(wildcard pattern...)
+
+    For each file name in ``names``, expand to an absolute name that does not
+    contain any ``.``, ``..``, nor symlinks::
+
+        $(realpath names...)
+
+    For each file name in ``names``, expand to an absolute name that does not
+    contain any ``.`` or ``..`` components, but preserves symlinks::
+
+        $(abspath names...)
+
+    Same as ``$(abspath )`` except that the current directory can be
+    specified as ``curdir`` [1]_::
+
+        $(abspathex names...[, curdir])
+
+
+Arithmetic Functions:
+
+    Returns the sum of the arguments [1]_::
+
+        $(int-add addend1, addend2[, addendN])
+
+    Returns the difference between the first argument and the sum of the
+    rest [1]_::
+
+        $(int-sub minuend, subtrahend[, subtrahendN])
+
+    Returns the product of the arguments [1]_::
+
+        $(int-mul factor1, factor2[, factorN])
+
+    Returns the quotient of first argument and the rest [1]_::
+
+        $(int-div dividend, divisor[, divisorN])
+
+    Returns the modulus of the two arguments [1]_::
+
+        $(int-mod dividend, divisor)
+
+    Returns the bitwise two-complement of argument [1]_::
+
+        $(int-not val)
+
+    Returns the result of a bitwise AND of the arguments [1]_::
+
+        $(int-and val1, val2[, valN])
+
+    Returns the result of a bitwise OR of the arguments [1]_::
+
+        $(int-or val1, val2[, valN])
+
+    Returns the result of a bitwise XOR of the arguments [1]_::
+
+        $(int-xor val1, val2[, valN])
+
+    Returns the ``kmk`` boolean (true = non-empty, false = empty) result
+    of ``val1 == val2`` [1]_::
+
+        $(int-eq val1, val2)
+
+    Returns the ``kmk`` boolean result of ``val1 != val2`` [1]_::
+
+        $(int-ne val1, val2)
+
+    Returns the ``kmk`` boolean result of ``val1 > val2`` [1]_::
+
+        $(int-gt val1, val2)
+
+    Returns the ``kmk`` boolean result of ``val1 >= val2`` [1]_::
+
+        $(int-ge val1, val2)
+
+    Returns the ``kmk`` boolean result of ``val1 < val2`` [1]_::
+
+        $(int-lt val1, val2)
+
+    Returns the ``kmk`` boolean result of ``val1 <= val2`` [1]_::
+
+        $(int-le val1, val2)
+
+
+Boolean and Conditional Functions:
+
+    Condition is false if the ``condition`` evaluates to an empty string
+    (stripped). Evaluate the ``true-part`` if the condition is true, otherwise
+    the ``false-part``::
+
+        $(if condition,true-part[,false-part])
+
+    Test if any of the conditions evalues to non-empty string, returning the
+    first one::
+
+        $(or condition1[,condition2[,condition3[...]]])
+
+    Test if all of the conditions evaluates to non-empty strings, returning the
+    last one::
+
+        $(and condition1[,condition2[,condition3[...]]])
+
+
+    Test if the two strings are identical, returning ``kmk`` boolean (true =
+    non-empty, false = empty) [2]_::
+
+        $(eq str1, str2)
+
+    Invert a ``kmk`` boolean value [2]_::
+
+        $(not val)
+
+    Test if ``variable`` is defined, returning a ``kmk`` boolean value [1]_::
+
+        $(defined variable)
+
+    Test if ``set-a`` and ``set-b`` intersects, returning a ``kmk`` boolean
+    value [1]_::
+
+        $(intersects set-a, set-b)
+
+    Same as ``$(if )`` execpt that the condition is a ``kmk``-expression [1]_::
+
+        $(if-expr kmk-expression,true-part[,false-part])
+
+    Select the first true condition (``kmk``-expression) and expand the
+    following body. Special condition strings ``default`` and
+    ``otherwise`` [1]_::
+
+        $(select when1-cond, when1-body[, whenN-cond, whenN-body])
+
+    Evalutate the ``kmk-expression`` returning what it evalues as. This is
+    the preferred way of doing arithmentic now [1]_::
+
+        $(expr kmk-expression)
+
+
+Stack Fuctions:
+
+      Push ``item`` onto the ``stack-var``, returning the empty string [1]_::
+
+            $(stack-push stack-var, item)
+
+      Pop the top item off the ``stack-var`` [1]_::
+
+            $(stack-pop stack-var)
+
+      Pop the top item off the ``stack-var``, returning the empty string [1]_::
+
+            $(stack-popv stack-var)
+
+      Get the top item of the ``stack-var``, returning the empty string [1]_::
+
+            $(stack-top stack-var)
+
+
+Advanced Functions:
+
+    Evaluates to the contents of the variable ``var``, with no expansion
+    performed on it::
+
+        $(value var)
+
+    Evaluate ``body`` with ``var`` bound to each word in ``words``, and
+    concatenate the results (spaced)::
+
+        $(foreach var,words,body)
+
+    C-style for-loop. Start by evaluating ``init``. Each iteration will
+    first check whether the ``condition`` (``kmk``-expression) is true,
+    then expand ``body`` concatenating the result to the previous iterations
+    (spaced), and finally evaluate ``next`` [1]_::
+
+        $(for init,conditions,next,body)
+
+    C-style while-loop. Each iteration will check whether the ``condition``
+    (``kmk``-expression) is true, then expand ``body`` concatenating the
+    result to the previous iterations [1]_::
+
+        $(while conditions,body)
+
+    Evaluate the variable ``var`` replacing any references to ``$(1)``,
+    ``$(2)`` with the first, second, etc. ``param`` values::
+
+        $(call var,param,...)
+
+    Evaluate ``text`` then read the results as makefile commands. Expands
+    to the empty string::
+
+        $(eval text)
+
+    Same as ``$(eval text)`` except that the ``text`` is expanded in its
+    own variable context [1]_::
+
+        $(evalctx text)
+
+    Same as ``$(eval $(value var))`` [1]_::
+
+        $(evalval var)
+
+    Same as ``$(evalctx $(value var))`` [1]_::
+
+        $(evalvalctx var)
+
+    A combination of ``$(eval )``, ``$(call )`` and ``$(value )`` [1]_::
+
+        $(evalcall var)
+
+    A combination of ``$(eval )`` and ``$(call )`` [1]_::
+
+        $(evalcall2 var)
+
+    Remove comments and blank lines from the variable ``var``. Expands to
+    the empty string [1]_::
+
+        $(eval-opt-var var)
+
+    Returns accessing ``$<`` of ``target``, either retriving the whole thing
+    or the file at ``pos`` (one-origin) [1]_::
+
+        $(deps target[, pos])
+
+    Returns accessing ``$+`` (order + duplicates) of ``target``, either
+    retriving the whole thing or the file at ``pos`` (one-origin) [1]_::
+
+        $(deps-all target[, pos])
+
+    Returns accessing ``$?``  of ``target``, either retriving the whole
+    thing or the file at ``pos`` (one-origin) [1]_::
+
+        $(deps-newer target[, pos])
+
+    Returns accessing ``$|`` (order only)  of ``target``, either retriving the
+    whole thing or the file at ``pos`` (one-origin) [1]_::
+
+        $(deps-oo target[, pos])
+
+
+Command Functions:
+
+    Create one or more command lines avoiding the max argument
+    length restriction of the host OS [1]_::
+
+        $(xargs ar cas mylib.a,$(objects))
+        $(xargs ar cas mylib.a,ar as mylib.a,$(objects))
+
+
+    Returns the commands for the specified target separated by new-line, space,
+    or a user defined string. Note that this might not produce the 100% correct
+    result if any of the prerequisite automatic variables are used [1]_::
+
+        $(commands target)
+        $(commands-sc target)
+        $(commands-usr target,sep)
+
+    Compares two commands returning the empty string if equal and the 3rd
+    argument if not. This differs from ``$(comp-vars v1,v2,ne)`` in that
+    line by line is stripped of leading spaces, command prefixes and
+    trailing spaces before comparing [1]_::
+
+        $(comp-cmds cmds-var1, cmds-var2, ne)
+        $(comp-cmds-ex cmds1, cmd2, ne)
+
+
+    Compares the values of the two variables returning the empty string if
+    equal and the 3rd argument if not. Leading and trailing spaces is
+    ignored [1]_::
+
+        $(comp-var var1, var2, ne)
+
+
+Utility functions:
+
+    When this function is evaluated, ``kmk`` generates a fatal error with the
+    message ``text``::
+
+        $(error text...)
+
+    When this function is evaluated, ``kmk`` generates a warning with the
+    message ``text``::
+
+        $(warning text...)
+
+    When this function is evaluated, ``kmk`` generates a info with the
+    message ``text``::
+
+        $(info text...)
+
+    Execute a shell ``command`` and return its output::
+
+        $(shell command)
+
+    Return a string with the location where the ``kmk`` variable ``variable``
+    was defined::
+
+        $(where variable)
+
+    Return a string describing how the ``kmk`` variable ``variable`` was defined::
+
+        $(origin variable)
+
+    Return a string describing the flavor of the ``kmk`` variable ``variable``::
+
+        $(flavor variable)
+
+    Returns the current local time and date formatted in the ``strftime``
+    style specifier ``fmt``. ``fmt`` defaults to ``%Y-%m-%dT%H:%M:%S`` when
+    not specified [1]_::
+
+        $(date fmt)
+
+    Returns the current UTC time and date formatted in the ``strftime``
+    style specifier ``fmt``. ``fmt`` defaults to ``%Y-%m-%dT%H:%M:%SZ`` when
+    not specified [1]_::
+
+        $(date-utc fmt)
+
+    Reformats the ``in`` time and date using ``fmt``. The ``in-fmt`` defaults
+    to ``fmt`` if not specified. While ``fmt`` defaults to
+    ``%Y-%m-%dT%H:%M:%SZ`` if not specified [1]_::
+
+        $(date-utc fmt,time,in-fmt)
+
+    Returns the current nanosecond timestamp (monotonic when possible) [1]_::
+
+        $(nanots )
+
+    Returns the size of the specified file, or -1 if the size could not
+    be obtained. This can be used to check if a file exist or not [1]_::
+
+        $(file-size file)
+
+    Searches the ``PATH`` ``kmk`` variable for the specified ``files`` [1]_::
+
+        $(which files...)
+
+    OS/2: Returns the specified LIBPATH variable value [1]_::
+
+        $(libpath var)
+
+    OS/2: Sets the specified LIBPATH variable value, returning the empty
+    string [1]_::
+
+        $(libpath var,value)
+
+
+Debugging Functions:
+
+    Returns various make statistics, if no item is specified a default
+    selection is returned [1]_::
+
+        $(make-stats item[,itemN])
+
+    Raise a debug breakpoint. Used for debugging ``kmk`` makefile
+    parsing [1]_::
+
+        $(breakpoint )
+
+
+Recipes
+-------
+
+    A typical recipe takes one of the two following forms::
+
+        targets : normal-prerequisites | order-only-prerequisites
+        	command
+        	...
+
+        targets : normal-prerequisites | order-only-prerequisites ; command
+        	command
+        	...
+
+    Specifying more than one file in the ``targets`` lists is the same as
+    repeating the recipe for each of the files.
+
+    Use ``+`` and ``+|`` in the list of ``targets`` to tell ``kmk`` that the
+    recipe has more than one output. [1]_ The files after a ``+`` will
+    always be remade, while the files after a ``+|`` don't have to be remade.
+    The latter is frequently employed to update files which prerequisites
+    change wihtout the output files necessarily changing. See also
+    ``kmk_cp --changed``.
+
+
+Double colon recipes
+
+    Double colon recipes are written with ``::`` instead of ``:`` and are
+    handled differently from ordinary recipes if the target appears in more
+    than one recipe. First, all the recipes must be of the double colon type.
+    Second, the recipes are executed individually and may be omitted depending
+    on the state of their prerequisites. Double colon recipes without any
+    prerequisites will always be executed.
+
+
+Pattern rules
+
+    A couple of examples::
+
+        %.o : %.c
+		gcc -o $@ $<
+        %.tab.c %.tab.h : %.y
+		bison -d $<
+
+    The latter has two outputs.
+
+
+-----
+
+.. [1] ``kmk`` only feature.
+.. [2] Experimental GNU ``make`` feature that is not enabled by default.
+
+-----
+
+:Status: $Id: QuickReference-kmk.txt 2532 2011-08-02 13:05:37Z bird $
+:Copyright: Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+            1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006,
+            2007 Free Software Foundation, Inc.
+
+            Copyright (c) 2008-2009 knut st. osmundsen

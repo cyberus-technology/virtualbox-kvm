@@ -1,0 +1,54 @@
+=head1 NAME
+
+TPMLIB_SetState  - Set the TPM's volatile, permanent, or save state
+
+TPMLIB_GetState  - Get the TPM's volatile, permanent, or save state
+
+=head1 LIBRARY
+
+TPM library (libtpms, -ltpms)
+
+=head1 SYNOPSIS
+
+B<#include <libtpms/tpm_library.h>>
+
+B<TPM_RESULT TPMLIB_SetState(enum TPMLIB_StateType st,
+                           const unsigned char *buffer, uint32_t buflen);>
+
+B<TPM_RESULT TPMLIB_GetState(enum TPMLIB_StateType st,
+                           unsigned char **buffer, uint32_t *buflen);>
+
+=head1 DESCRIPTION
+
+The B<TPMLIB_SetState()> function allows to set either one of the state blobs of
+the TPM. The passed state blob is tested for whether it can be accepted and a TPM
+error code is returned in case it cannot be accepted. In case of acceptance, the
+state blob will be passed to the TPM upon B<TPM_MainInit()>. Setting a state blob
+hides a file that may contain the same type of blob and would be read otherwise.
+It is required to call this function with a NULL pointer for the buffer parameter
+to hide a state blob in a file.
+
+It is only possible to set the state blobs after B<TPMLIB_ChooseTPMVersion()>
+has been called. All state blobs are cleared when a different version of TPM is
+chosen using B<TPMLIB_ChooseTPMVersion> or when a call to B<TPMLIB_SetState()>
+fails because a state blob could not be accepted.
+
+The order in which state blobs are set is important. The first state blob has
+to be the one representing the TPM's permanent state. Only after that either
+the volatile or save state blobs can be set.
+
+The B<TPMLIB_GetState()> function allows to get the current state of the TPM.
+For as long as the TPM has not been started, this function either returns the state
+blob previously set with B<TPMLIB_SetState()> or the state is read from a file.
+Once the TPM has been start the state of the running TPM is returned.
+
+The B<TPMLIB_STATE_SAVE_STATE> (save state) type of TPM state can be set with this
+function. The same state blob will be returned until TPM_Startup(ST_STATE) has been
+called, after which an empty blob will be returned. This blob can also only be
+read after TPM_SaveState() has been sent to the TPM.
+
+=head1 SEE ALSO
+
+B<TPMLIB_ChooseTPMVersion>(3), B<TPMLIB_MainInit>(3), B<TPMLIB_Terminate>(3)
+
+=cut

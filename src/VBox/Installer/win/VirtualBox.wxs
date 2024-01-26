@@ -1,0 +1,690 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2014-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+    <?include Defines.wxi ?>
+
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+    <!-- The merge module file names -->
+    <?define Property_VBoxMergeApp = "$(env.VBOX_WIN_INST_MERGE_APP)" ?>
+    <?if $(env.VBOX_WITH_32_ON_64_MAIN_API) = "yes" ?>
+        <?define Property_VBoxMergeCOM32On64 = "$(env.VBOX_WIN_INST_MERGE_COM32ON64)" ?>
+    <?endif ?>
+    <?if $(env.VBOX_WITH_USB) = "yes" ?>
+        <?define Property_VBoxMergeUSB = "$(env.VBOX_WIN_INST_MERGE_USB)" ?>
+    <?endif ?>
+    <?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+        <?define Property_VBoxMergeNetworkFlt = "$(env.VBOX_WIN_INST_MERGE_NETFLT)" ?>
+    <?endif ?>
+    <?if $(env.VBOX_WITH_NETADP) = "yes" ?>
+        <?define Property_VBoxMergeNetworkAdp  = "$(env.VBOX_WIN_INST_MERGE_NETADP)" ?>
+        <?define Property_VBoxMergeNetworkAdp6 = "$(env.VBOX_WIN_INST_MERGE_NETADP6)" ?>
+    <?endif ?>
+    <?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+        <?define Property_VBoxMergeNetworkLwf = "$(env.VBOX_WIN_INST_MERGE_NETLWF)" ?>
+    <?endif ?>
+    <?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+        <?define Property_VBoxMergePython = "$(env.VBOX_WIN_INST_MERGE_PYTHON)" ?>
+    <?endif ?>
+<?endif ?>
+
+    <Product Id="*"
+             UpgradeCode="C4BAD770-BFE8-4D2C-A592-693028A7215B"
+             Name="$(env.VBOX_PRODUCT) $(env.VBOX_VERSION_STRING)"
+             Language="!(loc.LANG)"
+             Codepage="1252"
+             Version="$(var.Property_Version)"
+             Manufacturer="$(env.VBOX_VENDOR)">
+
+    <Package Id="*"
+             Keywords="Installer"
+             Description="$(env.VBOX_PRODUCT) $(var.Property_VersionExt) installation package"
+             Comments="$(env.VBOX_PRODUCT) installation package"
+             Compressed="yes"
+             Manufacturer="$(env.VBOX_VENDOR)"
+             InstallerVersion="200"
+             InstallPrivileges="elevated"
+             Platform="$(var.Property_Platform)"/>
+
+    <?include CommonProperties.wxi ?>
+
+    <!-- Global properties -->
+    <Property Id="ARPPRODUCTICON">IconVirtualBox</Property>
+    <Property Id="ARPURLINFOABOUT">http://www.virtualbox.org</Property>
+    <Property Id="ARPURLUPDATEINFO">http://www.virtualbox.org</Property>
+
+    <Property Id="NETWORKTYPE" Value="NDIS6" Secure="yes"/>
+
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "no" ?>
+    <!-- Force NDIS5 on pre-Vista -->
+    <SetProperty Id="NETWORKTYPE" After="LaunchConditions" Value="NDIS5"><![CDATA[(VersionNT < 600)]]></SetProperty>
+<?endif ?>
+
+    <!-- Whether or not registering of known desktop shortcut for the Quick Launch Bar should be created -->
+    <Property Id="VBOX_REGISTERFILEEXTENSIONS" Value="1" Secure="yes"/>
+
+    <SetProperty Id="VBOX_REGISTERFILEEXTENSIONS" After="AppSearch" Sequence="both" Value="{}">
+        <![CDATA[VBOX_REGISTERFILEEXTENSIONS="0"]]>
+    </SetProperty>
+
+    <!-- Install the product for all users on the system -->
+    <Property Id="ALLUSERS"><![CDATA[1]]></Property>
+
+    <!-- Force overwriting all files and re-create shortcuts to guarantee a working environment -->
+    <Property Id='REINSTALLMODE' Value='amus'/>
+
+    <?include PublicProperties.wxi ?>
+
+    <!-- Make sure installation will not start on anything other but the NT family -->
+<?if $(env.KBUILD_TARGET_ARCH) = "amd64" ?>
+    <Condition Message="!(loc.Only64Bit)">
+        VersionNT64
+    </Condition>
+<?else ?>
+    <Condition Message="!(loc.Only32Bit)">
+        NOT VersionNT64
+    </Condition>
+
+    <Condition Message="!(loc.WrongOS)">
+        NOT VersionNT=500 AND NOT Version9X AND NOT VersionNT64
+    </Condition>
+
+<?endif ?>
+
+    <Condition Message="!(loc.NeedAdmin)">
+        Privileged
+    </Condition>
+
+<?if $(env.VBOX_WITH_CRT_PACKING) = "no" ?>
+    <!-- Check if we have the required MS CRT(s) installed when we're not shipping those. -->
+    <Condition Message="!(loc.NeedMSCRT)">
+        Installed OR (VBOX_MSCRT_INSTALLED)
+    </Condition>
+<?endif ?>
+
+    <!-- Detect old innotek installation -->
+    <!-- Force a manual uninstall of an already installed innotek VirtualBox version first -->
+    <Property Id="VBOXINNOTEK">
+        <RegistrySearch Id="RegSearchInnotekVersion" Root="HKLM" Key="SOFTWARE\Innotek\VirtualBox" Name="Version" Type="raw" Win64="$(var.Property_Win64)"/>
+    </Property>
+    <Condition Message="!(loc.InnotekFound)">
+        NOT VBOXINNOTEK
+    </Condition>
+
+
+    <!-- *************************** Upgrade packages only ******************************* -->
+    <!-- Minimum and Maximum specify the range of versions we are supposed to update with this upgrade.
+         IncludeMaximum and IncludeMinimum specify whether the bound value is actually included in the range or not
+         (IncludeMaximum = yes meaning to find versions below or equal to the version specified in Maximum while
+         IncludeMaximum = no only finds those below the Maximum).
+         OnlyDetect tells the installer not to remove the previous product. This is useful as long as we
+         only change files in the package -->
+
+    <Upgrade Id="C4BAD770-BFE8-4D2C-A592-693028A7215B"> <!-- Upgrade of Sun xVM VirtualBox >= v1.6.0 -->
+
+        <!-- Upgrade is flagged if current-install is newer than or equal to package - TODO: should make a dialog appear asking user to confirm downgrade -->
+        <!-- Setting "OnlyDetect" to "no" makes the installer uninstall an already newer installed version -->
+        <UpgradeVersion Property="NEWERVERSIONDETECTED" Minimum="$(var.Property_Version)" IncludeMinimum="no" OnlyDetect="no" />
+
+        <!-- Flag is set if the install will trigger an upgrade of an existing install -->
+        <UpgradeVersion Property="PREVIOUSVERSIONSINSTALLED" Minimum="1.0.0.0" Maximum="$(var.Property_Version)" IncludeMaximum="yes" />
+
+    </Upgrade>
+
+    <!-- The product's icon table -->
+    <Icon Id="IconVirtualBox" SourceFile="$(env.VBOX_WINDOWS_ICON_FILE)" />
+
+    <!-- The media/binary IDs -->
+    <!--
+        The effects of CompressionLevel options:
+           default/mszip, high: 32.54s
+             -rw-rw-rw-  1 bird 0  53 591 221 2016-09-25 03:56 common.cab
+             -rw-rw-rw-  1 bird 0  41 560 082 2016-09-25 03:56 VirtualBox-5.1.51-r110887_en_US.msi
+           high, high: 46.76s
+             -rw-rw-rw-  1 bird 0  53 591 221 2016-09-25 03:49 common.cab
+             -rw-rw-rw-  1 bird 0  34 056 210 2016-09-25 03:49 VirtualBox-5.1.51-r110887_en_US.msi
+           medium, medium: 29.95s
+             -rw-rw-rw-  1 bird 0  56 293 089 2016-09-25 03:53 common.cab
+             -rw-rw-rw-  1 bird 0  35 498 002 2016-09-25 03:54 VirtualBox-5.1.51-r110887_en_US.msi
+           low, low: 25.41s
+             -rw-rw-rw-  1 bird 0  57 616 155 2016-09-25 03:52 common.cab
+             -rw-rw-rw-  1 bird 0  37 181 458 2016-09-25 03:52 VirtualBox-5.1.51-r110887_en_US.msi
+           mszip/default, mszip/default: 16.13s
+             -rw-rw-rw-  1 bird 0  58 751 954 2016-09-25 03:49 common.cab
+             -rw-rw-rw-  1 bird 0  41 560 082 2016-09-25 03:50 VirtualBox-5.1.51-r110887_en_US.msi
+           none, none: 2.37s
+             -rw-rw-rw-  1 bird 0  92 470 301 2016-09-25 03:47 common.cab
+             -rw-rw-rw-  1 bird 0 135 874 578 2016-09-25 03:47 VirtualBox-5.1.51-r110887_en_US.msi
+
+        We set the level in the VBOX_CAB_COMPRESSION_LEVEL and VBOX_CAB_COMPRESSION_LEVEL_COMMON
+        environment variables so we don't waste time compressing and decompressing the intermediate
+        language MSIs and the common.cab that we're not going to use (x86).
+    -->
+    <Media Id="1" Cabinet="product.cab" EmbedCab="yes" CompressionLevel="$(env.VBOX_CAB_COMPRESSION_LEVEL)" />
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "no" ?>
+    <?if $(env.VBOX_WITH_COMBINED_PACKAGE) = "yes" ?>
+        <Media Id="2" Cabinet="common.cab" EmbedCab="no" CompressionLevel="$(env.VBOX_CAB_COMPRESSION_LEVEL_COMMON)" />
+    <?endif ?>
+<?endif ?>
+    <Binary Id="VBoxInstallHelper" SourceFile="$(env.PATH_OUT)\bin\VBoxInstallHelper.dll" />
+
+    <!-- Custom actions -->
+
+    <!-- Figure out where a previous installation was, if any -->
+<?if $(env.KBUILD_TARGET_ARCH) = "amd64" ?>
+    <CustomAction Id="ca_OriginalTargetDir" Execute="firstSequence" Property="INSTALLDIR"
+                  Value="[ProgramFiles64Folder]\$(env.VBOX_VENDOR_SHORT)\VirtualBox" />
+
+    <Property Id="EXISTINGINSTALLDIR" Secure="yes">
+        <RegistrySearch Id="RegistryGetInstallPath" Root="HKLM" Key="$(var.Property_RegKey)" Name="InstallDir"
+                        Type="raw" Win64="$(var.Property_Win64)"/>
+    </Property>
+    <CustomAction Id="ca_DefaultTargetDir" Execute="firstSequence" Property="INSTALLDIR" Value="[EXISTINGINSTALLDIR]" />
+<?else ?>
+    <CustomAction Id="ca_OriginalTargetDir" Execute="firstSequence" Property="INSTALLDIR"
+                  Value="[ProgramFilesFolder]\$(env.VBOX_VENDOR_SHORT)\VirtualBox" />
+
+    <Property Id="EXISTINGINSTALLDIR" Secure="yes">
+        <RegistrySearch Id="RegistryGetInstallPath" Root="HKLM" Key="$(var.Property_RegKey)" Name="InstallDir"
+                        Type="raw" Win64="$(var.Property_Win64)"/>
+    </Property>
+    <CustomAction Id="ca_DefaultTargetDir" Execute="firstSequence" Property="INSTALLDIR" Value="[EXISTINGINSTALLDIR]" />
+<?endif ?>
+    <CustomAction Id="ca_UninstallTAPInstances" BinaryKey="VBoxInstallHelper"
+                  DllEntry="UninstallTAPInstances" Execute="deferred" Return="check" Impersonate="no"/>
+
+    <CustomAction Id="ca_UninstallVBoxDrv" BinaryKey="VBoxInstallHelper"
+                  DllEntry="UninstallVBoxDrv" Execute="deferred" Return="ignore" Impersonate="no"/>
+
+    <Property Id="VBOXDEPENDENCY" Secure="yes">
+        <DirectorySearch Id="VBoxInstallDir" Path="[EXISTINGINSTALLDIR]">
+            <FileSearch Name="dependency.dep"/>
+        </DirectorySearch>
+    </Property>
+
+<?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+    <Property Id="EXISTING_PYTHON_API_FOLDER" Secure="yes" >
+        <RegistrySearch Id="RegistryGetPythonApiInstallPath" Root="HKLM" Key="$(var.Property_RegKey)"
+                        Name="PythonApiInstallDir" Type="raw" Win64="$(var.Property_Win64)"/>
+    </Property>
+<?endif ?>
+
+    <!--
+                            install upgrade uninstall
+    VBOXDEPENDENCY             0      1/0      1/0
+    UPGRADINGPRODUCTCODE       0       1        0
+    final                      0       1        0
+    not final                  1       0        1
+    -->
+
+    <Condition Message="It was detected an application which has been using currently installed VirtualBox version.
+    You must remove this application before continuing installation.
+    See the file dependency.dep in the VirtualBox installation directory for details. ">
+        NOT (VBOXDEPENDENCY AND UPGRADINGPRODUCTCODE)
+    </Condition>
+
+    <!-- Detect old Sun installation -->
+    <!-- Force a manual uninstall of an already installed Sun VirtualBox version first -->
+    <!--<Property Id="VBOXSUN">
+        <RegistrySearch Id="RegSearchSunVersion" Root="HKLM" Key="SOFTWARE\Sun\VirtualBox" Name="Version" Type="raw" Win64="$(var.Property_Win64)"/>
+    </Property>
+    <Condition Message="!(loc.SunFound)">
+        NOT VBOXSUN
+    </Condition>-->
+
+    <!-- Note: Only if we include FE/Qt, we offer to start VirtualBox at the end of a successful installation. -->
+<?if $(env.VBOX_WITH_QTGUI) = "yes" ?>
+    <!-- Note: Make sure to set the CWD (via 'Directory' attribute) to not run off a possibly temporary directory or some such (see @bugref{10203}). -->
+    <CustomAction Id="ca_StartVBox" Directory="INSTALLDIR" ExeCommand="[INSTALLDIR]VirtualBox.exe" Return="asyncNoWait" Impersonate="yes" />
+<?endif ?>
+
+    <CustomAction Id="ca_CheckSerial" BinaryKey="VBoxInstallHelper" DllEntry="CheckSerial" Impersonate="no"/>
+
+    <CustomAction Id="ca_InstallBranding" BinaryKey="VBoxInstallHelper" DllEntry="InstallBranding" Execute="deferred" Return="check" Impersonate="no"/>
+    <CustomAction Id="ca_InstallBrandingArgs" Property="ca_InstallBranding" Value="[INSTALLDIR]" Execute="immediate"/>
+
+    <CustomAction Id="ca_UninstallBranding" BinaryKey="VBoxInstallHelper" DllEntry="UninstallBranding" Execute="deferred" Return="check" Impersonate="no"/>
+    <CustomAction Id="ca_UninstallBrandingArgs" Property="ca_UninstallBranding" Value="[INSTALLDIR]" Execute="immediate"/>
+
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "no" ?>
+    <?include VBoxMergeAppCA.wxi ?>
+    <?if $(env.VBOX_WITH_32_ON_64_MAIN_API) = "yes" ?>
+        <?include VBoxMergeCOM32On64CA.wxi ?>
+    <?endif ?>
+    <?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+        <?include VBoxMergeNetFltCA.wxi ?>
+        <?include VBoxMergeNetLwfCA.wxi ?>
+    <?endif ?>
+    <?include VBoxMergeNetAdpCA.wxi ?>
+    <?include VBoxMergeNetAdp6CA.wxi ?>
+    <?include VBoxMergeUSBCA.wxi ?>
+    <?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+        <?include VBoxMergePythonCA.wxi ?>
+    <?endif ?>
+<?endif ?>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+        <Directory Id="$(var.Property_ProgramFiles)" Name="PFiles">
+            <Directory Id="VENDOR" Name="$(env.VBOX_VENDOR_SHORT)">
+                <Directory Id="INSTALLDIR" Name="VirtualBox">
+                    <!-- Components for removing empty folder after cleaning traces -->
+                    <Component Id="cp_INSTALLDIR" Guid="374723AF-5990-4552-A1B0-82C72EFA360F">
+                        <RemoveFolder Id="INSTALLDIR" On="uninstall" />
+                    </Component>
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                <Merge Id="msm_VBoxApp" Language="!(loc.LANG)" SourceFile="$(var.Property_VBoxMergeApp)" DiskId="1">
+                    <ConfigurationData Name="argRegisterExtensions" Value="[VBOX_REGISTERFILEEXTENSIONS]"/>
+                </Merge>
+    <?if $(env.VBOX_WITH_32_ON_64_MAIN_API) = "yes" ?>
+                <Merge Id="msm_VBoxCOM32On64" Language="!(loc.LANG)" SourceFile="$(var.Property_VBoxMergeCOM32On64)" DiskId="1" />
+    <?endif ?>
+<?else ?>
+                <Directory Id="msm_VBoxApplicationFolder" FileSource=".">
+                    <?include VBoxMergeApp.wxi ?>
+    <?if $(env.VBOX_WITH_32_ON_64_MAIN_API) = "yes" ?>
+                    <?include VBoxMergeCOM32On64.wxi ?>
+    <?endif ?>
+                </Directory>
+<?endif ?>
+                <Directory Id="dir_Drivers" Name="drivers">
+<?if $(env.VBOX_WITH_USB) = "yes" ?>
+                    <Directory Id="dir_USB" Name="USB">
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                        <Merge Id="msm_VBoxUSB" Language="!(loc.LANG)" SourceFile="$(var.Property_VBoxMergeUSB)" DiskId="1" />
+    <?else ?>
+                        <Directory Id="msm_VBoxUSBFolder" FileSource=".">
+                            <?include VBoxMergeUSB.wxi ?>
+                        </Directory>
+    <?endif ?>
+                    </Directory>
+<?endif ?>
+                    <Directory Id="dir_Network" Name="network">
+<?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+                        <Directory Id="dir_NetFlt" Name="netflt">
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                            <Merge Id="msm_VBoxNetworkFlt" Language="!(loc.LANG)" SourceFile="$(var.Property_VBoxMergeNetworkFlt)" DiskId="1">
+                            <ConfigurationData Name="passedNetworkType" Value="[NETWORKTYPE]"/>
+                            </Merge>
+    <?else ?>
+                            <Directory Id="msm_VBoxNetworkFltFolder" FileSource=".">
+                                <?include VBoxMergeNetFlt.wxi ?>
+                            </Directory>
+    <?endif ?>
+                        </Directory>
+<?endif ?>
+<?if $(env.VBOX_WITH_NETADP) = "yes" ?>
+                        <Directory Id="dir_NetAdp" Name="netadp">
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                            <Merge Id="msm_VBoxNetworkAdp" Language="!(loc.LANG)" SourceFile="$(var.Property_VBoxMergeNetworkAdp)" DiskId="1">
+                            <ConfigurationData Name="passedNetworkType" Value="[NETWORKTYPE]"/>
+                            </Merge>
+    <?else ?>
+                            <Directory Id="msm_VBoxNetworkAdpFolder" FileSource=".">
+                                <?include VBoxMergeNetAdp.wxi ?>
+                            </Directory>
+    <?endif ?>
+                        </Directory>
+<?endif ?>
+
+<?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+                        <Directory Id="dir_NetLwf" Name="netlwf">
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                            <Merge Id="msm_VBoxNetworkLwf" Language="!(loc.LANG)" SourceFile="$(var.Property_VBoxMergeNetworkLwf)" DiskId="1">
+                            <ConfigurationData Name="passedNetworkType" Value="[NETWORKTYPE]"/>
+                            </Merge>
+    <?else ?>
+                            <Directory Id="msm_VBoxNetworkLwfFolder" FileSource=".">
+                                <?include VBoxMergeNetLwf.wxi ?>
+                            </Directory>
+    <?endif ?>
+                        </Directory>
+<?endif ?>
+
+<?if $(env.VBOX_WITH_NETADP) = "yes" ?>
+                        <Directory Id="dir_NetAdp6" Name="netadp6">
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                            <Merge Id="msm_VBoxNetworkAdp6" Language="!(loc.LANG)" SourceFile="$(var.Property_VBoxMergeNetworkAdp6)" DiskId="1">
+                            <ConfigurationData Name="passedNetworkType" Value="[NETWORKTYPE]"/>
+                            </Merge>
+    <?else ?>
+                            <Directory Id="msm_VBoxNetworkAdp6Folder" FileSource=".">
+                                <?include VBoxMergeNetAdp6.wxi ?>
+                            </Directory>
+    <?endif ?>
+                        </Directory>
+<?endif ?>
+                    </Directory>
+                </Directory>
+                <Directory Id="dir_SDK" Name="sdk">
+<?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+                    <Directory Id="dir_SDKInstall" Name="install">
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                        <Merge Id="msm_VBoxPython" Language="!(loc.LANG)" SourceFile="$(var.Property_VBoxMergePython)" DiskId="1" />
+    <?else ?>
+                        <Directory Id="msm_VBoxPythonFolder" FileSource=".">
+                            <?include VBoxMergePython.wxi ?>
+                        </Directory>
+    <?endif ?>
+                    </Directory>
+<?endif ?>
+                    <!-- Component for removing empty folder after cleaning traces -->
+                    <Component Id="cp_SDK" Guid="ACA59290-B2D6-4E96-B164-C45F70A90219">
+                        <RemoveFolder Id="dir_SDK" On="uninstall" />
+                    </Component>
+                </Directory>
+
+<?if $(env.VBOX_WITH_QTGUI) = "yes" ?>
+                <!-- Set up special directory IDs for referencing to the start menu
+                     or the Quick Launch bar.
+                     See: http://msdn.microsoft.com/en-us/library/aa368276.aspx
+                          http://wix.mindcapers.com/wiki/Shortcuts_in_WiX -->
+                <Directory Id="ProgramMenuFolder">
+                    <Directory Id="dir_StartMenuVBox" Name="$(env.VBOX_PRODUCT)"/>
+                </Directory>
+
+                <Directory Id="DesktopFolder" Name="Desktop"/>
+
+                <Directory Id="AppDataFolder" Name="AppData">
+                    <Directory Id="dir_AppDataMicrosoft" Name="Microsoft">
+                        <Directory Id="dir_AppDataMSIE" Name="Internet Explorer">
+                            <Directory Id="dir_QuicklaunchFolder" Name="Quick Launch"/>
+                        </Directory>
+                    </Directory>
+                </Directory>
+
+                <!-- Start menu entries. -->
+                <Component Id="cp_StartMenuVBox" Guid="C2DC321A-CE63-40EE-8A98-724DF8BD12FB" Win64="$(var.Property_Win64)">
+                    <Condition>VBOX_INSTALLSTARTMENUENTRIES</Condition>
+                    <Shortcut Id="sc_StartMenuVBox" Directory="dir_StartMenuVBox" Name="$(env.VBOX_PRODUCT)" Description="$(env.VBOX_PRODUCT)"
+                              Target="[INSTALLDIR]VirtualBox.exe" WorkingDirectory="INSTALLDIR"/>
+                    <RegistryValue Root="HKCU" Key="$(var.Property_RegKeyInstall)"
+                                   Type="string" Value="installed" KeyPath="yes" />
+                    <?include $(env.PATH_TARGET)\Shortcuts_StartMenu.wxi ?>
+                </Component>
+
+                <!-- Desktop shortcut. -->
+                <Component Id="cp_DesktopShortcut" Guid="668F8A1A-F5CE-48B3-BB1A-3042EE27B279" Win64="$(var.Property_Win64)">
+                    <Condition>VBOX_INSTALLDESKTOPSHORTCUT</Condition>
+                    <Shortcut Id="sc_DesktopVBox" Directory="DesktopFolder" Name="$(env.VBOX_PRODUCT)" Description="$(env.VBOX_PRODUCT)"
+                              Target="[INSTALLDIR]VirtualBox.exe" WorkingDirectory="INSTALLDIR"/>
+                    <RegistryValue Root="HKCU" Key="$(var.Property_RegKeyInstall)" Type="string"
+                                   Value="installed" KeyPath="yes" />
+                </Component>
+
+                <!-- QuickLaunch shortcut. -->
+                <Component Id="cp_QuickLaunchVBox" Guid="CC19E026-938A-41CB-8E77-3F33296244B6" Win64="$(var.Property_Win64)">
+                    <CreateFolder/>
+                    <Condition>VBOX_INSTALLQUICKLAUNCHSHORTCUT</Condition>
+                    <Shortcut Id="sc_QuickLaunchVBox" Directory="dir_QuicklaunchFolder" Name="$(env.VBOX_PRODUCT)" Description="$(env.VBOX_PRODUCT)"
+                              Target="[INSTALLDIR]VirtualBox.exe" WorkingDirectory="INSTALLDIR"/>
+                    <RegistryValue Root="HKCU" Key="$(var.Property_RegKeyInstall)"
+                                   Type="string" Value="installed" KeyPath="yes" />
+                </Component>
+<?endif ?>
+                </Directory>
+            </Directory>
+        </Directory>
+    </Directory> <!-- TARGETDIR -->
+
+    <!-- Note: Feature IDs *must not* be renamed to use any prefixes or such,
+               otherwise this will break manual selection using the ADDLOCAL= syntax
+               when using the command line / scripts (see VBox manual). -->
+    <Feature Id="VBoxApplication" Title="VirtualBox Application" Level="1"
+             Description="!(loc.VB_App)"
+             ConfigurableDirectory="INSTALLDIR" TypicalDefault="install" Display="expand"
+             Absent="disallow" AllowAdvertise="no" >
+
+<?if $(env.VBOX_WITH_QTGUI) = "yes" ?>
+        <!-- Components which are handled only by this installer itself -->
+        <ComponentRef Id="cp_StartMenuVBox" />
+        <ComponentRef Id="cp_DesktopShortcut" />
+        <ComponentRef Id="cp_QuickLaunchVBox" />
+<?endif ?>
+        <!-- Components for removing empty folders after cleaning traces -->
+        <ComponentRef Id="cp_INSTALLDIR" />
+        <ComponentRef Id="cp_SDK" />
+
+        <!-- Components handled either by the installer itself or
+             the merge module -->
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+        <MergeRef Id="msm_VBoxApp" />
+        <?if $(env.VBOX_WITH_32_ON_64_MAIN_API) = "yes" ?>
+            <MergeRef Id="msm_VBoxCOM32On64" />
+        <?endif ?>
+<?else ?>
+    <!-- Make sure to reference the permissions component, which takes care of setting
+         the required ACLs for our files / folders. -->
+        <ComponentRef Id="cp_Permissions" />
+    <?if $(env.VBOX_WITH_QTGUI) = "yes" ?>
+        <ComponentRef Id="cp_RegisterExtensions" />
+    <?endif ?>
+    <?if $(env.VBOX_WITH_DOCS_PACKING) = "yes" ?>
+        <ComponentRef Id="cp_Docs" />
+    <?endif ?>
+    <?if $(env.VBOX_WITH_QTGUI) = "yes" ?>
+        <ComponentRef Id="cp_NLS" />
+    <?endif ?>
+    <?if $(env.VBOX_WITH_32_ON_64_MAIN_API) = "yes" ?>
+        <ComponentRef Id="cp_MainCOM_x86" />
+    <?endif ?>
+    <ComponentRef Id="cp_MainCOM" />
+    <?if $(env.VBOX_WITH_SDS) = "yes" ?>
+        <ComponentRef Id="cp_VBoxSDS" />
+    <?endif ?>
+    <?if $(env.VBOX_WITH_MIDL_PROXY_STUB) = "yes" ?>
+        <ComponentRef Id="cp_ProxyStub" />
+        <ComponentRef Id="cp_ProxyStubLegacy" />
+    <?endif?>
+    <ComponentRef Id="cp_MainBinaries" />
+    <?if $(env.VBOX_WITH_QTGUI) = "yes" ?>
+        <ComponentRef Id="cp_QtPlatforms" />
+        <ComponentRef Id="cp_QtSqldrivers" />
+        <ComponentRef Id="cp_QtStyles" />
+    <?endif ?>
+    <?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+        <ComponentRef Id="cp_VBoxPyInst" />
+        <ComponentRef Id="cp_VBoxPyMod" />
+        <ComponentRef Id="cp_VBoxPyDel" />
+    <?endif ?>
+    <?if $(env.VBOX_WITH_VBOXSDL) = "yes" ?>
+        <ComponentRef Id="cp_VBoxSDLBinaries" />
+    <?endif ?>
+    <?if $(env.VBOX_WITH_WEBSERVICES) = "yes" ?>
+        <ComponentRef Id="cp_VBoxWebService" />
+    <?endif ?>
+    <ComponentRef Id="cp_VBoxCAPI" />
+    <?if $(env.VBOX_WITH_UNATTENDED) = "yes" ?>
+        <!-- unattended template component -->
+        <ComponentRef Id="cp_UnattendedTemplates" />
+    <?endif ?>
+    <?if $(env.VBOX_SIGNING_MODE) != none ?>
+        <ComponentRef Id="cp_VBoxSupCat_PreW10" />
+        <ComponentRef Id="cp_VBoxSupCat_W10" />
+    <?endif ?>
+    <ComponentRef Id="cp_VBoxSup" />
+<?endif ?>
+
+<?if $(env.VBOX_WITH_USB) = "yes" ?>
+        <Feature Id="VBoxUSB" Title="VirtualBox USB Support" Level="1"
+                 Description="!(loc.VB_USBDriver)"
+                 ConfigurableDirectory="INSTALLDIR" TypicalDefault="install" Display="expand"
+                 Absent="allow" AllowAdvertise="no" >
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+            <MergeRef Id="msm_VBoxUSB" />
+    <?else ?>
+        <?if $(env.VBOX_SIGNING_MODE) != none ?>
+            <ComponentRef Id="cp_USBFilterDriverCat_PreW10" />
+            <ComponentRef Id="cp_USBFilterDriverCat_W10" />
+        <?endif ?>
+            <ComponentRef Id="cp_USBFilterDriver" />
+        <?if $(env.VBOX_SIGNING_MODE) != none ?>
+            <ComponentRef Id="cp_USBDeviceDriverCat_PreW10" />
+            <ComponentRef Id="cp_USBDeviceDriverCat_W10" />
+        <?endif ?>
+            <ComponentRef Id="cp_USBDeviceDriver" />
+    <?endif ?>
+        </Feature>
+<?endif ?>
+
+<?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+        <Feature Id="VBoxNetwork" Title="VirtualBox Networking" Level="1"
+                 Description="!(loc.VB_Network)"
+                 ConfigurableDirectory="INSTALLDIR" TypicalDefault="install" Display="expand"
+                 Absent="allow" AllowAdvertise="no" >
+            <Feature Id="VBoxNetworkFlt" Title="VirtualBox Bridged Networking" Level="1"
+                     Description="!(loc.VB_NetFltDriver)"
+                     ConfigurableDirectory="INSTALLDIR" TypicalDefault="install" Display="expand"
+                     Absent="allow" AllowAdvertise="no" >
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                <MergeRef Id="msm_VBoxNetworkFlt" />
+                <MergeRef Id="msm_VBoxNetworkLwf" />
+    <?else ?>
+                <ComponentRef Id="cp_NetFltDriver" />
+        <?if $(env.VBOX_SIGNING_MODE) != none ?>
+                <ComponentRef Id="cp_NetLwfDriverCat_PreW10" />
+                <ComponentRef Id="cp_NetLwfDriverCat_W10" />
+        <?endif ?>
+                <ComponentRef Id="cp_NetLwfDriver" />
+    <?endif ?>
+            </Feature>
+            <Feature Id="VBoxNetworkAdp" Title="VirtualBox Host-Only Networking" Level="1"
+                     Description="!(loc.VB_NetAdpDriver)"
+                     ConfigurableDirectory="INSTALLDIR" TypicalDefault="install" Display="expand"
+                     Absent="allow" AllowAdvertise="no" >
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                <MergeRef Id="msm_VBoxNetworkAdp" />
+                <MergeRef Id="msm_VBoxNetworkAdp6" />
+    <?else ?>
+                <ComponentRef Id="cp_NetAdpDriver" />
+        <?if $(env.VBOX_SIGNING_MODE) != none ?>
+                <ComponentRef Id="cp_NetAdp6DriverCat_PreW10" />
+                <ComponentRef Id="cp_NetAdp6DriverCat_W10" />
+        <?endif ?>
+                <ComponentRef Id="cp_NetAdp6Driver" />
+    <?endif ?>
+            </Feature>
+
+        </Feature>
+<?endif ?>
+
+<?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+        <Feature Id="VBoxPython" Title="VirtualBox Python Support" Level="1"
+                 Description="!(loc.VB_Python)"
+                 ConfigurableDirectory="INSTALLDIR" TypicalDefault="install" Display="expand"
+                 Absent="allow" AllowAdvertise="no" >
+    <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+                <MergeRef Id="msm_VBoxPython" />
+    <?else ?>
+                <ComponentRef Id="cp_VBoxPythonBinding" />
+    <?endif ?>
+        </Feature>
+<?endif ?>
+    </Feature>
+
+    <!-- Include user interface definition -->
+    <?include UserInterface.wxi ?>
+
+    <InstallExecuteSequence>
+
+        <!--
+            To debug the action sequences, do: "msiexec /i <VBox.msi> /lar <Logfile>"
+
+            InstallUISequence (client side) is:
+                AppSearch
+                LaunchConditions
+                ValidateProductID
+                CostInitialize
+                FileCost
+                CostFinalize
+                ExecuteAction -> will pass control over to "InstallExecuteSequence"
+
+            The first six actions above will be repeated but skipped on the server
+            side if already run on the client side.
+
+            InstallExecuteSequence (server side) is:
+                <First six action from InstallUISequence>
+                .
+                InstallInitialize
+                .
+                InstallFinalize
+
+            The actions between InstallInitialize and InstallFinalize will be gone through twice:
+            - The first time the installer creates an installation script containing all actions in the right
+              sequence which need to get executed in a batch later. At this point the launch conditions for
+              custom actions must be met already!
+            - The second time the generated installation script will be run as-is.
+
+            Also, the InstallUISequence and InstallExecuteSequence tables run in different sessions which
+            need public properties (that is, UPPERCASE properties).
+        -->
+
+        <!-- AppSearch must be done before "RemoveExistingProducts" and before "FindRelatedProducts" -->
+        <AppSearch Sequence="1"></AppSearch>
+        <LaunchConditions After="AppSearch" />
+
+        <!-- First install the new version and then remove the old version. This is more efficient -->
+        <RemoveExistingProducts After="InstallValidate"><![CDATA[PREVIOUSVERSIONSINSTALLED OR NEWERVERSIONDETECTED]]></RemoveExistingProducts>
+
+        <Custom Action="ca_OriginalTargetDir" After="FileCost"><![CDATA[(NOT INSTALLDIR)]]></Custom>
+        <Custom Action="ca_DefaultTargetDir" Before="FileCost" ><![CDATA[NOT INSTALLDIR AND EXISTINGINSTALLDIR]]></Custom>
+
+        <!-- Check + unininstall old TAP instances - we  don't need them anymore -->
+        <Custom Action="ca_UninstallTAPInstances" Before="InstallFiles" >1</Custom>
+
+        <!-- Check + uninstall old VBoxDrv service - it was renamed to VBoxSup.  -->
+        <Custom Action="ca_UninstallVBoxDrv" Before="InstallFiles" >1</Custom>
+
+        <Custom Action="ca_InstallBrandingArgs" Before="ca_InstallBranding" ><![CDATA[NOT REMOVE]]></Custom>
+        <Custom Action="ca_InstallBranding" Before="InstallFinalize" ><![CDATA[NOT REMOVE]]></Custom>
+
+        <!-- Uninstall branding on complete uninstall, not on update -->
+        <Custom Action="ca_UninstallBrandingArgs" Before="ca_UninstallBranding" ><![CDATA[(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")]]></Custom>
+        <Custom Action="ca_UninstallBranding" Before="InstallFinalize" ><![CDATA[(NOT UPGRADINGPRODUCTCODE) AND (REMOVE="ALL")]]></Custom>
+
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "no" ?>
+        <?include VBoxMergeAppSeq.wxi ?>
+        <?if $(env.VBOX_WITH_32_ON_64_MAIN_API) = "yes" ?>
+            <?include VBoxMergeCOM32On64Seq.wxi ?>
+        <?endif ?>
+        <?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+            <?include VBoxMergeNetFltSeq.wxi ?>
+            <?include VBoxMergeNetLwfSeq.wxi ?>
+        <?endif ?>
+        <?include VBoxMergeNetAdpSeq.wxi ?>
+        <?include VBoxMergeNetAdp6Seq.wxi ?>
+        <?include VBoxMergeUSBSeq.wxi ?>
+        <?if $(env.VBOX_WITH_PYTHON) = "yes" ?>
+            <?include VBoxMergePythonSeq.wxi ?>
+        <?endif ?>
+<?endif ?>
+
+    </InstallExecuteSequence>
+
+  </Product>
+</Wix>

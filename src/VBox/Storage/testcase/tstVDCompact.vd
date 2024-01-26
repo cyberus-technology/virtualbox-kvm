@@ -1,0 +1,102 @@
+/* $Id: tstVDCompact.vd $ */
+/**
+ * Storage: Testcase for compacting disks.
+ */
+
+/*
+ * Copyright (C) 2011-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+void tstCompact(string strMsg, string strBackend)
+{
+    print(strMsg);
+
+    /* Create disk containers, read verification is on. */
+    createdisk("disk", true);
+    create("disk", "base", "tstCompact.disk", "dynamic", strBackend, 200M, false, false);
+
+    /* Fill the disk with random data. */
+    io("disk", false, 1, "seq", 64K, 0, 200M, 200M, 100, "none");
+    /* Read the data to verify it once. */
+    io("disk", false, 1, "seq", 64K, 0, 200M, 200M,   0, "none");
+    /* Fill a part with 0's. */
+    io("disk", false, 1, "seq", 64K, 100M, 150M, 50M, 100, "zero");
+
+    /* Now compact. */
+    compact("disk", 0);
+    /* Read again to verify that the content hasn't changed. */
+    io("disk", false, 1, "seq", 64K, 0, 200M, 200M,   0, "none");
+    /* Fill everything with 0. */
+    io("disk", false, 1, "seq", 64K, 0, 200M, 200M, 100, "zero");
+    /* Now compact again. */
+    compact("disk", 0);
+    /* Read again to verify that the content hasn't changed. */
+    io("disk", false, 1, "seq", 64K, 0, 200M, 200M,   0, "none");
+
+    close("disk", "single", true);
+    destroydisk("disk");
+}
+
+void tstSnapshotCompact(string strMsg, string strBackend)
+{
+    print(strMsg);
+
+    /* Create disk containers, read verification is on. */
+    createdisk("disk", true);
+    create("disk", "base", "tstCompact.disk", "dynamic", strBackend, 200M, false, false);
+
+    /* Fill the disk with random data. */
+    io("disk", false, 1, "seq", 64K, 0, 100M, 100M, 100, "none");
+
+    create("test", "diff", "tst2.disk", "dynamic", strBackend, 200M, false /* fIgnoreFlush */, true /* fHonorSame */);
+
+    io("disk", false, 1, "seq", 64K, 100M, 200M, 100M, 100, "none");
+    io("disk", false, 1, "seq", 64K, 100M, 150M, 50M, 100, "zero");
+
+    create("disk", "diff", "tst3.disk", "dynamic", strBackend, 200M, false /* fIgnoreFlush */, true /* fHonorSame */);
+    merge("disk", 1, 2);
+
+    compact("disk", 1);
+
+    close("disk", "single", true);
+    close("disk", "single", true);
+    close("disk", "single", true);
+    destroydisk("disk");
+}
+
+void main()
+{
+    /* Init I/O RNG for generating random data for writes. */
+    iorngcreate(10M, "manual", 1234567890);
+
+    /* Create zero pattern */
+    iopatterncreatefromnumber("zero", 1M, 0);
+
+    tstCompact("Testing VDI", "VDI");
+    tstCompact("Testing VHD", "VHD");
+
+    tstSnapshotCompact("Testing Snapshot VDI", "VDI");
+    tstSnapshotCompact("Testing Snapshot VHD", "VHD");
+
+    /* Destroy RNG and pattern */
+    iopatterndestroy("zero");
+    iorngdestroy();
+}

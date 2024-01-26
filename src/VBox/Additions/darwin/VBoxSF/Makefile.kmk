@@ -1,0 +1,80 @@
+# $Id: Makefile.kmk $
+## @file
+# sub-makefile for Darwin Shared Folders.
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# VBoxSF - The shared folders kernel extension.
+#
+SYSMODS        += VBoxSF
+VBoxSF_TEMPLATE = VBoxGuestR0Drv
+VBoxSF_INST     = $(INST_ADDITIONS)VBoxSF.kext/Contents/MacOS/
+VBoxSF_DEFS     = VBOX_WITH_HGCM
+VBoxSF_LIBS     = $(VBOX_LIB_VBGL_R0)
+VBoxSF_SOURCES  = \
+	VBoxSF.cpp \
+	VBoxSF-VfsOps.cpp \
+	VBoxSF-VNodeOps.cpp \
+	VBoxSF-Utils.cpp
+
+
+#
+# Files necessary to make a darwin kernel extension bundle.
+#
+INSTALLS += VBoxSF.kext
+VBoxSF.kext_INST     = $(INST_ADDITIONS)VBoxSF.kext/Contents/
+VBoxSF.kext_SOURCES  = $(VBoxSF.kext_0_OUTDIR)/Info.plist
+VBoxSF.kext_CLEAN    = $(VBoxSF.kext_0_OUTDIR)/Info.plist
+
+$$(VBoxSF.kext_0_OUTDIR)/Info.plist: \
+		$(PATH_SUB_CURRENT)/Info.plist \
+		$(VBOX_VERSION_MK) | $$(dir $$@)
+	$(call MSG_GENERATE,VBoxSF,$@,$<)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(SED) \
+		-e 's+@VBOX_VERSION_STRING@+$(VBOX_VERSION_STRING)+g' \
+		-e 's+@VBOX_VERSION_MAJOR@+$(VBOX_VERSION_MAJOR)+g' \
+		-e 's+@VBOX_VERSION_MINOR@+$(VBOX_VERSION_MINOR)+g' \
+		-e 's+@VBOX_VERSION_BUILD@+$(VBOX_VERSION_BUILD)+g' \
+		-e 's+@VBOX_VENDOR@+$(VBOX_VENDOR)+g' \
+		-e 's+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+g' \
+		-e 's+@VBOX_C_YEAR@+$(VBOX_C_YEAR)+g' \
+		--output $@ \
+		$<
+
+#
+# mount.vboxsf - The Shared Folders mounting tool.
+#
+PROGRAMS += mount.vboxsf
+mount.vboxsf_TEMPLATE = VBoxGuestR3Exe
+mount.vboxsf_SOURCES  = mount.vboxsf.cpp
+mount.vboxsf_INST     = $(INST_ADDITIONS)VBoxSF.kext/Contents/MacOS/
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

@@ -1,0 +1,85 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for OpenGL ICD loader.
+#
+
+#
+# Copyright (C) 2018-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+VBOX_GL_ICD_DEF_FILE = $(PATH_ROOT)/src/VBox/Additions/3D/win/VBoxICD/opengl32.mingw.def
+
+DLLS       += VBoxICD
+DLLS.amd64 += VBoxICD-x86
+
+VBoxICD_TEMPLATE = VBoxMesa3DGuestR3DllMinVista
+# -wd4005: '__useHeader' : redefinition
+VBoxICD_CFLAGS  := -wd4005
+if "$(VBOX_NEWER_VCC_TOOL_STEM)" >= "VCC141"
+ # -wd4255: 'PFND3DKMT_CHECKEXCLUSIVEOWNERSHIP': no function prototype given: converting '()' to '(void)'
+ VBoxICD_CFLAGS += -wd4255
+endif
+
+VBoxICD_INCS     = \
+	$(VBOX_PATH_3D)/win/include \
+	$(PATH_ROOT)/src/VBox/Additions/WINNT/Graphics/Video \
+	$(PATH_ROOT)/src/VBox/Devices/Graphics/vmsvga_include \
+	$(VBOX_GRAPHICS_INCS)
+VBoxICD_SOURCES  = \
+	opengl32.def \
+	$(VBoxICD_0_OUTDIR)/forwarders.asm \
+	$(VBoxICD_0_OUTDIR)/pfns.c \
+	VBoxICD.c \
+	VBoxICD.rc
+VBoxICD_CLEAN    = \
+	$(VBoxICD_0_OUTDIR)/forwarders.asm \
+	$(VBoxICD_0_OUTDIR)/pfns.c
+VBoxICD_LIBS     = \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxWddmUmHlp$(VBOX_SUFF_LIB)
+
+$$(VBoxICD_0_OUTDIR)/forwarders.asm: \
+		$(PATH_SUB_CURRENT)/icd_forwarders.py $(VBOX_GL_ICD_DEF_FILE) | $$(dir $$@)
+	$(call MSG_GENERATE,python,$@,$(VBOX_GL_ICD_DEF_FILE))
+	$(QUIET)$(VBOX_BLD_PYTHON) $< $(VBOX_GL_ICD_DEF_FILE) $@
+$$(VBoxICD_0_OUTDIR)/pfns.c: \
+		$(PATH_SUB_CURRENT)/icd_pfns.py $(VBOX_GL_ICD_DEF_FILE) | $$(dir $$@)
+	$(call MSG_GENERATE,python,$@,$(VBOX_GL_ICD_DEF_FILE))
+	$(QUIET)$(VBOX_BLD_PYTHON) $< $(VBOX_GL_ICD_DEF_FILE) $@
+
+if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS)
+ VBoxICD_INSTTYPE      = none
+ VBoxICD_DEBUG_INSTTYPE = both
+endif
+
+#
+# x86 version built for amd64 build
+#
+VBoxICD-x86_EXTENDS      = VBoxICD
+VBoxICD-x86_BLD_TRG_ARCH = x86
+VBoxICD-x86_LIBS         = \
+	$(VBOX_PATH_ADDITIONS_LIB)/VBoxWddmUmHlp-x86$(VBOX_SUFF_LIB)
+VBoxICD-x86_DEFS         = $(VBoxICD_DEFS) VBOX_WOW64
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

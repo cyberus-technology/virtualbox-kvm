@@ -1,0 +1,931 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<!--
+Release change log structure
+
+Each release has a matching log of changes which were made for that and
+earlier releases. Earlier releases means anything with a lower number (e.g.
+5.0.18 is lower than 5.1.2) which was released before this one. The log is
+kept in the file doc/manual/user_ChangeLogImpl.xml. Anything worth mentioning,
+particularly new features and fixed bugs, with a trac bug number if possible,
+should be added to the top of the change log (that is, the section for the
+upcoming release) for the branch in which it first appears - stable or
+development - before the next release. If you back-port it to older branches
+please add an entry there too. When a new major release is made, change log
+sections for earlier releases are merged in.
+
+Change log sections are split into two groups: major new features (normally
+only for dot zero releases) and fixes. In addition, the entries in each group
+are ordered as follows:
+
+    VMM-related entries (most important)
+    GUI-related entries (most visible for users)
+    Device-related entries
+    VBoxManage/API/Main-related entries
+    Host-related entries
+    Guest-related entries
+    BIOS/EFI/ACPI-related entries
+
+Please do further ordering as seems appropriate by importance and visibility for
+users, e.g. audio before serial ports and generally Windows before Linux.  Please
+also try to describe the user impact, not the technical details, and only use
+technical terms if no non-technical ones are clear enough.
+
+Rules for adding a changelog entry to make them look more uniform:
+
+    1. Begin the entry with an UPPERCASE letter, e.g. "Foo: Fixed" vs. "Foo: fixed"
+    2. Use the past form of something, e.g. "Fixed ..." vs. "Fix ..."
+    3. No dot (.) after the entry, e.g. "<para>Foo: Bar</para>" vs. "<para>Foo: Bar.</para>"
+    4. Use TWO (2) spaces for indentation
+    5. Use line breaks when hitting column 80
+
+    Full example:
+
+        <listitem>
+          <para>Foo: Fixed something really important, really really long line
+            with lots more text not fitting into 80 columns</para>
+        </listitem>
+-->
+<chapter>
+
+<!-- HACK ALERT! Seems we must have a single top level element for xi:include to work.
+                           So, we use chapter and xpointer="xpointer(/chapter/)" with xi:include. -->
+  <sect1>
+
+    <title>Version 7.0.14 (2024-01-16)</title>
+
+    <para>This is a maintenance release. The following items were fixed and/or
+      added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>Audio: Added more fixes for switching host audio devices on Windows
+          hosts using the WAS backend</para>
+      </listitem>
+
+      <listitem>
+        <para>3D: Added general improvements</para>
+      </listitem>
+
+      <listitem>
+        <para>OCI: Fixed wrong guest RAM unit usage in VirtualSystemDescription,
+          memory is provided in bytes, "Byte" is the base unit</para>
+      </listitem>
+
+      <listitem>
+        <para>Main: OVF Import/Export: Added support for importing and exporting
+          VMs containing NVMe storage controllers (bug #19320)</para>
+      </listitem>
+
+      <listitem>
+        <para>Main: OVF Import/Export: Added support for exporting a VM which
+          contains a medium inserted into a virtual CD/DVD drive which is attached
+          to a Virtio-SCSI controller</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: Fixed a problem where Windows guests "forget" in-progress
+          touch events when the user holds down a finger without moving it for
+          a period of time.</para>
+      </listitem>
+
+      <listitem>
+        <para>macOS Host USB: Added support for newer storage devices</para>
+      </listitem>
+
+      <listitem>
+        <para>macOS Host: Fixed memory Leak in the VBoxIntNetSwitch process when VM
+          was configured to use 'Internal Networking' (bug #21752)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host and Guest: Added initial support for RHEL 9.4 kernel</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Fixed kernel panic on RHEL 8.9 kernel
+          caused by vboxvideo (bugs #10381 and #21911)</para>
+      </listitem>
+
+      <listitem>
+        <para>Solaris Guest Additions: Added support for the Additions to be installed
+          into an alternate root path ('pkgadd -R')</para>
+      </listitem>
+
+      <listitem>
+        <para>Solaris Guest Additions: Removed requirement to reboot VM after uninstalling GAs</para>
+      </listitem>
+
+      <listitem>
+        <para>RDP: Fix possible crash when connecting with the Apple Silicon
+          variant of the Microsoft Remote Desktop application (bug #21820).</para>
+      </listitem>
+
+      <listitem>
+        <para>BIOS: Fixed handle number used for DMI OEM table (bug #19781)</para>
+      </listitem>
+
+    </itemizedlist>
+  </sect1>
+
+  <sect1>
+
+    <title>Version 7.0.12 (2023-10-17)</title>
+
+    <para>This is a maintenance release. The following items were fixed and/or
+      added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>VMM: Fixed using a debugger inside the guest under certain
+          circumstances (bugs #21413 and #21546)</para>
+      </listitem>
+
+      <listitem>
+       <para>VMM: Fixed detection of VT-x being used by other hypervisors (bug #21867)</para>
+      </listitem>
+
+      <listitem>
+        <para>VMM: Introduced additional improvements in Split Lock Detection feature of
+          recent Intel CPUs on Linux hosts (bug #20180)</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Fixed issue when the nested hardware virtualization setting
+          was not displayed in the VM details panel (bug #21707)</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Introduced NLS update for Croatian, Indonesian, Italian,
+          Japanese, Korean, Dutch and Turkish languages as well as added
+          general look-and-feel improvements</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: Fixed black screen in Windows guests with multiple guest
+          screens when 3D is disabled (7.0.10 regression)</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: Fixed PCI device identifiers for the VirtIO network interface
+          (bug #21516)</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: Fixed VLAN support for the VirtIO network interface
+          (bug #21778)</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: Fixed loading saved states when a TPM is configured
+          (7.0.10 regression, bug #21773)</para>
+      </listitem>
+
+      <listitem>
+        <para>Networking: Fixed memory leaks in the VBoxIntNetSwitch process
+          on macOS (bug #21752)</para>
+      </listitem>
+
+      <listitem>
+        <para>Networking: Fixed TCP connections with IP addresses ending on .2
+          when the NAT network attachment is used (bug #21513)</para>
+      </listitem>
+
+      <listitem>
+        <para>Audio: Fixed switching host audio devices on Windows hosts
+          using the WAS backend (bugs #20431, #21517, #20630 and #20723)</para>
+      </listitem>
+
+      <listitem>
+        <para>VRDP: Added general improvements</para>
+      </listitem>
+
+      <listitem>
+        <para>VBoxManage: Added improvements for "list usbfilters" command</para>
+      </listitem>
+
+      <listitem>
+        <para>Unattended: Added kick start file support for Oracle Linux 8 and Oracle Linux 9.</para>
+      </listitem>
+
+      <listitem>
+        <para>Main: Added more Linux OS subtypes</para>
+      </listitem>
+
+      <listitem>
+        <para>Host Services: Fixed Guest Properties service crash under rare
+          circumstance</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host and Guest: Fixed few "field-spanning write" kernel
+          warnings (bugs #21410 and #21862)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Added more fixes for RHEL 8.9 and 9.3 kernel</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Added more fixes for kernel 6.4</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Added initial support for OpenSUSE 15.5 kernel</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Added initial support for kernels 6.5 and 6.6</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Added version reporting for "rcvboxadd status-kernel"
+          and "rcvboxadd status-user" commands</para>
+      </listitem>
+
+      <listitem>
+        <para>BIOS: Restored support for ISA SCSI HBAs in the BIOS (bug #21736)</para>
+      </listitem>
+    </itemizedlist>
+  </sect1>
+
+  <sect1>
+
+    <title>Version 7.0.10 (2023-07-18)</title>
+
+    <para>This is a maintenance release. The following items were fixed and/or
+      added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+       <para>OCI: Introduced general improvements</para>
+      </listitem>
+
+      <listitem>
+       <para>VMM: Fixed sluggish performance starting with macOS Ventura 13.3 (bug #21563, bug#21596)</para>
+      </listitem>
+
+      <listitem>
+       <para>VMM: Fixed a bug while walking page tables while executing nested VMs causing flooding of
+         the release log as a consequence (Intel hosts only, bug #21551)</para>
+      </listitem>
+
+      <listitem>
+       <para>GUI: Added general improvements</para>
+      </listitem>
+
+      <listitem>
+       <para>TPM: Fixed a crash when a VM has a TPM version 1.2 configured (bug #21622)</para>
+      </listitem>
+
+      <listitem>
+        <para>3D: Initial support for OpenGL 4.1</para>
+      </listitem>
+
+      <listitem>
+        <para>3D: Fixed various graphics issues with Windows 11 guests
+          (bugs #21136, #21515)</para>
+      </listitem>
+
+      <listitem>
+        <para>Guest Control/VBoxManage: Fixed parameter "--ignore-orphaned-processes"</para>
+      </listitem>
+
+      <listitem>
+        <para>Guest Control/VBoxManage: One can now explicitly specify an executable
+          argument 0 via "--arg0" with the "run" and "start" commands. See VBoxManage
+          help for examples</para>
+      </listitem>
+
+      <listitem>
+       <para>Audio: Also use the PulseAudio backend when pipewire-pulse is running
+         instead of falling back to ALSA (bug #21575)</para>
+      </listitem>
+
+      <listitem>
+        <para>NAT: Adjusted UDP proxy timeout from 18-21 to 21-24 range to respect
+          intended 20 second timeout (bug #21560)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host: Added initial support for Indirect Branch Tracking (bug #21435)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host: Added initial support for kernel 6.5 (NOTE: Guest Additions
+          do not support kernel 6.5 yet)</para>
+      </listitem>
+
+      <listitem>
+        <para>Solaris Host: Introduced general improvements in the installer area</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host and Guest: Improved condition check when kernel modules need
+          to be signed</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host and Guest: Added initial support for RHEL 8.8 (bug #21692),
+          8.9 (bug #21690) and 9.3 (bugs #21598 and #21671) kernels</para>
+      </listitem>
+
+      <listitem>
+        <para>MacOS Host and Guest: Introduced general improvements in the installer area</para>
+      </listitem>
+
+      <listitem>
+        <para>Windows Host and Guest: Introduced ECDSA support (bug #21621)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Fixed issue when kernel modules were rebuilt on each boot
+          when guest system has no X11 installed</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Added initial support for kernel 6.4</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Fixed issue when vboxvideo module reloading
+          caused kernel panic in some guests (bug #21740)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Introduced general improvements in the
+          installer area</para>
+      </listitem>
+
+      <listitem>
+        <para>Windows Guest Additions: Introduced general improvements in graphics
+          drivers area</para>
+      </listitem>
+
+    </itemizedlist>
+
+  </sect1>
+
+  <sect1>
+
+    <title>Version 7.0.8 (2023-04-18)</title>
+
+    <para>This is a maintenance release. The following items were fixed and/or
+      added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+       <para>VMM: Fixed EFLAGS.TF handling for CPUID instructions when Hyper-V is used (bug #17961)</para>
+      </listitem>
+
+      <listitem>
+       <para>VMM: Fixed MONITOR/MWAIT crash with Solaris guests when Hyper-V is used on Windows 11</para>
+      </listitem>
+
+      <listitem>
+       <para>VMM: Introduced general improvements in nested visualization area</para>
+      </listitem>
+
+      <listitem>
+       <para>VMM: Fixed triple fault related guru meditations for UEFI guests starting with
+         macOS Ventura 13.3 (bug #21563)</para>
+      </listitem>
+
+      <listitem>
+       <para>GUI: Brought back Restore current snapshot checkbox of Close VM dialog (bugs #21189, #21491)</para>
+      </listitem>
+
+      <listitem>
+       <para>GUI: Fixes and validation for VM settings USB filters editor, filter port value is now properly
+         saved/restored</para>
+      </listitem>
+
+      <listitem>
+       <para>GUI: Fixes for VM name and OS type embedded editors of Details pane</para>
+      </listitem>
+
+      <listitem>
+       <para>GUI: Cloud related wizards should now propose enabled profiles before disabled</para>
+      </listitem>
+
+      <listitem>
+       <para>Oracle VM VirtualBox Extension Pack: Fixed shipping the cryptographic support module for full VM encryption</para>
+      </listitem>
+
+      <listitem>
+       <para>E1000: Fixed possible guru meditation when changing network attachments (bug #21488)</para>
+      </listitem>
+
+      <listitem>
+       <para>virtio-net: Follow up fixes for FreeBSD 12.3 and pfSense 2.6.0 (bug #21201)</para>
+      </listitem>
+
+      <listitem>
+        <para>3D: Fixed various graphics issues with Windows 7 guests
+          (bugs #21129, #21196, #21208, #21521)</para>
+      </listitem>
+
+      <listitem>
+        <para>Main/UefiVariableStore: Added API to add signatures to the MOK
+          list (Machine Owner Key)</para>
+      </listitem>
+
+      <listitem>
+        <para>VBoxManage: Introduced modifynvram enrollmok sub-command to enroll Machine
+          Owner Key into NVRAM, so Linux guest kernel can pick it up in order to verify
+          signature of modules signed with this key</para>
+      </listitem>
+
+      <listitem>
+        <para>Guest Control/Main: Fixed deleting files via built-in toolbox</para>
+      </listitem>
+
+      <listitem>
+       <para>Linux host: Added possibility to bypass kernel modules signature verification
+         once VBOX_BYPASS_MODULES_SIGNATURE_CHECK="1" is specified in /etc/vbox/vbox.cfg,
+         useful in case if Linux distribution does not provide necessary tools to verify
+         kernel module signature</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions and host Installer: Improved detection if system is
+          running systemd as the init process</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions and host drivers: Introduce initial support for kernel 6.3</para>
+      </listitem>
+
+      <listitem>
+       <para>Linux Guest Additions: Added possibility to bypass kernel modules signature
+         verification once VBOX_BYPASS_MODULES_SIGNATURE_CHECK="1" is specified
+         in /etc/virtualbox-guest-additions.conf, useful in case if Linux distribution
+         does not provide necessary tools to verify kernel module signature</para>
+      </listitem>
+
+      <listitem>
+       <para>Linux Guest Additions: Added experimental support for kernel modules and
+         user services reloading in the end of installation process, thus guest system
+         reboot after Guest Additions (7.0.8 and newer) upgrade is no longer required
+         in general case</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Fixed vboxvideo build issue
+          with RHEL 8.7, 9.1 and 9.2 kernels (bugs #21446 and #21450)</para>
+      </listitem>
+
+    </itemizedlist>
+  </sect1>
+
+  <sect1>
+
+    <title>Version 7.0.6 (2023-01-17)</title>
+
+    <para>This is a maintenance release. The following items were fixed and/or
+      added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>VMM: Fixed guru running the FreeBSD loader on older Intel CPUs
+          without unrestricted guest support (bug #21332)</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Fixed virtual machines grouping when VM was created or
+          modified in command line (bugs #11500, #20933)</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Introduced generic changes in settings dialogs</para>
+      </listitem>
+
+      <listitem>
+        <para>VirtioNet: Fixed broken network after loading saved state
+          (bug #21172)</para>
+      </listitem>
+
+      <listitem>
+        <para>Storage: Added support for increasing the size of the following
+          VMDK image variants: monolithicFlat, monolithicSparse, twoGbMaxExtentSparse,
+          twoGbMaxExtentFlat</para>
+      </listitem>
+
+      <listitem>
+        <para>VBoxManage: Added missing --directory switch for guestcontrol mktemp command</para>
+      </listitem>
+
+      <listitem>
+        <para>Mouse Integration: Guest was provided with extended host mouse state (bug #21139)</para>
+      </listitem>
+
+      <listitem>
+        <para>DnD: Introduced generic improvements</para>
+      </listitem>
+
+      <listitem>
+        <para>Guest Control: Fixed handling creation mode for temporary directories
+          (bug #21394)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host and Guest: Added initial support for building UEK7 kernel on
+          Oracle Linux 8</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host and Guest: Added initial support for RHEL 9.1 kernel</para>
+      </listitem>
+
+      <listitem>
+        <para>Windows Host: Fixed support for VM autostart (bug#21349)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Added initial support for kernel 6.2 for vboxvideo</para>
+      </listitem>
+
+      <listitem>
+        <para>Audio: The "--audio" option in VBoxManage is now marked as
+          deprecated; please use "--audio-driver" and "--audio-enabled"
+          instead. This will allow more flexibility when changing the driver
+          and/or controlling the audio functionality</para>
+      </listitem>
+
+    </itemizedlist>
+  </sect1>
+
+  <sect1>
+
+    <title>Version 7.0.4 (2022-11-18)</title>
+
+    <para>This is a maintenance release. The following items were fixed and/or
+      added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>VMM: Added nested paging support for nested virtualization (Intel hosts only)</para>
+      </listitem>
+
+      <listitem>
+        <para>VMM: Fixed rare guru meditations with certain guests on macOS 10.15 (Catalina) (bug #21237)</para>
+      </listitem>
+
+      <listitem>
+        <para>VMM: Fixed possible VM process crash on Windows hosts when Hyper-V is used with certain guests (bug #21174)</para>
+      </listitem>
+
+      <listitem>
+        <para>VMM: Fixed Windows XP guest hang or BSOD on AMD CPUs under certain circumstances (bug #21256)</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Various bugfixes for the Guest Control file manager</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Added more informative file operations in the Guest Control file manager</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Added an option to the global settings (the display page) to resize user interface font</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Fixed a regression in new vm wizard. Selected virtual disks are no longer deleted when the wizard
+          is cancelled (bug #21244)</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Added a new menu item to the devices menu to optionally upgrade the guest additions.</para>
+      </listitem>
+
+      <listitem>
+        <para>VirtioSCSI: Fixed recognition of the virtio SCSI controller by the EFI firmware (bug #21200)</para>
+      </listitem>
+
+      <listitem>
+        <para>VirtioSCSI: Fixed hang when shutting down the VM if the virtio SCSI controller is used (bug #21144)</para>
+      </listitem>
+
+      <listitem>
+        <para>virtio-net: Workaround a bug in the virtio-net driver included in FreeBSD version up to 12.3
+          which renders the device non functional (bug #21201)</para>
+      </listitem>
+
+      <listitem>
+        <para>Storage: Fixed I/O errors with the VirtioSCSI controller when the host I/O cache is enabled (bug #19717)</para>
+      </listitem>
+
+      <listitem>
+        <para>VBoxManage: Fixed regression when 'createmedium disk --variant RawDisk' command resulted
+          in invalid .vmdk file (bug #21125)</para>
+      </listitem>
+
+      <listitem>
+        <para>Main: Restored input pointing device behavior in multi-monitor
+          VM configuration (bug #21137)</para>
+      </listitem>
+
+      <listitem>
+        <para>Main: Fixed progress indication during automatic Linux
+          Guest Additions installation</para>
+      </listitem>
+
+      <listitem>
+        <para>Guest Control: Fixed path handling issues (bug #21095)</para>
+      </listitem>
+
+      <listitem>
+        <para>3D: Fixed VM process crash on macOS with 3D enabled (bug #21232)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Host and Guest: General improvements in startup scripts</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Introduced initial support for
+          RHEL 8.7 and 9.2 kernels (bug #21272, #21258)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Introduced initial support for SLES 15.4 kernels</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Fixed kernel modules rebuild behavior on
+          system shutdown</para>
+      </listitem>
+
+    </itemizedlist>
+  </sect1>
+
+  <sect1>
+
+    <title>Version 7.0.2 (2022-10-20)</title>
+
+    <para>This is a maintenance release. The following items were fixed and/or
+      added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>Known issue: VMs having more than one vCPU configured will not work properly on macOS
+          Catalina due to an unknown memory corruption issue. Either lower the number of vCPUs to 1
+          or upgrade to BigSur or later where the issue does not occur</para>
+      </listitem>
+
+      <listitem>
+        <para>Main: Fixed issue when VBoxSVC could become unresponsive if Extension Pack
+          was not installed (bug #21167)</para>
+      </listitem>
+
+      <listitem>
+        <para>macOS hosts: Added workaround for a bug in the Hypervisor framework on Catalina causing
+          VERR_NEM_MAP_PAGES_FAILED errors when starting a VM. (bug #21128)</para>
+      </listitem>
+
+      <listitem>
+        <para>macOS hosts: Re-introduced support for internal networking, this is considered a bit
+          experimental still</para>
+      </listitem>
+
+      <listitem>
+        <para>macOS hosts: Fixed VM crash when the guest tries to access a microphone or webcam</para>
+      </listitem>
+
+      <listitem>
+        <para>Windows host: Shared Clipboard: Fixed issue when only 4Kb of host
+          clipboard buffer was accessible to guest (bug #21149)</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Introduced initial support for kernel 6.1</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Fixed issue when VBoxClient seamless service
+          caused a crash of some X11 applications (bug #21132)</para>
+      </listitem>
+
+      <listitem>
+        <para>Windows hosts: GUI: Fixed missing Qt libraries for vista style and sql driver (bug #21155)</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Fixed a glitch in the log viewer which was causing wrong log file to be saved (bug #21156)</para>
+      </listitem>
+
+    </itemizedlist>
+  </sect1>
+
+  <sect1>
+
+    <title>Version 7.0.0 (2022-10-10)</title>
+
+    <para>This is a major update. The following major new features were added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>Virtual machines can be fully encrypted now, including the VM config logs
+          and saved states (CLI only for now)</para>
+      </listitem>
+
+      <listitem>
+        <para>OCI: Cloud virtual machines can be added to Virtual Machine Manager and controlled
+          as local VMs</para>
+      </listitem>
+
+      <listitem>
+        <para>OCI: Cloud networks can now be configured via Network Manager tool same way as
+          it is done for Host-only and NAT networks</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Added a new utility similar to "top" or "resource monitor" which lists peformance statistics
+        (CPU usage, RAM usage, disk I/O rate, etc.) of running guests</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Reworked the new vm wizard to integrate the unattended
+        guest OS installation and to have a more streamlined work flow</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Added a new help viewer widget which enables the user manual to be navigated
+        and searched</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Adding new notification center unifying most of running progresses and error
+          reporting around the GUI</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Improved theme support on all platforms. Linux and macOS
+          use native engine while for Windows host it is separately implemented.</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Large icon update.</para>
+      </listitem>
+
+      <listitem>
+        <para>Audio recording: Now using Vorbis as the default audio format for WebM containers.
+          Opus is no longer being used.</para>
+      </listitem>
+
+      <listitem>
+        <para>Audio: Added "default" host driver type to make it possible to move VMs (appliances) between different platforms
+          without the need of changing the audio driver explicitly. When the "default" driver is selected, the best audio backend
+          option for a platform will be used. This is the default for newly created VMs.</para>
+      </listitem>
+
+      <listitem>
+        <para>Guest Control: Implemented initial support for automatic updating
+          of Guest Additions for Linux guests</para>
+      </listitem>
+
+      <listitem>
+        <para>Guest Control: Implemented ability to wait for and/or reboot the
+          guest when updating Guest Additions via VBoxManage</para>
+      </listitem>
+
+      <listitem>
+        <para>VBoxManage: Added Guest Control "waitrunlevel" sub-command to
+          make it possible to wait for a guest to reach a certain run level</para>
+      </listitem>
+
+      <listitem>
+        <para>Windows hosts: Added experimental support of running autostarted VMs
+          in session 0, to allow running VMS even when a usser is not being logged
+          in (disabled by default, please consult the manual)</para>
+      </listitem>
+
+      <listitem>
+        <para>macOS host: Dropped all kernel extensions. VirtualBox relies fully on
+          the hypervisor and vmnet frameworks provided by Apple now. At the moment
+          the implementation lacks "Internal Networking" functionality. This will be
+          provided at a later date.</para>
+      </listitem>
+
+      <listitem>
+        <para>macOS host: Providing a Developer Preview package for systems with
+          an Apple silicon CPU. This is unsupported work in progress, and is known
+          to have very modest performance.</para>
+      </listitem>
+
+      <listitem>
+        <para>Linux Guest Additions: Reworked guest screen re-size functionality,
+          added basic integration with some of guest Desktop Environments</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: Implemented new 3D support based on DirectX 11 (and DXVK
+          on non Windows hosts)</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: Added virtual IOMMU devices (Intel and AMD variant)</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: Added virtual TPM 1.2 and 2.0 devices</para>
+      </listitem>
+
+      <listitem>
+        <para>Devices: The EHCI and XHCI USB controller devices are now part of the
+          open source base package</para>
+      </listitem>
+
+      <listitem>
+        <para>EFI: Added support for Secure Boot</para>
+      </listitem>
+
+      <listitem>
+        <para>Debugging: Added experimental support for guest debugging through
+          GDB and highly experimental support for guest debugging through KD/WinDbg</para>
+      </listitem>
+
+    </itemizedlist>
+
+    <para>In addition, the following items were fixed and/or added:</para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>OCI: Cloud networking functionality is enhanced for local VMs, now local VMs could
+          be connected to cloud networking</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Improved behavior of the virtual machine list and various VM related tools in case
+          multiple items are selected</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: On available platforms, added a new option to disable the host's screensaver</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Reworked global preferences, machine settings and the wizards to improve stability
+          and usability</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Improving mouse handling in multi-monitor case on X11 platform</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Medium enumeration engine was reworked to improve permormance</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: NAT Network stuff was moved from global preferences to global Network Manager tool</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Extension Pack Manager was moved from global preferences to global tools</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Improved overall accessibility</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Migrating to recent Qt versions.</para>
+      </listitem>
+
+    </itemizedlist>
+  </sect1>
+
+</chapter>

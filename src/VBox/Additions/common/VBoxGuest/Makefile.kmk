@@ -1,0 +1,287 @@
+# $Id: Makefile.kmk $
+## @file
+# Makefile for the Cross Platform Guest Additions Driver.
+#
+
+#
+# Copyright (C) 2007-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefile.
+include $(PATH_SUB_CURRENT)/lib/Makefile.kmk
+
+
+if defined(VBOX_WITH_ADDITION_DRIVERS) && "$(intersects $(KBUILD_TARGET), darwin freebsd haiku netbsd os2 solaris win)" != ""
+ #
+ # VBoxGuest - The Guest Additions Driver.
+ #
+ SYSMODS += VBoxGuest
+ VBoxGuest_TEMPLATE      = VBoxGuestR0Drv
+ VBoxGuest_NAME.freebsd  = vboxguest
+ VBoxGuest_NAME.haiku    = vboxguest
+ VBoxGuest_NAME.netbsd   = vboxguest
+ VBoxGuest_NAME.solaris  = vboxguest
+ VBoxGuest_INST.darwin   = $(INST_ADDITIONS)VBoxGuest.kext/Contents/MacOS/
+ if defined(VBOX_SIGNING_MODE) && defined(VBOX_SIGN_ADDITIONS) # See Additions/WINNT/Makefile.kmk?
+  VBoxGuest_INSTTYPE.win = none
+  VBoxGuest_DEBUG_INSTTYPE.win = both
+ endif
+ VBoxGuest_DEFS.haiku    = VBOX_SVN_REV=$(VBOX_SVN_REV) _KERNEL_MODE=1
+ VBoxGuest_DEFS.solaris  = VBOX_SVN_REV=$(VBOX_SVN_REV)
+ VBoxGuest_DEFS.win      = VBOX_GUESTDRV_WITH_RELEASE_LOGGER
+ VBoxGuest_DEFS.win.x86  = TARGET_NT4 TARGET_NT3 RT_WITHOUT_NOCRT_WRAPPERS
+ VBoxGuest_DEFS.darwin   = VBOX_GUESTDRV_WITH_RELEASE_LOGGER
+ ifeq ($(KBUILD_TYPE),release)
+  # Allow stopping/removing the driver without a reboot
+  # in debug mode; this is very useful for testing the shutdown stuff!
+  VBoxGuest_DEFS.win    += VBOX_REBOOT_ON_UNINSTALL
+ endif
+ ifdef VBOX_WITH_GUEST_BUGCHECK_DETECTION
+  VBoxGuest_DEFS.win    += VBOX_WITH_GUEST_BUGCHECK_DETECTION
+ endif
+ #VBoxGuest_DEFS.win     += LOG_ENABLED LOG_TO_BACKDOOR
+ VBoxGuest_DEFS.win += \
+ 	$(if $(VBOX_WITH_DPC_LATENCY_CHECKER),VBOX_WITH_DPC_LATENCY_CHECKER,)
+ VBoxGuest_DEPS.solaris += $(VBOX_SVN_REV_KMK)
+ VBoxGuest_DEPS.haiku   += $(VBOX_SVN_REV_HEADER)
+ VBoxGuest_DEPS.freebsd += $(VBOX_SVN_REV_HEADER)
+ VBoxGuest_DEPS.netbsd  += $(VBOX_SVN_REV_HEADER)
+ VBoxGuest_DEPS.darwin  += $(VBOX_SVN_REV_HEADER)
+ VBoxGuest_DEFS          = VBGL_VBOXGUEST VBOX_WITH_HGCM
+ VBoxGuest_INCS          = .
+ VBoxGuest_INCS.freebsd  = $(VBoxGuest_0_OUTDIR) $(PATH_STAGE)/gen-sys-hdrs
+ VBoxGuest_INCS.netbsd   = $(VBoxGuest_0_OUTDIR) netbsd
+ ifeq ($(KBUILD_HOST),solaris)
+  VBoxGuest_LDFLAGS.solaris         += -N misc/ctf
+ else
+  VBoxGuest_SOURCES.solaris          = solaris/deps.asm
+  VBoxGuest_solaris/deps.asm_ASFLAGS = -f bin -g null
+ endif
+ ifneq ($(KBUILD_TARGET),os2)
+  ifeq ($(KBUILD_TARGET),win)
+   VBoxGuest_LDFLAGS.x86 = -Entry:DriverEntry@8
+   VBoxGuest_LDFLAGS.amd64 = -Entry:DriverEntry
+   ifeq ($(KBUILD_TARGET_ARCH),x86)
+    VBoxGuest_SDKS       = ReorderCompilerIncs $(VBOX_WINDDK_GST_NT4)
+    VBoxGuest_LIBS       = \
+    	$(VBOX_LIB_VBGL_R0BASE) \
+    	$(VBOX_LIB_IPRT_GUEST_R0) \
+    	$(PATH_SDK_$(VBOX_WINDDK_GST_NT4)_LIB)/exsup.lib \
+    	$(PATH_SDK_$(VBOX_WINDDK_GST_NT4)_LIB)/int64.lib \
+    	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/ntoskrnl.lib \
+    	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/hal.lib
+    ifneq ($(VBOX_VCC_CC_GUARD_CF),)
+     VBoxGuest_LIBS     += \
+     	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/BufferOverflowK.lib
+    endif
+   else
+    VBoxGuest_LIBS       = \
+    	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/ntoskrnl.lib \
+    	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB)/hal.lib
+   endif
+   VBoxGuest_USES.win += vboximportchecker
+   VBoxGuest_VBOX_IMPORT_CHECKER.win.x86 = nt31/r0
+   VBoxGuest_VBOX_IMPORT_CHECKER.win.amd64 = xp64/r0
+  endif # win
+  ifn1of ($(KBUILD_TARGET), linux freebsd netbsd solaris haiku)
+   VBoxGuest_SOURCES    = VBoxGuest-$(KBUILD_TARGET).cpp
+  else
+   VBoxGuest_SOURCES    = VBoxGuest-$(KBUILD_TARGET).c
+   VBoxGuest_$(KBUILD_TARGET).c_DEPS = $(VBOX_SVN_REV_HEADER)
+   ifeq ($(KBUILD_TARGET),freebsd)
+    VBoxGuest-$(KBUILD_TARGET).c_CFLAGS = -Wno-sign-compare # /usr/src/sys/sys/vmmeter.h: In function 'vm_paging_needed'
+   endif
+  endif
+  VBoxGuest_SOURCES     += \
+  	VBoxGuest.cpp
+  VBoxGuest_SOURCES.win += \
+  	win/VBoxGuest.rc
+  VBoxGuest_SOURCES.win.x86 += \
+  	../../../Runtime/common/string/strcmp.asm \
+  	../../../Runtime/common/string/strchr.asm \
+  	../../../Runtime/r0drv/nt/nt3fakes-r0drv-nt.cpp \
+  	../../../Runtime/r0drv/nt/nt3fakesA-r0drv-nt.asm
+  VBoxGuest_LIBS        += \
+  	$(VBOX_LIB_VBGL_R0BASE) \
+  	$(VBOX_LIB_IPRT_GUEST_R0)
+  VBoxGuest_ORDERDEPS.freebsd = \
+  	$(PATH_STAGE)/gen-sys-hdrs/pci_if.h \
+  	$(PATH_STAGE)/gen-sys-hdrs/bus_if.h \
+  	$(PATH_STAGE)/gen-sys-hdrs/device_if.h
+  ifeq ($(KBUILD_TARGET),haiku)
+   # Haiku drivers cannot export symbols for other drivers, but modules can.
+   # Therefore vboxguest is a module containing the ring-0 guest lib, and vboxdev/vboxsf
+   # use this module to access the guest lib
+   SYSMODS += VBoxDev
+   VBoxDev_TEMPLATE      = VBoxGuestR0Drv
+   VBoxDev_NAME          = vboxdev
+   VBoxDev_DEFS          = VBOX_SVN_REV=$(VBOX_SVN_REV) _KERNEL_MODE=1 VBGL_VBOXGUEST VBOX_WITH_HGCM IN_RING0
+   VBoxDev_SOURCES       = VBoxDev-haiku.c VBoxGuest-haiku-stubs.c
+  endif
+ else # OS/2:
+  # The library order is crucial, so a bit of trickery is necessary.
+  # A library is used to make sure that VBoxGuestA-os2.asm is first in the link. (temporary hack?)
+  VBoxGuest_SOURCES      = \
+  	VBoxGuestA-os2.asm
+  ifdef VBOX_USE_WATCOM_FOR_OS2
+   VBoxGuest_LIBS        = \
+   	$(VBoxGuestLibOs2Hack_1_TARGET) \
+   	$(VBOX_LIB_VBGL_R0BASE) \
+   	$(VBOX_LIB_IPRT_GUEST_R0) \
+   	$(PATH_IGCC)/lib/libend.lib
+  else
+   VBoxGuest_SOURCES    += \
+   	VBoxGuest-os2.def
+   #VBoxGuest_LDFLAGS        = -s -t -v
+   VBoxGuest_LIBS        = \
+   	$(VBoxGuestLibOs2Hack_1_TARGET) \
+   	$(VBOX_LIB_VBGL_R0BASE) \
+   	$(VBOX_LIB_IPRT_GUEST_R0) \
+   	$(VBOX_GCC_LIBGCC) \
+   	end
+  endif
+  ## When debugging init with kDrvTest:
+  #VBoxGuest_NAME          = VBoxGst
+
+  # See above.
+  LIBRARIES += VBoxGuestLibOs2Hack
+  VBoxGuestLibOs2Hack_TEMPLATE = VBoxGuestR0DrvLib
+  VBoxGuestLibOs2Hack_INSTTYPE = none
+  VBoxGuestLibOs2Hack_DEFS = $(VBoxGuest_DEFS)
+  VBoxGuestLibOs2Hack_INCS = \
+  	. \
+  	$(PATH_ROOT)/src/VBox/Runtime/include # for the os2ddk
+  VBoxGuestLibOs2Hack_SOURCES = \
+  	VBoxGuest-os2.cpp \
+  	VBoxGuest.cpp
+ endif # OS/2
+
+ VBoxGuest.cpp_DEFS     = VBOX_SVN_REV=$(VBOX_SVN_REV)
+endif # enabled
+
+
+if defined(VBOX_WITH_ADDITION_DRIVERS) && "$(KBUILD_TARGET)" == "darwin"
+ # Files necessary to make a darwin kernel extension bundle.
+ INSTALLS += VBoxGuest.kext
+ VBoxGuest.kext_INST     = $(INST_ADDITIONS)/VBoxGuest.kext/Contents/
+ VBoxGuest.kext_SOURCES  = $(VBoxGuest.kext_0_OUTDIR)/Contents/Info.plist
+ VBoxGuest.kext_CLEAN    = $(VBoxGuest.kext_0_OUTDIR)/Contents/Info.plist
+ VBoxGuest.kext_BLDDIRS  = $(VBoxGuest.kext_0_OUTDIR)/Contents/
+
+ $$(VBoxGuest.kext_0_OUTDIR)/Contents/Info.plist: \
+ 		$(PATH_SUB_CURRENT)/darwin/Info.plist \
+ 		$(VBOX_VERSION_MK) | $$(dir $$@)
+	$(call MSG_GENERATE,VBoxGuest,$@,$<)
+	$(QUIET)$(RM) -f $@
+	$(QUIET)$(SED) \
+		-e 's+@VBOX_VERSION_STRING@+$(VBOX_VERSION_STRING)+g' \
+		-e 's+@VBOX_VERSION_MAJOR@+$(VBOX_VERSION_MAJOR)+g' \
+		-e 's+@VBOX_VERSION_MINOR@+$(VBOX_VERSION_MINOR)+g' \
+		-e 's+@VBOX_VERSION_BUILD@+$(VBOX_VERSION_BUILD)+g' \
+		-e 's+@VBOX_VENDOR@+$(VBOX_VENDOR)+g' \
+		-e 's+@VBOX_PRODUCT@+$(VBOX_PRODUCT)+g' \
+		-e 's+@VBOX_C_YEAR@+$(VBOX_C_YEAR)+g' \
+		--output $@ \
+		$<
+
+ $(evalcall2 VBOX_TEST_SIGN_KEXT,VBoxGuest)
+endif # darwin
+
+
+ifeq ($(KBUILD_TARGET),linux)
+ #
+ # Install the source files and script(s).
+ #
+ include $(PATH_SUB_CURRENT)/linux/files_vboxguest
+ # sources and stuff.
+ INSTALLS += vboxguest-src
+ vboxguest-src_INST     = $(INST_ADDITIONS)src/vboxguest/
+ vboxguest-src_MODE     = a+r,u+w
+ vboxguest-src_SOURCES  = $(subst ",,$(FILES_VBOXGUEST_NOBIN))
+
+ INSTALLS += vboxguest-scripts
+ vboxguest-scripts_INST    = $(INST_ADDITIONS)src/
+ vboxguest-scripts_MODE    = a+rx,u+w
+ vboxguest-scripts_SOURCES = ../../../HostDrivers/linux/build_in_tmp
+
+ # scripts.
+ INSTALLS += vboxguest-sh
+ vboxguest-sh_INST      = $(INST_ADDITIONS)src/vboxguest/
+ vboxguest-sh_MODE      = a+rx,u+w
+ vboxguest-sh_SOURCES   = $(subst ",,$(FILES_VBOXGUEST_BIN))
+
+ #
+ # Build test for the Guest Additions kernel module (kmk check).
+ #
+ $(evalcall2 VBOX_LINUX_KMOD_TEST_BUILD_RULE_FN,vboxguest-src,,save_symvers)
+endif # Linux
+
+ifeq ($(KBUILD_TARGET),freebsd)
+ #
+ # Install the source files and script(s).
+ #
+ include $(PATH_SUB_CURRENT)/freebsd/files_vboxguest
+ # sources and stuff.
+ INSTALLS += vboxguest-src
+ vboxguest-src_INST     = $(INST_ADDITIONS)src/vboxguest/
+ vboxguest-src_MODE     = a+r,u+w
+ vboxguest-src_SOURCES  = $(subst ",,$(FILES_VBOXGUEST_NOBIN))
+
+endif # FreeBSD
+
+ifeq ($(KBUILD_TARGET),win)
+ #
+ # VBoxGuestInst - The installer.
+ #
+ PROGRAMS.win.x86 += VBoxGuestInstNT
+ VBoxGuestInstNT_TEMPLATE = VBoxGuestR3Exe
+ ifndef VBOX_WITH_NOCRT_STATIC
+  VBoxGuestInstNT_LDFLAGS := -Include:_vcc100_kernel32_fakes_asm # Temporary kludge to deal with some link order issue.
+ endif
+ VBoxGuestInstNT_INCS     = ../../WINNT/include
+ VBoxGuestInstNT_SOURCES  = win/VBoxGuestInst.cpp
+ VBoxGuestInstNT_USES     = vboximportchecker
+ VBoxGuestInstNT_VBOX_IMPORT_CHECKER.win.x86 = nt31
+endif
+
+
+#
+# Helper script.
+#
+INSTALLS.solaris += VBoxGuestLoad
+VBoxGuestLoad_TEMPLATE = VBoxGuestR0Drv
+VBoxGuestLoad_EXEC_SOURCES = solaris/load.sh
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

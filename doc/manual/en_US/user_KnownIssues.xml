@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<chapter id="KnownIssues">
+
+  <title>Known Limitations</title>
+
+  <sect1 id="ExperimentalFeatures">
+
+    <title>Experimental Features</title>
+
+    <para>
+      Some &product-name; features are labeled as experimental. Such
+      features are provided on an "as-is" basis and are not formally
+      supported. However, feedback and suggestions about such features
+      are welcome. A comprehensive list of experimental features is as
+      follows:
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          Hardware 3D acceleration support for Windows, Linux, and
+          Oracle Solaris guests
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Hardware 2D video playback acceleration support for Windows
+          guests
+        </para>
+      </listitem>
+
+<!--   <listitem>
+        <para>
+          PCI passthrough (Linux hosts only)
+        </para>
+      </listitem>-->
+
+      <listitem>
+        <para>
+          Mac OS X guests (macOS hosts only)
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          ICH9 chipset emulation
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          EFI firmware
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Host CD/DVD drive passthrough
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Support of iSCSI using internal networking
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Using &product-name; and Hyper-V on the same host
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+  </sect1>
+
+  <sect1 id="KnownProblems">
+
+    <title>Known Issues</title>
+
+    <para>
+      The following section describes known problems with this release
+      of &product-name;. Unless marked otherwise, these issues are
+      planned to be fixed in later releases.
+    </para>
+
+    <itemizedlist>
+
+      <listitem>
+        <para>
+          The macOS installer packages for &product-name; 7 currently do
+          not include the Internal Networking feature, which is
+          available on all other platforms. This will be addressed with
+          an update of &product-name; 7. For setups which depend on this
+          functionality it is best to keep using &product-name; 6.1.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Poor performance when using &product-name; and
+          <emphasis role="bold">Hyper-V</emphasis> on the same host. To
+          fix this, certain Windows features like "Hyper-V Platform",
+          "Virtual Machine Platform" and "Windows Hypervisor Platform"
+          must be turned off, followed by a host reboot.
+        </para>
+
+        <para>
+          Additionally, the Microsoft Device Guard and Credential Guard
+          hardware readiness tool might have to be used in order to turn
+          off more features. For example, by running the following
+          command:
+        </para>
+
+<screen>.\DG_Readiness_Tool_vX.X.ps1 -Disable -AutoReboot</screen>
+
+        <note>
+          <para>
+            Disabling Device Guard and Credential Guard features will
+            have an impact on the overall security of the host. Please
+            contact your Administrator beforehand regarding this.
+          </para>
+        </note>
+      </listitem>
+
+      <listitem>
+        <para>
+          The following <emphasis role="bold">Guest SMP (multiprocessor)
+          limitations</emphasis> exist:
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              <emphasis role="bold">Poor performance</emphasis> with
+              32-bit guests on AMD CPUs. This affects mainly Windows and
+              Oracle Solaris guests, but possibly also some Linux kernel
+              revisions. Partially solved for 32-bit Windows NT, 2000,
+              XP, and 2003 guests. Requires the Guest Additions to be
+              installed.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              <emphasis role="bold">Poor performance</emphasis> with
+              32-bit guests on certain Intel CPU models that do not
+              include virtual APIC hardware optimization support. This
+              affects mainly Windows and Oracle Solaris guests, but
+              possibly also some Linux kernel revisions. Partially
+              solved for 32-bit Windows NT, 2000, XP, and 2003 guests.
+              Requires the Guest Additions to be installed.
+            </para>
+          </listitem>
+
+        </itemizedlist>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">NX (no execute, data execution
+          prevention)</emphasis> only works for guests running on 64-bit
+          hosts and requires that hardware virtualization be enabled.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Guest control.</emphasis> On Windows
+          guests, a process started using the guest control execute
+          support will not be able to display a graphical user interface
+          <emphasis>unless</emphasis> the user account under which it is
+          running is currently logged in and has a desktop session.
+        </para>
+
+        <para>
+          Also, to use accounts without or with an empty password, the
+          guest's group policy must be changed. To do so, open the group
+          policy editor on the command line by typing
+          <command>gpedit.msc</command>, open the key <literal>Computer
+          Configuration\Windows Settings\Security Settings\Local
+          Policies\Security Options</literal> and change the value of
+          <literal>Accounts: Limit local account use of blank passwords
+          to console logon only</literal> to Disabled.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Compacting virtual disk images is
+          limited to VDI files.</emphasis> The <command>VBoxManage
+          modifymedium --compact</command> command is currently only
+          implemented for VDI files. At the moment the only way to
+          optimize the size of a virtual disk images in other formats,
+          such as VMDK or VHD, is to clone the image and then use the
+          cloned image in the VM configuration.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">OVF import/export:</emphasis>
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              OVF localization, with multiple languages in a single OVF
+              file, is not yet supported.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Some OVF sections like StartupSection,
+              DeploymentOptionSection, and InstallSection are ignored.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              OVF environment documents, including their property
+              sections and appliance configuration with ISO images, are
+              not yet supported.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Remote files using HTTP or other mechanisms are not yet
+              supported.
+            </para>
+          </listitem>
+
+        </itemizedlist>
+      </listitem>
+
+      <listitem>
+        <para>
+          Neither <emphasis role="bold">scale mode</emphasis> nor
+          <emphasis role="bold">seamless mode</emphasis> work correctly
+          with guests using OpenGL 3D features, such as with
+          Compiz-enabled window managers.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          The RDP server in the &product-name; extension pack supports
+          only audio streams in format 22.05kHz stereo 16-bit. If the
+          RDP client requests any other audio format there will be no
+          audio.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Preserving the aspect ratio in scale mode works only on
+          Windows hosts and on macOS hosts.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          On <emphasis role="bold">macOS hosts</emphasis>, the following
+          features are not yet implemented:
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              Numlock emulation
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              CPU frequency metric
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Memory ballooning
+            </para>
+          </listitem>
+
+        </itemizedlist>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">macOS/ARM64 (Apple silicon) host
+          package</emphasis>
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Mac OS X guests:</emphasis>
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              Mac OS X guests can only run on a certain host hardware.
+              For details about license and host hardware limitations.
+              See <xref linkend="intro-macosxguests" /> and check the
+              Apple software license conditions.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              &product-name; does not provide Guest Additions for Mac OS
+              X at this time.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              The graphics resolution currently defaults to 1024x768 as
+              Mac OS X falls back to the built-in EFI display support.
+              See <xref linkend="efividmode" /> for more information on
+              how to change EFI video modes.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Mac OS X guests only work with one CPU assigned to the VM.
+              Support for SMP will be provided in a future release.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Depending on your system and version of Mac OS X, you
+              might experience guest hangs after some time. This can be
+              fixed by turning off energy saving. Set the timeout to
+              "Never" in the system preferences.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              By default, the &product-name; EFI enables debug output of
+              the Mac OS X kernel to help you diagnose boot problems.
+              Note that there is a lot of output and not all errors are
+              fatal. They would also show when using a physical Apple
+              Macintosh computer. You can turn off these messages by
+              using the following command:
+            </para>
+
+<screen>$ VBoxManage setextradata <replaceable>VM-name</replaceable> "VBoxInternal2/EfiBootArgs" "  "</screen>
+
+            <para>
+              To revert to the previous behavior, use the following
+              command:
+            </para>
+
+<screen>$ VBoxManage setextradata <replaceable>VM-name</replaceable> "VBoxInternal2/EfiBootArgs" ""</screen>
+          </listitem>
+
+          <listitem>
+            <para>
+              It is currently not possible to start a Mac OS X guest in
+              safe mode by specifying the <option>-x</option> option in
+              <literal>VBoxInternal2/EfiBootArgs</literal> extradata.
+            </para>
+          </listitem>
+
+        </itemizedlist>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Oracle Solaris hosts:</emphasis>
+        </para>
+
+        <itemizedlist>
+
+          <listitem>
+            <para>
+              USB support on Oracle Solaris hosts requires Oracle
+              Solaris 11 version snv_124 or later. Webcams and other
+              isochronous devices are known to have poor performance.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Host Webcam passthrough is restricted to 640x480 frames at
+              20 frames per second due to limitations in the Oracle
+              Solaris V4L2 API. This may be addressed in a future Oracle
+              Solaris release.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              No ACPI information, such as battery status or power
+              source, is reported to the guest.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              No support for using wireless adapters with bridged
+              networking.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+              Crossbow-based bridged networking on Oracle Solaris 11
+              hosts does not work directly with aggregate links.
+              However, you can use <command>dladm</command> to manually
+              create a VNIC over the aggregate link and use that with a
+              VM. This limitation does not exist in Oracle Solaris 11u1
+              build 17 and later.
+            </para>
+          </listitem>
+
+        </itemizedlist>
+      </listitem>
+
+      <listitem>
+        <para>
+          Neither virtio nor Intel PRO/1000 drivers for
+          <emphasis role="bold">Windows XP guests</emphasis> support
+          segmentation offloading. Therefore Windows XP guests have
+          slower transmission rates comparing to other guest types.
+          Refer to MS Knowledge base article 842264 for additional
+          information.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          <emphasis role="bold">Guest Additions for OS/2.</emphasis>
+          Seamless windows and automatic guest resizing will probably
+          never be implemented due to inherent limitations of the OS/2
+          graphics system.
+        </para>
+      </listitem>
+
+      <listitem>
+        <para>
+          Some guest operating systems predating ATAPI CD-ROMs may
+          exhibit long delays or entirely fail to boot in certain
+          configurations. This is most likely to happen when an
+          IDE/ATAPI CD-ROM exists alone on a primary or secondary IDE
+          channel.
+        </para>
+
+        <para>
+          Affected operating systems are MS OS/2 1.21: fails to boot
+          with an error message referencing COUNTRY.SYS and MS OS/2 1.3:
+          long boot delays. To avoid such problems, disable the emulated
+          IDE/ATAPI CD-ROM. The guest OS cannot use this device, anyway.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+
+  </sect1>
+
+</chapter>

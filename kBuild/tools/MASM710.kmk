@@ -1,0 +1,69 @@
+# $Id: MASM710.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild Tool Config - MASM v7.10
+#
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_MASM710 := Microsoft Macro Assembler v7.10
+
+# Tool Specific Properties
+ifndef TOOL_MASM710_AS
+ TOOL_MASM710_AS := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_HST)/masm/v7.10*/binp/ml$(HOSTSUFF_EXE))))
+ ifeq ($(TOOL_MASM710_AS),)
+  TOOL_MASM710_AS := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS_TRG)/masm/v7.10*/binp/ml$(HOSTSUFF_EXE))))
+ endif
+ ifeq ($(TOOL_MASM710_AS),)
+  TOOL_MASM710_AS := $(firstword $(rsort $(wildcard $(KBUILD_DEVTOOLS)/win.x86/vcc/v7*/bin/ml$(HOSTSUFF_EXE))))
+ endif
+endif
+ifeq ($(TOOL_MASM710_AS),)
+ TOOL_MASM710_AS := $(firstword $(which ml$(HOSTSUFF_EXE)) path/notfound/ml$(HOSTSUFF_EXE))
+endif
+
+# General Properties used by kBuild
+TOOL_MASM710_ASFLAGS ?= /nologo
+
+
+TOOL_MASM710_COMPILE_AS_OUTPUT = $(outbase).lst
+TOOL_MASM710_COMPILE_AS_DEPEND =
+TOOL_MASM710_COMPILE_AS_DEPORD =
+define TOOL_MASM710_COMPILE_AS_CMDS
+	$(QUIET)$(REDIRECT) \
+		-E 'INCLUDE=$(subst $(SP),,$(addsuffix ;,$(subst /,\,$(incs))))' \
+		-E 'MASM=' -E 'ML=' \
+		-- \
+		$(subst /,\\,$(TOOL_MASM710_AS)) -c \
+			$(strip $(flags)) \
+			$(addprefix -D,$(defs)) \
+			-Fo$(subst /,\\,$(obj)) \
+			-Fl$(subst /,\\,$(outbase).lst) \
+			$(subst /,\\,$(source))
+endef
+

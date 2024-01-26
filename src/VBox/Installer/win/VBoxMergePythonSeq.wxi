@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi"
+         xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+    <Custom Action="ca_IsPythonInstalled" Before="ca_ArePythonAPIDepsInstalled" >
+        <![CDATA[1]]>
+    </Custom>
+    <Custom Action="ca_ArePythonAPIDepsInstalled" Before="LaunchConditions" >
+        <![CDATA[1]]>
+    </Custom>
+
+    <Custom Action="ca_InstallPythonAPIArgs" Before="ca_InstallPythonAPI" >
+        <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+            <![CDATA[1]]>
+        <?else ?>
+            <![CDATA[&VBoxPython=3]]>
+        <?endif ?>
+    </Custom>
+    <Custom Action="ca_InstallPythonAPI" Before="InstallFinalize" >
+        <?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+            <![CDATA[1]]>
+        <?else ?>
+            <![CDATA[&VBoxPython=3]]>
+        <?endif ?>
+    </Custom>
+
+</Include>

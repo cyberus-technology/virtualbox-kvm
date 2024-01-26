@@ -1,0 +1,96 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for VBoxRes.dll.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+DLLS += VBoxRes
+VBoxRes_TEMPLATE = VBoxR3StaticNoCrt
+VBoxRes_DEPS     = $(VBOX_SVN_REV_KMK)
+VBoxRes_LDFLAGS  = -NoEntry
+VBoxRes_SOURCES  = \
+	dummy.cpp \
+	VBoxRes.rc
+VBoxRes_CLEAN    = \
+	$(VBoxRes_0_OUTDIR)/VBoxRes-icons.rc
+
+# The icon location is configurable.
+VBoxRes.rc_INCS += $(VBoxRes_0_OUTDIR)
+VBoxRes.rc_DEPS += $(VBoxRes_0_OUTDIR)/VBoxRes-icons.rc
+
+# The resource path.
+VBOX_ARTWORK_PATH_WIN := $(subst /,\\,$(PATH_ROOT))/src/VBox/Artwork/win
+
+# Icon include file.
+# @todo Put this into Config.kmk?
+ifdef VBOX_OSE
+ # Hack: rc.exe on OSE build boxes don't support Vista icons; so
+ # use a special icon version (without the 256x256 size) instead.
+ VBOX_WINDOWS_ICON_EXT_VBOX     := $(VBOX_ARTWORK_PATH_WIN)/OSE/virtualbox-vbox.ico
+ VBOX_WINDOWS_ICON_EXT_EXTPACK  := $(VBOX_ARTWORK_PATH_WIN)/OSE/virtualbox-vbox-extpack.ico
+ VBOX_WINDOWS_ICON_EXT_OVA      := $(VBOX_ARTWORK_PATH_WIN)/OSE/virtualbox-ova.ico
+ VBOX_WINDOWS_ICON_EXT_OVF      := $(VBOX_ARTWORK_PATH_WIN)/OSE/virtualbox-ovf.ico
+ VBOX_WINDOWS_ICON_EXT_VDI      := $(VBOX_ARTWORK_PATH_WIN)/virtualbox-vdi.ico
+ VBOX_WINDOWS_ICON_EXT_VMDK     := $(VBOX_ARTWORK_PATH_WIN)/virtualbox-vmdk.ico
+ VBOX_WINDOWS_ICON_EXT_VHD      := $(VBOX_ARTWORK_PATH_WIN)/virtualbox-vhd.ico
+ VBOX_WINDOWS_ICON_EXT_HDD      := $(VBOX_ARTWORK_PATH_WIN)/virtualbox-hdd.ico
+else
+ VBOX_WINDOWS_ICON_EXT_VBOX     := $(VBOX_ARTWORK_PATH_WIN)/NonOSE/virtualbox-vbox.ico
+ VBOX_WINDOWS_ICON_EXT_EXTPACK  := $(VBOX_ARTWORK_PATH_WIN)/NonOSE/virtualbox-vbox-extpack.ico
+ VBOX_WINDOWS_ICON_EXT_OVA      := $(VBOX_ARTWORK_PATH_WIN)/NonOSE/virtualbox-ova.ico
+ VBOX_WINDOWS_ICON_EXT_OVF      := $(VBOX_ARTWORK_PATH_WIN)/NonOSE/virtualbox-ovf.ico
+ VBOX_WINDOWS_ICON_EXT_VDI      := $(VBOX_ARTWORK_PATH_WIN)/virtualbox-vdi.ico
+ VBOX_WINDOWS_ICON_EXT_VMDK     := $(VBOX_ARTWORK_PATH_WIN)/virtualbox-vmdk.ico
+ VBOX_WINDOWS_ICON_EXT_VHD      := $(VBOX_ARTWORK_PATH_WIN)/virtualbox-vhd.ico
+ VBOX_WINDOWS_ICON_EXT_HDD      := $(VBOX_ARTWORK_PATH_WIN)/virtualbox-hdd.ico
+endif
+
+VBOX_RESOURCES_WIN := \
+	$(VBOX_WINDOWS_ICON_FILE) \
+	$(VBOX_WINDOWS_ICON_EXT_VBOX) \
+	$(VBOX_WINDOWS_ICON_EXT_EXTPACK) \
+	$(VBOX_WINDOWS_ICON_EXT_OVA) \
+	$(VBOX_WINDOWS_ICON_EXT_OVF) \
+	$(VBOX_WINDOWS_ICON_EXT_VDI) \
+	$(VBOX_WINDOWS_ICON_EXT_VMDK) \
+	$(VBOX_WINDOWS_ICON_EXT_VHD) \
+	$(VBOX_WINDOWS_ICON_EXT_HDD)
+
+$$(VBoxRes_0_OUTDIR)/VBoxRes-icons.rc: \
+		$$(VBOX_RESOURCES_WIN) $(MAKEFILE_CURRENT) | $$(dir $$@)
+	$(RM) -f $@
+	$(APPEND) $@ 'IDI_VIRTUALBOX            ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_FILE))"'
+	$(APPEND) $@ 'IDI_FILETYPE_VBOX         ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_EXT_VBOX))"'
+	$(APPEND) $@ 'IDI_FILETYPE_VBOX_EXTPACK ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_EXT_EXTPACK))"'
+	$(APPEND) $@ 'IDI_FILETYPE_VBOX_OVA     ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_EXT_OVA))"'
+	$(APPEND) $@ 'IDI_FILETYPE_VBOX_OVF     ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_EXT_OVF))"'
+	$(APPEND) $@ 'IDI_FILETYPE_VBOX_VDI     ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_EXT_VDI))"'
+	$(APPEND) $@ 'IDI_FILETYPE_VBOX_VMDK    ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_EXT_VMDK))"'
+	$(APPEND) $@ 'IDI_FILETYPE_VBOX_VHD     ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_EXT_VHD))"'
+	$(APPEND) $@ 'IDI_FILETYPE_VBOX_HDD     ICON DISCARDABLE "$(subst /,\\,$(VBOX_WINDOWS_ICON_EXT_HDD))"'
+
+include $(FILE_KBUILD_SUB_FOOTER)

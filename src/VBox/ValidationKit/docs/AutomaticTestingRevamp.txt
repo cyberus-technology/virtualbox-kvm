@@ -1,0 +1,1061 @@
+
+Revamp of Automatic VirtualBox Testing
+======================================
+
+
+Introduction
+------------
+
+This is the design document for a revamped automatic testing framework.
+The revamp aims at replacing the current tinderbox based testing by a new
+system that is written from scratch.
+
+The old system is not easy to work with and was never meant to be used for
+managing tests, after all it just a simple a build manager tailored for
+contiguous building.  Modifying the existing tinderbox system to do what
+we want would require fundamental changes that would render it useless as
+a build manager, it would therefore end up as a fork.  The amount of work
+required would probably be about the same as writing a new system from
+scratch.  Other considerations, such as the license of the tinderbox
+system (MPL) and language it is realized in (Perl), are also in favor of
+doing it from scratch.
+
+The language envisioned for the new automatic testing framework is Python.  This
+is for several reasons:
+
+  - The VirtualBox API has Python bindings.
+  - Python is used quite a bit inside Sun (dunno about Oracle).
+  - Works relatively well with Apache for the server side bits.
+  - It is more difficult to produce write-only code in Python (alias the
+    we-don't-like-perl argument).
+  - You don't need to compile stuff.
+
+Note that the author of this document has no special training as a test
+engineer and may therefore be using the wrong terms here and there.  The
+primary focus is to express what we need to do in order to improve
+testing.
+
+This document is written in reStructuredText (rst) which just happens to
+be used by Python, the primary language for this revamp.  For more
+information on reStructuredText: http://docutils.sourceforge.net/rst.html
+
+
+Definitions / Glossary
+======================
+
+sub-test driver
+  A set of test cases that can be used by more than one test driver.  Could
+  also be called a test unit, in the pascal sense of unit, if it wasn't so
+  easily confused with 'unit test'.
+
+test
+  This is somewhat ambiguous and this document try avoid using it where
+  possible.  When used it normally refers to doing testing by executing one or
+  more testcases.
+
+test case
+  A set of inputs, test programs and expected results. It validates system
+  requirements and generates a pass or failed status.  A basic unit of testing.
+  Note that we use the term in a rather broad sense.
+
+test driver
+  A program/script used to execute a test.  Also known as a test harness.
+  Generally abbreviated 'td'.  It can have sub-test drivers.
+
+test manager
+  Software managing the automatic testing.  This is a web application that runs
+  on a dedicated server (tindertux).
+
+test set
+  The output of testing activity.  Logs, results, ++.  Our usage of this should
+  probably be renamed to 'test run'.
+
+test group
+  A collection of related test cases.
+
+testbox
+  A computer that does testing.
+
+testbox script
+  Script executing orders from the test manager on a testbox.  Started
+  automatically upon bootup.
+
+testing
+  todo
+
+TODO: Check that we've got all this right and make them more exact
+      where possible.
+
+See also http://encyclopedia2.thefreedictionary.com/testing%20types
+and http://www.aptest.com/glossary.html .
+
+
+
+Objectives
+==========
+
+ - A scalable test manager (>200 testboxes).
+ - Optimize the web user interface (WUI) for typical workflows and analysis.
+ - Efficient and flexibile test configuration.
+ - Import test result from other test systems (logo testing, VDI, ++).
+ - Easy to add lots of new testscripts.
+ - Run tests locally without a manager.
+ - Revamp a bit at the time.
+
+
+
+The Testbox Side
+================
+
+Each testbox has a unique name corresponding to its DNS zone entry.  When booted
+a testbox script is started automatically.  This script will query the test
+manager for orders and execute them.  The core order downloads and executes a
+test driver with parameters (configuration) from the server.  The test driver
+does all the necessary work for executing the test.  In a typical VirtualBox
+test this means picking a build, installing it, configuring VMs, running the
+test VMs, collecting the results, submitting them to the server, and finally
+cleaning up afterwards.
+
+The testbox environment which the test drivers are executed in will have a
+number of environment variables for determining location of the source images
+and other test data, scratch space, test set id, server URL, and so on and so
+forth.
+
+On startup, the testbox script will look for crash dumps and similar on
+systems where this is possible.  If any sign of a crash is found, it will
+put any dumps and reports in the upload directory and inform the test
+manager before reporting for duty.  In order to generate the proper file
+names and report the crash in the right test set as well as prevent
+reporting crashes unrelated to automatic testing, the testbox script will
+keep information (test set id, ++) in a separate scratch directory
+(${TESTBOX_PATH_SCRATCH}/../testbox) and make sure it is synced to the
+disk (both files and directories).
+
+After checking for crashes, the testbox script will clean up any previous test
+which might be around.  This involves first invoking the test script in cleanup
+mode and the wiping the scratch space.
+
+When reporting for duty the script will submit information about the host: OS
+name, OS version, OS bitness, CPU vendor, total number of cores, VT-x support,
+AMD-V support, amount of memory, amount of scratch space, and anything else that
+can be found useful for scheduling tests or filtering test configurations.
+
+
+
+Testbox Script Orders
+---------------------
+
+The orders are kept in a queue on the server and the testbox script will fetch
+them one by one.  Orders that cannot be executed at the moment will be masked in
+the query from the testbox.
+
+Execute Test Driver
+  Downloads and executes the a specified test driver with the given
+  configuration (arguments).  Only one test driver can be executed at a time.
+  The server can specify more than one ZIP file to be downloaded and unpacked
+  before executing the test driver.  The testbox script may cache these zip
+  files using http time stamping.
+
+Abort Test Driver
+  Aborts the current test driver.  This will drop a hint to the driver and give
+  it 60 seconds to shut down the normal way.  If that fails, the testbox script
+  will kill the driver processes (SIGKILL or equivalent), invoke the
+  testdriver in cleanup mode, and finally wipe the scratch area.  Should either
+  of the last two steps fail in some way, the testbox will be rebooted.
+
+Idle
+  Ask again in X seconds, where X is specified by the server.
+
+Reboot
+  Reboot the testbox.  If a test driver is current running, an attempt at
+  aborting it (Abort Test Driver) will be made first.
+
+Update
+  Updates the testbox script.  The order includes a server relative path to the
+  new testbox script.  This can only be executed when no test driver is
+  currently being executed.
+
+
+Testbox Environment: Variables
+------------------------------
+
+COMSPEC
+  This will be set to C:\Windows\System32\cmd.exe on Windows.
+
+PATH
+  This will contain the kBuild binary directory for the host platform.
+
+SHELL
+  This will be set to point to kmk_ash(.exe) on all platforms.
+
+TESTBOX_NAME
+  The testbox name.
+  This is not required by the local reporter.
+
+TESTBOX_PATH_BUILDS
+  The absolute path to where the build repository can be found.  This should be
+  a read only mount when possible.
+
+TESTBOX_PATH_RESOURCES
+  The absolute path to where static test resources like ISOs and VDIs can be
+  found.  The test drivers knows the layout of this.  This should be a read only
+  mount when possible.
+
+TESTBOX_PATH_SCRATCH
+  The absolute path to the scratch space.  This is the current directory when
+  starting the test driver.  It will be wiped automatically after executing the
+  test.
+  (Envisioned as ${TESTBOX_PATH_SCRIPTS}/../scratch and that
+  ${TESTBOX_PATH_SCRATCH}/ will be automatically wiped by the testbox script.)
+
+TESTBOX_PATH_SCRIPTS
+  The absolute path to the test driver and the other files that was unzipped
+  together with it.  This is also where the test-driver-abort file will be put.
+  (Envisioned as ${TESTBOX_PATH_SCRATCH}/../driver, see above.)
+
+TESTBOX_PATH_UPLOAD
+  The absolute path to the upload directory for the testbox.  This is for
+  putting VOBs, PNGs, core dumps, crash dumps, and such on.  The files should be
+  bzipped or zipped if they aren't compress already.  The names should contain
+  the testbox and test set ID.
+
+TESTBOX_REPORTER
+  The name of the test reporter back end.  If not present, it will default to
+  the local reporter.
+
+TESTBOX_TEST_SET_ID
+  The test set ID if we're running.
+  This is not required by the local reporter.
+
+TESTBOX_MANAGER_URL
+  The URL to the test manager.
+  This is not required by the local reporter.
+
+TESTBOX_XYZ
+  There will probably be some more of these.
+
+
+Testbox Environment: Core Utilities
+-----------------------------------
+
+The testbox will not provide the typical unix /bin and /usr/bin utilities.  In
+other words, cygwin will not be used on Windows!
+
+The testbox will provide the unixy utilities that ships with kBuild and possibly
+some additional ones from tools/*.*/bin in the VirtualBox tree (wget, unzip,
+zip, and so on).  The test drivers will avoid invoking any of these utilities
+directly and instead rely on generic utility methods in the test driver
+framework.  That way we can more easily reimplement the functionality of the
+core utilities and drop the dependency on them.  It also allows us to quickly
+work around platform specific oddities and bugs.
+
+
+Test Drivers
+------------
+
+The test drivers are programs that will do the actual testing.  In addition to
+run under the testbox script, they can be executed in the VirtualBox development
+environment.  This is important for bug analysis and for simplifying local
+testing by the developers before committing changes.  It also means the test
+drivers can be developed locally in the VirtualBox development environment.
+
+The main difference between executing a driver under the testbox script and
+running it manually is that there is no test manager in the latter case.  The
+test result reporter will not talk to the server, but report things to a local
+log file and/or standard out/err.  When invoked manually, all the necessary
+arguments will need to be specified by hand of course - it should be possible
+to extract them from a test set as well.
+
+For the early implementation stages, an implementation of the reporter interface
+that talks to the tinderbox base test manager will be needed.  This will be
+dropped later on when a new test manager is ready.
+
+As hinted at in other sections, there will be a common framework
+(libraries/packages/classes) for taking care of the tedious bits that every
+test driver needs to do.  Sharing code is essential to easing test driver
+development as well as reducing their complexity.  The framework will contain:
+
+    - A generic way of submitting output.  This will be a generic interface with
+      multiple implementation, the TESTBOX_REPORTER environment variable
+      will decide which of them to use.  The interface will have very specific
+      methods to allow the reporter to do a best possible job in reporting the
+      results to the test manager.
+
+    - Helpers for typical tasks, like:
+        - Copying files.
+        - Deleting files, directory trees and scratch space.
+        - Unzipping files.
+        - Creating ISOs
+        - And such things.
+
+    - Helpers for installing and uninstalling VirtualBox.
+
+    - Helpers for defining VMs. (The VBox API where available.)
+
+    - Helpers for controlling VMs. (The VBox API where available.)
+
+The VirtualBox bits will be separate from the more generic ones, simply because
+this is cleaner it will allow us to reuse the system for testing other products.
+
+The framework will be packaged in a zip file other than the test driver so we
+don't waste time and space downloading the same common code.
+
+The test driver will poll for the file
+${TESTBOX_PATH_SCRIPTS}/test-driver-abort and abort all testing when it sees it.
+
+The test driver can be invoked in three modes: execute, help and cleanup.  The
+default is execute mode, the help shows an configuration summary and the cleanup
+is for cleaning up after a reboot or aborted run.  The latter is done by the
+testbox script on startup and after abort - the driver is expected to clean up
+by itself after a normal run.
+
+
+
+The Server Side
+===============
+
+The server side will be implemented using a webserver (apache), a database
+(postgres) and cgi scripts (Python).  In addition a cron job (Python) running
+once a minute will generate static html for frequently used pages and maybe
+execute some other tasks for driving the testing forwards.  The order queries
+from the testbox script is the primary driving force in the system.  The total
+makes up the test manager.
+
+The test manager can be split up into three rough parts:
+
+  - Configuration (of tests, testgroups and testboxes).
+  - Execution     (of tests, collecting and organizing the output).
+  - Analysis      (of test output, mostly about presentation).
+
+
+Test Manager: Requirements
+==========================
+
+List of requirements:
+
+  - Two level testing - L1 quick smoke tests and L2 longer tests performed on
+    builds passing L1.  (Klaus (IIRC) meant this could be realized using
+    test dependency.)
+  - Black listing builds (by revision or similar) known to be bad.
+  - Distinguish between build types so we can do a portion of the testing with
+    strict builds.
+  - Easy to re-configure build source for testing different branch or for
+    testing a release candidate. (Directory based is fine.)
+  - Useful to be able to partition testboxes (run specific builds on some
+    boxes, let an engineer have a few boxes for a while).
+  - Interaction with ILOM/...: reset systems.
+  - Be able to suspend testing on selected testboxes when doing maintenance
+    (where automatically resuming testing on reboot is undesired) or similar
+    activity.
+  - Abort testing on selected testboxes.
+  - Scheduling of tests requiring more than one testbox.
+  - Scheduling of tests that cannot be executing concurrently on several
+    machines because of some global resource like an iSCSI target.
+  - Jump the scheduling queue.  Scheduling of specified test the next time a
+    testbox is available (optionally specifying which testbox to schedule it
+    on).
+  - Configure tests with variable configuration to get better coverage. Two modes:
+      - TM generates the permutations based on one or more sets of test script arguments.
+      - Each configuration permutation is specified manually.
+  - Test specification needs to be flexible (select tests, disable test, test
+    scheduling (run certain tests nightly), ... ).
+  - Test scheduling by hour+weekday and by priority.
+  - Test dependencies (test A depends on test B being successful).
+  - Historize all configuration data, in particular test configs (permutations
+    included) and testboxes.
+  - Test sets has at a minimum a build reference, a testbox reference and a
+    primary log associated with it.
+  - Test sets stores further result as a recursive collection of:
+      - hierarchical subtest name (slash sep)
+      - test parameters / config
+      - bool fail/succ
+      - attributes (typed?)
+      - test time
+      - e.g. throughput
+      - subresults
+      - log
+      - screenshots, video,...
+  - The test sets database structure needs to designed such that data mining
+    can be done in an efficient manner.
+  - Presentation/analysis: graphs!, categorize bugs, columns reorganizing
+    grouped by test (hierarchical), overviews, result for last day.
+
+
+
+Test Manager: Configuration
+===========================
+
+
+Testboxes
+---------
+
+Configuration of testboxes doesn't involve much work normally.  A testbox
+is added manually to the test manager by entering the DNS entry and/or IP
+address (the test manager resolves the missing one when necessary) as well as
+the system UUID (when obtainable - should be displayed by the testbox script
+installer).  Queries from unregistered testboxes will be declined as a kind of
+security measure, the incident should be logged in the webserver log if
+possible.   In later dealings with the client the System UUID will be the key
+identifier.  It's permittable for the IP address to change when the testbox
+isn't online, but not while testing (just imagine live migration tests and
+network tests).  Ideally, the testboxes should not change IP address.
+
+The testbox edit function must allow changing the name and system UUID.
+
+One further idea for the testbox configuration is indicating what they are
+capable of to filter out tests and test configurations that won't work on that
+testbox.  To examplify this take the ACP2 installation test.  If the test
+manager does not make sure the testbox have VT-x or AMD-v capabilities, the test
+is surely going to fail.  Other testbox capabilities would be total number of
+CPU cores, memory size, scratch space.  These testbox capabilities should be
+collected automatically on bootup by the testbox script together with OS name,
+OS version and OS bitness.
+
+A final thought, instead of outright declining all requests from new testboxes,
+we could record the unregistered testboxes with ip, UUID, name, os info and
+capabilities but mark them as inactive.  The test operator can then activate
+them on an activation page or edit the testbox or something.
+
+
+Testcases
+---------
+
+We use the term testcase for a test.
+
+
+Testgroups
+----------
+
+Testcases are organized into groups.  A testcase can be member of more than one
+group.  The testcase gets a priority assigned to it in connection with the
+group membership.
+
+Testgroups are picked up by a testbox partition (aka scheduling group) and a
+prioirty, scheduling time restriction and dependencies on other test groups are
+associated with the assignment.  A testgroup can be used by several testbox
+partitions.
+
+(This used to be called 'testsuites' but was renamed to avoid confusion with
+the VBox Test Suite.)
+
+
+Scheduling
+----------
+
+The initial scheduler will be modelled after what we're doing already on in the
+tinderbox driven testing.  It's best described as a best effort continuous
+integration scheduler.  Meaning, it will always use the latest build suitable
+for a testcase.  It will schedule on a testcase level, using the combined
+priority of the testcase in the test group and the test group with the testbox
+partition, trying to spread the test case argument variation out accordingly
+over the whole scheduilng queue.  Which argument variation to start with, is
+not undefined (random would be best).
+
+Later, we may add other schedulers as needed.
+
+
+
+The Test Manager Database
+=========================
+
+First a general warning:
+
+    The guys working on this design are not database experts, web
+    programming experts or similar, rather we are low level guys
+    who's main job is x86 & AMD64 virtualization.  So, please don't
+    be too hard on us. :-)
+
+
+A logical table layout can be found in TestManagerDatabaseMap.png (created by
+Oracle SQL Data Modeler, stored in TestManagerDatabase.dmd).  The physical
+database layout can be found in TestManagerDatabaseInit.pgsql postgreSQL
+script.  The script is commented.
+
+
+Data History
+------------
+
+We need to somehow track configuration changes over time.  We also need to
+be able to query the exact configuration a test set was run with so we can
+understand and make better use of the results.
+
+There are different techniques for archiving this, one is tuple-versioning
+( http://en.wikipedia.org/wiki/Tuple-versioning ), another is log trigger
+( http://en.wikipedia.org/wiki/Log_trigger ).  We use tuple-versioning in
+this database, with 'effective' as start date field name and 'expire' as
+the end (exclusive).
+
+Tuple-versioning has a shortcoming wrt to keys, both primary and foreign.
+The primary key of a table employing tuple-versioning is really
+'id' + 'valid_period', where the latter is expressed using two fields
+([effective...expire-1]).  Only, how do you tell the database engine that
+it should not allow overlapping valid_periods?  Useful suggestions are
+welcomed. :-)
+
+Foreign key references to a table using tuple-versioning is running into
+trouble because of the time axis and that to our knowledge foreign keys
+must reference exactly one row in the other table.  When time is involved
+what we wish to tell the database is that at any given time, there actually
+is exactly one row we want to match in the other table, only we've no idea
+how to express this.  So, many foreign keys are not expressed in SQL of this
+database.
+
+In some cases, we extend the tuple-versioning with a generation ID so that
+normal foreign key referencing can be used.  We only use this for recording
+(references in testset) and scheduling (schedqueue), as using it more widely
+would force updates (gen_id changes) to propagate into all related tables.
+
+See also:
+    - http://en.wikipedia.org/wiki/Slowly_changing_dimension
+    - http://en.wikipedia.org/wiki/Change_data_capture
+    - http://en.wikipedia.org/wiki/Temporal_database
+
+
+
+Test Manager: Execution
+=======================
+
+
+
+Test Manager: Scenarios
+=======================
+
+
+
+#1 - Testbox Signs On (At Bootup)
+---------------------------------
+
+The testbox supplies a number of inputs when reporting for duty:
+    - IP address.
+    - System UUID.
+    - OS name.
+    - OS version.
+    - CPU architecture.
+    - CPU count (= threads).
+    - CPU VT-x/AMD-V capability.
+    - CPU nested paging capability.
+    - Chipset I/O MMU capability.
+    - Memory size.
+    - Scratch size space (for testing).
+    - Testbox Script revision.
+
+Results:
+    - ACK or NACK.
+    - Testbox ID and name on ACK.
+
+After receiving a ACK the testbox will ask for work to do, i.e. continue with
+scenario #2.  In the NACK case, it will sleep for 60 seconds and try again.
+
+
+Actions:
+
+1. Validate the testbox by looking the UUID up in the TestBoxes table.
+   If not found, NACK the request.  SQL::
+
+        SELECT  idTestBox, sName
+        FROM    TestBoxes
+        WHERE   uuidSystem = :sUuid
+          AND   tsExpire = 'infinity'::timestamp;
+
+2. Check if any of the information by testbox script has changed.  The two
+   sizes are normalized first, memory size rounded to nearest 4 MB and scratch
+   space is rounded down to nearest 64 MB.  If anything changed, insert a new
+   row in the testbox table and historize the current one, i.e. set
+   OLD.tsExpire to NEW.tsEffective and get a new value for NEW.idGenTestBox.
+
+3. Check with TestBoxStatuses:
+        a) If there is an row for the testbox in it already clean up change it
+           to 'idle' state and deal with any open testset like described in
+           scenario #9.
+        b) If there is no row, add one with 'idle' state.
+
+4. ACK the request and pass back the idTestBox.
+
+
+Note! Testbox.enabled is not checked here, that is only relevant when it asks
+      for a new task (scenario #2 and #5).
+
+Note! Should the testbox script detect changes in any of the inputs, it should
+      redo the sign in.
+
+Note! In scenario #8, the box will not sign on until it has done the reboot and
+      cleanup reporting!
+
+
+#2 - Testbox Asks For Work To Do
+---------------------------------
+
+
+Inputs:
+    - The testbox is supplying its IP indirectly.
+    - The testbox should supply its UUID and ID directly.
+
+Results:
+    - IDLE, WAIT, EXEC, REBOOT, UPGRADE, UPGRADE-AND-REBOOT, SPECIAL or DEAD.
+
+Actions:
+
+1. Validate the ID and IP by selecting the currently valid testbox row::
+
+     SELECT  idGenTestBox, fEnabled, idSchedGroup, enmPendingCmd
+     FROM    TestBoxes
+     WHERE   id = :id
+       AND   uuidSystem = :sUuid
+       AND   ip = :ip
+       AND   tsExpire = 'infinity'::timestamp;
+
+   If NOT found return DEAD to the testbox client (it will go back to sign on
+   mode and retry every 60 seconds or so - see scenario #1).
+
+   Note! The WUI will do all necessary clean-ups when deleting a testbox, so
+         contrary to the initial plans, we don't need to do anything more for
+         the DEAD status.
+
+2. Check with TestBoxStatuses (maybe joined with query from 1).
+
+   If enmState is 'gang-gathering': Goto scenario #6 on timeout or pending
+   'abort' or 'reboot' command.  Otherwise, tell the testbox to WAIT [done].
+
+   If enmState is 'gang-testing': The gang has been gathered and execution
+   has been triggered.  Goto 5.
+
+   If enmState is not 'idle', change it to 'idle'.
+
+   If idTestSet is not NULL, CALL scenario #9 to it up.
+
+   If there is a pending abort command, remove it.
+
+   If there is a pending command and the old state doesn't indicate that it was
+   being executed, GOTO scenario #3.
+
+   Note! There should be a TestBoxStatuses row after executing scenario #1,
+         however should none be found for some funky reason, returning DEAD
+         will fix the problem (see above)
+
+3. If the testbox was marked as disabled, respond with an IDLE command to the
+   testbox [done]. (Note! Must do this after TestBoxStatuses maintenance from
+   point 2, or abandoned tests won't be cleaned up after a testbox is disabled.)
+
+4. Consider testcases in the scheduling queue, pick the first one which the
+   testbox can execute.  There is a concurrency issue here, so we put and
+   exclusive lock on the SchedQueues table while considering its content.
+
+   The cursor we open looks something like this::
+
+     SELECT  idItem, idGenTestCaseArgs,
+             idTestSetGangLeader, cMissingGangMembers
+     FROM    SchedQueues
+     WHERE   idSchedGroup = :idSchedGroup
+        AND  (   bmHourlySchedule is NULL
+              OR get_bit(bmHourlySchedule, :iHourOfWeek) = 1 ) --< does this work?
+     ORDER BY ASC idItem;
+
+  If there no rows are returned (this can happen because no testgroups are
+  associated with this scheduling group, the scheduling group is disabled,
+  or because the queue is being regenerated), we will tell the testbox to
+  IDLE [done].
+
+  For each returned row we will:
+     a) Check testcase/group dependencies.
+     b) Select a build (and default testsuite) satisfying the dependencies.
+     c) Check the testcase requirements with that build in mind.
+     d) If idTestSetGangLeader is NULL, try allocate the necessary resources.
+     e) If it didn't check out, fetch the next row and redo from (a).
+     f) Tentatively create a new test set row.
+     g) If not gang scheduling:
+            - Next state: 'testing'
+        ElIf we're the last gang participant:
+            - Set idTestSetGangLeader to NULL.
+            - Set cMissingGangMembers to 0.
+            - Next state: 'gang-testing'
+        ElIf we're the first gang member:
+            - Set cMissingGangMembers to TestCaseArgs.cGangMembers - 1.
+            - Set idTestSetGangLeader to our idTestSet.
+            - Next state: 'gang-gathering'
+        Else:
+            - Decrement cMissingGangMembers.
+            - Next state: 'gang-gathering'
+
+        If we're not gang scheduling OR cMissingGangMembers is 0:
+            Move the scheduler queue entry to the end of the queue.
+
+        Update our TestBoxStatuses row with the new state and test set.
+        COMMIT;
+
+5. If state is 'testing' or 'gang-testing':
+        EXEC reponse.
+
+        The EXEC response for a gang scheduled testcase includes a number of
+        extra arguments so that the script knows the position of the testbox
+        it is running on and of the other members.  This means the that the
+        TestSet.iGangMemberNo is passed using --gang-member-no and the IP
+        addresses of the all gang members using --gang-ipv4-<memb-no> <ip>.
+   Else (state is 'gang-gathering'):
+        WAIT
+
+
+
+#3 - Pending Command When Testbox Asks For Work
+-----------------------------------------------
+
+This is a subfunction of scenario #2 and #5.
+
+As seen in scenario #2, the testbox will send 'abort' commands to /dev/null
+when it finds one when not executing a test.  This includes when it reports
+that the test has completed (no need to abort a completed test, wasting lot
+of effort when standing at the finish line).
+
+The other commands, though, are passed back to the testbox.  The testbox
+script will respond with an ACK or NACK as it sees fit.  If NACKed, the
+pending command will be removed (pending_cmd set to none) and that's it.
+If ACKed, the state of the testbox will change to that appropriate for the
+command and the pending_cmd set to none.  Should the testbox script fail to
+respond, the command will be repeated the next time it asks for work.
+
+
+
+#4 - Testbox Uploads Results During Test
+----------------------------------------
+
+
+TODO
+
+
+#5 - Testbox Completes Test and Asks For Work
+---------------------------------------------
+
+This is very similar to scenario #2
+
+TODO
+
+
+#6 - Gang Gathering Timeout
+---------------------------
+
+This is a subfunction of scenario #2.
+
+When gathering a gang of testboxes for a testcase, we do not want to wait
+forever and have testboxes doing nothing for hours while waiting for partners.
+So, the gathering has a reasonable timeout (imagine something like 20-30 mins).
+
+Also, we need some way of dealing with 'abort' and 'reboot' commands being
+issued while waiting.  The easy way out is pretend it's a time out.
+
+When changing the status to 'gang-timeout' we have to be careful.  First of all,
+we need to exclusively lock the SchedQueues and TestBoxStatuses (in that order)
+and re-query our status.  If it changed redo the checks in scenario #2 point 2.
+
+If we still want to timeout/abort, change the state from 'gang-gathering' to
+'gang-gathering-timedout' on all the gang members that has gathered so far.
+Then reset the scheduling queue record and move it to the end of the queue.
+
+
+When acting on 'gang-timeout' the TM will fail the testset in a manner similar
+to scenario #9.  No need to repeat that.
+
+
+
+#7 - Gang Cleanup
+-----------------
+
+When a testbox completes a gang scheduled test, we will have to serialize
+resource cleanup (both globally and on testboxes) as they stop.  More details
+can be found in the documentation of 'gang-cleanup'.
+
+So, the transition from 'gang-testing' is always to 'gang-cleanup'.  When we
+can safely leave 'gang-cleanup' is decided by the query::
+
+        SELECT  COUNT(*)
+        FROM    TestBoxStatuses,
+                TestSets
+        WHERE   TestSets.idTestSetGangLeader = :idTestSetGangLeader
+            AND TestSets.idTestBox = TestBoxStatuses.idTestBox
+            AND TestBoxStatuses.enmState = 'gang-running'::TestBoxState_T;
+
+As long as there are testboxes still running, we stay in the 'gang-cleanup'
+state.  Once there are none, we continue closing the testset and such.
+
+
+
+#8 - Testbox Reports A Crash During Test Execution
+--------------------------------------------------
+
+TODO
+
+
+#9 - Cleaning Up Abandoned Testcase
+-----------------------------------
+
+This is a subfunction of scenario #1 and #2.  The actions taken are the same in
+both situations.  The precondition for taking this path is that the row in the
+testboxstatus table is referring to a testset (i.e. testset_id is not NULL).
+
+
+Actions:
+
+1. If the testset is incomplete, we need to completed:
+        a) Add a message to the root TestResults row, creating one if necessary,
+           that explains that the test was abandoned.  This is done
+           by inserting/finding the string into/in TestResultStrTab and adding
+           a row to TestResultMsgs with idStrMsg set to that string id and
+           enmLevel set to 'failure'.
+        b) Mark the testset as failed.
+
+2. Free any global resources referenced by the test set.  This is done by
+   deleting all rows in GlobalResourceStatuses matching the testbox id.
+
+3. Set the idTestSet to NULL in the TestBoxStatuses row.
+
+
+
+#10 - Cleaning Up a Disabled/Dead TestBox
+-----------------------------------------
+
+The UI needs to be able to clean up the remains of a testbox which for some
+reason is out of action.  Normal cleaning up of abandoned testcases requires
+that the testbox signs on or asks for work, but if the testbox is dead or
+in some way indisposed, it won't be doing any of that.  So, the testbox
+sheriff needs to have a way of cleaning up after it.
+
+It's basically a manual scenario #9 but with some safe guards, like checking
+that the box hasn't been active for the last 1-2 mins (max idle/wait time * 2).
+
+
+Note! When disabling a box that still executing the testbox script, this
+      cleanup isn't necessary as it will happen automatically.   Also, it's
+      probably desirable that the testbox finishes what ever it is doing first
+      before going dormant.
+
+
+
+Test Manager: Analysis
+=======================
+
+One of the testbox sheriff's tasks is to try figure out the reason why something
+failed.  The test manager will provide facilities for doing so from very early
+in it's implementation.
+
+
+We need to work out some useful status reports for the early implementation.
+Later there will be more advanced analysis tools, where for instance we can
+create graphs from selected test result values or test execution times.
+
+
+
+Implementation Plan
+===================
+
+This has changed for various reasons.  The current plan is to implement the
+infrastructure (TM & testbox script) first and do a small deployment with the
+2-5 test drivers in the Testsuite as basis.  Once the bugs are worked out, we
+will convert the rest of the tests and start adding new ones.
+
+We just need to finally get this done, no point in doing it piecemeal by now!
+
+
+Test Manager Implementation Sub-Tasks
+-------------------------------------
+
+The implementation of the test manager and adjusting/completing of the testbox
+script and the test drivers are tasks which can be done by more than one
+person.  Splitting up the TM implementation into smaller tasks should allow
+parallel development of different tasks and get us working code sooner.
+
+
+Milestone #1
+------------
+
+The goal is to getting the fundamental testmanager engine implemented, debugged
+and working.  With the exception of testboxes, the configuration will be done
+via SQL inserts.
+
+Tasks in somewhat prioritized order:
+
+    - Kick off test manager.  It will live in testmanager/.  Salvage as much as
+      possible from att/testserv.  Create basic source and file layout.
+
+    - Adjust the testbox script, part one.  There currently is a testbox script
+      in att/testbox, this shall be moved up into testboxscript/.  The script
+      needs to be adjusted according to the specification layed down earlier
+      in this document.  Installers or installation scripts for all relevant
+      host OSes are required.  Left for part two is result reporting beyond the
+      primary log.  This task must be 100% feature complete, on all host OSes,
+      there is no room for FIXME, XXX or @todo here.
+
+    - Implement the schedule queue generator.
+
+    - Implement the testbox dispatcher in TM.  Support all the testbox script
+      responses implemented above, including upgrading the testbox script.
+
+    - Implement simple testbox management page.
+
+    - Implement some basic activity and result reports so that we can see
+      what's going on.
+
+    - Create a testmanager / testbox test setup.  This lives in selftest/.
+
+      1. Set up something that runs, no fiddly bits. Debug till it works.
+      2. Create a setup that tests testgroup dependencies, i.e. real tests
+         depending on smoke tests.
+      3. Create a setup that exercises testcase dependency.
+      4. Create a setup that exercises global resource allocation.
+      5. Create a setup that exercises gang scheduling.
+
+    - Check that all features work.
+
+
+Milestone #2
+------------
+
+The goal is getting to VBox testing.
+
+Tasks in somewhat prioritized order:
+
+    - Implement full result reporting in the testbox script and testbox driver.
+      A testbox script specific reporter needs to be implemented for the
+      testdriver framework.  The testbox script needs to forward the results to
+      the test manager, or alternatively the testdriver report can talk
+      directly to the TM.
+
+    - Implement the test manager side of the test result reporting.
+
+    - Extend the selftest with some setup that report all kinds of test
+      results.
+
+    - Implement script/whatever feeding builds to the test manager from the
+      tinderboxes.
+
+    - The toplevel test driver is a VBox thing that must be derived from the
+      base TestDriver class or maybe the VBox one.  It should move from
+      toptestdriver to testdriver and be renamed to vboxtltd or smth.
+
+    - Create a vbox testdriver that boots the t-xppro VM once and that's it.
+
+    - Create a selftest setup which tests booting t-xppro taking builds from
+      the tinderbox.
+
+
+Milestone #3
+------------
+
+The goal for this milestone is configuration and converting current testcases,
+the result will be the a minimal test deployment (4-5 new testboxes).
+
+Tasks in somewhat prioritized order:
+
+    - Implement testcase configuration.
+
+    - Implement testgroup configuration.
+
+    - Implement build source configuration.
+
+    - Implement scheduling group configuration.
+
+    - Implement global resource configuration.
+
+    - Re-visit the testbox configuration.
+
+    - Black listing of builds.
+
+    - Implement simple failure analysis and reporting.
+
+    - Implement the initial smoke tests modelled on the current smoke tests.
+
+    - Implement installation tests for Windows guests.
+
+    - Implement installation tests for Linux guests.
+
+    - Implement installation tests for Solaris guest.
+
+    - Implement installation tests for OS/2 guest.
+
+    - Set up a small test deployment.
+
+
+Further work
+------------
+
+After milestone #3 has been reached and issues found by the other team members
+have been addressed, we will probably go for full deployment.
+
+Beyond this point we will need to improve reporting and analysis.  There may be
+configuration aspects needing reporting as well.
+
+Once deployed, a golden rule will be that all new features shall have test
+coverage.  Preferably, implemented by someone else and prior to the feature
+implementation.
+
+
+
+
+Discussion Logs
+===============
+
+2009-07-21,22,23 Various Discussions with Michal and/or Klaus
+-------------------------------------------------------------
+
+- Scheduling of tests requiring more than one testbox.
+- Scheduling of tests that cannot be executing concurrently on several machines
+  because of some global resource like an iSCSI target.
+- Manually create the test config permutations instead of having the test
+  manager create all possible ones and wasting time.
+- Distinguish between built types so we can run smoke tests on strick builds as
+  well as release ones.
+
+
+2009-07-20 Brief Discussion with Michal
+----------------------------------------
+
+- Installer for the testbox script to make bringing up a new testbox even
+  smoother.
+
+
+2009-07-16 Raw Input
+--------------------
+
+- test set. recursive collection of:
+    - hierachical subtest name (slash sep)
+    - test parameters / config
+    - bool fail/succ
+    - attributes (typed?)
+    - test time
+    - e.g. throughput
+    - subresults
+    - log
+    - screenshots,....
+
+- client package (zip) dl from server (maybe client caching)
+
+
+- thoughts on bits to do at once.
+    - We *really* need the basic bits ASAP.
+    - client -> support for test driver
+    - server -> controls configs
+    - cleanup on both sides
+
+
+2009-07-15 Raw Input
+--------------------
+
+- testing should start automatically
+- switching to branch too tedious
+- useful to be able to partition testboxes (run specific builds on some boxes, let an engineer have a few boxes for a while).
+- test specification needs to be more flexible (select tests, disable test, test scheduling (run certain tests nightly), ... )
+- testcase dependencies (blacklisting builds, run smoketests on box A before long tests on box B, ...)
+- more testing flexibility, more test than just install/moke. For instance unit tests, benchmarks, ...
+- presentation/analysis: graphs!, categorize bugs, columns reorganizing grouped by test (hierarchical), overviews, result for last day.
+- testcase specificion, variables (e.g. I/O-APIC, SMP, HWVIRT, SATA...) as sub-tests
+- interation with ILOM/...: reset systems
+- Changes needs LDAP authentication
+- historize all configuration  w/ name
+- ability to run testcase locally (provided the VDI/ISO/whatever extra requirements can be met).
+
+
+-----
+
+.. [1] no such footnote
+
+-----
+
+:Status: $Id: AutomaticTestingRevamp.txt $
+:Copyright: Copyright (C) 2010-2023 Oracle Corporation.

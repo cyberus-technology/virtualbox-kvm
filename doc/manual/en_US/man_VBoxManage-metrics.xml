@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage metrics
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-metrics" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage metrics</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-metrics</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-metrics</refname>
+    <refpurpose>monitor system resource usage</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-collect">
+      <command>VBoxManage metrics collect</command>
+      <arg>--detach</arg>
+      <arg>--list</arg>
+      <arg>--period=<replaceable>seconds</replaceable></arg>
+      <arg>--samples=<replaceable>count</replaceable></arg>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>vmname</replaceable> <arg><replaceable>metric-list</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-disable">
+      <command>VBoxManage metrics disable</command>
+      <arg>--list</arg>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>vmname</replaceable> <arg><replaceable>metric-list</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-enable">
+      <command>VBoxManage metrics enable</command>
+      <arg>--list</arg>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>vmname</replaceable> <arg><replaceable>metric-list</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-list">
+      <command>VBoxManage metrics list</command>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>vmname</replaceable> <arg><replaceable>metric-list</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-query">
+      <command>VBoxManage metrics query</command>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>vmname</replaceable> <arg><replaceable>metric-list</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+
+    <cmdsynopsis id="synopsis-vboxmanage-metrics-setup">
+      <command>VBoxManage metrics setup</command>
+      <arg>--list</arg>
+      <arg>--period <replaceable>seconds</replaceable></arg>
+      <arg>--samples <replaceable>count</replaceable></arg>
+      <group>
+        <arg choice="plain">*</arg>
+        <arg choice="plain">host</arg>
+        <arg choice="plain"><replaceable>vmname</replaceable> <arg><replaceable>metric-list</replaceable></arg></arg>
+      </group>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>VBoxManage metrics</command> command enables you to
+      monitor system resource usage for the host system and for virtual
+      machines (VMs). For example, you can monitor particular metrics,
+      such as the percentage of time CPUs spend executing in user mode
+      (<literal>CPU/Load/User</literal>) over a specified sampling
+      period.
+    </para>
+    <para>
+      While it runs, the <command>VBoxSVC</command> process collects and
+      saves the specified metric data internally. The
+      <command>VBoxSVC</command> process runs until shortly after you
+      close all VMs and frontends. Use the <command>VBoxManage metrics
+      query</command> command to retrieve data at any time.
+    </para>
+    <para>
+      By default, metrics are not collected unless you run the
+      <command>VBoxManage metrics setup</command> command to specify a
+      sampling interval in seconds and the number of metrics to save.
+    </para>
+    <para>
+      Note that you can enable metric collection only for started VMs.
+      Collected data and collection settings for a VM are discarded when
+      the VM shuts down.
+    </para>
+    <refsect2>
+      <title>Metrics</title>
+      <para>
+        The host and VMs have different sets of associated metrics,
+        which you can view by running the <command>VBoxManage metrics
+        list</command> command.
+      </para>
+      <para>
+        Each metric is represented as a string that is composed of a
+        category and a metric. Optionally, the metric string can include
+        any of the following: a submetric, a sub-submetric, and an
+        aggregate. The metric string has the following format:
+      </para>
+<screen><replaceable>category</replaceable>/<replaceable>metric</replaceable>[/<replaceable>submetric</replaceable>[/<replaceable>sub-submetric</replaceable>]][:<replaceable>aggregate</replaceable>]</screen>
+      <itemizedlist>
+        <listitem><para>
+            <replaceable>category</replaceable> is the resource type,
+            such as <literal>CPU</literal>, <literal>RAM</literal>,
+            <literal>FS</literal>, <literal>Net</literal>.
+          </para></listitem>
+        <listitem><para>
+            <replaceable>metric</replaceable> is a measurement type that
+            is associated with the resource category. For example, the
+            <literal>Load</literal> and <literal>MHz</literal> metrics
+            are associated with the <literal>CPU</literal> resource
+            category.
+          </para></listitem>
+        <listitem><para>
+            <replaceable>submetric</replaceable> is an optional
+            measurement type that is associated with the metric. For
+            example, the <literal>User</literal>,
+            <literal>Kernel</literal>, and <literal>Idle</literal>
+            submetrics are associated with the <literal>Load</literal>
+            metric.
+          </para></listitem>
+        <listitem><para>
+            <replaceable>sub-submetric</replaceable> is an optional
+            measurement type that is associated with the submetric. For
+            example, the <literal>Rx</literal> and <literal>Tx</literal>
+            sub-submetrics are associated with the
+            <literal>Rate</literal> submetric of the
+            <literal>Net</literal> resource category. The associated
+            metric is the network interface.
+          </para></listitem>
+        <listitem><para>
+            <replaceable>aggregate</replaceable> is an optional function
+            to provide minimum, maximum, and average measurements for a
+            resource category. For example, the
+            <literal>RAM/Usage/Free:min</literal> metric represents the
+            minimum amount of available memory found in all saved data
+            on the host system.
+          </para></listitem>
+      </itemizedlist>
+      <para>
+        By default, the <command>VBoxManage metrics</command> commands
+        operate on the host system and all VMs, and report on all
+        metrics. You can optionally limit these commands to operate on
+        the host system or on a particular VM, and report on a list of
+        one or more metrics.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-common-options">
+      <title>Common Options</title>
+      <variablelist>
+        <varlistentry>
+          <term><literal>*</literal> | <literal>host</literal> | <replaceable>vmname</replaceable></term>
+          <listitem><para>
+              Specifies the component on which to operate. By default,
+              this command operates on the host system and all running
+              VMs.
+            </para><para>
+              If you specify <literal>host</literal>, the
+              <command>VBoxManage metrics</command> command operates on
+              the host system only. If you specify an asterisk
+              (<literal>*</literal>), the command operates on all VMs.
+              If you specify the name of a VM, the <command>VBoxManage
+              metrics</command> command operates on that VM.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>metric-list</replaceable></term>
+          <listitem><para>
+              Specifies a comma-separated list of one or more metrics.
+            </para><para>
+              The form of the metric must include the
+              <replaceable>category</replaceable> and
+              <replaceable>metric</replaceable> part of the metric
+              string separated by a slash.
+            </para><para>
+              Note that the <command>VBoxManage metrics enable</command>
+              and <command>VBoxManage metrics disable</command> commands
+              require that you specify metrics as parameters. The
+              metrics must include only the resource category and metric
+              part, such as <literal>CPU/Load</literal> and
+              <literal>RAM/Usage</literal>.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-collect">
+      <title>Collect Data Metrics</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage metrics collect</command> command
+        collects and outputs data periodically until you stop the
+        process by pressing Ctrl+C.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--detach</option></term>
+          <listitem><para>
+              Disables the collection of metric data, so no data is
+              output. Using this option is the same as running the
+              <command>VBoxManage metrics setup</command> command.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Shows which metrics match the specified filter.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--period=<replaceable>seconds</replaceable></option></term>
+          <listitem><para>
+              Specifies the number of seconds to wait between collecting
+              metric data samples. The default value is 1.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--samples=<replaceable>count</replaceable></option></term>
+          <listitem><para>
+              Specifies the number of metric data samples to save. To
+              view the saved data, use the <command>VBoxManage metrics
+              query</command> command. The default value is 1.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-disable">
+      <title>Disable Metric Data Collection</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage metrics disable</command> command
+        suspends data collection. This action does not affect the data
+        collection properties or the collected data. Note that
+        specifying a submetric in the metric list does not disable its
+        underlying metrics.
+      </para>
+      <para>
+        Note that the <command>VBoxManage metrics disable</command>
+        command requires that you specify metrics as parameters. The
+        metrics must include only the resource category and metric part,
+        such as <literal>CPU/Load</literal> and
+        <literal>RAM/Usage</literal>.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Shows whether the command succeeded as expected.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-enable">
+      <title>Enable Metric Data Collection</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage metrics enable</command> command resumes
+        data collection after it has been suspended by using the
+        <command>VBoxManage metrics disable</command> command. Note that
+        specifying a submetric in the metric list does not enable its
+        underlying metrics.
+      </para>
+      <para>
+        Unlike the <command>VBoxManage metrics setup</command> command,
+        the <command>VBoxManage metrics enable</command> command does
+        not discard previously collected samples for the specified set
+        of objects and metrics.
+      </para>
+      <para>
+        Note that the <command>VBoxManage metrics enable</command>
+        command requires that you specify metrics as parameters. The
+        metrics must include only the resource category and metric part,
+        such as <literal>CPU/Load</literal> and
+        <literal>RAM/Usage</literal>.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Shows whether the command succeeded as expected.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-list">
+      <title>List Metric Values</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage metrics list</command> command shows the
+        metrics that are currently available. Note that VM-specific
+        metrics are shown only when that VM is running.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-query">
+      <title>List Saved Metric Data</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage metrics query</command> command
+        retrieves and shows the saved metric data.
+      </para>
+      <para>
+        Note that the <command>VBoxManage metrics query</command>
+        command does not remove or flush saved data but older samples
+        are replaced by newer samples over time.
+      </para>
+    </refsect2>
+    <refsect2 id="vboxmanage-metrics-setup">
+      <title>Configure Metric-Gathering Properties</title>
+      <remark role="help-copy-synopsis"/>
+      <para>
+        The <command>VBoxManage metrics setup</command> command
+        configures metric-gathering properties.
+      </para>
+      <para>
+        Note that this command discards any previously collected samples
+        for the specified set of objects and metrics. To enable or
+        disable metrics collection without discarding the data, use the
+        <command>VBoxManage metrics enable</command> command or the
+        <command>VBoxManage metrics disable</command> command,
+        respectively.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--list</option></term>
+          <listitem><para>
+              Shows which metrics have been modified as a result of the
+              command execution.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--period=<replaceable>seconds</replaceable></option></term>
+          <listitem><para>
+              Specifies the number of seconds to wait between collecting
+              metric data samples. The default value is 1.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--samples=<replaceable>count</replaceable></option></term>
+          <listitem><para>
+              Specifies the number of metric data samples to save. To
+              view the saved data, use the <command>VBoxManage metrics
+              query</command> command. The default value is 1.
+            </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <remark role="help-scope" condition="GLOBAL"/>
+    <para>
+      The following example command enables the collection of host
+      processor and memory usage metrics every second. The
+      <option>--samples</option> option saves the five latest samples.
+    </para>
+<screen>$ VBoxManage metrics setup --period 1 --samples 5 host CPU/Load,RAM/Usage</screen>
+    <para>
+      The following command lists the metrics that are available to the
+      host system and VMs:
+    </para>
+<screen>$ VBoxManage metrics list</screen>
+    <para>
+      Note that the host system and VMs have different sets of metrics.
+    </para>
+    <para>
+      The following example shows how to query metric data about the CPU
+      time spent in user and kernel modes for the
+      <literal>test</literal> VM:
+    </para>
+<screen>$ VBoxManage metrics query test CPU/Load/User,CPU/Load/Kernel</screen>
+  </refsect1>
+</refentry>

@@ -1,0 +1,2301 @@
+/********************************************************************************/
+/*										*/
+/*				Authorization					*/
+/*			     Written by Ken Goldman				*/
+/*		       IBM Thomas J. Watson Research Center			*/
+/*	      $Id: tpm_auth.c $		*/
+/*										*/
+/* (c) Copyright IBM Corporation 2006, 2010.					*/
+/*										*/
+/* All rights reserved.								*/
+/* 										*/
+/* Redistribution and use in source and binary forms, with or without		*/
+/* modification, are permitted provided that the following conditions are	*/
+/* met:										*/
+/* 										*/
+/* Redistributions of source code must retain the above copyright notice,	*/
+/* this list of conditions and the following disclaimer.			*/
+/* 										*/
+/* Redistributions in binary form must reproduce the above copyright		*/
+/* notice, this list of conditions and the following disclaimer in the		*/
+/* documentation and/or other materials provided with the distribution.		*/
+/* 										*/
+/* Neither the names of the IBM Corporation nor the names of its		*/
+/* contributors may be used to endorse or promote products derived from		*/
+/* this software without specific prior written permission.			*/
+/* 										*/
+/* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS		*/
+/* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT		*/
+/* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR	*/
+/* A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT		*/
+/* HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,	*/
+/* SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT		*/
+/* LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,	*/
+/* DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY	*/
+/* THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT		*/
+/* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE	*/
+/* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.		*/
+/********************************************************************************/
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "tpm_crypto.h"
+#include "tpm_cryptoh.h"
+#include "tpm_debug.h"
+#include "tpm_digest.h"
+#include "tpm_error.h"
+#include "tpm_init.h"
+#include "tpm_key.h"
+#include "tpm_memory.h"
+#include "tpm_nonce.h"
+#include "tpm_permanent.h"
+#include "tpm_process.h"
+#include "tpm_secret.h"
+#include "tpm_storage.h"
+#include "tpm_time.h"
+#include "tpm_transport.h"
+
+#include "tpm_auth.h"
+
+/* Dictionary attack mitigation:
+
+   TPM_Authdata_CheckState() - called at command entry
+     if past limit,
+       check authFailTime vs. current time
+     if command allowed
+       disableResetLock = FALSE
+
+   TPM_Authdata_Check() - called during the command to validate authorization data
+     TPM_Authdata_Fail() - called on failure
+       authFailCount++
+       if past limit, 
+	 authFailTime = current time
+
+   TPM_ResetLockValue
+     TPM_Authdata_CheckState()
+       disableResetLock = FALSE if no lockout
+     if disableResetLock, return error
+     if authorization failure
+       disableResetLock = TRUE
+       authFailCount = 0
+*/
+
+#if 0
+/* TPM_Authdata_Init() zeros the tpm_authdata
+
+*/
+
+void TPM_Authdata_Init(TPM_AUTHDATA tpm_authdata)
+{
+    printf(" TPM_Authdata_Init:\n");
+    memset(tpm_authdata, 0, TPM_AUTHDATA_SIZE);
+    return;
+}
+#endif
+
+/* TPM_Authdata_Load()
+
+   deserialize the structure from a 'stream'
+   'stream_size' is checked for sufficient data
+   returns 0 or error codes
+*/
+
+TPM_RESULT TPM_Authdata_Load(TPM_AUTHDATA tpm_authdata,
+			     unsigned char **stream,
+			     uint32_t *stream_size)
+{
+    TPM_RESULT	rc = 0;
+    
+    printf(" TPM_Authdata_Load:\n");
+
+    /* check stream_size */
+    if (rc == 0) {
+	if (*stream_size < TPM_AUTHDATA_SIZE) {
+	    printf("TPM_Authdata_Load: Error, stream_size %u less than %u\n",
+		   *stream_size, TPM_DIGEST_SIZE);
+	    rc = TPM_BAD_PARAM_SIZE;
+	}
+    }
+    if (rc == 0) {
+	memcpy(tpm_authdata, *stream, TPM_AUTHDATA_SIZE);
+	*stream += TPM_AUTHDATA_SIZE;
+	*stream_size -= TPM_AUTHDATA_SIZE;
+    }
+    return rc;
+}
+
+/* TPM_Authdata_Store()
+   
+   serialize the structure to a stream contained in 'sbuffer'
+   returns 0 or error codes
+
+   After use, call TPM_Sbuffer_Delete() to free memory
+*/
+
+TPM_RESULT TPM_Authdata_Store(TPM_STORE_BUFFER *sbuffer,
+			      const TPM_AUTHDATA tpm_authdata)
+{
+    TPM_RESULT	rc = 0;
+
+    printf(" TPM_Authdata_Store:\n");
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append(sbuffer, tpm_authdata, TPM_AUTHDATA_SIZE);	
+    }
+    return rc;
+}
+
+/* TPM_AuthParams_Get() is common code to load a set of "below the double line" request parameters
+   from the input stream.
+ */
+
+TPM_RESULT TPM_AuthParams_Get(TPM_AUTHHANDLE *authHandle,	/* The authorization handle used for
+								   this command */
+			      TPM_BOOL *authHandleValid,
+			      TPM_NONCE nonceOdd,	/* Nonce generated by system associated with
+							   authHandle */
+			      TPM_BOOL *continueAuthSession,	/* The continue use flag for the
+								   authorization handle */
+			      TPM_AUTHDATA authData,	/* Authorization digest for input params. */
+			      unsigned char **command,	/* parameter stream */
+			      uint32_t *paramSize)	/* bytes left in command */
+{
+    TPM_RESULT	rc = 0;
+
+    printf(" TPM_AuthParams_Get:\n");
+    /* get authHandle parameter */
+    if (rc == 0) {
+	rc = TPM_Load32(authHandle, command, paramSize);
+    }
+    /* get nonceOdd parameter */
+    if (rc == 0) {
+	rc = TPM_Nonce_Load(nonceOdd, command, paramSize);
+    }
+    /* get continueAuthSession parameter */
+    if (rc == 0) {
+	rc = TPM_LoadBool(continueAuthSession, command, paramSize);
+    }
+    /* get authData parameter */
+    if (rc == 0) {
+	rc = TPM_Authdata_Load(authData, command, paramSize);
+    }
+    if (rc == 0) {
+	*authHandleValid = TRUE;		/* so handle can be terminated */
+    }	
+    return rc;
+}
+
+
+/* TPM_SetAuthParams is common code to set a set of "below the double line" response parameters.
+ */
+
+TPM_RESULT TPM_AuthParams_Set(TPM_STORE_BUFFER *response,
+			      TPM_SECRET hmacKey,			/* HMAC key */
+			      TPM_AUTH_SESSION_DATA *auth_session_data, /* session data for
+									   authHandle */
+			      TPM_DIGEST outParamDigest,
+			      TPM_NONCE nonceOdd,		/* Nonce generated by system
+								   associated with authHandle */
+			      TPM_BOOL continueAuthSession)	/* session continue use flag */
+{
+    TPM_RESULT		rc = 0;
+    TPM_AUTHDATA	resAuth;	/* The authorization digest for the returned parameters */
+
+    printf(" TPM_AuthParams_Set:\n");
+    /* generate new nonceEven */
+    if (rc == 0) {
+	rc = TPM_Nonce_Generate(auth_session_data->nonceEven);
+    }
+    /* append nonceEven */
+    if (rc == 0) {
+	rc = TPM_Nonce_Store(response, auth_session_data->nonceEven);
+    }
+    /* append continueAuthSession */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append(response, &continueAuthSession, sizeof(TPM_BOOL));
+    }
+    /* Calculate resAuth using the hmac key */
+    if (rc == 0) {
+	rc = TPM_Authdata_Generate(resAuth,			/* result */
+				   hmacKey,			/* HMAC key */
+				   outParamDigest,		/* params */
+				   auth_session_data->nonceEven,
+				   nonceOdd,
+				   continueAuthSession);
+    }
+    /* append resAuth */
+    if (rc == 0) {
+	rc = TPM_Authdata_Store(response, resAuth);
+    }
+    return rc;
+}
+
+TPM_RESULT TPM_Authdata_Generate(TPM_AUTHDATA resAuth,		/* result */
+				 TPM_SECRET usageAuth,		/* HMAC key */
+				 TPM_DIGEST outParamDigest, /* digest of outputs above double
+							       line */
+				 TPM_NONCE nonceEven,
+				 TPM_NONCE nonceOdd,
+				 TPM_BOOL continueSession)
+{
+    TPM_RESULT		rc = 0;
+    
+    printf(" TPM_Authdata_Generate:\n");
+    if (rc == 0) {
+	TPM_PrintFour("  TPM_Authdata_Generate: outParamDigest", outParamDigest);
+	TPM_PrintFour("  TPM_Authdata_Generate: usageAuth (key)", usageAuth);
+	TPM_PrintFour("  TPM_Authdata_Generate: nonceEven", nonceEven);
+	TPM_PrintFour("  TPM_Authdata_Generate: nonceOdd", nonceOdd);
+	printf       ("  TPM_Authdata_Generate: continueSession %02x\n", continueSession);
+	rc = TPM_HMAC_Generate(resAuth,
+			       usageAuth,				/* key */
+			       TPM_DIGEST_SIZE, outParamDigest,		/* response digest */
+			       TPM_NONCE_SIZE, nonceEven,		/* 2H */
+			       TPM_NONCE_SIZE, nonceOdd,		/* 3H */
+			       sizeof(TPM_BOOL), &continueSession,	/* 4H */
+			       0, NULL);
+	TPM_PrintFour("  TPM_Authdata_Generate: resAuth", resAuth);
+    }
+    return rc;
+}
+
+/* TPM_Authdata_Check() checks the authorization of a command.
+
+   Handles the protection against dictionary attacks.
+
+   Returns TPM_AUTHFAIL if the TPM_AUTHDATA does not match.
+*/
+
+TPM_RESULT TPM_Authdata_Check(tpm_state_t	*tpm_state,
+			      TPM_SECRET	hmacKey,	/* HMAC key */
+			      TPM_DIGEST	inParamDigest,	/* digest of inputs above line */
+			      TPM_AUTH_SESSION_DATA *tpm_auth_session_data,	/* auth session */
+			      TPM_NONCE		nonceOdd,	/* Nonce generated by system
+								   associated with authHandle */
+			      TPM_BOOL		continueSession,
+			      TPM_AUTHDATA	usageAuth)	/* Authorization digest for input */
+{
+    TPM_RESULT		rc = 0;
+    TPM_BOOL		valid;
+    
+    printf(" TPM_Authdata_Check:\n");
+    if (rc == 0) {
+	TPM_PrintFour("  TPM_Authdata_Check: inParamDigest", inParamDigest);
+	TPM_PrintFour("  TPM_Authdata_Check: usageAuth (key)", hmacKey);
+	TPM_PrintFour("  TPM_Authdata_Check: nonceEven", tpm_auth_session_data->nonceEven);
+	TPM_PrintFour("  TPM_Authdata_Check: nonceOdd", nonceOdd);
+	printf       ("  TPM_Authdata_Check: continueSession %02x\n", continueSession);
+	/* HMAC the inParamDigest, authLastNonceEven, nonceOdd, continue */
+	/* authLastNonceEven is retrieved from internal authorization session storage */
+	rc = TPM_HMAC_Check(&valid,
+			    usageAuth,					/* expected, from command */
+			    hmacKey,					/* key */
+			    sizeof(TPM_DIGEST), inParamDigest,		/* command digest */
+			    sizeof(TPM_NONCE), tpm_auth_session_data->nonceEven,	/* 2H */
+			    sizeof(TPM_NONCE), nonceOdd,				/* 3H */
+			    sizeof(TPM_BOOL), &continueSession,				/* 4H */
+			    0, NULL);
+    }
+    if (rc == 0) {
+	if (!valid) {
+	    printf("TPM_Authdata_Check: Error, authorization failed\n");
+	    /* record the authorization failure */
+	    rc = TPM_Authdata_Fail(tpm_state);
+	    /* TPM_Authdata_Fail() fatal TPM_FAIL error takes precedence, else TPM_AUTHFAIL */
+	    if (rc == 0) {
+		rc = TPM_AUTHFAIL;
+	    }
+	}
+    }
+    return rc;
+}
+
+/* TPM_Auth2data_Check() is a wrapper around TPM_Authdata_Check() that returns TPM_AUTH2FAIL
+   in place of TPM_AUTHFAIL.
+*/
+
+TPM_RESULT TPM_Auth2data_Check(tpm_state_t	*tpm_state,
+			       TPM_SECRET	hmacKey,	/* HMAC key */
+			       TPM_DIGEST	inParamDigest,	/* digest of inputs above line */
+			       TPM_AUTH_SESSION_DATA *tpm_auth_session_data,	/* auth session */
+			       TPM_NONCE	nonceOdd,	/* Nonce generated by system
+								   associated with authHandle */
+			       TPM_BOOL		continueSession,
+			       TPM_AUTHDATA	usageAuth)	/* Authorization digest for input */
+{
+    TPM_RESULT		rc = 0;
+ 
+    rc = TPM_Authdata_Check(tpm_state,
+			    hmacKey,
+			    inParamDigest,
+			    tpm_auth_session_data,
+			    nonceOdd,
+			    continueSession,
+			    usageAuth);
+    if (rc == TPM_AUTHFAIL) {
+	rc = TPM_AUTH2FAIL;
+    }
+    return rc;
+}
+
+/* TPM_Authdata_Fail() processes an authorization failure event, to mitigate dictionary attacks.
+
+   Returns TPM_FAIL on error, so that the caller can shut down the TPM
+*/
+
+TPM_RESULT TPM_Authdata_Fail(tpm_state_t *tpm_state)
+{
+    TPM_RESULT		rc = 0;
+    uint32_t		tv_usec;	/* dummy, discard usec */
+
+    if (rc == 0) {
+	/* Each failure increments the counter.	 No need to check for overflow.	 Unless
+	   TPM_LOCKOUT_THRESHOLD is absurdly large, the left shift overflows first.  */
+	tpm_state->tpm_stclear_data.authFailCount++;
+	printf("  TPM_Authdata_Fail: New authFailCount %u\n",
+	       tpm_state->tpm_stclear_data.authFailCount);
+	/* Test if past the failure threshold.	Each time authorization fails, this test is made.
+	   Once in dictionary attack mitigation, there will be no authdata check until the
+	   mitigation period is exceeded.  After that, if there is another failure, the fail count
+	   increases and mitigation begins again.
+
+	   Note that a successful authorization does NOT reset authFailCount, as this would allow a
+	   dictionary attack by an attacker that knew ANY good authorization value.  The count is
+	   only reset by the owner using TPM_ResetLockValue.
+	*/
+	if (tpm_state->tpm_stclear_data.authFailCount > TPM_LOCKOUT_THRESHOLD) {
+	    /* the current authorization failure time is the start time */
+	    rc = TPM_GetTimeOfDay(&(tpm_state->tpm_stclear_data.authFailTime), &tv_usec);
+	    printf("   TPM_Authdata_Fail: Past limit, authFailTime %u\n",
+		   tpm_state->tpm_stclear_data.authFailTime);
+	}
+    }
+    return rc;
+}
+
+/* TPM_Authdata_GetState() gets the boolean dictionary attack mitigation state.
+
+ */
+
+TPM_RESULT TPM_Authdata_GetState(TPM_DA_STATE *state,
+				 uint32_t *timeLeft,
+				 tpm_state_t *tpm_state)
+{
+    TPM_RESULT		rc = 0;
+    uint32_t		currentTime;		/* in seconds */
+    uint32_t		tv_usec;		/* dummy, discarded */
+    uint32_t		threshold_diff;		/* in failure counts */
+    uint32_t		waitTime;		/* in seconds, timeout based on threshold_diff */
+    uint32_t		timeDiff;		/* in seconds, how far along is timeout */
+
+    printf("  TPM_Authdata_GetState:\n");
+    *state = TPM_DA_STATE_INACTIVE;		/* default value */
+    
+    /* if there is an attack in progress */
+    if (tpm_state->tpm_stclear_data.authFailCount > TPM_LOCKOUT_THRESHOLD) {
+	printf("   TPM_Authdata_GetState: In timeout, authFailCount %u threshold %u\n",
+	       tpm_state->tpm_stclear_data.authFailCount, TPM_LOCKOUT_THRESHOLD);
+	/* get the current time */
+	if (rc == 0) {
+	    /* throw away usec.	 This means that the time difference could be 1 sec off.  But the
+	       lockout mechanism is somewhat arbitrary anyway */
+	    rc = TPM_GetTimeOfDay(&currentTime, &tv_usec);
+	}
+	/* calculate how much time to wait */
+	if (rc == 0) {
+	    printf("   TPM_Authdata_GetState: currentTime %u authFailTime %u\n",
+		   currentTime, tpm_state->tpm_stclear_data.authFailTime);
+	    /* how many failures over the threshold.  The -1 makes threshold_diff 0 based, so the
+	       first waitTime is 1 sec.	 */
+	    threshold_diff = tpm_state->tpm_stclear_data.authFailCount - TPM_LOCKOUT_THRESHOLD - 1;
+	    /* Wait time depends on how far over threshold, wait 1 sec and double each time.  Ignore
+	       shift overflow, since the previous timeout 0x80000000 sec is 68 years. */
+	    waitTime = 0x01 << threshold_diff;
+	    /* how far along is timeout. */
+	    if (currentTime >= tpm_state->tpm_stclear_data.authFailTime) {
+		timeDiff = currentTime - tpm_state->tpm_stclear_data.authFailTime;
+	    }
+	    /* handle unlikely currentTime wrap around */
+	    else {
+		timeDiff = ((0xffffffff - tpm_state->tpm_stclear_data.authFailTime) +
+			    currentTime) + 1;
+	    }
+	    /* if not past the timeout, return an error */
+	    printf("   TPM_Authdata_GetState: waitTime %u timeDiff %u\n",
+		   waitTime, timeDiff);
+	    if (waitTime > timeDiff) {
+		printf("TPM_Authdata_GetState: Error, timeout not complete\n");
+		*state = TPM_DA_STATE_ACTIVE;
+		*timeLeft = waitTime - timeDiff;
+	    }
+	}
+    }
+    return rc;
+}
+
+/* TPM_Authdata_CheckState() checks the dictionary attack mitigation state.
+
+   This function is typically called at the beginning of each command.
+
+   If an attack is in progress, and the lockout timeout has not expired, an error is returned.
+*/
+
+TPM_RESULT TPM_Authdata_CheckState(tpm_state_t *tpm_state)
+{
+    TPM_RESULT		rc = 0;
+    TPM_DA_STATE	state;
+    uint32_t		timeLeft;
+    
+    printf("  TPM_Authdata_CheckState:\n");
+    /* Get the dictionary attack mitigation state */
+    if (rc == 0) {
+	rc = TPM_Authdata_GetState(&state, &timeLeft, tpm_state);
+    }
+    /* If not during the timeout period, allow the TPM_ResetLockValue ordinal */
+    if (rc == 0) {
+	if (state == TPM_DA_STATE_INACTIVE) {
+	    tpm_state->tpm_stclear_data.disableResetLock = FALSE;
+	}
+	else { /* TPM_DA_STATE_ACTIVE */
+	    rc = TPM_DEFEND_LOCK_RUNNING;
+	}
+    }
+    return rc;
+}
+
+/*
+  TPM_CHANGEAUTH_VALIDATE
+*/
+
+/* TPM_ChangeauthValidate_Init()
+
+   sets members to default values
+   sets all pointers to NULL and sizes to 0
+   always succeeds - no return code
+*/
+
+void TPM_ChangeauthValidate_Init(TPM_CHANGEAUTH_VALIDATE *tpm_changeauth_validate)
+{
+    printf(" TPM_ChangeauthValidate_Init:\n");
+    TPM_Secret_Init(tpm_changeauth_validate->newAuthSecret);
+    TPM_Nonce_Init(tpm_changeauth_validate->n1);
+    return;
+}
+
+/* TPM_ChangeauthValidate_Load()
+
+   deserialize the structure from a 'stream'
+   'stream_size' is checked for sufficient data
+   returns 0 or error codes
+   
+   Before use, call TPM_ChangeauthValidate_Init()
+   After use, call TPM_ChangeauthValidate_Delete() to free memory
+*/
+
+TPM_RESULT TPM_ChangeauthValidate_Load(TPM_CHANGEAUTH_VALIDATE *tpm_changeauth_validate,
+				       unsigned char **stream,
+				       uint32_t *stream_size)
+{
+    TPM_RESULT		rc = 0;
+
+    printf(" TPM_ChangeauthValidate_Load:\n");
+    /* load newAuthSecret */
+    if (rc == 0) {
+	rc = TPM_Secret_Load(tpm_changeauth_validate->newAuthSecret, stream, stream_size);
+    }
+    /* load n1 */
+    if (rc == 0) {
+	rc = TPM_Nonce_Load(tpm_changeauth_validate->n1, stream, stream_size);
+    }
+    return rc;
+}
+
+#if 0
+/* TPM_ChangeauthValidate_Store()
+   
+   serialize the structure to a stream contained in 'sbuffer'
+   returns 0 or error codes
+*/
+
+TPM_RESULT TPM_ChangeauthValidate_Store(TPM_STORE_BUFFER *sbuffer,
+					const TPM_CHANGEAUTH_VALIDATE *tpm_changeauth_validate)
+{
+    TPM_RESULT		rc = 0;
+
+    printf(" TPM_ChangeauthValidate_Store:\n");
+    /* store newAuthSecret */
+    if (rc == 0) {
+	rc = TPM_Secret_Store(sbuffer, tpm_changeauth_validate->newAuthSecret);
+    }
+    /* store n1 */
+    if (rc == 0) {
+	rc = TPM_Secret_Store(sbuffer, tpm_changeauth_validate->n1);
+    }
+    return rc;
+}
+#endif
+
+/* TPM_ChangeauthValidate_Delete()
+
+   No-OP if the parameter is NULL, else:
+   frees memory allocated for the object
+   sets pointers to NULL
+   calls TPM_ChangeauthValidate_Init to set members back to default values
+   The object itself is not freed
+*/   
+
+void TPM_ChangeauthValidate_Delete(TPM_CHANGEAUTH_VALIDATE *tpm_changeauth_validate)
+{
+    printf(" TPM_ChangeauthValidate_Delete:\n");
+    if (tpm_changeauth_validate != NULL) {
+	TPM_ChangeauthValidate_Init(tpm_changeauth_validate);
+    }
+    return;
+}
+
+/*
+  TPM_DA_INFO
+*/
+
+/* TPM_DaInfo_Init()
+
+   sets members to default values
+   sets all pointers to NULL and sizes to 0
+   always succeeds - no return code
+*/
+
+void TPM_DaInfo_Init(TPM_DA_INFO *tpm_da_info)
+{
+    printf(" TPM_DaInfo_Init:\n");
+/*     tpm_da_info->tag = TPM_TAG_DA_INFO; */
+    tpm_da_info->state = TPM_DA_STATE_INACTIVE;
+    tpm_da_info->currentCount = 0;
+    tpm_da_info->thresholdCount = TPM_LOCKOUT_THRESHOLD;
+    /* TPM_DA_ACTION_TYPE is a trivial structure, in-line here */
+    tpm_da_info->actionAtThreshold.tag = TPM_TAG_DA_ACTION_TYPE;
+    tpm_da_info->actionAtThreshold.actions = TPM_DA_ACTION_TIMEOUT;
+    tpm_da_info->actionDependValue = 0;
+    TPM_SizedBuffer_Init(&tpm_da_info->vendorData);
+    return;
+}
+
+/* TPM_DaInfo_Store()
+   
+   serialize the structure to a stream contained in 'sbuffer'
+   returns 0 or error codes
+*/
+
+TPM_RESULT TPM_DaInfo_Store(TPM_STORE_BUFFER *sbuffer,
+			    const TPM_DA_INFO *tpm_da_info)
+{
+    TPM_RESULT		rc = 0;
+
+    printf(" TPM_DaInfo_Store:\n");
+    /* store tag */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append16(sbuffer, TPM_TAG_DA_INFO);
+    }
+    /* store state */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append(sbuffer, &(tpm_da_info->state), sizeof(TPM_DA_STATE));
+    }
+    /* store currentCount */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append16(sbuffer, tpm_da_info->currentCount);
+    }
+    /* store thresholdCount */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append16(sbuffer, tpm_da_info->thresholdCount);
+    }
+    /* store actionAtThreshold */
+    /* TPM_DA_ACTION_TYPE is a trivial structure, in-line here */
+    /* store TPM_DA_ACTION_TYPE tag */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append16(sbuffer, TPM_TAG_DA_ACTION_TYPE);
+    }
+    /* store TPM_DA_ACTION_TYPE actions */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append32(sbuffer, tpm_da_info->actionAtThreshold.actions);
+    }
+    /* store actionDependValue */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append32(sbuffer, tpm_da_info->actionDependValue);
+    }
+    /* store vendorData */
+    if (rc == 0) {
+	rc = TPM_SizedBuffer_Store(sbuffer, &(tpm_da_info->vendorData));
+    }
+    return rc;
+}
+
+/* TPM_DaInfo_Delete()
+
+   No-OP if the parameter is NULL, else:
+   frees memory allocated for the object
+   sets pointers to NULL
+   calls TPM_DaInfo_Init to set members back to default values
+   The object itself is not freed
+*/   
+
+void TPM_DaInfo_Delete(TPM_DA_INFO *tpm_da_info)
+{
+    printf(" TPM_DaInfo_Delete:\n");
+    if (tpm_da_info != NULL) {
+	TPM_SizedBuffer_Delete(&(tpm_da_info->vendorData));
+	TPM_DaInfo_Init(tpm_da_info);
+    }
+    return;
+}
+
+/* TPM_DaInfoLimited_Set()
+   
+   serialize the structure to a stream contained in 'sbuffer'
+   returns 0 or error codes
+*/
+
+TPM_RESULT TPM_DaInfo_Set(TPM_DA_INFO *tpm_da_info,
+			  tpm_state_t *tpm_state)
+{
+    TPM_RESULT		rc = 0;
+
+    printf(" TPM_DaInfo_Set:\n");
+    /* state: Dynamic.	The actual state of the dictionary attack mitigation logic. */
+    /* actionDependValue: Dynamic.  Action being taken when the dictionary attack mitigation logic
+       is active.  E.g., when actionAtThreshold is TPM_DA_ACTION_TIMEOUT, this is the lockout time
+       remaining in seconds. */
+    if (rc == 0) {
+	rc = TPM_Authdata_GetState(&(tpm_da_info->state),
+				   &(tpm_da_info->actionDependValue),
+				   tpm_state);
+    }
+    /* Dynamic.	 The actual count of the authorization failure counter for the selected entity
+       type */
+    if (rc == 0) {
+	if (tpm_state->tpm_stclear_data.authFailCount <= 0xffff) {
+	    tpm_da_info->currentCount = tpm_state->tpm_stclear_data.authFailCount;
+	}
+	/* with the doubling, this should never overflow.  So overflow indicates a serious error */
+	else {
+	    printf("TPM_DaInfo_Set: Error (fatal), authFailCount overflow %08x\n",
+		   tpm_state->tpm_stclear_data.authFailCount);
+	    rc = TPM_FAIL;
+	}
+    }
+    return rc;
+}
+
+/*
+  TPM_DA_INFO_LIMITED
+*/
+
+/* TPM_DaInfoLimited_Init()
+
+   sets members to default values
+   sets all pointers to NULL and sizes to 0
+   always succeeds - no return code
+*/
+
+void TPM_DaInfoLimited_Init(TPM_DA_INFO_LIMITED *tpm_da_info_limited)
+{
+    printf(" TPM_DaInfoLimited_Init:\n");
+/*     tpm_da_info_limited->tag = TPM_TAG_DA_INFO_LIMITED; */
+    tpm_da_info_limited->state = TPM_DA_STATE_INACTIVE;
+    /* TPM_DA_ACTION_TYPE is a trivial structure, in-line here */
+    tpm_da_info_limited->actionAtThreshold.tag = TPM_TAG_DA_ACTION_TYPE;
+    tpm_da_info_limited->actionAtThreshold.actions = TPM_DA_ACTION_TIMEOUT;
+    TPM_SizedBuffer_Init(&tpm_da_info_limited->vendorData);
+    return;
+}
+
+/* TPM_DaInfoLimited_Store()
+   
+   serialize the structure to a stream contained in 'sbuffer'
+   returns 0 or error codes
+*/
+
+TPM_RESULT TPM_DaInfoLimited_Store(TPM_STORE_BUFFER *sbuffer,
+				   const TPM_DA_INFO_LIMITED *tpm_da_info_limited)
+{
+    TPM_RESULT		rc = 0;
+
+    printf(" TPM_DaInfoLimited_Store:\n");
+    /* store tag */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append16(sbuffer, TPM_TAG_DA_INFO_LIMITED);
+    }
+    /* store state */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append(sbuffer, &(tpm_da_info_limited->state), sizeof (TPM_DA_STATE));
+    }
+    /* store actionAtThreshold */
+    /* TPM_DA_ACTION_TYPE is a trivial structure, in-line here */
+    /* store TPM_DA_ACTION_TYPE tag */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append16(sbuffer, TPM_TAG_DA_ACTION_TYPE);
+    }
+    /* store TPM_DA_ACTION_TYPE actions */
+    if (rc == 0) {
+	rc = TPM_Sbuffer_Append32(sbuffer, tpm_da_info_limited->actionAtThreshold.actions);
+    }
+    /* store vendorData */
+    if (rc == 0) {
+	rc = TPM_SizedBuffer_Store(sbuffer, &(tpm_da_info_limited->vendorData));
+    }
+    return rc;
+}
+
+/* TPM_DaInfoLimited_Delete()
+
+   No-OP if the parameter is NULL, else:
+   frees memory allocated for the object
+   sets pointers to NULL
+   calls TPM_DaInfoLimited_Init to set members back to default values
+   The object itself is not freed
+*/   
+
+void TPM_DaInfoLimited_Delete(TPM_DA_INFO_LIMITED *tpm_da_info_limited)
+{
+    printf(" TPM_DaInfoLimited_Delete:\n");
+    if (tpm_da_info_limited != NULL) {
+	TPM_SizedBuffer_Delete(&(tpm_da_info_limited->vendorData));
+	TPM_DaInfoLimited_Init(tpm_da_info_limited);
+    }
+    return;
+}
+
+/* TPM_DaInfoLimited_Set()
+   
+   serialize the structure to a stream contained in 'sbuffer'
+   returns 0 or error codes
+*/
+
+TPM_RESULT TPM_DaInfoLimited_Set(TPM_DA_INFO_LIMITED *tpm_da_info_limited,
+				 tpm_state_t *tpm_state)
+{
+    TPM_RESULT		rc = 0;
+    uint32_t		timeLeft;
+
+    printf(" TPM_DaInfoLimited_Set:\n");
+    /* Dynamic.	 The actual state of the dictionary attack mitigation logic. */
+    if (rc == 0) {
+	rc = TPM_Authdata_GetState(&(tpm_da_info_limited->state), &timeLeft, tpm_state);
+    }
+    return rc;
+}
+
+/*
+  Processing Functions
+*/
+
+
+/* 17.1 TPM_ChangeAuth rev 107
+
+  The TPM_ChangeAuth command allows the owner of an entity to change the authorization data for the
+  entity.
+
+  This command cannot invalidate the old entity.  Therefore, the authorization change is only
+  effective if the application can guarantee that the old entity can be securely destroyed.  If not,
+  two valid entities will exist, one with the old and one with the new authorization secret.
+  
+  If this command is delegated, the delegated party can expand its key use privileges.	That party
+  can create a copy of the key with known authorization, and it can then use the key without any
+  ordinal restrictions.
+
+  TPM_ChangeAuth requires the encryption of one parameter ("NewAuth"). For the sake of uniformity
+  with other commands that require the encryption of more than one parameter, the string used for
+  XOR encryption is generated by concatenating the evenNonce (created during the OSAP session) with
+  the session shared secret and then hashing the result.
+
+  The parameter list to this command must always include two authorization sessions, regardless of
+  the state of authDataUsage for the respective keys.
+*/
+
+TPM_RESULT TPM_Process_ChangeAuth(tpm_state_t *tpm_state,
+				  TPM_STORE_BUFFER *response,
+				  TPM_TAG tag,
+				  uint32_t paramSize,
+				  TPM_COMMAND_CODE ordinal,
+				  unsigned char *command,
+				  TPM_TRANSPORT_INTERNAL *transportInternal)
+{
+    TPM_RESULT	rcf = 0;			/* fatal error precluding response */
+    TPM_RESULT	returnCode = TPM_SUCCESS;	/* command return code */
+
+    /* input parameters */
+    TPM_KEY_HANDLE	parentHandle;	/* Handle of the parent key to the entity. */
+    TPM_PROTOCOL_ID	protocolID = 0; /* The protocol in use. */
+    TPM_ENCAUTH		newAuth;	/* The encrypted new authorization data for the entity */
+    TPM_ENTITY_TYPE	entityType = 0; /* The type of entity to be modified */
+    TPM_SIZED_BUFFER	encData;	/* The encrypted entity that is to be modified. */
+
+    TPM_AUTHHANDLE	parentAuthHandle;	/* The authorization handle used for the parent
+						   key. */
+    TPM_NONCE		nonceOdd;	/* Nonce generated by system associated with
+					   parentAuthHandle */
+    TPM_BOOL	continueAuthSession;	/* Ignored, parentAuthHandle is always terminated. */
+    TPM_AUTHDATA	parentAuth;	/* The authorization digest for inputs and
+					   parentHandle. HMAC key: parentKey.usageAuth. */
+
+    TPM_AUTHHANDLE	entityAuthHandle;	/* The authorization handle used for the encrypted
+						   entity. The session type MUST be OIAP */
+    TPM_NONCE		entitynonceOdd; /* Nonce generated by system associated with
+					   entityAuthHandle */
+    TPM_BOOL	continueEntitySession;	/* Ignored, entityAuthHandle is always terminated. */
+    TPM_AUTHDATA	entityAuth;	/* The authorization digest for the inputs and encrypted
+					   entity. HMAC key: entity.usageAuth. */
+
+    /* processing parameters */
+    unsigned char *		inParamStart;			/* starting point of inParam's */
+    unsigned char *		inParamEnd;			/* ending point of inParam's */
+    TPM_DIGEST			inParamDigest;
+    TPM_BOOL			auditStatus;		/* audit the ordinal */
+    TPM_BOOL			transportEncrypt;	/* wrapped in encrypted transport session */
+    TPM_BOOL			parentAuthHandleValid = FALSE;
+    TPM_BOOL			entityAuthHandleValid = FALSE;
+    TPM_AUTH_SESSION_DATA	*parent_auth_session_data = NULL; /* session data for
+								     parentAuthHandle */
+    TPM_AUTH_SESSION_DATA	*entity_auth_session_data = NULL; /* session data for
+								     entityAuthHandle */
+    TPM_KEY			*parentKey = NULL;
+    TPM_SECRET			*parentHmacKey;
+    TPM_SECRET			*entityHmacKey;
+    TPM_SECRET			saveKey;	/* copy of entity HMAC key for response */
+    TPM_BOOL			parentPCRStatus;
+    TPM_AUTHDATA		decryptAuth;
+    unsigned char		*b1DecryptData;
+    uint32_t			b1DecryptDataLength = 0;   /* actual valid data */
+    unsigned char		*stream;	/* for deserializing decrypted encData */
+    uint32_t			stream_size;
+    TPM_STORE_ASYMKEY		keyEntity;	/* entity structure when it's a TPM_ET_KEY */
+    TPM_SEALED_DATA		sealEntity;	/* entity structure when it's a TPM_ET_DATA */
+    
+    /* output parameters */
+    uint32_t			outParamStart;	/* starting point of outParam's */
+    uint32_t			outParamEnd;	/* ending point of outParam's */
+    TPM_DIGEST			outParamDigest;
+    TPM_SIZED_BUFFER		outData;	/* The modified, encrypted entity. */
+
+    printf("TPM_Process_ChangeAuth: Ordinal Entry\n");
+    TPM_SizedBuffer_Init(&encData);	/* freed @1 */
+    TPM_SizedBuffer_Init(&outData);	/* freed @2 */
+    b1DecryptData = NULL;		/* freed @3 */
+    TPM_StoreAsymkey_Init(&keyEntity);	/* freed @4 */
+    TPM_SealedData_Init(&sealEntity);	/* freed @5 */
+    /*
+      get inputs
+    */
+    /* get parentHandle parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Load32(&parentHandle, &command, &paramSize);
+    }
+    /* save the starting point of inParam's for authorization and auditing */
+    inParamStart = command;
+    /* get protocolID parameter */
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuth: parentHandle %08x\n", parentHandle);
+	returnCode = TPM_Load16(&protocolID, &command, &paramSize);
+    }
+    /* get newAuth parameter */
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuth: protocolID %04hx\n", protocolID);
+	returnCode = TPM_Authdata_Load(newAuth, &command, &paramSize);
+    }
+    /* get entityType parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Load16(&entityType, &command, &paramSize);
+    }
+    /* get encData parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_SizedBuffer_Load(&encData, &command, &paramSize);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuth: encDataSize %u\n", encData.size);
+    }
+    /* save the ending point of inParam's for authorization and auditing */
+    inParamEnd = command;
+    /* digest the input parameters */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_GetInParamDigest(inParamDigest,	/* output */
+					  &auditStatus,		/* output */
+					  &transportEncrypt,	/* output */
+					  tpm_state,
+					  tag,
+					  ordinal,
+					  inParamStart,
+					  inParamEnd,
+					  transportInternal);
+    }
+    /* check state */	
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_CheckState(tpm_state, tag, TPM_CHECK_ALL);
+    }
+    /* check tag */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_CheckRequestTag2(tag);
+    }
+    /* get the 'below the line' authorization parameters */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_AuthParams_Get(&parentAuthHandle,
+					&parentAuthHandleValid,
+					nonceOdd,
+					&continueAuthSession,
+					parentAuth,
+					&command, &paramSize);
+    }
+    /* get the 'below the line' authorization parameters */
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuth: parentAuthHandle %08x\n", parentAuthHandle);
+	returnCode = TPM_AuthParams_Get(&entityAuthHandle,
+					&entityAuthHandleValid,
+					entitynonceOdd,
+					&continueEntitySession,
+					entityAuth,
+					&command, &paramSize);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuth: entityAuthHandle %08x\n", entityAuthHandle); 
+    }
+    if (returnCode == TPM_SUCCESS) {
+	if (paramSize != 0) {
+	    printf("TPM_Process_ChangeAuth: Error, command has %u extra bytes\n",
+		   paramSize);
+	    returnCode = TPM_BAD_PARAM_SIZE;
+	}
+    }
+    /* do not terminate sessions if the command did not parse correctly */
+    if (returnCode != TPM_SUCCESS) {
+	parentAuthHandleValid = FALSE;
+	entityAuthHandleValid = FALSE;
+    }
+    /*
+      Processing
+    */
+    /* Description
+       1. The parentAuthHandle session type MUST be TPM_PID_OSAP.
+       2. In this capability, the SRK cannot be accessed as entityType TPM_ET_KEY, since the SRK is
+       not wrapped by a parent key.
+    */
+    /* 1. Verify that entityType is one of TPM_ET_DATA, TPM_ET_KEY and return the error
+       TPM_WRONG_ENTITYTYPE if not. */
+    if (returnCode == TPM_SUCCESS) {
+	if ((entityType != TPM_ET_DATA) &&
+	    (entityType != TPM_ET_KEY)) {
+	    printf("TPM_Process_ChangeAuth: Error, bad entityType %04x\n", entityType);
+	    returnCode = TPM_WRONG_ENTITYTYPE;
+	}
+    }	 
+    /* 2. Verify that parentAuthHandle session type is TPM_PID_OSAP return TPM_BAD_MODE on error */
+    /* get the key corresponding to the keyHandle parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_KeyHandleEntries_GetKey(&parentKey, &parentPCRStatus,
+						 tpm_state, parentHandle,
+						 FALSE,		/* not r/o, using to authenticate */
+						 FALSE,		/* do not ignore PCRs */
+						 FALSE);	/* cannot use EK */
+    }
+    /* get the OSAP session data */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_AuthSessions_GetData(&parent_auth_session_data,
+					      &parentHmacKey,
+					      tpm_state,
+					      parentAuthHandle,
+					      TPM_PID_OSAP,
+					      TPM_ET_KEYHANDLE,
+					      ordinal,
+					      parentKey,
+					      NULL,				/* OIAP */
+					      parentKey->tpm_store_asymkey->pubDataDigest); /*OSAP*/
+    }
+    /* 3. Verify that entityAuthHandle session type is TPM_PID_OIAP return TPM_BAD_MODE on error */
+    /* keyEntity and sealEntity are not valid yet, so pass in NULL and ignore the returned
+       entityHmacKey */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_AuthSessions_GetData(&entity_auth_session_data,
+					      &entityHmacKey,
+					      tpm_state,
+					      entityAuthHandle,
+					      TPM_PID_OIAP,
+					      0,	/* OSAP entity type */
+					      ordinal,
+					      NULL,
+					      NULL,
+					      NULL);
+    }
+    /* 4.If protocolID is not TPM_PID_ADCP, the TPM MUST return TPM_BAD_PARAMETER. */
+    if (returnCode == TPM_SUCCESS) {
+	if (protocolID != TPM_PID_ADCP) {
+	    printf("TPM_Process_ChangeAuth: Error, bad protocolID\n");
+	    returnCode = TPM_BAD_PARAMETER;
+	}
+    }
+    /* 5. The encData field MUST be the encData field from either the TPM_STORED_DATA or TPM_KEY
+       structures. */
+    /* NOTE Seems the same as Action 1. */
+    /* 6. Create decryptAuth by decrypting newAuth according to the ADIP indicated by
+	  parentHandle. */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_AuthSessionData_Decrypt(decryptAuth,
+						 NULL,
+						 newAuth,
+						 parent_auth_session_data,
+						 NULL,
+						 NULL,
+						 FALSE);	/* odd and even */
+    }
+    /* 7. The TPM MUST validate the command using the authorization data in the parentAuth parameter
+     */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Authdata_Check(tpm_state,
+					*parentHmacKey,		/* HMAC key */
+					inParamDigest,
+					parent_auth_session_data,	/* authorization session */
+					nonceOdd,		/* Nonce generated by system
+								   associated with authHandle */
+					continueAuthSession,
+					parentAuth);		/* Authorization digest for input */
+    }	 
+    /* 8. Validate that parentHandle -> keyUsage is TPM_KEY_STORAGE, if not return
+	  TPM_INVALID_KEYUSAGE */
+    if (returnCode == TPM_SUCCESS) {
+	if (parentKey->keyUsage != TPM_KEY_STORAGE) {
+	    printf("TPM_Process_ChangeAuth: Error, keyUsage %04hx is invalid\n",
+		   parentKey->keyUsage);
+	    returnCode = TPM_INVALID_KEYUSAGE;
+	}
+    }
+    /* 9. After parameter validation the TPM creates b1 by decrypting encData using the key pointed
+       to by parentHandle. */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_RSAPrivateDecryptMalloc(&b1DecryptData,	   /* decrypted data */
+						 &b1DecryptDataLength,	   /* actual size of
+									      decrypted data */
+						 encData.buffer,/* encrypted data */
+						 encData.size,	/* encrypted data size */
+						 parentKey);
+    }
+    if ((returnCode == TPM_SUCCESS) && (entityType == TPM_ET_KEY)) {
+	printf("TPM_Process_ChangeAuth: entityType is TPM_ET_KEY\n");
+	/* 10. The TPM MUST validate that b1 is a valid TPM structure, either a TPM_STORE_ASYMKEY or
+	   a TPM_SEALED_DATA */
+	if (returnCode == TPM_SUCCESS) {
+	    stream = b1DecryptData;
+	    stream_size = b1DecryptDataLength;
+	    returnCode = TPM_StoreAsymkey_Load(&keyEntity, FALSE,
+					       &stream, &stream_size,
+					       NULL,	/* TPM_KEY_PARMS */
+					       NULL);	/* TPM_SIZED_BUFFER pubKey */
+	}
+	/* a. Check the length and payload, return TPM_INVALID_STRUCTURE on any mismatch. */
+	/* NOTE: Done by TPM_StoreAsymkey_Load() */
+	if (returnCode == TPM_SUCCESS) {
+	    /* save a copy of the HMAC key for the response before changing */
+	    TPM_Secret_Copy(saveKey, keyEntity.usageAuth);
+	    /* a.The TPM must validate the command using the authorization data entityAuth
+	       parameter.  The HMAC key is TPM_STORE_ASYMKEY -> usageAuth or TPM_SEALED_DATA ->
+	       authData. */
+	    returnCode = TPM_Auth2data_Check(tpm_state,
+					     keyEntity.usageAuth,	/* HMAC key */
+					     inParamDigest,
+					     entity_auth_session_data,	/* authorization session */
+					     entitynonceOdd,	/* Nonce generated by system
+								   associated with authHandle */
+					     continueEntitySession,
+					     entityAuth);	/* Authorization digest for input */
+	}    
+	/* 11. The TPM replaces the authorization data for b1 with decryptAuth created above. */
+	if (returnCode == TPM_SUCCESS) {
+	    TPM_PrintFour("TPM_Process_ChangeAuth: usageAuth was", keyEntity.usageAuth);
+	    TPM_PrintFour("TPM_Process_ChangeAuth: usageAuth now", decryptAuth);
+	    TPM_Secret_Copy(keyEntity.usageAuth, decryptAuth);
+	}    
+	/* 12. The TPM encrypts b1 using the appropriate mechanism for the type using the
+	   parentKeyHandle to provide the key information. */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_StoreAsymkey_GenerateEncData(&outData, &keyEntity, parentKey);
+	}    
+    }
+    else if ((returnCode == TPM_SUCCESS) && (entityType == TPM_ET_DATA)) {
+	printf("TPM_Process_ChangeAuth: entityType is TPM_ET_DATA\n");
+	/* 10. The TPM MUST validate that b1 is a valid TPM structure, either a TPM_STORE_ASYMKEY or
+	   a TPM_SEALED_DATA */
+	if (returnCode == TPM_SUCCESS) {
+	    stream = b1DecryptData;
+	    stream_size = b1DecryptDataLength;
+	    returnCode = TPM_SealedData_Load(&sealEntity, &stream, &stream_size);
+	}
+	if (returnCode == TPM_SUCCESS) {
+	    printf("TPM_Process_ChangeAuth: Checking tpmProof\n");
+	    returnCode = TPM_Secret_Compare(sealEntity.tpmProof,
+					    tpm_state->tpm_permanent_data.tpmProof);
+	}	 
+	/* a. Check the length and payload, return TPM_INVALID_STRUCTURE on any mismatch. */
+	/* NOTE: Done by TPM_SealedData_Load() */
+	if (returnCode == TPM_SUCCESS) {
+	    /* save a copy of the HMAC key for the response before changing */
+	    TPM_Secret_Copy(saveKey, sealEntity.authData);
+	    /* a.The TPM must validate the command using the authorization data entityAuth
+	       parameter.  The HMAC key is TPM_STORE_ASYMKEY -> usageAuth or TPM_SEALED_DATA ->
+	       authData. */
+	    returnCode = TPM_Auth2data_Check(tpm_state,
+					     sealEntity.authData,	 /* HMAC key */
+					     inParamDigest,
+					     entity_auth_session_data,	 /* authorization session */
+					     entitynonceOdd,	/* Nonce generated by system
+								   associated with authHandle */
+					     continueEntitySession,
+					     entityAuth);	/* Authorization digest for input */
+	}    
+	/* 11. The TPM replaces the authorization data for b1 with decryptAuth created above. */
+	if (returnCode == TPM_SUCCESS) {
+	    TPM_PrintFour("TPM_Process_ChangeAuth: authData was", sealEntity.authData);
+	    TPM_PrintFour("TPM_Process_ChangeAuth: authData now", decryptAuth);
+	    TPM_Secret_Copy(sealEntity.authData, decryptAuth);
+	}    
+	/* 12. The TPM encrypts b1 using the appropriate mechanism for the type using the
+	   parentKeyHandle to provide the key information. */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_SealedData_GenerateEncData(&outData, &sealEntity, parentKey);
+	}    
+    }
+    /* 13. The TPM MUST enforce the destruction of both the parentAuthHandle and entityAuthHandle
+       sessions. */
+    if (returnCode == TPM_SUCCESS) {
+	continueAuthSession = FALSE;
+	continueEntitySession = FALSE;
+    }
+    /*
+      response
+    */
+    /* standard response: tag, (dummy) paramSize, returnCode.  Failure is fatal. */
+    if (rcf == 0) {
+	printf("TPM_Process_ChangeAuth: Ordinal returnCode %08x %u\n",
+	       returnCode, returnCode);
+	rcf = TPM_Sbuffer_StoreInitialResponse(response, tag, returnCode);
+    }
+    /* success response, append the rest of the parameters.  */
+    if (rcf == 0) {
+	if (returnCode == TPM_SUCCESS) {
+	    /* checkpoint the beginning of the outParam's */
+	    outParamStart = response->buffer_current - response->buffer;
+	    /* 14. The new blob is returned in outData when appropriate. */
+	    returnCode = TPM_SizedBuffer_Store(response, &outData);
+	    /* checkpoint the end of the outParam's */
+	    outParamEnd = response->buffer_current - response->buffer;
+	}
+	/* digest the above the line output parameters */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_GetOutParamDigest(outParamDigest,	/* output */
+					       auditStatus,	/* input audit status */
+					       transportEncrypt,
+					       tag,			
+					       returnCode,
+					       ordinal,		/* command ordinal */
+					       response->buffer + outParamStart,	/* start */
+					       outParamEnd - outParamStart);	/* length */
+	}
+	/* calculate and set the below the line parameters */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_AuthParams_Set(response,
+					    *parentHmacKey,	/* HMAC key */
+					    parent_auth_session_data,
+					    outParamDigest,
+					    nonceOdd,
+					    continueAuthSession);
+	}
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_AuthParams_Set(response,
+					    saveKey,   /* the original and not the new auth value */
+					    entity_auth_session_data,
+					    outParamDigest,
+					    entitynonceOdd,
+					    continueEntitySession);
+	}
+	/* audit if required */
+	if ((returnCode == TPM_SUCCESS) && auditStatus) {
+	    returnCode = TPM_ProcessAudit(tpm_state,
+					  transportEncrypt,
+					  inParamDigest,
+					  outParamDigest,
+					  ordinal);
+	}
+	/* adjust the initial response */
+	rcf = TPM_Sbuffer_StoreFinalResponse(response, returnCode, tpm_state);
+    }
+    /* 15. The TPM MUST enforce the destruction of both the parentAuthHandle and entityAuthHandle
+       sessions. */
+    if (parentAuthHandleValid) {
+	TPM_AuthSessions_TerminateHandle(tpm_state->tpm_stclear_data.authSessions, parentAuthHandle);
+    }
+    if (entityAuthHandleValid) {
+	TPM_AuthSessions_TerminateHandle(tpm_state->tpm_stclear_data.authSessions, entityAuthHandle);
+    }
+    /*
+      cleanup
+    */
+    TPM_SizedBuffer_Delete(&encData);		/* @1 */
+    TPM_SizedBuffer_Delete(&outData);		/* @2 */
+    free(b1DecryptData);			/* @3 */
+    TPM_StoreAsymkey_Delete(&keyEntity);	/* @4 */
+    TPM_SealedData_Delete(&sealEntity);		/* @5 */
+    return rcf;
+}
+
+/* 17.2 TPM_ChangeAuthOwner rev 98
+
+   The TPM_ChangeAuthOwner command allows the owner of an entity to change the authorization data
+   for the TPM Owner or the SRK.
+
+   This command requires authorization from the current TPM Owner to execute.
+
+   TPM's targeted for an environment (e.g. a server) with long lasting sessions should not 
+   invalidate all sessions.
+*/
+
+TPM_RESULT TPM_Process_ChangeAuthOwner(tpm_state_t *tpm_state,
+				       TPM_STORE_BUFFER *response,
+				       TPM_TAG tag,
+				       uint32_t paramSize,
+				       TPM_COMMAND_CODE ordinal,
+				       unsigned char *command,
+				       TPM_TRANSPORT_INTERNAL *transportInternal)
+{
+    TPM_RESULT	rcf = 0;			/* fatal error precluding response */
+    TPM_RESULT	returnCode = TPM_SUCCESS;	/* command return code */
+
+    /* input parameters */
+    TPM_PROTOCOL_ID	protocolID;	/* The protocol in use. */
+    TPM_ENCAUTH		newAuth;	/* The encrypted new authorization data for the entity */
+    TPM_ENTITY_TYPE	entityType = 0; /* The type of entity to be modified */
+    TPM_AUTHHANDLE	ownerAuthHandle;	/* The authorization handle used for the TPM
+						   Owner. */
+    TPM_NONCE		nonceOdd;	/* Nonce generated by system associated with ownerAuthHandle
+					 */
+    TPM_BOOL	continueAuthSession = TRUE;	/* Continue use flag the TPM ignores this value */
+    TPM_AUTHDATA	ownerAuth;	/* The authorization digest for inputs and ownerHandle. HMAC
+					   key: tpmOwnerAuth. */
+
+    /* processing parameters */
+    unsigned char *		inParamStart;			/* starting point of inParam's */
+    unsigned char *		inParamEnd;			/* ending point of inParam's */
+    TPM_DIGEST			inParamDigest;
+    TPM_BOOL			auditStatus;		/* audit the ordinal */
+    TPM_BOOL			transportEncrypt;	/* wrapped in encrypted transport session */
+    TPM_BOOL			ownerAuthHandleValid = FALSE;
+    TPM_AUTH_SESSION_DATA	*owner_auth_session_data = NULL; /* session data for ownerAuthHandle
+								    */
+    TPM_SECRET			*hmacKey;
+    TPM_SECRET			saveKey;	/* copy of HMAC key, since sessions invalidated */
+    TPM_AUTHDATA		decryptAuth;
+    TPM_AUTHDATA		*entityAuth;	/* pointer to either owner or SRK auth */
+
+    /* output parameters */
+    uint32_t			outParamStart;		/* starting point of outParam's */
+    uint32_t			outParamEnd;		/* ending point of outParam's */
+    TPM_DIGEST			outParamDigest;
+
+    printf("TPM_Process_ChangeAuthOwner: Ordinal Entry\n");
+    /*
+      get inputs
+    */
+    /* save the starting point of inParam's for authorization and auditing */
+    inParamStart = command;
+    /* get protocolID parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Load16(&protocolID, &command, &paramSize);
+    }
+    /* get newAuth parameter */
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuthOwner: protocolID %04hx\n", protocolID);
+	returnCode = TPM_Authdata_Load(newAuth, &command, &paramSize);
+    }
+    /* get entityType parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Load16(&entityType, &command, &paramSize);
+    }
+    /* save the ending point of inParam's for authorization and auditing */
+    inParamEnd = command;
+    /* digest the input parameters */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_GetInParamDigest(inParamDigest,	/* output */
+					  &auditStatus,		/* output */
+					  &transportEncrypt,	/* output */
+					  tpm_state,
+					  tag,
+					  ordinal,
+					  inParamStart,
+					  inParamEnd,
+					  transportInternal);
+    }
+    /* check state */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_CheckState(tpm_state, tag, TPM_CHECK_ALL);
+    }
+    /* check tag */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_CheckRequestTag1(tag);
+    }
+    /* get the 'below the line' authorization parameters */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_AuthParams_Get(&ownerAuthHandle,
+					&ownerAuthHandleValid,
+					nonceOdd,
+					&continueAuthSession,
+					ownerAuth,
+					&command, &paramSize);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	if (paramSize != 0) {
+	    printf("TPM_Process_ChangeAuthOwner: Error, command has %u extra bytes\n",
+		   paramSize);
+	    returnCode = TPM_BAD_PARAM_SIZE;
+	}
+    }
+    /* do not terminate sessions if the command did not parse correctly */
+    if (returnCode != TPM_SUCCESS) {
+	ownerAuthHandleValid = FALSE;
+    }
+    /*
+      Processing
+    */
+    /* 1. The TPM MUST validate the command using the AuthData in the ownerAuth parameter */
+    /* 2. The ownerAuthHandle session type MUST be TPM_PID_OSAP */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_AuthSessions_GetData(&owner_auth_session_data,
+					      &hmacKey,
+					      tpm_state,
+					      ownerAuthHandle,
+					      TPM_PID_OSAP,
+					      TPM_ET_OWNER,
+					      ordinal,
+					      NULL,
+					      NULL,
+					      tpm_state->tpm_permanent_data.ownerAuth);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Authdata_Check(tpm_state,
+					*hmacKey,		/* HMAC key */
+					inParamDigest,
+					owner_auth_session_data,	/* authorization session */
+					nonceOdd,		/* Nonce generated by system
+								   associated with authHandle */
+					continueAuthSession,
+					ownerAuth);		/* Authorization digest for input */
+    }
+    /* 3. If protocolID is not TPM_PID_ADCP, the TPM MUST return TPM_BAD_PARAMETER. */
+    if (returnCode == TPM_SUCCESS) {
+	if (protocolID != TPM_PID_ADCP) {
+	    printf("TPM_Process_ChangeAuthOwner: Error, bad protocolID\n");
+	    returnCode = TPM_BAD_PARAMETER;
+	}
+    }
+    /* 4. Verify that entityType is either TPM_ET_OWNER or TPM_ET_SRK, and return the error
+       TPM_WRONG_ENTITYTYPE if not. */
+    if (returnCode == TPM_SUCCESS) {
+	if (entityType == TPM_ET_OWNER) {
+	    printf("TPM_Process_ChangeAuthOwner: entityType TPM_ET_OWNER\n");
+	    entityAuth = &(tpm_state->tpm_permanent_data.ownerAuth);
+	}
+	else if (entityType == TPM_ET_SRK) {
+	    printf("TPM_Process_ChangeAuthOwner: entityType TPM_ET_SRK\n");
+	    entityAuth = &(tpm_state->tpm_permanent_data.srk.tpm_store_asymkey->usageAuth);
+	}
+	else {
+	    entityAuth = NULL;		/* just to quiet the compiler */
+	    printf("TPM_Process_ChangeAuthOwner: Error, wrong entityType %04x\n", entityType);
+	    returnCode = TPM_WRONG_ENTITYTYPE;
+	}
+    }
+    /* 5. Create decryptAuth by decrypting newAuth according to the ADIP indicated by
+	  ownerAuthHandle.  */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_AuthSessionData_Decrypt(decryptAuth,
+						 NULL,
+						 newAuth,
+						 owner_auth_session_data,
+						 NULL,
+						 NULL,
+						 FALSE);	/* even and odd */
+    }
+    if (returnCode == TPM_SUCCESS) {
+	TPM_PrintFour("TPM_Process_ChangeAuthOwner: From entityAuth", *entityAuth);
+	TPM_PrintFour("TPM_Process_ChangeAuthOwner: To decryptAuth", decryptAuth);
+	/* 6. The TPM MUST enforce the destruction of the ownerAuthHandle session upon completion of
+	   this command (successful or unsuccessful). This includes setting continueAuthSession to
+	   FALSE */
+	continueAuthSession = FALSE;
+	/* 7. Set the authorization data for the indicated entity to decryptAuth */
+	TPM_Secret_Copy(*entityAuth, decryptAuth);
+	/* save a copy of the HMAC key for the response before invalidating */
+	TPM_Secret_Copy(saveKey, *hmacKey);
+	/* 8. The TPM MUST invalidate all owner authorized OSAP and DSAP sessions, active or
+	   saved. */
+	TPM_AuthSessions_TerminateEntity(&continueAuthSession,
+					 ownerAuthHandle,
+					 tpm_state->tpm_stclear_data.authSessions,
+					 TPM_ET_OWNER,			/* TPM_ENTITY_TYPE */
+					 NULL);				/* ignore entityDigest */
+	/* 9. The TPM MAY invalidate all sessions, active or saved */
+	/* Store the permanent data back to NVRAM */
+	returnCode = TPM_PermanentAll_NVStore(tpm_state,
+					      TRUE,
+					      returnCode);
+    }
+    /*
+      response
+    */
+    /* standard response: tag, (dummy) paramSize, returnCode.  Failure is fatal. */
+    if (rcf == 0) {
+	printf("TPM_Process_ChangeAuthOwner: Ordinal returnCode %08x %u\n",
+	       returnCode, returnCode);
+	rcf = TPM_Sbuffer_StoreInitialResponse(response, tag, returnCode);
+    }
+    /* success response, append the rest of the parameters.  */
+    if (rcf == 0) {
+	if (returnCode == TPM_SUCCESS) {
+	    /* checkpoint the beginning of the outParam's */
+	    outParamStart = response->buffer_current - response->buffer;
+	    /* checkpoint the end of the outParam's */
+	    outParamEnd = response->buffer_current - response->buffer;
+	}
+	/* digest the above the line output parameters */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_GetOutParamDigest(outParamDigest,	/* output */
+					       auditStatus,	/* input audit status */
+					       transportEncrypt,
+					       tag,			
+					       returnCode,
+					       ordinal,		/* command ordinal */
+					       response->buffer + outParamStart,	/* start */
+					       outParamEnd - outParamStart);	/* length */
+	}
+	/* calculate and set the below the line parameters */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_AuthParams_Set(response,
+					    saveKey,		/* HMAC key */
+					    owner_auth_session_data,
+					    outParamDigest,
+					    nonceOdd,
+					    continueAuthSession);
+	}
+	/* audit if required */
+	if ((returnCode == TPM_SUCCESS) && auditStatus) {
+	    returnCode = TPM_ProcessAudit(tpm_state,
+					  transportEncrypt,
+					  inParamDigest,
+					  outParamDigest,
+					  ordinal);
+	}
+	/* adjust the initial response */
+	rcf = TPM_Sbuffer_StoreFinalResponse(response, returnCode, tpm_state);
+    }
+    /* if there was an error, or continueAuthSession is FALSE, terminate the session */
+    if (((rcf != 0) ||
+	 ((returnCode != TPM_SUCCESS) && (returnCode != TPM_DEFEND_LOCK_RUNNING)) ||
+	 !continueAuthSession) &&
+	ownerAuthHandleValid) {
+	TPM_AuthSessions_TerminateHandle(tpm_state->tpm_stclear_data.authSessions, ownerAuthHandle);
+    }
+    /*
+      cleanup
+    */
+    return rcf;
+}
+
+
+/* 27.4.1 TPM_ChangeAuthAsymStart rev 87
+    
+   The TPM_ChangeAuthAsymStart starts the process of changing AuthData for an entity. It sets up an
+   OIAP session that must be retained for use by its twin TPM_ChangeAuthAsymFinish command.
+
+   TPM_ChangeAuthAsymStart creates a temporary asymmetric public key "tempkey" to provide
+   confidentiality for new AuthData to be sent to the TPM. TPM_ChangeAuthAsymStart certifies that
+   tempkey was generated by a genuine TPM, by generating a certifyInfo structure that is signed by a
+   TPM identity. The owner of that TPM identity must cooperate to produce this command, because
+   TPM_ChangeAuthAsymStart requires authorization to use that identity.
+
+   It is envisaged that tempkey and certifyInfo are given to the owner of the entity whose
+   authorization is to be changed. That owner uses certifyInfo and a TPM_IDENTITY_CREDENTIAL to
+   verify that tempkey was generated by a genuine TPM. This is done by verifying the
+   TPM_IDENTITY_CREDENTIAL using the public key of a CA, verifying the signature on the certifyInfo
+   structure with the public key of the identity in TPM_IDENTITY_CREDENTIAL, and verifying tempkey
+   by comparing its digest with the value inside certifyInfo.  The owner uses tempkey to encrypt the
+   desired new AuthData and inserts that encrypted data in a TPM_ChangeAuthAsymFinish command, in
+   the knowledge that only a TPM with a specific identity can interpret the new AuthData.
+*/
+
+TPM_RESULT TPM_Process_ChangeAuthAsymStart(tpm_state_t *tpm_state,
+					   TPM_STORE_BUFFER *response,
+					   TPM_TAG tag,
+					   uint32_t paramSize,
+					   TPM_COMMAND_CODE ordinal,
+					   unsigned char *command,
+					   TPM_TRANSPORT_INTERNAL *transportInternal)
+{
+    TPM_RESULT	rcf = 0;			/* fatal error precluding response */
+    TPM_RESULT	returnCode = TPM_SUCCESS;	/* command return code */
+
+    /* input parameters */
+    TPM_KEY_HANDLE	idHandle;	/* The keyHandle identifier of a loaded identity ID key */
+    TPM_NONCE		antiReplay;	/* The nonce to be inserted into the certifyInfo structure
+					 */
+    TPM_KEY_PARMS	tempKeyParms;	/* Structure contains all parameters of ephemeral key. */
+    TPM_AUTHHANDLE	authHandle;	/* The authorization session handle used for idHandle
+					   authorization. */
+    TPM_NONCE		nonceOdd;	/* Nonce generated by system associated with authHandle */
+    TPM_BOOL	continueAuthSession;	/* The continue use flag for the authorization session
+					   handle */
+    TPM_AUTHDATA	idAuth; /* Authorization. HMAC key: idKey.usageAuth. */
+
+    /* processing parameters */
+    unsigned char *		inParamStart;			/* starting point of inParam's */
+    unsigned char *		inParamEnd;			/* ending point of inParam's */
+    TPM_DIGEST			inParamDigest;
+    TPM_BOOL			auditStatus;		/* audit the ordinal */
+    TPM_BOOL			transportEncrypt;	/* wrapped in encrypted transport session */
+    TPM_BOOL			authHandleValid = FALSE;
+    TPM_AUTH_SESSION_DATA	*auth_session_data = NULL;	/* session data for authHandle */
+    TPM_SECRET			*hmacKey;
+    TPM_KEY			*idKey = NULL;
+    TPM_SECRET			*idKeyUsageAuth;
+    TPM_BOOL			idPCRStatus;
+    TPM_RSA_KEY_PARMS		*temp_rsa_key_parms;	/* tempKey is RSA */
+    TPM_BOOL			key_added = FALSE;	/* added to key handle entries */
+    TPM_DIGEST			h1Digest;
+
+    /* output parameters */
+    uint32_t		outParamStart;	/* starting point of outParam's */
+    uint32_t		outParamEnd;	/* ending point of outParam's */
+    TPM_DIGEST		outParamDigest;
+    TPM_CERTIFY_INFO	certifyInfo;	/* The certifyInfo structure that is to be signed. */
+    TPM_SIZED_BUFFER	sig;		/* The signature of the certifyInfo parameter. */
+    TPM_KEY_HANDLE	ephHandle;	/* The keyHandle identifier to be used by
+					   ChangeAuthAsymFinish for the ephemeral key */
+    TPM_KEY		*tempKey;	/* Structure containing all parameters and public part of
+					   ephemeral key. TPM_KEY.encSize is set to 0.	NOTE
+					   Actually tempKey and k1 are the same.  The encData is
+					   present but not returned in the response. */
+
+    printf("TPM_Process_ChangeAuthAsymStart: Ordinal Entry\n");
+    TPM_KeyParms_Init(&tempKeyParms);		/* freed @1 */
+    TPM_CertifyInfo_Init(&certifyInfo);		/* freed @2 */
+    TPM_SizedBuffer_Init(&sig);			/* freed @3 */
+    tempKey = NULL;				/* freed @4 */
+    /*
+      get inputs
+    */
+    /* get idHandle parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Load32(&idHandle, &command, &paramSize);
+    }
+    /* save the starting point of inParam's for authorization and auditing */
+    inParamStart = command;
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuthAsymStart: idHandle %08x\n", idHandle);
+	/* get antiReplay parameter */
+	returnCode = TPM_Nonce_Load(antiReplay, &command, &paramSize);
+    }
+    /* get tempKey (actually tempKeyParms) parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_KeyParms_Load(&tempKeyParms, &command, &paramSize);
+    }
+    /* save the ending point of inParam's for authorization and auditing */
+    inParamEnd = command;
+    /* digest the input parameters */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_GetInParamDigest(inParamDigest,	/* output */
+					  &auditStatus,		/* output */
+					  &transportEncrypt,	/* output */
+					  tpm_state,
+					  tag,
+					  ordinal,
+					  inParamStart,
+					  inParamEnd,
+					  transportInternal);
+    }
+    /* check state */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_CheckState(tpm_state, tag, TPM_CHECK_ALL);
+    }
+    /* check tag */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_CheckRequestTag10(tag);
+    }
+    /* get the optional 'below the line' authorization parameters */
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	returnCode = TPM_AuthParams_Get(&authHandle,
+					&authHandleValid,
+					nonceOdd,
+					&continueAuthSession,
+					idAuth,
+					&command, &paramSize);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	if (paramSize != 0) {
+	    printf("TPM_Process_ChangeAuthAsymStart: Error, command has %u extra bytes\n",
+		   paramSize);
+	    returnCode = TPM_BAD_PARAM_SIZE;
+	}
+    }
+    /* do not terminate sessions if the command did not parse correctly */
+    if (returnCode != TPM_SUCCESS) {
+	authHandleValid = FALSE;
+    }
+    /*
+      Processing
+    */
+    /* 1. The TPM SHALL verify the AuthData to use the TPM identity key held in idHandle. The TPM
+       MUST verify that the key is a TPM identity key.*/
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_KeyHandleEntries_GetKey(&idKey, &idPCRStatus, tpm_state, idHandle,
+						 FALSE,		/* not read-only */
+						 FALSE,		/* do not ignore PCRs */
+						 FALSE);	/* cannot use EK */
+    }
+    if (returnCode == TPM_SUCCESS) {
+	if (idKey->keyUsage != TPM_KEY_IDENTITY) {
+	    printf("TPM_Process_ChangeAuthAsymStart: Error, keyUsage %04hx is invalid\n",
+		   idKey->keyUsage);
+	    returnCode = TPM_INVALID_KEYUSAGE;
+	}
+    }
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_COMMAND)){
+	if (idKey->authDataUsage != TPM_AUTH_NEVER) {
+	    printf("TPM_Process_ChangeAuthAsymStart: Error, authorization required\n");
+	    returnCode = TPM_AUTHFAIL;
+	}
+    }
+    /* get idHandle -> usageAuth */
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	returnCode = TPM_Key_GetUsageAuth(&idKeyUsageAuth, idKey);
+    }	 
+    /* get the session data */
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	returnCode = TPM_AuthSessions_GetData(&auth_session_data,
+					      &hmacKey,
+					      tpm_state,
+					      authHandle,
+					      TPM_PID_NONE,
+					      TPM_ET_KEYHANDLE,
+					      ordinal,
+					      idKey,
+					      idKeyUsageAuth,		/* OIAP */
+					      idKey->tpm_store_asymkey->pubDataDigest); /* OSAP */
+    }
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	returnCode = TPM_Authdata_Check(tpm_state,
+					*hmacKey,		/* HMAC key */
+					inParamDigest,
+					auth_session_data,	/* authorization session */
+					nonceOdd,		/* Nonce generated by system
+								   associated with authHandle */
+					continueAuthSession,
+					idAuth);		/* Authorization digest for input */
+    }
+    /* 2. The TPM SHALL validate the algorithm parameters for the key to create from the tempKey
+       parameter. */
+    if (returnCode == TPM_SUCCESS) {
+	/* get the TPM_RSA_KEY_PARMS structure from the TPM_KEY_PARMS structure */
+	/* 3. Recommended key type is RSA */
+	returnCode = TPM_KeyParms_GetRSAKeyParms(&temp_rsa_key_parms, &tempKeyParms);
+    }
+    /* 4. Minimum RSA key size MUST is 512 bits, recommended RSA key size is 1024 */
+    /* 5. For other key types the minimum key size strength MUST be comparable to RSA 512 */
+    /* 6. If the TPM is not designed to create a key of the requested type, return the error code
+       TPM_BAD_KEY_PROPERTY */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_KeyParms_CheckProperties(&tempKeyParms,
+						  TPM_KEY_AUTHCHANGE,
+						  0,		/* required key length in bits */
+						  tpm_state->tpm_permanent_flags.FIPS);
+    }
+    /* 7. The TPM SHALL create a new key (k1) in accordance with the algorithm parameter. The newly
+       created key is pointed to by ephHandle. */
+    /* NOTE tempKey is used as k1 */
+    /* Allocate space for k1.  The key cannot be a local variable, since it persists in key storage
+       after the command completes. */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Malloc((unsigned char **)&tempKey, sizeof(TPM_KEY));
+    }
+    /* 
+       Field Descriptions for certifyInfo parameter
+       Type			Name		Description
+       TPM_VERSION		Version		TPM version structure; Part 2 TPM_VERSION
+       keyFlags			Redirection	This SHALL be set to FALSE
+				Migratable	This SHALL be set to FALSE
+				Volatile	This SHALL be set to TRUE
+       TPM_AUTH_DATA_USAGE	authDataUsage	This SHALL be set to TPM_AUTH_NEVER
+       TPM_KEY_USAGE		KeyUsage	This SHALL be set to TPM_KEY_AUTHCHANGE
+       uint32_t			PCRInfoSize	This SHALL be set to 0
+       TPM_DIGEST		pubDigest	This SHALL be the hash of the public key
+       being certified.
+       TPM_NONCE		Data		This SHALL be set to antiReplay
+       TPM_KEY_PARMS		info		This specifies the type of key and its parameters.
+       TPM_BOOL			parentPCRStatus This SHALL be set to FALSE.
+    */
+    /* generate a TPM_KEY using TPM_KEY_PARMS.	encData is stored as clear text since there is no
+       parent key for the ephemeral key */
+    if (returnCode == TPM_SUCCESS) {
+	/* This must immediately follow the successful malloc, so the _Delete / free work */
+	TPM_Key_Init(tempKey);
+	printf(" TPM_Process_ChangeAuthAsymStart: Creating ephemeral key\n");
+	returnCode = TPM_Key_GenerateRSA(tempKey,
+					 tpm_state,
+					 NULL,				/* encData cleartext */
+					 tpm_state->tpm_stclear_data.PCRS,	/* PCR array */
+					 1,				/* TPM_KEY */
+					 TPM_KEY_AUTHCHANGE,		/* keyUsage */
+					 TPM_ISVOLATILE,		/* keyFlags */
+					 TPM_AUTH_NEVER,		/* authDataUsage */
+					 &tempKeyParms,			/* TPM_KEY_PARMS */
+					 NULL,				/* TPM_PCR_INFO */
+					 NULL);				/* TPM_PCR_INFO_LONG */
+    }	 
+    if (returnCode == TPM_SUCCESS) {
+	ephHandle = 0;	/* no preferred value */
+	returnCode = TPM_KeyHandleEntries_AddKeyEntry(&ephHandle,			/* output */
+						      tpm_state->tpm_key_handle_entries, /* input */
+						      tempKey,				/* input */
+						      0,	/* parentPCRStatus not used */
+						      0);	/* keyControl not used */
+    }
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuthAsymStart: Ephemeral key handle %08x\n", ephHandle);
+	/* remember that the handle has been added to handle list, so it can be deleted on error */
+	key_added = TRUE;
+    }
+    /* 8. The TPM SHALL fill in all fields in tempKey using k1 for the information. The TPM_KEY ->
+       encSize MUST be 0. */
+    /* NOTE Not required.  k1 and tempKey are the same */
+    /* 9. The TPM SHALL fill in certifyInfo using k1 for the information. The certifyInfo -> data
+       field is supplied by the antiReplay. */
+    if (returnCode == TPM_SUCCESS) {
+	printf(" TPM_Process_ChangeAuthAsymStart: Creating certifyInfo\n");
+	TPM_Nonce_Copy(certifyInfo.data, antiReplay);
+	returnCode = TPM_CertifyInfo_Set(&certifyInfo, tempKey);
+    }
+    /* 10. The TPM then signs the certifyInfo parameter using the key pointed to by idHandle. The
+       resulting signed blob is returned in sig parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_SHA1_GenerateStructure(h1Digest, &certifyInfo,
+						(TPM_STORE_FUNCTION_T)TPM_CertifyInfo_Store);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuthAsymStart: Signing certifyInfo digest\n");
+	returnCode = TPM_RSASignToSizedBuffer(&sig,		/* signature */
+					      h1Digest,		/* message */
+					      TPM_DIGEST_SIZE,	/* message size */
+					      idKey);		/* input, signing key */
+    }
+    /*
+      response
+    */
+    /* standard response: tag, (dummy) paramSize, returnCode.  Failure is fatal. */
+    if (rcf == 0) {
+	printf("TPM_Process_ChangeAuthAsymStart: Ordinal returnCode %08x %u\n",
+	       returnCode, returnCode);
+	rcf = TPM_Sbuffer_StoreInitialResponse(response, tag, returnCode);
+    }
+    /* success response, append the rest of the parameters.  */
+    if (rcf == 0) {
+	if (returnCode == TPM_SUCCESS) {
+	    /* checkpoint the beginning of the outParam's */
+	    outParamStart = response->buffer_current - response->buffer;
+	    /* return certifyInfo */
+	    returnCode = TPM_CertifyInfo_Store(response, &certifyInfo);
+	}
+	/* return sig */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_SizedBuffer_Store(response, &sig);
+	}
+	/* return ephHandle */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_Sbuffer_Append32(response, ephHandle);
+	}
+	/* return tempKey.  TPM_Key_StorePubData() does not store any encData. */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_Key_StorePubData(response, FALSE, tempKey);
+	}
+	if (returnCode == TPM_SUCCESS) {
+	    /* TPM_KEY.encSize is set to 0 */
+	    returnCode = TPM_Sbuffer_Append32(response, 0);
+	    /* checkpoint the end of the outParam's */
+	    outParamEnd = response->buffer_current - response->buffer;
+	}
+	/* digest the above the line output parameters */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_GetOutParamDigest(outParamDigest,	/* output */
+					       auditStatus,	/* input audit status */
+					       transportEncrypt,
+					       tag,			
+					       returnCode,
+					       ordinal,		/* command ordinal */
+					       response->buffer + outParamStart,	/* start */
+					       outParamEnd - outParamStart);	/* length */
+	}
+	/* calculate and set the below the line parameters */
+	if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	    returnCode = TPM_AuthParams_Set(response,
+					    *hmacKey,	/* owner HMAC key */
+					    auth_session_data,
+					    outParamDigest,
+					    nonceOdd,
+					    continueAuthSession);
+	}
+	/* audit if required */
+	if ((returnCode == TPM_SUCCESS) && auditStatus) {
+	    returnCode = TPM_ProcessAudit(tpm_state,
+					  transportEncrypt,
+					  inParamDigest,
+					  outParamDigest,
+					  ordinal);
+	}
+	/* adjust the initial response */
+	rcf = TPM_Sbuffer_StoreFinalResponse(response, returnCode, tpm_state);
+    }
+    /* if there was an error, or continueAuthSession is FALSE, terminate the session */
+    if (((rcf != 0) ||
+	 ((returnCode != TPM_SUCCESS) && (returnCode != TPM_DEFEND_LOCK_RUNNING)) ||
+	 !continueAuthSession) &&
+	authHandleValid) {
+	TPM_AuthSessions_TerminateHandle(tpm_state->tpm_stclear_data.authSessions, authHandle);
+    }
+    /*
+      cleanup
+    */
+    TPM_KeyParms_Delete(&tempKeyParms);		/* @1 */
+    TPM_CertifyInfo_Delete(&certifyInfo);	/* @2 */
+    TPM_SizedBuffer_Delete(&sig);		/* @3 */
+    /* if there was a failure, delete inKey */
+    if ((rcf != 0) ||
+	(returnCode != TPM_SUCCESS)) {
+	TPM_Key_Delete(tempKey);		/* @4 */
+	free(tempKey);				/* @4 */
+	if (key_added) {
+	    /* if there was a failure and tempKey was stored in the handle list, free the handle.
+	       Ignore errors, since only one error code can be returned. */
+	    TPM_KeyHandleEntries_DeleteHandle(tpm_state->tpm_key_handle_entries, ephHandle);
+	}	
+    }
+    return rcf;
+}
+
+/* 27.4.2 TPM_ChangeAuthAsymFinish rev 110
+
+   The TPM_ChangeAuthAsymFinish command allows the owner of an entity to change the AuthData for the
+   entity.
+  
+   The command requires the cooperation of the owner of the parent of the entity, since AuthData
+   must be provided to use that parent entity. The command requires knowledge of the existing
+   AuthData information and passes the new AuthData information. The newAuthLink parameter proves
+   knowledge of existing AuthData information and new AuthData information. The new AuthData
+   information "encNewAuth" is encrypted using the "tempKey" variable obtained via
+   TPM_ChangeAuthAsymStart.
+
+   A parent therefore retains control over a change in the AuthData of a child, but is prevented
+   from knowing the new AuthData for that child.
+
+   The changeProof parameter provides a proof that the new AuthData value was properly inserted into
+   the entity. The inclusion of a nonce from the TPM provides an entropy source in the case where
+   the AuthData value may be in itself be a low entropy value (hash of a password etc).
+*/
+
+TPM_RESULT TPM_Process_ChangeAuthAsymFinish(tpm_state_t *tpm_state,
+					    TPM_STORE_BUFFER *response,
+					    TPM_TAG tag,
+					    uint32_t paramSize,
+					    TPM_COMMAND_CODE ordinal,
+					    unsigned char *command,
+					    TPM_TRANSPORT_INTERNAL *transportInternal)
+{
+    TPM_RESULT	rcf = 0;			/* fatal error precluding response */
+    TPM_RESULT	returnCode = TPM_SUCCESS;	/* command return code */
+
+    /* input parameters */
+    TPM_KEY_HANDLE		parentHandle;	/* The keyHandle of the parent key for the input
+						   data */
+    TPM_KEY_HANDLE		ephHandle;	/* The keyHandle identifier for the ephemeral key */
+    TPM_ENTITY_TYPE		entityType = 0; /* The type of entity to be modified */
+    TPM_HMAC			newAuthLink;	/* HMAC calculation that links the old and new
+						   AuthData values together */
+    TPM_SIZED_BUFFER		encNewAuth;	/* New AuthData encrypted with ephemeral key. */
+    TPM_SIZED_BUFFER		encData;	/* The encrypted entity that is to be modified. */
+    TPM_AUTHHANDLE		authHandle;	/* Authorization for parent key.  */
+    TPM_NONCE			nonceOdd;	/* Nonce generated by system associated with
+						   authHandle */
+    TPM_BOOL			continueAuthSession;	/* The continue use flag for the
+							   authorization session handle */
+    TPM_AUTHDATA		privAuth;	/* The authorization session digest for inputs and
+						   parentHandle. HMAC key: parentKey.usageAuth. */
+    /* processing parameters */
+    unsigned char *		inParamStart;			/* starting point of inParam's */
+    unsigned char *		inParamEnd;			/* ending point of inParam's */
+    TPM_DIGEST			inParamDigest;
+    TPM_BOOL			auditStatus;		/* audit the ordinal */
+    TPM_BOOL			transportEncrypt;	/* wrapped in encrypted transport session */
+    TPM_BOOL			authHandleValid = FALSE;
+    TPM_AUTH_SESSION_DATA	*auth_session_data = NULL;	/* session data for authHandle */
+    TPM_SECRET			*hmacKey;
+    TPM_KEY			*parentKey = NULL;
+    TPM_SECRET			*parentKeyUsageAuth;
+    TPM_BOOL			parentPCRStatus;
+    TPM_KEY			*ephKey = NULL;
+    TPM_BOOL			ephPCRStatus;
+    unsigned char		*stream;	/* for deserializing decrypted encData */
+    uint32_t			stream_size;
+    TPM_STORE_ASYMKEY		keyEntity;	/* entity structure when it's a TPM_ET_KEY */
+    unsigned char		*e1DecryptData;
+    uint32_t			e1DecryptDataLength = 0;	/* actual valid data */
+    unsigned char		*a1Auth;
+    uint32_t			a1AuthLength = 0;	/* actual valid data */
+    TPM_CHANGEAUTH_VALIDATE	changeauthValidate;
+    TPM_BOOL			valid;
+    
+    /* output parameters */
+    uint32_t		outParamStart;	/* starting point of outParam's */
+    uint32_t		outParamEnd;	/* ending point of outParam's */
+    TPM_DIGEST		outParamDigest;
+    TPM_SIZED_BUFFER	outData;	/* The modified, encrypted entity. */
+    TPM_NONCE		saltNonce;	/* A nonce value from the TPM RNG to add entropy to the
+					   changeProof value */
+    TPM_DIGEST		changeProof;	/* Proof that AuthData has changed. */
+
+    printf("TPM_Process_ChangeAuthAsymFinish: Ordinal Entry\n");
+    TPM_SizedBuffer_Init(&encNewAuth);			/* freed @1 */
+    TPM_SizedBuffer_Init(&encData);			/* freed @2 */
+    TPM_SizedBuffer_Init(&outData);			/* freed @3 */
+    TPM_StoreAsymkey_Init(&keyEntity);			/* freed @4 */
+    e1DecryptData = NULL;				/* freed @5 */
+    a1Auth = NULL;					/* freed @6 */
+    TPM_ChangeauthValidate_Init(&changeauthValidate);	/* freed @7 */
+    /*
+      get inputs
+    */
+    /* get parentHandle parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Load32(&parentHandle, &command, &paramSize);
+    }
+    /* get ephHandle parameter */
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuthAsymFinish: parentHandle %08x\n", parentHandle);
+	returnCode = TPM_Load32(&ephHandle, &command, &paramSize);
+    }
+    /* save the starting point of inParam's for authorization and auditing */
+    inParamStart = command;
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuthAsymFinish: ephHandle %08x\n", ephHandle);
+	/* get entityType parameter */
+	returnCode = TPM_Load16(&entityType, &command, &paramSize);
+    }
+    /* get newAuthLink parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Digest_Load(newAuthLink, &command, &paramSize);
+    }
+    /* get encNewAuth parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_SizedBuffer_Load(&encNewAuth, &command, &paramSize);
+    }
+    /* get encData parameter */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_SizedBuffer_Load(&encData, &command, &paramSize);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuthAsymFinish: encDataSize %u\n", encData.size);
+    }
+    /* save the ending point of inParam's for authorization and auditing */
+    inParamEnd = command;
+    /* digest the input parameters */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_GetInParamDigest(inParamDigest,	/* output */
+					  &auditStatus,		/* output */
+					  &transportEncrypt,	/* output */
+					  tpm_state,
+					  tag,
+					  ordinal,
+					  inParamStart,
+					  inParamEnd,
+					  transportInternal);
+    }
+    /* check state */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_CheckState(tpm_state, tag, TPM_CHECK_ALL);
+    }
+    /* check tag */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_CheckRequestTag10(tag);
+    }
+    /* get the optional 'below the line' authorization parameters */
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	returnCode = TPM_AuthParams_Get(&authHandle,
+					&authHandleValid,
+					nonceOdd,
+					&continueAuthSession,
+					privAuth,
+					&command, &paramSize);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	if (paramSize != 0) {
+	    printf("TPM_Process_ChangeAuthAsymFinish: Error, command has %u extra bytes\n",
+		   paramSize);
+	    returnCode = TPM_BAD_PARAM_SIZE;
+	}
+    }
+    /* do not terminate sessions if the command did not parse correctly */
+    if (returnCode != TPM_SUCCESS) {
+	authHandleValid = FALSE;
+    }
+    /*
+      Processing
+    */
+    /* 1. The TPM SHALL validate that the authHandle parameter authorizes use of the key in
+       parentHandle.*/
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_KeyHandleEntries_GetKey(&parentKey, &parentPCRStatus,
+						 tpm_state, parentHandle,
+						 FALSE,		/* not read-only */
+						 FALSE,		/* do not ignore PCRs */
+						 FALSE);	/* cannot use EK */
+    }
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_COMMAND)){
+	if (parentKey->authDataUsage != TPM_AUTH_NEVER) {
+	    printf("TPM_Process_ChangeAuthAsymFinish: Error, authorization required\n");
+	    returnCode = TPM_AUTHFAIL;
+	}
+    }
+    /* get idHandle -> usageAuth */
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	if (parentHandle != TPM_KH_SRK) {
+	    returnCode = TPM_Key_GetUsageAuth(&parentKeyUsageAuth, parentKey);
+	}
+	/* If the parentHandle points to the SRK then the HMAC key MUST be built using the TPM Owner
+	   authorization. */
+	else {
+	    parentKeyUsageAuth = &(tpm_state->tpm_permanent_data.ownerAuth);
+	}
+    }	 
+    /* get the session data */
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	if (parentHandle != TPM_KH_SRK) {
+	    returnCode = TPM_AuthSessions_GetData(&auth_session_data,
+						  &hmacKey,
+						  tpm_state,
+						  authHandle,
+						  TPM_PID_NONE,
+						  TPM_ET_KEYHANDLE,
+						  ordinal,
+						  parentKey,
+						  parentKeyUsageAuth,	/* OIAP */
+						  parentKey->tpm_store_asymkey->pubDataDigest); /*OSAP*/
+	}
+	/* If the parentHandle points to the SRK then the HMAC key MUST be built using the TPM Owner
+	   authorization. */
+	else {
+	    returnCode = TPM_AuthSessions_GetData(&auth_session_data,
+						  &hmacKey,
+						  tpm_state,
+						  authHandle,
+						  TPM_PID_NONE,
+						  TPM_ET_OWNER,
+						  ordinal,
+						  parentKey,
+						  parentKeyUsageAuth,	/* OIAP */
+						  tpm_state->tpm_permanent_data.ownerAuth); /*OSAP*/
+	}
+    }
+    if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	returnCode = TPM_Authdata_Check(tpm_state,
+					*hmacKey,		/* HMAC key */
+					inParamDigest,
+					auth_session_data,	/* authorization session */
+					nonceOdd,		/* Nonce generated by system
+								   associated with authHandle */
+					continueAuthSession,
+					privAuth);		/* Authorization digest for input */
+    }
+    /* 2. The encData field MUST be the encData field from TPM_STORED_DATA or TPM_KEY. */
+    if (returnCode == TPM_SUCCESS) {
+	/* FIXME currently only TPM_KEY supported */
+	if (entityType != TPM_ET_KEY) {
+	    printf("TPM_Process_ChangeAuthAsymFinish: Error, bad entityType %04x\n", entityType);
+	    returnCode = TPM_WRONG_ENTITYTYPE;
+	}
+    }	 
+    /* Validate that parentHandle -> keyUsage is TPM_KEY_STORAGE, if not return the error code
+       TPM_INVALID_KEYUSAGE */
+    if (returnCode == TPM_SUCCESS) {
+	if (parentKey->keyUsage != TPM_KEY_STORAGE) {
+	    printf("TPM_Process_ChangeAuthAsymFinish: Error, keyUsage %04hx is invalid\n",
+		   parentKey->keyUsage);
+	    returnCode = TPM_INVALID_KEYUSAGE;
+	}
+    }
+    /* 3. The TPM SHALL create e1 by decrypting the entity held in the encData parameter. */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_RSAPrivateDecryptMalloc(&e1DecryptData,	/* decrypted data */
+						 &e1DecryptDataLength,	/* actual size of decrypted
+									   data */
+						 encData.buffer,/* encrypted data */
+						 encData.size,	/* encrypted data size */
+						 parentKey);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	stream = e1DecryptData;
+	stream_size = e1DecryptDataLength;
+	returnCode = TPM_StoreAsymkey_Load(&keyEntity, FALSE,
+					   &stream, &stream_size,
+					   NULL,	/* TPM_KEY_PARMS */
+					   NULL);	/* TPM_SIZED_BUFFER pubKey */
+    }
+    /* 4. The TPM SHALL create a1 by decrypting encNewAuth using the ephHandle ->
+       TPM_KEY_AUTHCHANGE private key. a1 is a structure of type TPM_CHANGEAUTH_VALIDATE. */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_KeyHandleEntries_GetKey(&ephKey, &ephPCRStatus, tpm_state, ephHandle,
+						 FALSE,		/* not read-only */
+						 FALSE,		/* do not ignore PCRs */
+						 FALSE);	/* cannot use EK */
+    }
+    if (returnCode == TPM_SUCCESS) {
+	if (ephKey->keyUsage != TPM_KEY_AUTHCHANGE) {
+	    printf("TPM_Process_ChangeAuthAsymFinish: Error: "
+		   "ephHandle does not point to TPM_KEY_AUTHCHANGE\n");
+	    returnCode = TPM_BAD_PARAMETER;
+	}
+    }
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_RSAPrivateDecryptMalloc(&a1Auth,	/* decrypted data */
+						 &a1AuthLength,	/* actual size of decrypted data */
+						 encNewAuth.buffer,	/* encrypted data */
+						 encNewAuth.size,   	/* encrypted data size */
+						 ephKey);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	stream = a1Auth;
+	stream_size = a1AuthLength;
+	returnCode = TPM_ChangeauthValidate_Load(&changeauthValidate, &stream, &stream_size);
+    }
+    /* 5. The TPM SHALL create b1 by performing the following HMAC calculation: b1 = HMAC (a1 ->
+       newAuthSecret). The secret for this calculation is encData -> currentAuth. This means that b1
+       is a value built from the current AuthData value (encData -> currentAuth) and the new
+       AuthData value (a1 -> newAuthSecret). */
+    /* 6. The TPM SHALL compare b1 with newAuthLink. The TPM SHALL indicate a failure if the values
+       do not match. */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_HMAC_Check(&valid,
+				    newAuthLink,		/* expect */
+				    keyEntity.usageAuth,	/* HMAC key is current auth */
+				    TPM_SECRET_SIZE, changeauthValidate.newAuthSecret,
+				    0, NULL);
+    }
+    if (returnCode == TPM_SUCCESS) {
+	if (!valid) {
+	    printf("TPM_Process_ChangeAuthAsymFinish: Error, authenticating newAuthLink\n");
+	    returnCode = TPM_AUTHFAIL;
+	}
+    }
+    if (returnCode == TPM_SUCCESS) {
+	/* 7. The TPM SHALL replace e1 -> authData with a1 -> newAuthSecret */
+	TPM_Secret_Copy(keyEntity.usageAuth, changeauthValidate.newAuthSecret);
+	/* 8. The TPM SHALL encrypt e1 using the appropriate functions for the entity type. The key
+	   to encrypt with is parentHandle. */
+	returnCode = TPM_StoreAsymkey_GenerateEncData(&outData, &keyEntity, parentKey);
+    }
+    /* 9. The TPM SHALL create salt-Nonce by taking the next 20 bytes from the TPM RNG. */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_Random(saltNonce, TPM_NONCE_SIZE);
+    }
+    /* 10. The TPM SHALL create changeProof a HMAC of (saltNonce concatenated with a1 -> n1) using
+       a1 -> newAuthSecret as the HMAC secret. */
+    if (returnCode == TPM_SUCCESS) {
+	returnCode = TPM_HMAC_Generate(changeProof,				/* hmac output */
+				       changeauthValidate.newAuthSecret,	/* hmac key */
+				       TPM_NONCE_SIZE, saltNonce, 
+				       TPM_NONCE_SIZE, changeauthValidate.n1,
+				       0, NULL);
+    }
+    /* 11. The TPM MUST destroy the TPM_KEY_AUTHCHANGE key associated with the authorization
+       session. */
+    if (returnCode == TPM_SUCCESS) {
+	printf("TPM_Process_ChangeAuthAsymFinish: Deleting ephemeral key\n");
+	TPM_Key_Delete(ephKey);		/* free the key resources */
+	free(ephKey);			/* free the key itself */
+	/* remove entry from the key handle entries list */
+	returnCode = TPM_KeyHandleEntries_DeleteHandle(tpm_state->tpm_key_handle_entries,
+						       ephHandle);
+    }
+    /*
+      response
+    */
+    /* standard response: tag, (dummy) paramSize, returnCode.  Failure is fatal. */
+    if (rcf == 0) {
+	printf("TPM_Process_ChangeAuthAsymFinish: Ordinal returnCode %08x %u\n",
+	       returnCode, returnCode);
+	rcf = TPM_Sbuffer_StoreInitialResponse(response, tag, returnCode);
+    }
+    /* success response, append the rest of the parameters.  */
+    if (rcf == 0) {
+	if (returnCode == TPM_SUCCESS) {
+	    /* checkpoint the beginning of the outParam's */
+	    outParamStart = response->buffer_current - response->buffer;
+	    /* return outData */
+	    returnCode = TPM_SizedBuffer_Store(response, &outData);
+	}
+	/* return saltNonce */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_Nonce_Store(response, saltNonce);
+	}
+	/* return changeProof */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_Digest_Store(response, changeProof);
+	    /* checkpoint the end of the outParam's */
+	    outParamEnd = response->buffer_current - response->buffer;
+	}
+	/* digest the above the line output parameters */
+	if (returnCode == TPM_SUCCESS) {
+	    returnCode = TPM_GetOutParamDigest(outParamDigest,	/* output */
+					       auditStatus,	/* input audit status */
+					       transportEncrypt,
+					       tag,			
+					       returnCode,
+					       ordinal,		/* command ordinal */
+					       response->buffer + outParamStart,	/* start */
+					       outParamEnd - outParamStart);	/* length */
+	}
+	/* calculate and set the below the line parameters */
+	if ((returnCode == TPM_SUCCESS) && (tag == TPM_TAG_RQU_AUTH1_COMMAND)) {
+	    returnCode = TPM_AuthParams_Set(response,
+					    *hmacKey,	/* owner HMAC key */
+					    auth_session_data,
+					    outParamDigest,
+					    nonceOdd,
+					    continueAuthSession);
+	}
+	/* audit if required */
+	if ((returnCode == TPM_SUCCESS) && auditStatus) {
+	    returnCode = TPM_ProcessAudit(tpm_state,
+					  transportEncrypt,
+					  inParamDigest,
+					  outParamDigest,
+					  ordinal);
+	}
+	/* adjust the initial response */
+	rcf = TPM_Sbuffer_StoreFinalResponse(response, returnCode, tpm_state);
+    }
+    /* if there was an error, or continueAuthSession is FALSE, terminate the session */
+    if (((rcf != 0) ||
+	 ((returnCode != TPM_SUCCESS) && (returnCode != TPM_DEFEND_LOCK_RUNNING)) ||
+	 !continueAuthSession) &&
+	authHandleValid) {
+	TPM_AuthSessions_TerminateHandle(tpm_state->tpm_stclear_data.authSessions, authHandle);
+    }
+    /*
+      cleanup
+    */
+    TPM_SizedBuffer_Delete(&encNewAuth);		/* @1 */
+    TPM_SizedBuffer_Delete(&encData);			/* @2 */
+    TPM_SizedBuffer_Delete(&outData);			/* @3 */
+    TPM_StoreAsymkey_Delete(&keyEntity);		/* @4 */
+    free(e1DecryptData);				/* @5 */
+    free(a1Auth);					/* @6 */
+    TPM_ChangeauthValidate_Delete(&changeauthValidate); /* @7 */
+    return rcf;
+}

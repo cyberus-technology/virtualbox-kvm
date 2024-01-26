@@ -1,0 +1,150 @@
+# $Id: WATCOMC11C-16.kmk 3578 2023-01-05 00:42:25Z bird $
+## @file
+# kBuild Tool Config - Watcom C v11.0c, 16-bit targets.
+#
+# @remarks wrc is untested, so are DLLs, and programs.
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_WATCOMC11C-16 = Watcom C/C++ v11.0c - 16-bit targets.
+TOOL_WATCOMC11C-16_EXTENDS = WATCOMC11C
+TOOL_WATCOMC11C-16_ASFLAGS.win  ?= -bt=windows
+TOOL_WATCOMC11C-16_CFLAGS.win   ?= -bt=windows
+TOOL_WATCOMC11C-16_CXXFLAGS.win ?= -bt=windows
+TOOL_WATCOMC11C-16_RCFLAGS.win  ?= -bt=windows
+TOOL_WATCOMC11C-16_LDFLAGS.win  ?= -bt=windows
+
+TOOL_WATCOMC11C-16_COMPILE_C_DEPEND =
+TOOL_WATCOMC11C-16_COMPILE_C_DEPORD =
+TOOL_WATCOMC11C-16_COMPILE_C_OUTPUT = $(obj).err
+define TOOL_WATCOMC11C-16_COMPILE_C_CMDS
+	$(QUIET) $(call TOOL_WATCOMC11C_ENV_SETUP_BD) $(TOOL_WATCOMC11C_CC16) \
+		$(flags) \
+		$(addsuffix , $(addprefix -i=, $(subst /,\\,$(incs)))) \
+		$(qaddprefix sh,-d, $(defs)) \
+		-fo=$(subst /,\\,$(obj)) \
+		-fr=$(subst /,\\,$(obj)).err \
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(APPEND) -n $(obj).err
+## @todo dependencies
+endef
+
+TOOL_WATCOMC11C-16_COMPILE_CXX_DEPEND =
+TOOL_WATCOMC11C-16_COMPILE_CXX_DEPORD =
+TOOL_WATCOMC11C-16_COMPILE_CXX_OUTPUT = $(obj).err
+define TOOL_WATCOMC11C-16_COMPILE_CXX_CMDS
+	$(QUIET) $(call TOOL_WATCOMC11C_ENV_SETUP_BD) $(TOOL_WATCOMC11C_CXX16) \
+		$(flags) \
+		$(addsuffix , $(addprefix -i=, $(subst /,\\,$(incs)))) \
+		$(qaddprefix sh,-d, $(defs)) \
+		-fo=$(subst /,\\,$(obj)) \
+		-fr=$(subst /,\\,$(obj)).err \
+		$(subst /,\\,$(abspath $(source)))
+	$(QUIET)$(APPEND) -n $(obj).err
+## @todo dependencies
+endef
+
+TOOL_WATCOMC11C-16_COMPILE_RC_OUTPUT =
+TOOL_WATCOMC11C-16_COMPILE_RC_DEPEND =
+TOOL_WATCOMC11C-16_COMPILE_RC_DEPORD =
+define TOOL_WATCOMC11C-16_COMPILE_RC_CMDS
+	$(QUIET) $(call TOOL_WATCOMC11C_ENV_SETUP) \
+		$(TOOL_WATCOMC11C_RC) -r\
+		$(flags) \
+		$(addprefix -i=, $(subst /,\\,$(incs))) \
+		$(qaddprefix sh,-d, $(defs))\
+		-fo=$(subst /,\\,$(obj)) \
+		$(subst /,\\,$(abspath $(source)))
+endef
+
+TOOL_WATCOMC11C-16_LINK_LIBRARY_OUTPUT = ## @todo $(outbase).rsp
+TOOL_WATCOMC11C-16_LINK_LIBRARY_DEPEND = $(othersrc)
+TOOL_WATCOMC11C-16_LINK_LIBRARY_DEPORD =
+define TOOL_WATCOMC11C-16_LINK_LIBRARY_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp $(foreach obj,$(subst /,\,$(objs) $(othersrc)),'+"$(obj)"')
+	$(QUIET)$(TOOL_WATCOMC11C_ENV_SETUP_BD) $(TOOL_WATCOMC11C_AR) $(flags) $(subst /,\\,$(out)) @$(outbase).rsp
+endef
+
+TOOL_WATCOMC11C-16_LINK_PROGRAM_OUTPUT = $(outbase).map
+TOOL_WATCOMC11C-16_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_WATCOMC11C-16_LINK_PROGRAM_DEPORD =
+define TOOL_WATCOMC11C-16_LINK_PROGRAM_CMDS
+	$(QUIET)$(call TOOL_WATCOMC11C_ENV_SETUP_BD,$(subst $(SP),,$(addsuffix ;,$(libpath))),-C $(dir $(out))) \
+		$(TOOL_WATCOMC11C_LD16) \
+		$(flags) \
+		-fe=$(subst /,\\,$(out)) \
+		-fm=$(subst /,\\,$(outbase).map) \
+		$(subst /,\\,$(filter-out %.res,$(objs))) \
+		$(subst /,\\,$(libs)) \
+		$(subst /,\\,$(othersrc))
+	$(if $(filter %.res,$(objs)), $(QUIET)$(call TOOL_WATCOMC11C_ENV_SETUP) \
+		$(TOOL_WATCOMC11C_RC) \
+			$(filter -bt=%,$(flags)) \
+			/fe=$(subst /,\\,$(out)) \
+			$(subst /,\\,$(filter %.res,$(objs))))
+endef
+
+TOOL_WATCOMC11C-16_LINK_DLL_OUTPUT = $(outbase).map
+TOOL_WATCOMC11C-16_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_WATCOMC11C-16_LINK_DLL_DEPORD =
+define TOOL_WATCOMC11C-16_LINK_DLL_CMDS
+	$(QUIET)$(call TOOL_WATCOMC11C_ENV_SETUP_BD,$(subst $(SP),,$(addsuffix ;,$(libpath))),-C $(dir $(out))) \
+		$(TOOL_WATCOMC11C_LD16) \
+		$(flags) \
+		-fe=$(subst /,\\,$(out)) \
+		-fm=$(subst /,\\,$(outbase).map) \
+		$(subst /,\\,$(filter-out %.res,$(objs))) \
+		$(subst /,\\,$(libs)) \
+		$(subst /,\\,$(othersrc))
+	$(if $(filter %.res,$(objs)), $(QUIET)$(call TOOL_WATCOMC11C_ENV_SETUP) \
+		$(TOOL_WATCOMC11C_RC) \
+			$(filter -bt=%,$(flags)) \
+			/fe=$(subst /,\\,$(out)) \
+			$(subst /,\\,$(filter %.res,$(objs))))
+endef
+
+TOOL_WATCOMC11C-16_LINK_SYSMOD_OUTPUT = $(outbase).map
+TOOL_WATCOMC11C-16_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_WATCOMC11C-16_LINK_SYSMOD_DEPORD =
+define TOOL_WATCOMC11C-16_LINK_SYSMOD_CMDS
+	$(QUIET)$(call TOOL_WATCOMC11C_ENV_SETUP_BD,$(subst $(SP),,$(addsuffix ;,$(libpath))),-C $(dir $(out))) \
+		$(TOOL_WATCOMC11C_LD16) \
+		$(flags) \
+		-fe=$(subst /,\\,$(out)) \
+		-fm=$(subst /,\\,$(outbase).map) \
+		$(subst /,\\,$(filter-out %.res,$(objs))) \
+		$(subst /,\\,$(libs)) \
+		$(subst /,\\,$(othersrc))
+	$(if $(filter %.res,$(objs)), $(QUIET)$(call TOOL_WATCOMC11C_ENV_SETUP) \
+		$(TOOL_WATCOMC11C_RC) \
+			$(filter -bt=%,$(flags)) \
+			/fe=$(subst /,\\,$(out)) \
+			$(subst /,\\,$(filter %.res,$(objs))))
+endef
+

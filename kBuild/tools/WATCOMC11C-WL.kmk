@@ -1,0 +1,79 @@
+# $Id: WATCOMC11C-WL.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild Tool Config - Watcom C/C++ v11.0c, using wlink.
+#
+# @remarks wrc is untested, so are DLLs, and programs.
+
+#
+# Copyright (c) 2008-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+TOOL_WATCOMC11C-WL = Watcom C/C++ v11.0c, using wlink.
+TOOL_WATCOMC11C-WL_EXTENDS = WATCOMC11C
+TOOL_WATCOMC11C-WL_LDFLAGS       ?= Option Quiet
+TOOL_WATCOMC11C-WL_LDFLAGS.dos   ?= $(NO_SUCH_VARIABLE)
+TOOL_WATCOMC11C-WL_LDFLAGS.linux ?= $(NO_SUCH_VARIABLE)
+TOOL_WATCOMC11C-WL_LDFLAGS.nt    ?= $(NO_SUCH_VARIABLE)
+TOOL_WATCOMC11C-WL_LDFLAGS.os2   ?= $(NO_SUCH_VARIABLE)
+TOOL_WATCOMC11C-WL_LDFLAGS.win   ?= $(NO_SUCH_VARIABLE)
+
+
+TOOL_WATCOMC11C-WL_LINK_PROGRAM_OUTPUT = $(outbase).map $(outbase).rsp
+TOOL_WATCOMC11C-WL_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib))) $(othersrc)
+TOOL_WATCOMC11C-WL_LINK_PROGRAM_DEPORD =
+define TOOL_WATCOMC11C-WL_LINK_PROGRAM_CMDS
+	$(QUIET)$(APPEND) -tn $(outbase).rsp \
+		$(if $(flags),'$(flags)',) \
+		'Name $(subst /,\,$(out)$(if $(suffix $(out)),,.))' \
+		'Option Map=$(subst /,\,$(outbase)).map' \
+		$(foreach p,$(subst /,\,$(libpath)),'LIBPath $p') \
+        $(foreach o,$(subst /,\,$(filter-out %.res,$(objs)) $(othersrc)),'$(if $(filter %.lib %.a,$l),LIB,)File $o') \
+		$(foreach l,$(subst /,\,$(libs)),'Library $l')
+	$(QUIET)$(call TOOL_WATCOMC11C_ENV_SETUP_BD) \
+		$(TOOL_WATCOMC11C_WLINK) @$(outbase).rsp
+	$(if $(filter %.res,$(objs)), $(QUIET)$(call TOOL_WATCOMC11C_ENV_SETUP) \
+		$(TOOL_WATCOMC11C_RC) \
+			$(filter -bt=%,$(flags)) \
+			/fe=$(subst /,\\,$(out)) \
+			$(subst /,\\,$(filter %.res,$(objs))))
+endef
+
+TOOL_WATCOMC11C-WL_LINK_DLL_OUTPUT     = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_OUTPUT)
+TOOL_WATCOMC11C-WL_LINK_DLL_DEPEND     = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_DEPEND)
+TOOL_WATCOMC11C-WL_LINK_DLL_DEPORD     = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_DEPORD)
+TOOL_WATCOMC11C-WL_LINK_DLL_CMDS       = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_CMDS)
+
+TOOL_WATCOMC11C-WL_LINK_SYSMOD_OUTPUT  = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_OUTPUT)
+TOOL_WATCOMC11C-WL_LINK_SYSMOD_DEPEND  = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_DEPEND)
+TOOL_WATCOMC11C-WL_LINK_SYSMOD_DEPORD  = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_DEPORD)
+TOOL_WATCOMC11C-WL_LINK_SYSMOD_CMDS    = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_CMDS)
+
+TOOL_WATCOMC11C-WL_LINK_MISCBIN_OUTPUT = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_OUTPUT)
+TOOL_WATCOMC11C-WL_LINK_MISCBIN_DEPEND = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_DEPEND)
+TOOL_WATCOMC11C-WL_LINK_MISCBIN_DEPORD = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_DEPORD)
+TOOL_WATCOMC11C-WL_LINK_MISCBIN_CMDS   = $(TOOL_WATCOMC11C-WL_LINK_PROGRAM_CMDS)
+

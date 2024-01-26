@@ -1,0 +1,81 @@
+#!/bin/bash
+# $Id: preinst $
+## @file
+# VirtualBox pre-install.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+# we can be called with the following arguments (6.5 of Debian policy):
+#  install:          (our version): install our version
+#  upgrade:          (our version): upgrade to our version
+#  abort-upgrade:    (old version): upgrade to a new version failed
+
+# defaults
+[ -r /etc/default/virtualbox ] && . /etc/default/virtualbox
+
+if [ "$1" = "install" -o "$1" = "upgrade" ]; then
+
+  . /usr/share/debconf/confmodule
+  db_version 2.0
+  db_capb backup
+
+  # check for old installation
+  if [ -r /etc/vbox/vbox.cfg ]; then
+    . /etc/vbox/vbox.cfg
+    if [ "x$INSTALL_DIR" != "x" -a -d "$INSTALL_DIR" ]; then
+      db_fset virtualbox/old-installation-found seen false || true
+      db_input critical virtualbox/old-installation-found || true
+      db_go || true
+      exit 1
+    fi
+    # we will remove that file in postinst
+  fi
+
+  # check for active VMs
+  # Execute the installed package's pre-uninstaller if present.
+  /usr/lib/virtualbox/prerm-common.sh 2>/dev/null || true
+  # Stop services from older versions without pre-uninstaller.
+  invoke-rc.d vboxballoonctrl-service stop 2>/dev/null || true
+  /etc/init.d/vboxballoonctrl-service stop 2>/dev/null || true
+  invoke-rc.d vboxautostart-service stop 2>/dev/null || true
+  /etc/init.d/vboxautostart-service stop 2>/dev/null || true
+  invoke-rc.d vboxweb-service stop 2>/dev/null || true
+  /etc/init.d/vboxweb-service stop 2>/dev/null || true
+  VBOXSVC_PID=`pidof VBoxSVC 2>/dev/null || true`
+  if [ -n "$VBOXSVC_PID" ]; then
+    # ask the daemon to terminate immediately
+    kill -USR1 $VBOXSVC_PID
+    sleep 1
+    if pidof VBoxSVC > /dev/null 2>&1; then
+      db_fset virtualbox/old-running seen false || true
+      db_input critical virtualbox/old-running || true
+      db_go || true
+      exit 1
+    fi
+  fi
+
+fi # "$1" = "install" -o "$1" = "upgrade"
+
+#DEBHELPER#
+

@@ -1,0 +1,463 @@
+# $Id: footer-pass1.kmk 3417 2020-08-21 10:59:17Z bird $
+## @file
+# kBuild - Footer - Target lists - Pass 1.
+#
+#       This pass is for defining variables that might be referenced in
+#       properties of other targets.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version source of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+
+# Don't do anything for fetch targets (yet).
+
+##
+# Link prolog for Pass 1.
+#
+# @param    $(target)           Normalized target name.
+# @param    $(EXT)              EXE,DLL,SYS,LIB.
+# @param    $(EXTPRE)           HOST or nothing.
+# @param    $(definst)          The default _INST value.
+# @param    $(tool_prefix)      LD or AR.
+# @param    $(bld_trg_base_var) TARGET or HOST.
+define def_pass1_link_common
+
+local bld_type    := $(firstword $($(target)_BLD_TYPE)     $(KBUILD_TYPE))
+local bld_trg     := $(firstword $($(target)_BLD_TRG)      $(KBUILD_$(bld_trg_base_var)))
+local bld_trg_arch:= $(firstword $($(target)_BLD_TRG_ARCH) $(KBUILD_$(bld_trg_base_var)_ARCH))
+local bld_trg_cpu := $(firstword $($(target)_BLD_TRG_CPU)  $(KBUILD_$(bld_trg_base_var)_CPU))
+
+local tool        := $(call _TARGET_TOOL,$(target),$(tool_prefix))
+local name        := $(firstword\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch).$(bld_type))\
+	$($(target)_NAME.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg).$(bld_type))\
+	$($(target)_NAME.$(bld_trg_arch))\
+	$($(target)_NAME.$(bld_trg))\
+	$($(target)_NAME.$(bld_type))\
+	$($(target)_NAME)\
+	$(target))
+local outbase     := $(call TARGET_BASE,$(name),$(target))
+$(target)_0_OUTDIR:= $(patsubst %/,%,$(dir $(outbase)))
+$(call KB_FN_ASSIGN_DEPRECATED,PATH_$(target),$($(target)_0_OUTDIR), $(target)_0_OUTDIR)
+
+## @todo fix the fun at the last line (AR != LIB => mess).
+local suff := $(firstword \
+	$($(target)_$(EXT)SUFF.$(bld_trg).$(bld_trg_arch))\
+	$($(target)_$(EXT)SUFF.$(bld_trg))\
+	$($(target)_$(EXT)SUFF)\
+	$(TOOL_$(tool)_$(tool_prefix)$(EXT)SUFF.$(bld_trg).$(bld_trg_arch))\
+	$(TOOL_$(tool)_$(tool_prefix)$(EXT)SUFF.$(bld_trg))\
+	$(TOOL_$(tool)_$(tool_prefix)$(EXT)SUFF)\
+	$(if $(eq $(tool_prefix),AR),$(SUFF_LIB),$($(EXTPRE)SUFF_$(EXT))) )
+local out := $(outbase)$(suff)
+
+# Object directory target variable.
+$(target)_1_TARGET := $(out)
+$(call KB_FN_ASSIGN_DEPRECATED,TARGET_$(target),$($(target)_1_TARGET), $(target)_1_TARGET)
+
+# Staging and install directory target variables.
+local insttype := $(firstword \
+	$($(target)_INSTTYPE.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_INSTTYPE.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_INSTTYPE.$(bld_trg).$(bld_type)) \
+	$($(target)_INSTTYPE.$(bld_trg_arch)) \
+	$($(target)_INSTTYPE.$(bld_trg_cpu)) \
+	$($(target)_INSTTYPE.$(bld_trg)) \
+	$($(target)_INSTTYPE.$(bld_type)) \
+	$($(target)_INSTTYPE) \
+	)
+ifeq ($(insttype),)
+ ifneq ($(firstword \
+	$($(target)_NOINST) \
+	$($(target)_NOINST.$(bld_trg)) \
+	$($(target)_NOINST.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_NOINST.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_NOINST.$(bld_trg_arch)) \
+	$($(target)_NOINST.$(bld_trg_cpu)) \
+	$($(target)_NOINST.$(bld_type)) ),)
+   local insttype := none
+ else
+   local insttype := both
+ endif
+endif
+$(target)_1_INSTTYPE := $(insttype)
+
+local inst := $(strip $(firstdefined \
+	$(target)_INST.$(bld_trg).$(bld_trg_arch).$(bld_type) \
+	$(target)_INST.$(bld_trg).$(bld_trg_arch) \
+	$(target)_INST.$(bld_trg).$(bld_type) \
+	$(target)_INST.$(bld_trg_arch) \
+	$(target)_INST.$(bld_trg_cpu) \
+	$(target)_INST.$(bld_trg) \
+	$(target)_INST.$(bld_type) \
+	$(target)_INST \
+	definst \
+	,value))
+local stage := $(strip $(firstdefined \
+	$(target)_STAGE.$(bld_trg).$(bld_trg_arch).$(bld_type) \
+	$(target)_STAGE.$(bld_trg).$(bld_trg_arch) \
+	$(target)_STAGE.$(bld_trg).$(bld_type) \
+	$(target)_STAGE.$(bld_trg_arch) \
+	$(target)_STAGE.$(bld_trg_cpu) \
+	$(target)_STAGE.$(bld_trg) \
+	$(target)_STAGE.$(bld_type) \
+	$(target)_STAGE \
+	inst \
+	,value))
+if1of ($(insttype), stage both)
+ $(target)_1_STAGE := $(stage)
+ if "$(substr $(stage),-1,1)" == "/" # Multicast support requires addprefix/suffix.
+  $(target)_1_STAGE_TARGET := $(addprefix $(PATH_STAGE)/,$(addsuffix $(notdir $(out)),$(stage)))
+ else if "$(stage)" == ""
+  $(target)_1_STAGE_TARGET := $(PATH_STAGE)/$(notdir $(out))
+ else
+  $(target)_1_STAGE_TARGET := $(addprefix $(PATH_STAGE)/,$(stage))
+ endif
+else if1of ($(insttype), none)
+ $(target)_1_STAGE :=
+ $(target)_1_STAGE_TARGET :=
+else
+ $(error kBuild: Unknown value '$(insttype)' for '$(target)_INSTTYPE'. Valid values are 'none', 'both' and 'stage'.)
+endif
+INSTARGET_$(target) := $($(target)_1_STAGE_TARGET)
+
+if1of ($(insttype), both)
+ $(target)_1_INST := $(inst)
+ if "$(substr $(inst),-1,1)" == "/" # Multicast support requires addprefix/suffix.
+  $(target)_1_INST_TARGET := $(addprefix $(PATH_INS)/,$(addsuffix $(notdir $(out)),$(inst)))
+ else if "$(inst)" == ""
+  $(target)_1_INST_TARGET := $(PATH_INS)/$(notdir $(out))
+ else
+  $(target)_1_INST_TARGET := $(addprefix $(PATH_INS)/,$(inst))
+ endif
+else
+ $(target)_1_INST :=
+ $(target)_1_INST_TARGET :=
+endif
+
+# Debug info related stuff.
+local debug_insttype := $(firstword \
+	$($(target)_DEBUG_INSTTYPE.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_DEBUG_INSTTYPE.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_DEBUG_INSTTYPE.$(bld_trg).$(bld_type)) \
+	$($(target)_DEBUG_INSTTYPE.$(bld_trg_arch)) \
+	$($(target)_DEBUG_INSTTYPE.$(bld_trg_cpu)) \
+	$($(target)_DEBUG_INSTTYPE.$(bld_trg)) \
+	$($(target)_DEBUG_INSTTYPE.$(bld_type)) \
+	$($(target)_DEBUG_INSTTYPE) \
+	$(insttype) )
+$(target)_1_DEBUG_INSTTYPE := $(debug_insttype)
+
+if1of ($(debug_insttype), stage both)
+ local debug_stage := $(firstdefined \
+	$(target)_DEBUG_STAGE.$(bld_trg).$(bld_trg_arch).$(bld_type) \
+	$(target)_DEBUG_STAGE.$(bld_trg).$(bld_trg_arch) \
+	$(target)_DEBUG_STAGE.$(bld_trg).$(bld_type) \
+	$(target)_DEBUG_STAGE.$(bld_trg_arch) \
+	$(target)_DEBUG_STAGE.$(bld_trg_cpu) \
+	$(target)_DEBUG_STAGE.$(bld_trg) \
+	$(target)_DEBUG_STAGE.$(bld_type) \
+	$(target)_DEBUG_STAGE \
+	$(target)_DEBUG_INST.$(bld_trg).$(bld_trg_arch).$(bld_type) \
+	$(target)_DEBUG_INST.$(bld_trg).$(bld_trg_arch) \
+	$(target)_DEBUG_INST.$(bld_trg).$(bld_type) \
+	$(target)_DEBUG_INST.$(bld_trg_arch) \
+	$(target)_DEBUG_INST.$(bld_trg_cpu) \
+	$(target)_DEBUG_INST.$(bld_trg) \
+	$(target)_DEBUG_INST.$(bld_type) \
+	$(target)_DEBUG_INST)
+ ifneq ($(debug_stage),)
+  $(target)_1_DEBUG_STAGE := $($(debug_stage))
+ else
+  $(target)_1_DEBUG_STAGE := $(addprefix $(STAGE_DEBUG),$(stage))
+ endif
+ ifndef $(target)_1_DEBUG_STAGE
+  $(target)_1_DEBUG_STAGE := ./
+ endif
+else if1of ($(debug_insttype), none)
+ $(target)_1_DEBUG_STAGE :=
+else
+ $(error kBuild: Unknown value '$(debug_insttype)' for '$(target)_DEBUG_INSTTYPE'. Valid values are 'none', 'both' and 'stage'.)
+endif
+
+if1of ($(debug_insttype), both)
+ local debug_inst := $(firstdefined \
+	$(target)_DEBUG_INST.$(bld_trg).$(bld_trg_arch).$(bld_type) \
+	$(target)_DEBUG_INST.$(bld_trg).$(bld_trg_arch) \
+	$(target)_DEBUG_INST.$(bld_trg).$(bld_type) \
+	$(target)_DEBUG_INST.$(bld_trg_arch) \
+	$(target)_DEBUG_INST.$(bld_trg_cpu) \
+	$(target)_DEBUG_INST.$(bld_trg) \
+	$(target)_DEBUG_INST.$(bld_type) \
+	$(target)_DEBUG_INST)
+ ifneq ($(debug_inst),)
+  $(target)_1_DEBUG_INST := $($(debug_inst))
+ else
+  $(target)_1_DEBUG_INST := $(addprefix $(INST_DEBUG),$(inst))
+ endif
+ ifndef $(target)_1_DEBUG_INST
+  $(target)_1_DEBUG_INST := ./
+ endif
+else
+ $(target)_1_DEBUG_INST :=
+endif
+#$(warning $(NLTAB)$(target)_1_DEBUG_INST=$($(target)_1_DEBUG_INST)$(NLTAB)$(target)_1_DEBUG_STAGE=$($(target)_1_DEBUG_STAGE)$(NLTAB)insttype=$(insttype)$(NLTAB)debug_insttype=$(debug_insttype))
+
+endef # def_pass1_link_common
+$(eval-opt-var def_pass1_link_common)
+
+
+#
+# BLDPROGS (Pass 1)
+#
+define def_pass1_bldprog
+# set NOINST if not forced installation before doing the usual stuff.
+ifndef $(target)_INSTTYPE
+ ifndef $(target)_INST
+  ifndef $(target)_STAGE
+$(target)_INSTTYPE := none
+  endif
+ endif
+endif
+$(evalvalctx def_pass1_link_common)
+endef
+
+EXT     := EXE
+EXTPRE  := HOST
+definst := $(INST_BIN)
+tool_prefix := LD
+bld_trg_base_var := HOST
+$(foreach target, $(_ALL_BLDPROGS), \
+	$(evalvalctx def_pass1_bldprog))
+
+
+#
+# LIBRARIES (Pass 1)
+#
+EXT     := LIB
+EXTPRE  :=
+definst := $(INST_LIB)
+tool_prefix := AR
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_LIBRARIES), \
+	$(evalvalctx def_pass1_link_common))
+
+
+#
+# DLLS  (Pass 1)
+#
+EXT     := DLL
+EXTPRE  :=
+definst := $(INST_DLL)
+tool_prefix := LD
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_DLLS), \
+	$(evalvalctx def_pass1_link_common))
+
+
+#
+# IMPORT LIBRARIES (Pass 1)
+#
+#   - On OS/2 and windows these are libraries.
+#   - On other platforms they are fake DLLs.
+#
+if1of ($(KBUILD_TARGET), nt os2 win win64 win32)
+ EXT     := LIB
+ EXTPRE  :=
+ definst := $(INST_LIB)
+ tool_prefix := AR
+ bld_trg_base_var := TARGET
+ $(foreach target, $(_ALL_IMPORT_LIBS), \
+	$(evalvalctx def_pass1_link_common))
+else
+ EXT     := DLL
+ EXTPRE  :=
+ definst := $(INST_DLL)
+ tool_prefix := LD
+ bld_trg_base_var := TARGET
+ $(foreach target, $(_ALL_IMPORT_LIBS), \
+	$(evalvalctx def_pass1_link_common))
+endif
+
+
+#
+# PROGRAMS (Pass 1)
+#
+EXT     := EXE
+EXTPRE  :=
+definst := $(INST_BIN)
+tool_prefix := LD
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_PROGRAMS), \
+	$(evalvalctx def_pass1_link_common))
+
+
+#
+# SYSMODS (Pass 1)
+#
+EXT     := SYS
+EXTPRE  :=
+definst := $(INST_SYS)
+tool_prefix := LD
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_SYSMODS), \
+	$(evalvalctx def_pass1_link_common))
+
+
+#
+# MISCBINS (Pass 1)
+#
+EXT     := BIN
+EXTPRE  :=
+definst := $(INST_BIN)
+tool_prefix := LD
+bld_trg_base_var := TARGET
+$(foreach target, $(_ALL_MISCBINS), \
+	$(evalvalctx def_pass1_link_common))
+
+
+#
+# INSTALLS (Pass 1)
+# 	Note! INSTARGET_* for INSTALLS aren't available until later.
+#
+define def_pass1_install
+local bld_type     := $(firstword $($(target)_BLD_TYPE)     $(KBUILD_TYPE))
+local bld_trg      := $(firstword $($(target)_BLD_TRG)      $(KBUILD_TARGET))
+local bld_trg_arch := $(firstword $($(target)_BLD_TRG_ARCH) $(KBUILD_TARGET_ARCH))
+local bld_trg_cpu  := $(firstword $($(target)_BLD_TRG_CPU)  $(KBUILD_TARGET_CPU))
+# _1_TARGET
+$(target)_1_TARGET := $(PATH_TARGET)/$(target).ins
+$(call KB_FN_ASSIGN_DEPRECATED,TARGET_$(target),$($(target)_1_TARGET), $(target)_1_TARGET)
+
+# Determine and set 1_INSTTYPE.
+local insttype := $(firstword \
+	$($(target)_INSTTYPE.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_INSTTYPE.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_INSTTYPE.$(bld_trg).$(bld_type)) \
+	$($(target)_INSTTYPE.$(bld_trg_arch)) \
+	$($(target)_INSTTYPE.$(bld_trg_cpu)) \
+	$($(target)_INSTTYPE.$(bld_trg)) \
+	$($(target)_INSTTYPE.$(bld_type)) \
+	$($(target)_INSTTYPE) \
+	)
+ifeq ($(insttype),)
+ ifneq ($(firstword \
+	$($(target)_NOINST) \
+	$($(target)_NOINST.$(bld_trg)) \
+	$($(target)_NOINST.$(bld_trg).$(bld_trg_arch)) \
+	$($(target)_NOINST.$(bld_trg).$(bld_trg_arch).$(bld_type)) \
+	$($(target)_NOINST.$(bld_trg_arch)) \
+	$($(target)_NOINST.$(bld_trg_cpu)) \
+	$($(target)_NOINST.$(bld_type)) ),)
+   local insttype := none
+ else
+   local insttype := both
+ endif
+endif
+ifn1of ($(insttype), none both stage)
+ $(error kBuild: Unknown value '$(insttype)' for '$(target)_INSTTYPE'. Valid values are 'none', 'both' and 'stage'.)
+endif
+$(target)_1_INSTTYPE    := $(insttype)
+
+# Determine the actual INST and STAGE sub-dirs to use for this target.
+if1of ($(insttype), stage both)
+ local stage := $(strip $(firstdefined \
+	$(target)_STAGE.$(bld_trg).$(bld_trg_arch).$(bld_type) \
+	$(target)_STAGE.$(bld_trg).$(bld_trg_arch) \
+	$(target)_STAGE.$(bld_trg).$(bld_type) \
+	$(target)_STAGE.$(bld_trg_arch) \
+	$(target)_STAGE.$(bld_trg_cpu) \
+	$(target)_STAGE.$(bld_trg) \
+	$(target)_STAGE.$(bld_type) \
+	$(target)_STAGE \
+	$(target)_INST.$(bld_trg).$(bld_trg_arch).$(bld_type) \
+	$(target)_INST.$(bld_trg).$(bld_trg_arch) \
+	$(target)_INST.$(bld_trg).$(bld_type) \
+	$(target)_INST.$(bld_trg_arch) \
+	$(target)_INST.$(bld_trg_cpu) \
+	$(target)_INST.$(bld_trg) \
+	$(target)_INST.$(bld_type) \
+	$(target)_INST \
+	definst \
+	,value))
+ if $(words $(stage)) > 1
+  $(warning kBuild: The STAGE/INST property of install '$(target)' specifies multiple location, that is not supported.)
+  local stage := $(word 1, $(stage))
+ endif
+ $(target)_1_STAGE := $(stage)
+else
+ $(target)_1_STAGE = $(error _1_STAGE not used)
+endif
+
+if1of ($(insttype), both)
+ local inst := $(strip $(firstdefined \
+	$(target)_INST.$(bld_trg).$(bld_trg_arch).$(bld_type) \
+	$(target)_INST.$(bld_trg).$(bld_trg_arch) \
+	$(target)_INST.$(bld_trg).$(bld_type) \
+	$(target)_INST.$(bld_trg_arch) \
+	$(target)_INST.$(bld_trg_cpu) \
+	$(target)_INST.$(bld_trg) \
+	$(target)_INST.$(bld_type) \
+	$(target)_INST \
+	definst \
+	,value))
+ if $(words $(inst)) > 1
+  $(warning kBuild: The INST property of install '$(target)' specifies multiple location, that is not supported.)
+  local inst := $(word 1, $(inst))
+ endif
+ ifneq ($(root $(stage)),)
+  $(error kBuild: The effective INST property of install '$(target)' should not start with a root specification)
+ endif
+ $(target)_1_INST := $(inst)
+else
+ $(target)_1_INST = $(error _1_INST not used)
+endif
+
+# Block properties that we put off setting until pass 2 for INSTALLS.
+$(target)_1_STAGE_TARGET = $(error The '_1_STAGE_TARGET' property is not present on install targets.  Use '_2_STAGE_TARGETS' instead (set by pass 2!).)
+$(target)_1_INST_TARGET  = $(error The '_1_INST_TARGET' property is not present on install targets.  Use '_2_INST_TARGETS' instead (set by pass 2!).)
+INSTARGET_$(target)      = $(error The 'INSTARGET_' is deprecated and besides, it is being accessed to early.  Consider '_2_STAGE_TARGETS' or '_2_INST_TARGETS'.)
+
+# INSTARGET_ later.
+# PATH_*
+local outbase      := $(call TARGET_BASE,$(target),$(target))
+$(target)_0_OUTDIR := $(patsubst %/,%,$(dir $(outbase)))
+$(call KB_FN_ASSIGN_DEPRECATED,PATH_$(target),$($(target)_0_OUTDIR), $(target)_0_OUTDIR)
+endef # def_pass1_install
+$(eval-opt-var def_pass1_install)
+
+$(foreach target, $(_ALL_INSTALLS), \
+	$(evalvalctx def_pass1_install))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done pass 1)
+endif
+
+

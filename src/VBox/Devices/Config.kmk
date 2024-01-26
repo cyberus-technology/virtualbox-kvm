@@ -1,0 +1,149 @@
+# $Id: Config.kmk $
+## @file
+# kBuild Configuration file for the Devices.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+VBOX_DEVICES_CONFIG_KMK_INCLUDED = 1
+
+# Include the top-level configure file.
+ifndef VBOX_ROOT_CONFIG_KMK_INCLUDED
+ include $(PATH_ROOT)/Config.kmk
+endif
+
+# We need the VMM/Config.kmk one for the VMM_COMMON_DEFS variable.
+ifndef VBOX_VMM_CONFIG_KMK_INCLUDED
+ include $(PATH_ROOT)/src/VBox/VMM/Config.kmk
+endif
+
+VBOX_PATH_DEVICES_SRC := $(PATH_ROOT)/src/VBox/Devices
+
+VBOX_PATH_VMSVGA_DEVICE_INC := $(VBOX_PATH_DEVICES_SRC)/Graphics/vmsvga_include
+
+#
+# VBoxBios - Template for building 16-bit BIOS code.
+#
+# Compiler flags:
+#   -q    Quiet
+#   -0    Only use 8086 instruction.
+#   -wx   Max warning level
+#   -zl   Drop default library info.
+#   -zu   The stack segment (SS) is not same as DGROUP.
+#   -s    Drop stack overflow checks.
+#   -oafs Optimize: a=relaxed aliasing, f=stack frames, s=optimize for size.
+#   -ms   Memory model: small
+#   -hc   Generate codeview debug info.
+#   -d1+  Only do line numbers and a bit more, keeping things easily parsable for VBoxDbg.
+#
+# Disabled linker warnings:
+#   W1014: ?
+#   W1023: ?
+#   W2120: ?
+#   W1080: file F:\tinderbox\win-rel\out\win.amd64\release\obj\VBoxVgaBios386\vberom.obj is a 32-bit object file
+TEMPLATE_VBoxBios = ROM
+TEMPLATE_VBoxBios_INSTTYPE     = none
+TEMPLATE_VBoxBios_TOOL         = OPENWATCOM-16
+TEMPLATE_VBoxBios_LDTOOL       = OPENWATCOM-WL
+TEMPLATE_VBoxBios_ASTOOL       = OPENWATCOM-16
+TEMPLATE_VBoxBios_BLD_TRG      = os-agnostic
+TEMPLATE_VBoxBios_BLD_TRG_ARCH = x86
+TEMPLATE_VBoxBios_BINSUFF      = .rom
+TEMPLATE_VBoxBios_CDEFS        = IN_RING0
+TEMPLATE_VBoxBios_CXXDEFS      = IN_RING0
+TEMPLATE_VBoxBios_INCS         = . $(VBOX_PATH_DEVICES_SRC)/BiosCommonCode
+TEMPLATE_VBoxBios_ASFLAGS      = -q -wx -d1 -0
+TEMPLATE_VBoxBios_CFLAGS       = -q -0 -wx -zl -zu -s -oafs -ms -hc -d1+
+TEMPLATE_VBoxBios_CXXFLAGS     = $(TEMPLATE_VBoxBios_CFLAGS)
+TEMPLATE_VBoxBios_DEPS         = $(VBOX_VERSION_HEADER)
+TEMPLATE_VBoxBios_LDFLAGS      = system dos \
+	debug codeview all \
+	option quiet, nofarcalls, map, verbose, statics, symfile \
+	disable 1014, 1023, 2120, 1080
+TEMPLATE_VBoxBios_LNK_DEPS = $(VBOX_BIOSSUMS) $(VBOX_PATH_DEVICES_SRC)/BiosCommonCode/biosorg_check.sed
+TEMPLATE_VBoxBios_POST_CMDS = \
+	$(QUIET)$(SED_EXT) -n -f $(VBOX_PATH_DEVICES_SRC)/BiosCommonCode/biosorg_check.sed $(outbase).map \
+	&& $(MV_EXT) -f $(out) $(out).tmp \
+	&& $(VBOX_BIOSSUMS) $(out).tmp $(out) \
+	&& $(RM_EXT) -f $(out).tmp
+
+#
+# VBoxBios - Template for building 32-bit BIOS code.
+#
+TEMPLATE_VBoxBios32Lib = ROM
+TEMPLATE_VBoxBios32Lib_EXTENDS    = VBoxBios
+TEMPLATE_VBoxBios32Lib_INSTTYPE   = none
+TEMPLATE_VBoxBios32Lib_TOOL       = OPENWATCOM
+TEMPLATE_VBoxBios32Lib_ASTOOL     = OPENWATCOM
+TEMPLATE_VBoxBios32Lib_CFLAGS     = -q -wx -zu -s -oas -ms -nt=BIOS32 -nd=BIOS32 -hc
+ifeq ($(KBUILD_TARGET),darwin) # The Open Watcom version we use on darwin generate trouble for the link in -d1+ mode; -d2 doesn't work anywhere.
+ TEMPLATE_VBoxBios32Lib_CFLAGS   += -d1
+else
+ TEMPLATE_VBoxBios32Lib_CFLAGS   += -d1+
+endif
+TEMPLATE_VBoxBios32Lib_CXXFLAGS   = $(TEMPLATE_VBoxBios32_CFLAGS)
+TEMPLATE_VBoxBios32Lib_LNK_DEPS   = $(NO_SUCH_VARIABLE)
+TEMPLATE_VBoxBios32Lib_POST_CMDS  = $(NO_SUCH_VARIABLE)
+
+
+#
+# Audio configuration.
+# This must live here because of testcase/
+#
+VBOX_AUDIO_DEFS :=
+if 0 # Not stable yet.
+ # Enable microphone-in support for HDA. Otherwise only line-in is supported.
+ VBOX_AUDIO_DEFS += VBOX_WITH_AUDIO_HDA_MIC_IN
+
+ # Enable interleavig streams support for HDA. Needed for 5.1 surround support.
+ VBOX_AUDIO_DEFS  += VBOX_WITH_AUDIO_HDA_INTERLEAVING_STREAMS_SUPPORT
+
+ # Enable 5.1 surround support (Front, Center/LFE, Rear) for HDA.
+ # Without this, only stereo output (Front) is supported.
+ VBOX_AUDIO_DEFS += VBOX_WITH_AUDIO_HDA_51_SURROUND
+endif
+
+# Enable backend-independent device enumeration support.
+VBOX_AUDIO_DEFS  += VBOX_WITH_AUDIO_ENUM
+
+# Enable backend callback support.
+VBOX_AUDIO_DEFS += VBOX_WITH_AUDIO_CALLBACKS
+
+ifdef VBOX_WITH_HP_HDA
+ VBOX_AUDIO_DEFS += VBOX_WITH_HP_HDA
+endif
+ifdef VBOX_WITH_INTEL_HDA
+ VBOX_AUDIO_DEFS += VBOX_WITH_INTEL_HDA
+endif
+ifdef VBOX_WITH_NVIDIA_HDA
+ VBOX_AUDIO_DEFS += VBOX_WITH_NVIDIA_HDA
+endif
+
+# Not yet enabled: Callbacks for the device emulation to let the backends
+#                  tell the emulation when and how to process data.
+if 0
+ VBOX_AUDIO_DEFS  += VBOX_WITH_AUDIO_SB16_CALLBACKS
+ VBOX_AUDIO_DEFS  += VBOX_WITH_AUDIO_AC97_CALLBACKS
+ VBOX_AUDIO_DEFS  += VBOX_WITH_AUDIO_HDA_CALLBACKS
+endif
+

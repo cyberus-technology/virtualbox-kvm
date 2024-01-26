@@ -1,0 +1,148 @@
+# $Id: Config.kmk $
+## @file
+# kBuild Configuration file for the installers
+#
+
+#
+# Copyright (C) 2015-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+VBOX_INSTALLER_CONFIG_KMK_INCLUDED = 1
+
+# Include the top-level configure file.
+ifndef VBOX_ROOT_CONFIG_KMK_INCLUDED
+ include $(PATH_ROOT)/Config.kmk
+endif
+
+#
+# Generic stuff.
+#
+VBOX_PATH_INST_COMMON_SRC := $(PATH_ROOT)/src/VBox/Installer/common
+
+
+ifdef VBOX_WITH_PYTHON
+ VBOXINST_SDK_BINDINGS_XPCOM_PYTHON_FILES = \
+ 	sdk/bindings/xpcom/python/xpcom/__init__.py \
+ 	sdk/bindings/xpcom/python/xpcom/primitives.py \
+ 	sdk/bindings/xpcom/python/xpcom/file.py \
+ 	sdk/bindings/xpcom/python/xpcom/xpcom_consts.py \
+ 	sdk/bindings/xpcom/python/xpcom/nsError.py \
+ 	sdk/bindings/xpcom/python/xpcom/xpt.py \
+ 	sdk/bindings/xpcom/python/xpcom/components.py \
+ 	sdk/bindings/xpcom/python/xpcom/vboxxpcom.py \
+ 	sdk/bindings/xpcom/python/xpcom/client/__init__.py \
+ 	sdk/bindings/xpcom/python/xpcom/server/__init__.py \
+ 	sdk/bindings/xpcom/python/xpcom/server/enumerator.py \
+ 	sdk/bindings/xpcom/python/xpcom/server/factory.py \
+ 	sdk/bindings/xpcom/python/xpcom/server/loader.py \
+ 	sdk/bindings/xpcom/python/xpcom/server/module.py \
+ 	sdk/bindings/xpcom/python/xpcom/server/policy.py
+ VBOXINST_SDK_INSTALLER_PYTHON_FILES = \
+ 	sdk/installer/vboxapisetup.py \
+ 	sdk/installer/vboxapi/__init__.py \
+ 	sdk/installer/vboxapi/VirtualBox_constants.py
+endif
+
+
+#
+# List of unattended installation script templates (lives in
+# src/VBox/Main/UnattendedTemplates).
+#
+ifdef VBOX_WITH_UNATTENDED
+ VBOX_UNATTENDED_TEMPLATES := \
+ 	debian_preseed.cfg \
+ 	ubuntu_preseed.cfg \
+ 	fedora_ks.cfg \
+ 	ol_ks.cfg \
+ 	ol8_ks.cfg \
+ 	ol9_ks.cfg \
+ 	rhel3_ks.cfg \
+ 	rhel4_ks.cfg \
+ 	rhel5_ks.cfg \
+ 	redhat67_ks.cfg \
+ 	os2_response_files.rsp \
+ 	win_nt5_unattended.sif \
+ 	win_nt6_unattended.xml \
+ 	\
+ 	debian_postinstall.sh \
+ 	redhat_postinstall.sh \
+ 	ol_postinstall.sh \
+ 	os2_cid_install.cmd \
+ 	win_postinstall.cmd \
+ 	\
+ 	os2_util.exe
+ ifndef VBOX_OSE
+  VBOX_UNATTENDED_TEMPLATES += \
+  	lgw_ks.cfg \
+  	lgw_postinstall.sh
+ endif
+else
+ VBOX_UNATTENDED_TEMPLATES :=
+endif
+
+
+#
+# DTrace globals.
+#
+ifdef VBOX_WITH_DTRACE
+ ## List of files in the per arch DTrace library directory.
+ VBOXINST_DTRACE_LIB_ARCH_FILES := \
+ 	vbox-types.d \
+ 	vbox-arch-types.d \
+ 	vm.d \
+ 	cpumctx.d \
+ 	CPUMInternal.d \
+ 	x86.d
+ ## List of files in the per arch DTrace testcase directory.
+ VBOXINST_DTRACE_TESTCASE_ARCH_FILES := \
+ 	vbox-vm-struct-test.d
+ ## List of file in the DTrace scripts directory.
+ VBOXINST_DTRACE_SCRIPTS_FILES :=
+else
+ VBOXINST_DTRACE_LIB_ARCH_FILES :=
+ VBOXINST_DTRACE_TESTCASE_ARCH_FILES :=
+ VBOXINST_DTRACE_SCRIPTS_FILES :=
+endif
+
+
+#
+# Some combined package (CP) globals.
+#
+ifeq ($(KBUILD_TARGET_ARCH),x86)
+ VBOX_CP_THIS_BITS   := 32
+ ifdef VBOX_WITH_COMBINED_PACKAGE
+  VBOX_CP_OTHER_ARCH := amd64
+  VBOX_CP_OTHER_BITS := 64
+ else
+  VBOX_CP_OTHER_ARCH = $(error VBOX_CP_OTHER_ARCH used in without VBOX_WITH_COMBINED_PACKAGE set)
+  VBOX_CP_OTHER_BITS = $(error VBOX_CP_OTHER_ARCH used in without VBOX_CP_OTHER_BITS set)
+ endif
+else
+ VBOX_CP_THIS_BITS   := 64
+ ifdef VBOX_WITH_COMBINED_PACKAGE
+  VBOX_CP_OTHER_ARCH := x86
+  VBOX_CP_OTHER_BITS := 32
+ else
+  VBOX_CP_OTHER_ARCH = $(error VBOX_CP_OTHER_ARCH used in without VBOX_WITH_COMBINED_PACKAGE set)
+  VBOX_CP_OTHER_BITS = $(error VBOX_CP_OTHER_ARCH used in without VBOX_CP_OTHER_BITS set)
+ endif
+endif
+

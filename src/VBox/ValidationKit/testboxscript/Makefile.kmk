@@ -1,0 +1,97 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - TestBox Script.
+#
+
+#
+# Copyright (C) 2012-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+#
+# The TestBox script.
+#
+INSTALLS += testboxscript
+testboxscript_TEMPLATE = VBoxValidationKitR3
+testboxscript_INST = $(INST_TESTBOXSCRIPT)testboxscript/
+testboxscript_EXEC_SOURCES = \
+	testboxscript.py \
+	$(testboxscript_0_OUTDIR)/testboxscript_real.py \
+	setup.sh
+$(call VBOX_EDIT_VERSION_RULE_FN,testboxscript,testboxscript_real.py)
+
+testboxscript_SOURCES = \
+	testboxcommand.py \
+	testboxcommons.py \
+	testboxconnection.py \
+	testboxtasks.py \
+	testboxupgrade.py
+
+testboxscript_SOURCES.darwin = \
+	darwin/setup-routines.sh=>darwin/setup-routines.sh
+
+testboxscript_EXEC_SOURCES.linux = \
+	linux/testboxscript-service.sh=>linux/testboxscript-service.sh
+testboxscript_SOURCES.linux = \
+	../../Installer/linux/routines.sh=>linux/setup-installer-routines.sh \
+	linux/setup-routines.sh=>linux/setup-routines.sh
+
+testboxscript_SOURCES.solaris = \
+	solaris/setup-routines.sh=>solaris/setup-routines.sh
+
+testboxscript_SOURCES.win = \
+	win/autoexec-testbox.cmd=>win/autoexec-testbox.cmd \
+	win/readme.txt=>win/readme.txt \
+	$(if $(VBOX_OSE),,win/fix_stale_refs.py=>win/fix_stale_refs.py)
+
+
+#
+# Helper program, mostly for obtaining system information.
+#
+PROGRAMS += TestBoxHelper
+TestBoxHelper_TEMPLATE = VBoxValidationKitR3
+TestBoxHelper_INST     = $(INST_TESTBOXSCRIPT)$(KBUILD_TARGET)/$(KBUILD_TARGET_ARCH)/
+TestBoxHelper_SOURCES  = TestBoxHelper.cpp
+TestBoxHelper_LIBS.win = $(PATH_SDK_$(VBOX_WINPSDK)_LIB)/wbemuuid.lib
+TestBoxHelper_LDFLAGS.darwin = -framework CoreFoundation
+TestBoxHelper_VBOX_IMPORT_CHECKER.win.x86 = $(NO_SUCH_VARIABLE)
+
+
+#
+# Generate pylint & pychecker targets.
+#
+VBOX_VALIDATIONKIT_PYTHON_SOURCES += $(wildcard $(PATH_SUB_CURRENT)/*.py)
+
+$(evalcall def_vbox_validationkit_process_python_sources)
+include $(FILE_KBUILD_SUB_FOOTER)
+

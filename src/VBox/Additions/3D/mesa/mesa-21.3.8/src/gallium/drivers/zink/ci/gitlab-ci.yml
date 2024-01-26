@@ -1,0 +1,48 @@
+.zink-lvp-test:
+  extends:
+    - .zink-rules
+  variables:
+    ZINK_USE_LAVAPIPE: "true"
+    LIBGL_ALWAYS_SOFTWARE: "1"
+    GPU_VERSION: zink-lvp
+    # Fix non-conformant llvmpipe filter defaults
+    GALLIVM_PERF: "no_quad_lod"
+    LP_NUM_THREADS: 0
+
+.zink-piglit-quick_gl:
+  extends:
+    - .test-gl
+    - .zink-lvp-test
+  variables:
+    PIGLIT_PROFILES: quick_gl
+    PIGLIT_NO_WINDOW: 1
+    PIGLIT_RUNNER_OPTIONS: "--timeout 180"
+
+zink-piglit-timelines:
+  extends:
+    - .zink-piglit-quick_gl
+  script:
+    - xvfb-run --server-args='-noreset' sh -c "GALLIUM_DRIVER=zink VK_DRIVER=lvp install/piglit/piglit-runner.sh"
+
+zink-piglit-no_timelines:
+  extends:
+    - .zink-piglit-quick_gl
+  script:
+    - xvfb-run --server-args='-noreset' sh -c "ZINK_NO_TIMELINES=1 GALLIUM_DRIVER=zink VK_DRIVER=lvp install/piglit/piglit-runner.sh"
+
+zink-piglit-lazy:
+  extends:
+    - .zink-piglit-quick_gl
+  script:
+    - xvfb-run --server-args='-noreset' sh -c "ZINK_DESCRIPTORS=lazy GALLIUM_DRIVER=zink VK_DRIVER=lvp install/piglit/piglit-runner.sh"
+
+zink-lvp-deqp:
+  extends:
+    - .test-gl
+    - .deqp-test
+    - .zink-lvp-test
+  variables:
+    GALLIUM_DRIVER: "zink" # move here due to bad xvfb-run interactions
+    VK_DRIVER: lvp # Don't move to the top level, piglit runs do funny stuff with VK_DRIVER set
+    DEQP_SUITE: zink-lvp
+  parallel: 2

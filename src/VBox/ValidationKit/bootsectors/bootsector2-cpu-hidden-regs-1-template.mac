@@ -1,0 +1,352 @@
+; $Id: bootsector2-cpu-hidden-regs-1-template.mac $
+;; @file
+; bootsector2 hidden CPU registers - multi mode template.
+;
+
+;
+; Copyright (C) 2007-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+
+%include "bootsector2-template-header.mac"
+
+;;
+; Helper for reporting several register values at in a sequence.
+;
+BEGINPROC TMPL_NM(TestValueRegSZZ)
+        push    sAX
+        push    sBX
+
+        mov     xBX, xAX
+.next:
+        mov     xAX, xBX
+        call    TMPL_NM_CMN(TestValueReg)
+.inner_next:
+        inc     xBX
+        cmp     byte [xBX], 0
+        jne     .inner_next
+
+        inc     xBX
+        cmp     byte [xBX], 0
+        je      .done
+        jmp     .next
+
+.done
+        pop     sBX
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM(TestValueRegSZZ)
+
+;;
+; Tests various LDTR values
+;
+BEGINPROC TMPL_NM(doLdtrTests)
+        push    sAX
+
+        ; The inital LDT.
+        mov     sAX, .szLdtrInitial
+        call    TMPL_NM(TestValueRegSZZ)
+
+        ; Load our LDT
+        mov     eax, BS2_SEL_LDT
+        lldt    ax
+        mov     sAX, .szLdtrValid
+        call    TMPL_NM(TestValueRegSZZ)
+
+        ; NULL LDTR.
+        xor     eax, eax
+        lldt    ax
+        mov     sAX, .szLdtr0
+        call    TMPL_NM(TestValueRegSZZ)
+
+        ; NULL(1) LDTR.
+        mov     eax, 1
+        lldt    ax
+        mov     sAX, .szLdtr1
+        call    TMPL_NM(TestValueRegSZZ)
+
+        ; NULL(2) LDTR.
+        mov     eax, 2
+        lldt    ax
+        mov     sAX, .szLdtr2
+        call    TMPL_NM(TestValueRegSZZ)
+
+        ; NULL(3) LDTR.
+        mov     eax, 3
+        lldt    ax
+        mov     sAX, .szLdtr3
+        call    TMPL_NM(TestValueRegSZZ)
+
+.done
+        pop     sAX
+        ret
+
+.szLdtrInitial:
+        db      'LDTR(Initial) sel:ldtr', 0
+        db      'LDTR(Initial) base:ldtr_base', 0
+        db      'LDTR(Initial) limit:ldtr_lim', 0
+        db      'LDTR(Initial) attr:ldtr_attr', 0
+        db      0
+.szLdtrValid:
+        db      'LDTR(Valid) sel:ldtr', 0
+        db      'LDTR(Valid) base:ldtr_base', 0
+        db      'LDTR(Valid) limit:ldtr_lim', 0
+        db      'LDTR(Valid) attr:ldtr_attr', 0
+        db      0
+.szLdtr0:
+        db      'LDTR(0) sel:ldtr', 0
+        db      'LDTR(0) base:ldtr_base', 0
+        db      'LDTR(0) limit:ldtr_lim', 0
+        db      'LDTR(0) attr:ldtr_attr', 0
+        db      0
+.szLdtr1:
+        db      'LDTR(1) sel:ldtr', 0
+        db      'LDTR(1) base:ldtr_base', 0
+        db      'LDTR(1) limit:ldtr_lim', 0
+        db      'LDTR(1) attr:ldtr_attr', 0
+        db      0
+.szLdtr2:
+        db      'LDTR(2) sel:ldtr', 0
+        db      'LDTR(2) base:ldtr_base', 0
+        db      'LDTR(2) limit:ldtr_lim', 0
+        db      'LDTR(2) attr:ldtr_attr', 0
+        db      0
+.szLdtr3:
+        db      'LDTR(3) sel:ldtr', 0
+        db      'LDTR(3) base:ldtr_base', 0
+        db      'LDTR(3) limit:ldtr_lim', 0
+        db      'LDTR(3) attr:ldtr_attr', 0
+        db      0
+ENDPROC   TMPL_NM(doLdtrTests)
+
+
+;;
+; Tests various LDTR values
+;
+BEGINPROC TMPL_NM(doTrTests)
+        push    sAX
+
+        ; Initial TR values.
+        mov     sAX, .szTrInitial
+        call    TMPL_NM(TestValueRegSZZ)
+        jmp     .next1
+.szTrInitial:
+        db      'TR(Initial) sel:tr', 0
+        db      'TR(Initial) base:tr_base', 0
+        db      'TR(Initial) limit:tr_lim', 0
+        db      'TR(Initial) attr:tr_attr', 0
+        db      0
+.next1:
+
+        ; Our TR.
+%ifdef TMPL_CMN_LM
+        mov     ax, BS2_SEL_TSS64
+        ltr     ax
+        mov     sAX, .szTrTss64
+        call    TMPL_NM(TestValueRegSZZ)
+        jmp     .next2
+.szTrTss64:
+        db      'TR(64) sel:tr', 0
+        db      'TR(64) base:tr_base', 0
+        db      'TR(64) limit:tr_lim', 0
+        db      'TR(64) attr:tr_attr', 0
+        db      0
+
+%elifdef TMPL_PP32
+        mov     ax, BS2_SEL_TSS32
+        ltr     ax
+        mov     sAX, .szTrTss32
+        call    TMPL_NM(TestValueRegSZZ)
+        jmp     .next2
+.szTrTss32:
+        db      'TR(32) sel:tr', 0
+        db      'TR(32) base:tr_base', 0
+        db      'TR(32) limit:tr_lim', 0
+        db      'TR(32) attr:tr_attr', 0
+        db      0
+;%elifdef TMPL_PP16
+;        mov     ax, BS2_SEL_TSS16
+;        mov     sAX, .szTrTss16
+;        call    TMPL_NM(TestValueRegSZZ)
+%endif
+.next2:
+
+        ; Note! Loading 0 into TR is not possible, unlike with LDTR.
+
+.done
+        pop     sAX
+        ret
+ENDPROC   TMPL_NM(doTrTests)
+
+
+;;
+; Test loading of NULL selectors.
+;
+BEGINPROC TMPL_NM(doNullSelTests)
+        push    sAX
+        push    xBX
+        push    gs
+
+        mov     ax, ss
+        mov     gs, ax
+        mov     sAX, .szGsSs
+        call    TMPL_NM(TestValueRegSZZ)
+
+        xor     eax, eax
+        mov     gs, ax
+        mov     sAX, .szGs0
+        call    TMPL_NM(TestValueRegSZZ)
+
+        mov     ax, 3
+        mov     gs, ax
+        mov     sAX, .szGs3
+        call    TMPL_NM(TestValueRegSZZ)
+
+%ifdef TMPL_64BIT
+        pushf
+        cli
+        mov     bx, ss
+        mov     ax, 0
+        mov     ss, ax
+        mov     sAX, .szSs0
+        call    TMPL_NM(TestValueRegSZZ)
+        mov     ss, bx
+        popf
+
+        call    TMPL_NM_CMN(Bs2ToRing2)
+        mov     bx, ss
+        mov     ax, 2
+        mov     ss, ax
+        mov     sAX, .szSs1Ring2
+        call    TMPL_NM(TestValueRegSZZ)
+        mov     ss, bx
+
+        test    byte [g_fCpuAmd], 1
+        jz      .not_amd
+        mov     ax, 3
+        mov     ss, ax
+        mov     sAX, .szSs3Ring2
+        call    TMPL_NM(TestValueRegSZZ)
+
+.not_amd:
+        call    TMPL_NM_CMN(Bs2ToRing0)
+
+%endif
+
+        pop     gs
+        pop     xBX
+        pop     sAX
+        ret
+
+.szGsSs:
+        db      'GS(ss) sel:gs', 0
+        db      'GS(ss) base:gs_base', 0
+        db      'GS(ss) limit:gs_lim', 0
+        db      'GS(ss) attr:gs_attr', 0
+        db      0
+.szGs0:
+        db      'GS(0) sel:gs', 0
+        db      'GS(0) base:gs_base', 0
+        db      'GS(0) limit:gs_lim', 0
+        db      'GS(0) attr:gs_attr', 0
+        db      0
+.szGs3:
+        db      'GS(3) sel:gs', 0
+        db      'GS(3) base:gs_base', 0
+        db      'GS(3) limit:gs_lim', 0
+        db      'GS(3) attr:gs_attr', 0
+        db      0
+%ifdef TMPL_64BIT
+.szSs0:
+        db      'SS(0) sel:ss', 0
+        db      'SS(0) base:ss_base', 0
+        db      'SS(0) limit:ss_lim', 0
+        db      'SS(0) attr:ss_attr', 0
+        db      0
+.szSs1Ring2
+        db      'ring-2 SS(2) sel:ss', 0
+        db      'ring-2 SS(2) base:ss_base', 0
+        db      'ring-2 SS(2) limit:ss_lim', 0
+        db      'ring-2 SS(2) attr:ss_attr', 0
+        db      0
+.szSs3Ring2
+        db      'ring-2 SS(3) sel:ss', 0
+        db      'ring-2 SS(3) base:ss_base', 0
+        db      'ring-2 SS(3) limit:ss_lim', 0
+        db      'ring-2 SS(3) attr:ss_attr', 0
+        db      0
+%endif
+ENDPROC   TMPL_NM(doNullSelTests)
+
+
+BEGINPROC TMPL_NM(doTestsWorker)
+        push    sAX
+
+        mov     xAX, .s_szSubTest
+        call    TMPL_NM_CMN(TestSub)
+        call    TMPL_NM(doLdtrTests)
+        call    TMPL_NM(doTrTests)
+        call    TMPL_NM(doNullSelTests)
+
+.done
+        pop     sAX
+        ret
+
+.s_szSubTest:
+        db      TMPL_MODE_STR, 0
+ENDPROC   TMPL_NM(doTestsWorker)
+
+
+;;
+; Do the tests for this mode.
+;
+; @uses nothing
+;
+BEGINCODELOW
+BITS 16
+BEGINPROC TMPL_NM(doTests_rm)
+        call    TMPL_NM(Bs2IsModeSupported_rm)
+        jz      .done
+        call    TMPL_NM(Bs2EnterMode_rm)
+BITS TMPL_BITS
+
+        call    TMPL_NM(doTestsWorker)
+
+        call    TMPL_NM(Bs2ExitMode)
+BITS 16
+.done:
+        ret
+ENDPROC TMPL_NM(doTests_rm)
+TMPL_BEGINCODE
+BITS TMPL_BITS
+
+
+%include "bootsector2-template-footer.mac"
+

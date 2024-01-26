@@ -1,0 +1,133 @@
+# $Id: VBoxVgaDxe.inf $
+## @file
+# VBoxVgaDxe.inf
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+#
+# This code is based on:
+#
+#/** @file
+# Component description file for CirrusLogic5430 module
+#
+# Cirrus Logic 5430 Controller Driver.This driver is a sample implementation
+#  of the UGA Draw Protocol for the Cirrus Logic 5430 family of PCI video controllers.
+#  This driver is only usable in the EFI pre-boot environment. This sample is
+#  intended to show how the UGA Draw Protocol is able to function. The UGA I/O
+#  Protocol is not implemented in this sample. A fully compliant EFI UGA driver
+#  requires both the UGA Draw and the UGA I/O Protocol. Please refer to Microsoft's
+#  documentation on UGA for details on how to write a UGA driver that is able
+#  to function both in the EFI pre-boot environment and from the OS runtime.
+# Copyright (c) 2006 - 2009, Intel Corporation
+#
+#  All rights reserved. This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = VBoxVgaDxe
+  FILE_GUID                      = b8a784bc-af4d-4d95-bdb1-ba28236a54f4
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 1.0
+  EDK_RELEASE_VERSION            = 0x00020000
+  EFI_SPECIFICATION_VERSION      = 0x00020000
+
+  ENTRY_POINT                    = InitializeVBoxVga
+
+  PCI_VENDOR_ID  = 0x80EE
+  PCI_DEVICE_ID  = 0xBEEF
+  PCI_CLASS_CODE = 0x030000
+  PCI_REVISION   = 0x00
+  COMPRESS       = TRUE
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC
+#
+#  DRIVER_BINDING                =  VBoxVgaDriverBinding
+#  COMPONENT_NAME                =  VBoxVgaComponentName
+#
+
+[Sources.common]
+  ComponentName.c
+  DriverSupportedEfiVersion.c
+  VBoxVgaUgaDraw.c
+  VBoxVgaGraphicsOutput.c
+  VBoxVga.c
+  VBoxVga.h
+  Edid.c
+  VBoxVgaI2c.h
+  VBoxVgaI2c.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  VBoxPkg/VBoxPkg.dec
+
+[LibraryClasses]
+  UefiBootServicesTableLib
+  MemoryAllocationLib
+  UefiLib
+  UefiDriverEntryPoint
+  DebugLib
+  BaseMemoryLib
+  DevicePathLib
+  TimerLib
+
+[Protocols]
+  gEfiDriverSupportedEfiVersionProtocolGuid     # PROTOCOL ALWAYS_PRODUCED
+  gEfiUgaDrawProtocolGuid                       # PROTOCOL BY_START
+  gEfiGraphicsOutputProtocolGuid                # PROTOCOL BY_START
+  gEfiEdidDiscoveredProtocolGuid                # PROTOCOL BY_START
+  gEfiEdidActiveProtocolGuid                    # PROTOCOL BY_START
+  gEfiDevicePathProtocolGuid                    # PROTOCOL BY_START
+  gEfiPciIoProtocolGuid                         # PROTOCOL TO_START
+  gEfiEdidOverrideProtocolGuid                  # PROTOCOL TO_START
+
+
+[FeaturePcd.common]
+  gVBoxVgaPkgTokenSpaceGuid.PcdSupportGop
+  gVBoxVgaPkgTokenSpaceGuid.PcdSupportUga
+
+[Pcd]
+  gVBoxVgaPkgTokenSpaceGuid.PcdDriverSupportedEfiVersion
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution  ## PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution    ## PRODUCES

@@ -1,0 +1,80 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for the VBox Host drivers.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Include sub-makefiles.
+include $(PATH_SUB_CURRENT)/Support/Makefile.kmk
+
+if   !defined(VBOX_ONLY_DOCS) \
+  && !defined(VBOX_ONLY_EXTPACKS) \
+  && !defined(VBOX_ONLY_VALIDATIONKIT) \
+  && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SUPPORTED_HOST_ARCHS))" != ""
+ if1of ($(KBUILD_TARGET), win)
+  include $(PATH_SUB_CURRENT)/win/Makefile.kmk
+ endif
+ ifdef VBOX_WITH_USB
+  include $(PATH_SUB_CURRENT)/VBoxUSB/Makefile.kmk
+ endif
+ if1of ($(KBUILD_TARGET), darwin solaris win linux freebsd)
+  ifdef VBOX_WITH_NETFLT
+   include $(PATH_SUB_CURRENT)/VBoxNetFlt/Makefile.kmk
+  endif
+ endif
+ if1of ($(KBUILD_TARGET), darwin solaris win linux freebsd)
+  ifdef VBOX_WITH_NETADP
+   include $(PATH_SUB_CURRENT)/VBoxNetAdp/Makefile.kmk
+  endif
+ endif
+ if1of ($(KBUILD_TARGET), darwin freebsd linux solaris)
+  include $(PATH_SUB_CURRENT)/adpctl/Makefile.kmk
+ endif
+ if1of ($(KBUILD_TARGET), darwin freebsd linux)
+  include $(PATH_SUB_CURRENT)/$(KBUILD_TARGET)/Makefile.kmk
+ endif
+
+ if1of ($(KBUILD_TARGET), linux)
+  ifdef VBOX_WITH_PCI_PASSTHROUGH
+   include $(PATH_SUB_CURRENT)/VBoxPci/Makefile.kmk
+  endif
+ endif
+
+endif # !defined(VBOX_ONLY_DOCS) && !defined(VBOX_ONLY_VALIDATIONKIT)
+
+# Let kBuild generate the rules.
+include $(FILE_KBUILD_SUB_FOOTER)
+

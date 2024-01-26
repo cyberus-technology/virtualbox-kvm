@@ -1,0 +1,73 @@
+/* $Id: tstVDIo.vd $ */
+/**
+ * Storage: Simple I/O testing for most backends.
+ */
+
+/*
+ * Copyright (C) 2011-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+void tstIo(string strMessage, string strBackend)
+{
+    print(strMessage);
+    createdisk("test", true /* fVerify */);
+    create("test", "base", "tst.disk", "dynamic", strBackend, 200M, false /* fIgnoreFlush */, false);
+    io("test", true, 32, "seq", 64K, 0, 200M, 200M, 100, "none");
+    io("test", false, 1, "seq", 64K, 0, 200M, 200M, 100, "none");
+    io("test", true, 32, "seq", 64K, 0, 200M, 200M,   0, "none");
+    io("test", false, 1, "seq", 64K, 0, 200M, 200M,   0, "none");
+    create("test", "diff", "tst2.disk", "dynamic", strBackend, 200M, false /* fIgnoreFlush */, false);
+    io("test", true, 32, "rnd", 64K, 0, 200M, 200M,  50, "none");
+    io("test", false, 1, "rnd", 64K, 0, 200M, 200M,  50, "none");
+    create("test", "diff", "tst3.disk", "dynamic", strBackend, 200M, false /* fIgnoreFlush */, false);
+    io("test", true, 32, "rnd", 64K, 0, 200M, 200M,  50, "none");
+    io("test", false, 1, "rnd", 64K, 0, 200M, 200M,  50, "none");
+    close("test", "single", true /* fDelete */);
+    close("test", "single", true /* fDelete */);
+    close("test", "single", true /* fDelete */);
+    destroydisk("test");
+}
+
+void tstIoUnaligned(string strMessage, string strBackend)
+{
+    print(strMessage);
+    createdisk("test", true);
+    create("test", "base", "tst.disk", "dynamic", strBackend, 2G, false);
+    io("test", false, 1, "seq", 512, 3584, 4096, 512, 100, "none");
+    io("test", false, 1, "seq", 512, 3584, 4096, 512,   0, "none");
+    destroydisk("test");
+}
+
+void main()
+{
+    /* Init I/O RNG for generating random data for writes */
+    iorngcreate(10M, "manual", 1234567890);
+
+    tstIo("Testing VDI", "VDI");
+    tstIo("Testing VMDK", "VMDK");
+    tstIo("Testing VHD", "VHD");
+    tstIo("Testing Parallels", "Parallels");
+    tstIo("Testing QED", "QED");
+    tstIo("Testing QCOW", "QCOW");
+
+    iorngdestroy();
+}
+

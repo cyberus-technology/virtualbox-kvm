@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+    <?include Defines.wxi ?>
+
+    <Module Id="msm_VBoxNetworkFlt"
+            Language="!(loc.LANG)"
+            Version="$(var.Property_Version)">
+
+        <Package Id="687c000b-c74b-4336-a449-dd8b3c6a060e"
+                 Keywords="Installer, Setup"
+                 Description="$(env.VBOX_PRODUCT) $(var.Property_VersionExt) NetFlt installation package"
+                 Comments="$(env.VBOX_PRODUCT) NetFlt installation package"
+                 Manufacturer="$(env.VBOX_VENDOR)"
+                 InstallerVersion="200"
+                 AdminImage="yes"
+                 InstallPrivileges="elevated"
+                 Platform="$(var.Property_Platform)"
+                 SummaryCodepage="1252"/>
+
+        <?include CommonProperties.wxi ?>
+        <?include PublicProperties.wxi ?>
+
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+        <Property Id="localMSMNetworkType" Value="Empty" />
+        <Configuration Name="passedNetworkType" Format="Text" DefaultValue="Not passed"/>
+        <Substitution Table="CustomAction" Row="setNetworkTypeFLT" Column="Target" Value="[=passedNetworkType]"/>
+        <CustomAction Id="setNetworkTypeFLT" Property="localMSMNetworkType" Value="[localMSMNetworkType]" Execute="immediate" />
+        <CustomAction Id="correctNetworkTypeFLT" Property="localMSMNetworkType" Value="NDIS5" Execute="immediate" />
+<?endif ?>
+
+        <!-- Here comes the file/directory list -->
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="msm_VBoxNetworkFltFolder" FileSource=".">
+
+                <?include VBoxMergeNetFlt.wxi ?>
+
+            </Directory> <!-- msm_VBoxNetworkFltFolder -->
+        </Directory> <!-- TARGETDIR -->
+
+        <!-- Custom actions -->
+        <Binary Id="VBoxInstallHelper" SourceFile="$(env.PATH_OUT)\bin\VBoxInstallHelper.dll" />
+        <?include VBoxMergeNetFltCA.wxi ?>
+
+        <InstallExecuteSequence>
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+            <Custom Action="setNetworkTypeFLT" After="CostInitialize"/>
+            <Custom Action="correctNetworkTypeFLT" After="setNetworkTypeFLT">
+                <![CDATA[(VersionNT < 600)]]>
+            </Custom>
+<?endif ?>
+            <?include VBoxMergeNetFltSeq.wxi ?>
+        </InstallExecuteSequence>
+
+    </Module>
+</Wix>

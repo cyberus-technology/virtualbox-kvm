@@ -1,0 +1,114 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the OS/2 specific part of the guest additions.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+# Make sure our Config.kmk is included.
+ifndef VBOX_ADDITIONS_OS2_CONFIG_KMK_INCLUDED
+ include $(PATH_SUB_CURRENT)/Config.kmk
+endif
+
+#
+# The sub-makefiles.
+#
+ifndef VBOX_OSE
+ include $(PATH_SUB_CURRENT)/VBoxGradd/Makefile.kmk
+ # include $(PATH_SUB_CURRENT)/VBoxGrext/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/VBoxMouse/Makefile.kmk
+ include $(PATH_SUB_CURRENT)/Bin/Makefile.kmk
+endif
+include $(PATH_SUB_CURRENT)/VBoxSF/Makefile.kmk
+
+
+#
+# Installation helper.
+#
+PROGRAMS += VBoxReplaceDll
+VBoxReplaceDll_TEMPLATE = VBoxGuestR3Exe
+VBoxReplaceDll_SOURCES = VBoxReplaceDll.cpp
+
+
+#
+# A barebone installer.
+#
+PROGRAMS += VBoxOs2AdditionsInstall
+VBoxOs2AdditionsInstall_TEMPLATE         = DUMMY
+VBoxOs2AdditionsInstall_TOOL             = OPENWATCOM
+VBoxOs2AdditionsInstall_ASTOOL           = OPENWATCOM
+VBoxOs2AdditionsInstall_BLD_TRG          = os2
+VBoxOs2AdditionsInstall_BLD_TRG_ARCH     = x86
+VBoxOs2AdditionsInstall_EXESUFF          = .exe
+VBoxOs2AdditionsInstall_INST             = $(INST_ADDITIONS)
+VBoxOs2AdditionsInstall_DEFS             = IN_RING3 IN_RT_R3 IN_RT_STATIC RT_NO_STRICT
+VBoxOs2AdditionsInstall_CFLAGS           = -w3
+VBoxOs2AdditionsInstall_CFLAGS.release   = -os
+VBoxOs2AdditionsInstall_CXXFLAGS         = -w3
+VBoxOs2AdditionsInstall_CXXFLAGS.release = -os
+VBoxOs2AdditionsInstall_INCS             = \
+	$(PATH_TOOL_OPENWATCOM)/h/os2
+VBoxOs2AdditionsInstall_SOURCES          = \
+	VBoxOs2AdditionsInstall.cpp \
+	$(VBOX_PATH_RUNTIME_SRC)/common/path/RTPathStripFilename.cpp \
+	$(VBOX_PATH_RUNTIME_SRC)/common/path/RTPathEnsureTrailingSeparator.cpp
+if 1
+ VBOX_PATH_RUNTIME_SRC ?= $(PATH_ROOT)/src/VBox/Runtime
+ VBoxOs2AdditionsInstall_LDTOOL          = OPENWATCOM-WL
+ VBoxOs2AdditionsInstall_CFLAGS         += -zl -s -zc -xd -xds
+ VBoxOs2AdditionsInstall_CXXFLAGS       += -zl -s -zc -xd -xds
+ VBoxOs2AdditionsInstall_LDFLAGS         = \
+ 	SYSTEM os2v2 \
+ 	OPTION START=_VBoxOs2AdditionsInstallMain \
+ 	OPTION STACK=16384 \
+ 	OPTION ELiminate \
+ 	OPTION DOSSeg
+ VBoxOs2AdditionsInstall_DEFS           += IPRT_NO_CRT RT_WITH_NOCRT_ALIASES
+ VBoxOs2AdditionsInstall_INCS           <= \
+ 	$(PATH_ROOT)/include/iprt/nocrt \
+ 	$(VBOX_PATH_RUNTIME_SRC)/include
+ VBoxOs2AdditionsInstall_SOURCES        += \
+ 	VBoxOs2AdditionsInstallA.asm \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/strcpy.cpp \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/strchr.cpp \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/strlen.cpp \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/strncmp.cpp \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/memchr.cpp \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/memcmp.cpp \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/memcpy.cpp \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/memrchr.cpp \
+ 	$(VBOX_PATH_RUNTIME_SRC)/common/string/memset.cpp
+ VBoxOs2AdditionsInstall_LIBS             = \
+ 	$(PATH_TOOL_OPENWATCOM)/lib386/os2/os2386.lib
+else
+ VBoxOs2AdditionsInstall_CFLAGS         +=
+ VBoxOs2AdditionsInstall_CXXFLAGS       +=
+ VBoxOs2AdditionsInstall_LDFLAGS         = -bcl=os2v2 -k16384 -'OPTION START=_VBoxOs2AdditionsInstallMain'
+endif
+
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

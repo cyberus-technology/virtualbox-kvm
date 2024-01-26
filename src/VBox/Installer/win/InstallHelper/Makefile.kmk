@@ -1,0 +1,65 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for VBoxInstallHelper.dll.
+#
+
+#
+# Copyright (C) 2008-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+
+DLLS += VBoxInstallHelper
+VBoxInstallHelper_TEMPLATE = VBoxR3StaticDllNoAsan
+VBoxInstallHelper_SDKS     = ReorderCompilerIncs $(VBOX_WINPSDK) $(VBOX_WINDDK)
+VBoxInstallHelper_DEFS     = _WIN32_WINNT=0x0501 _UNICODE UNICODE VBOX_SVN_REV=$(VBOX_SVN_REV)
+ifdef VBOX_WITH_NETFLT
+ VBoxInstallHelper_SDKS   += VBoxWinNewDevLib
+ VBoxInstallHelper_DEFS   += VBOX_WITH_NETFLT=1
+endif
+VBoxInstallHelper_DEPS     = $(VBOX_SVN_REV_KMK)
+VBoxInstallHelper_SOURCES  = \
+	VBoxInstallHelper.cpp \
+	VBoxInstallHelper.def \
+	VBoxInstallHelper.rc \
+	VBoxCommon.cpp
+ifndef VBOX_OSE
+ VBoxInstallHelper_SOURCES += \
+ 	internal/VBoxSerial.cpp
+endif
+VBoxInstallHelper_LIBS    = \
+	$(PATH_SDK_$(VBOX_WINPSDK)_LIB)/Msi.lib
+ifdef VBOX_WITH_NETFLT
+ VBoxInstallHelper_LIBS   += \
+ 	$(PATH_STAGE_LIB)/WinNetConfigSharedStatic.lib \
+ 	$(PATH_STAGE_LIB)/VBoxDrvCfgSharedStatic.lib \
+ 	$(PATH_TOOL_$(VBOX_VCC_TOOL)_LIB)/comsupp.lib \
+ 	$(PATH_SDK_$(VBOX_WINPSDK)_LIB)/WbemUuid.Lib
+endif
+
+if "$(KBUILD_TARGET)" == "win" && defined(VBOX_WITH_TESTCASES) && !defined(VBOX_OSE)
+ include $(PATH_SUB_CURRENT)/testcase/Makefile.kmk
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

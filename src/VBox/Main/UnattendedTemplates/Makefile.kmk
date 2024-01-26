@@ -1,0 +1,76 @@
+# $Id: Makefile.kmk $
+## @file
+# Top-level makefile for src/VBox/Main/UnattendedTemplates.
+#
+
+#
+# Copyright (C) 2017-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+ifdef VBOX_WITH_UNATTENDED
+
+ # Note! When updating the source list here, VBOX_UNATTENDED_TEMPLATES in
+ #       ../../Installer/Config.kmk must be updated too!
+ INSTALLS += VBoxUnattendedTemplates
+ VBoxUnattendedTemplates_INST = $(INST_UNATTENDED_TEMPLATES)
+ VBoxUnattendedTemplates_MODE = a+r,u+w
+ VBoxUnattendedTemplates_SOURCES = \
+ 	debian_preseed.cfg \
+ 	ubuntu_preseed.cfg \
+ 	rhel3_ks.cfg \
+ 	rhel4_ks.cfg \
+ 	rhel5_ks.cfg \
+ 	redhat67_ks.cfg \
+ 	ol_ks.cfg \
+ 	ol8_ks.cfg \
+ 	ol9_ks.cfg \
+ 	fedora_ks.cfg \
+ 	suse_autoinstall.xml \
+ 	os2_response_files.rsp \
+ 	win_nt5_unattended.sif \
+ 	win_nt6_unattended.xml \
+ 	\
+ 	debian_postinstall.sh \
+ 	redhat_postinstall.sh \
+ 	ol_postinstall.sh \
+ 	os2_cid_install.cmd \
+ 	win_postinstall.cmd \
+ 	freebsd_installer.cfg \
+ 	freebsd_postinstall.sh
+
+ ifndef VBOX_WITH_OPEN_WATCOM
+  VBoxUnattendedTemplates_SOURCES += \
+  	os2_util.exe
+ endif
+
+ ifndef VBOX_OSE
+  VBoxUnattendedTemplates_SOURCES += \
+  	lgw_ks.cfg \
+  	lgw_postinstall.sh
+ endif
+
+endif # VBOX_WITH_UNATTENDED
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

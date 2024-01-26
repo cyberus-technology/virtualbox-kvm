@@ -1,0 +1,98 @@
+# $Id: Makefile.kmk $
+## @file
+# VirtualBox Validation Kit - Makefile for generating .html from .txt.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+
+# Need proper shell on windows.
+DEPTH = ../../../../..
+ifneq ($(wildcard $(DEPTH)/Config.kmk),)
+ include $(KBUILD_PATH)/header.kmk
+else
+ VBOX_BLD_PYTHON ?= python
+endif
+
+
+GENERATED_FILES = TestManagerDatabaseComments.pgsql
+PSQL := $(firstword $(which $(foreach pgver, 16 15 14 13 12 10 11 95 94 93 92,psql$(pgver)) ) psql)
+ifeq ($(PSQL_DB_HOST),)
+ PSQL_DB_HOST := localhost # Use localhost if nothing else is set.
+endif
+ifeq ($(PSQL_DB_PORT),)
+ PSQL_DB_PORT := 5432 # Same for the port; use the default.
+endif
+ifeq ($(PSQL_DB_USER),)
+ PSQL_DB_USER := postgres
+endif
+PSQL_OPTS = --user=$(PSQL_DB_USER) --set=ON_ERROR_STOP=1 --host=$(PSQL_DB_HOST) --port=$(PSQL_DB_PORT)
+
+all: $(GENERATED_FILES)
+
+clean:
+	kmk_builtin_rm -f -- $(GENERATED_FILES)
+
+
+TestManagerDatabaseComments.pgsql: TestManagerDatabaseInit.pgsql gen-sql-comments.py
+	LC_ALL=C $(VBOX_BLD_PYTHON) gen-sql-comments.py $< > $@
+
+
+load-testmanager-db: \
+		TestManagerDatabaseInit.pgsql \
+		TestManagerDatabaseComments.pgsql \
+		../core/useraccount.pgsql \
+		../core/testcase.pgsql \
+		../core/testbox.pgsql \
+		../core/globalresource.pgsql
+	@kmk_builtin_echo "Creating testmanager database: For script verification only!"
+	$(PSQL) $(PSQL_OPTS) -f TestManagerDatabaseInit.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f TestManagerDatabaseComments.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f ../core/useraccount.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f ../core/testcase.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f ../core/testbox.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f ../core/globalresource.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f TestManagerDatabaseDefaultUserAccounts.pgsql
+
+reload-testmanager-db-functions: \
+		../core/useraccount.pgsql \
+		../core/testcase.pgsql \
+		../core/testbox.pgsql \
+		../core/globalresource.pgsql
+	@kmk_builtin_echo "Reloading testmanager database functions"
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f ../core/useraccount.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f ../core/testcase.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f ../core/testbox.pgsql
+	$(PSQL) $(PSQL_OPTS) -d testmanager -f ../core/globalresource.pgsql
+
+# Only for prettier graphs:
+#	$(PSQL) $(PSQL_OPTS) -d testmanager -f TestManagerDatabaseForeignKeyErHacks.pgsql

@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    manpage, user manual, usage: VBoxManage modifymedium
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd"[
+<!ENTITY % all.entities SYSTEM "all-entities.ent">
+%all.entities;
+]>
+<refentry id="vboxmanage-modifymedium" lang="en">
+  <refentryinfo>
+    <pubdate>$Date: 2023-01-17 15:15:46 +0100 (Tue, 17 Jan 2023) $</pubdate>
+    <title>VBoxManage modifymedium</title>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>VBoxManage-modifymedium</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>VBoxManage-modifymedium</refname>
+    <refpurpose>изменяет характеристики существующего образа диска</refpurpose>
+    <refclass>&product-name;</refclass>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis id="synopsis-vboxmanage-modifymedium">
+<!-- The 'id' is mandatory and must start with 'synopsis-'. -->
+      <command>VBoxManage modifymedium</command>
+      <group>
+        <arg choice="plain">disk</arg>
+        <arg choice="plain">dvd</arg>
+        <arg choice="plain">floppy</arg>
+      </group>
+      <group choice="req">
+        <arg choice="plain"><replaceable>uuid</replaceable></arg>
+        <arg choice="plain"><replaceable>имя-файла</replaceable></arg>
+      </group>
+      <arg>--autoreset=on | off</arg>
+      <arg>--compact</arg>
+      <arg>--description=<replaceable>описание</replaceable></arg>
+      <arg>--move=<replaceable>путь</replaceable></arg>
+      <arg>--property=<replaceable>имя</replaceable>=[<replaceable>значение</replaceable>]</arg>
+      <arg>--resize=<replaceable>мегабайты</replaceable> | --resizebyte=<replaceable>байты</replaceable></arg>
+      <arg>--setlocation=<replaceable>путь</replaceable></arg>
+      <arg>--type=normal | writethrough | immutable | shareable | readonly | multiattach</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Описание</title>
+    <para>
+      Команда <command>VBoxManage modifymedium</command> позволяет
+      изменить характеристики существующего образа диска.
+    </para>
+    <note>
+      <para>
+        Для совместимости с более ранними версиями &product-name;
+        можно использовать команды <command>modifyvdi</command> и
+        <command>modifyhd</command>.
+      </para>
+    </note>
+    <variablelist>
+      <varlistentry>
+        <term>disk | dvd | floppy</term>
+        <listitem><para>
+            Задает тип носителя образа.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><replaceable>имя-файла</replaceable></term>
+        <listitem><para>
+            Задает Универсальный Уникальный Идентификатор (UUID) или
+            путь к образу диска в файловой системе хоста. UUID можно
+            использовать, только если носитель зарегистрирован.
+            Используйте команду <command>VBoxManage list hdds</command>
+            для отображения зарегистрированных образов. Можно указывать
+            как абсолютный, так и относительный пути к носителю.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--autoreset=on | off</option></term>
+        <listitem><para>
+            Указывает, сбрасывать ли автоматически неизменяемый
+            жесткий диск при каждом старте виртуальной машины (ВМ).
+            Эта опция только для неизменяемых жестких дисков и
+            значение по умолчанию <literal>on</literal>.
+            Смотрите <xref linkend="hdimagewrites" />.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--compact</option></term>
+        <listitem><para>
+            Сжимает образы дисков путем удаления блоков содержащих
+            только нули. Эта опция уменьшает динамически расширяемый
+            образ и уменьшает <emphasis>физический</emphasis> размер
+            образа не влияя на логический размер виртуального диска.
+          </para><para>
+            Можно использовать эту опцию для базовых образов или
+            для разностных образов, созданных как часть снимка.
+          </para><note>
+            <para>
+              Перед сжатием образа, необходимо использовать подходящее
+              ПО для обнуления свободного пространства в гостевой
+              системе. Например:
+            </para>
+            <itemizedlist>
+              <listitem><para>
+                  <emphasis role="bold">Гости Windows.</emphasis> Запустите
+                  команду <command>sdelete -z</command>.
+                </para></listitem>
+              <listitem><para>
+                  <emphasis role="bold">Гости Linux.</emphasis> Используйте
+                  утилиту <command>zerofree</command>, которая поддерживает
+                  файловые системы <literal>ext2</literal> и
+                  <literal>ext3</literal>.
+                </para></listitem>
+              <listitem><para>
+                  <emphasis role="bold">Гости Mac OS X.</emphasis> Используйте
+                  команду <command>diskutil secureErase freespace 0 /</command>.
+                </para></listitem>
+            </itemizedlist>
+          </note><para>
+            Заметим, что эта опция может использоваться только для
+            сжатия VDI образов. Для сжатия не-VDI образов, можно
+            обнулить свободные блоки и затем клонировать диск в
+            любой другой динамически расширяемый формат.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--description=<replaceable>описание</replaceable></option></term>
+        <listitem><para>
+            Задает текстовое описание носителя.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--move=<replaceable>путь</replaceable></option></term>
+        <listitem><para>
+            Задает относительный или абсолютный путь к носителю в
+            хост-системе. Используйте эту опцию для перемещения
+            носителя в другое расположения в хост-системе.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--property=<replaceable>имя</replaceable>=<replaceable>значение</replaceable></option></term>
+        <listitem><para>
+            Задает имя и значение свойства носителя.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--resize=<replaceable>размер</replaceable></option></term>
+        <listitem><para>
+            Задает новую емкость существующего образа в МБ. Эту опцию
+            можно использовать только для увеличения емкости образа.
+            Невозможно уменьшить емкость образа.
+          </para><para>
+            Заметим, можно изменить размер только динамически расширяемого
+            диска, использующих форматы VDI и VHD. Эта опция подстраивает
+            <emphasis>логический</emphasis> размер виртуального диска и
+            лишь немного влияет на физический размер.
+          </para><para>
+            Например, если ваш динамически расширяемый 10 ГБ диск полон,
+            можно использовать опцию <option>--resize 15360</option>
+            для увеличения емкости существующего диска до 15 ГБ
+            (15360 МБ). Эта операция позволяет избежать создания нового
+            диска и копирования всех данных со старого внутри ВМ.
+          </para><para>
+            Обратите внимание, эта опция меняет емкость диска. Поэтому,
+            может понадобиться воспользоваться впоследствии программой
+            управления разделами в гостевой системе для подгонки
+            разделов под изменившийся размер диска.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--resizebyte=<replaceable>размер</replaceable></option></term>
+        <listitem><para>
+            Задает новую емкость существующего образа в байтах.
+            Эта опция подобна опции <option>--resize</option>,
+            за исключением того, что размер задается в байтах а
+            не в МБ.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--setlocation=<replaceable>путь</replaceable></option></term>
+        <listitem><para>
+            Задает новое расположение носителя в хост-системе после
+            перемещения. Путь может быть как относительно текущей
+            директории так и абсолютным.
+          </para><para>
+            Заметим, что команда <command>VBoxManage modifymedium</command>
+            не производит какие-либо проверки указанного пути. Убедитесь,
+            что путь корректен.
+          </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--type</option></term>
+        <listitem><para>
+            Задает новый тип режима существующего образа. Допустимые
+            значения <literal>normal</literal>,
+            <literal>immutable</literal>,
+            <literal>writethrough</literal>,
+            <literal>multi-attach</literal>,
+            <literal>shareable</literal>, and
+            <literal>readonly</literal>. Описание этих типов режимов
+            смотрите в <xref linkend="hdimagewrites" />.
+          </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Примеры</title>
+    <remark role="help-scope" condition="GLOBAL" />
+    <para>
+      Следующая команда изменяет описание файла образа диска, называемого
+      <filename>disk01.vdi</filename>.
+    </para>
+<screen>$ VBoxManage modifymedium disk disk01.vdi --description "Oracle Linux 7 image"</screen>
+    <para>
+      Следующая команда изменяет режим записи для файла образа диска,
+      называемого <filename>disk01.vdi</filename>.
+    </para>
+<screen>$ VBoxManage modifymedium disk disk01.vdi --type writethrough</screen>
+  </refsect1>
+
+  <refsect1>
+    <title>Смотрите также</title>
+    <para>
+      <xref linkend="vboxmanage-list" />
+    </para>
+  </refsect1>
+</refentry>

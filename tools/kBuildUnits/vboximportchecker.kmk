@@ -1,0 +1,56 @@
+# $Id: vboximportchecker.kmk $
+## @file
+# VBox import checker unit.
+#
+
+#
+# Copyright (C) 2017-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+UNIT_vboximportchecker = bldRTLdrCheckImports
+
+# Add our property.
+PROPS_SINGLE          += VBOX_IMPORT_CHECKER
+PROPS_SINGLE_LNK      += VBOX_IMPORT_CHECKER
+PROPS_PROGRAMS_SINGLE += VBOX_IMPORT_CHECKER
+PROPS_DLLS_SINGLE     += VBOX_IMPORT_CHECKER
+PROPS_SYSMODS_SINGLE  += VBOX_IMPORT_CHECKER
+
+# Helper for expanding certain variables while assigning.
+define def_unit_vboximportchecker_internal_expand_twice
+ $(target)_POST_CMDS += $$(if-expr "$$(tool_do)" != "LINK_LIBRARY",$$(NLTAB)$$(VBOX_RTLDRCHECKIMPORTS) -q -p "$$(KBUILD_DEVTOOLS)/$(bld_trg).$(bld_trg_arch)/exports/$$($(target)_2_VBOX_IMPORT_CHECKER)" $$(out),)
+endef
+
+define def_unit_vboximportchecker_target_pre
+ # Do not apply to ASAN builds as it requires newere DLLs.
+ ifneq ($(KBUILD_TYPE),asan)
+
+  # Set pass 2 variable (simpler) and act on it.
+  $(target)_2_VBOX_IMPORT_CHECKER := $(evalcall def_fn_prop_get_first_defined,VBOX_IMPORT_CHECKER)
+  ifdef $(target)_2_VBOX_IMPORT_CHECKER
+   $(target)_LNK_ORDERDEPS += $(VBOX_RTLDRCHECKIMPORTS)
+   $(eval $(def_unit_vboximportchecker_internal_expand_twice))
+  endif
+
+ endif
+
+endef
+

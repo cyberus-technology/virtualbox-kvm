@@ -1,0 +1,1059 @@
+# $Id: footer-inherit-uses-tools.kmk 3121 2017-10-31 10:58:59Z bird $
+## @file
+# kBuild - Footer - Target lists - Pass 2 - Template & Target Inheritance, Uses and Tools.
+#
+
+#
+# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version source of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+## Converts a variable from simple to recursive flavor.
+# This is used by def_inherit_template_one_accumulate_l and def_inherit_template_one_accumulate_r.
+# @param    $1              The variable name.
+define def_simple_2_recursive
+$1_DEFERRED := $$($1)
+$1 = $$($1_DEFERRED)
+endef
+
+
+## Inherit one keyword in a non-accumulative manner.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+define def_inherit_one_keyword
+ifdef $(trg)_$(prop).$(src_key)
+ ifndef $(trg)_$(prop).$(trg_key)
+  $(trg)_$(prop).$(trg_key) = $($(trg)_$(prop).$(src_key))
+ endif
+endif
+endef
+
+
+# EXPAND_BY = overriding
+
+## Inherit one keyword in a non-accumulative manner.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+define def_inherit_one_keyword_overriding_now_l
+ifdef $(trg)_$(prop).$(src_key)
+ ifndef $(trg)_$(prop).$(trg_key)
+  $(trg)_$(prop).$(trg_key) := $($(trg)_$(prop).$(src_key))
+ endif
+endif
+endef
+
+## @copydoc def_inherit_one_overriding_now_l
+define def_inherit_one_keyword_overriding_now_r
+ifdef $(trg)_$(prop).$(src_key)
+ ifndef $(trg)_$(prop).$(trg_key)
+  $(trg)_$(prop).$(trg_key) := $($(trg)_$(prop).$(src_key))
+ endif
+endif
+endef
+
+## Inherit one keyword in a non-accumulative manner, deferred expansion.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+# @remark This define relies on double evaluation
+define def_inherit_one_keyword_overriding_deferred
+ifdef $(trg)_$(prop).$(src_key)
+ ifndef $(trg)_$(prop).$(trg_key)
+  $(trg)_$(prop).$(trg_key) = $$($(trg)_$(prop).$(src_key))
+ endif
+endif
+endef
+
+## @copydoc def_inherit_one_overriding_deferred
+define def_inherit_one_keyword_overriding_deferred_l
+ifdef $(trg)_$(prop).$(src_key)
+ ifndef $(trg)_$(prop).$(trg_key)
+  $(trg)_$(prop).$(trg_key) = $$($(trg)_$(prop).$(src_key))
+ endif
+endif
+endef
+
+## @copydoc def_inherit_one_overriding_deferred
+define def_inherit_one_keyword_overriding_deferred_r
+ifdef $(trg)_$(prop).$(src_key)
+ ifndef $(trg)_$(prop).$(trg_key)
+  $(trg)_$(prop).$(trg_key) = $$($(trg)_$(prop).$(src_key))
+ endif
+endif
+endef
+
+
+# EXPAND_BY = prepending
+
+## Inherit one keyword in a prepending manner.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+define def_inherit_one_keyword_prepending_now_l
+ifdef $(trg)_$(prop).$(src_key)
+ $(trg)_$(prop).$(trg_key) := $($(trg)_$(prop).$(src_key)) $($(trg)_$(prop).$(trg_key))
+endif
+endef
+
+## @copydoc def_inherit_one_prepending_now_l
+define def_inherit_one_keyword_prepending_now_r
+ifdef $(trg)_$(prop).$(src_key)
+ $(trg)_$(prop).$(trg_key) := $($(trg)_$(prop).$(trg_key)) $($(trg)_$(prop).$(src_key))
+endif
+endef
+
+## Inherit one keyword in a non-accumulative manner, deferred expansion.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+# @remark This define relies on double evaluation
+define def_inherit_one_keyword_prepending_deferred
+ifdef $(trg)_$(prop).$(src_key)
+ ifndef $(trg)_$(prop).$(trg_key)
+  $(trg)_$(prop).$(trg_key) = $$($(trg)_$(prop).$(src_key))
+ endif
+endif
+endef
+
+## Inherit one keyword in a prepending manner, deferred expansion.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+define def_inherit_one_keyword_prepending_deferred_l
+ifdef $(trg)_$(prop).$(src_key)
+ ifeq ($$(flavor $(trg)_$(prop).$(trg_key)),simple)
+  $$(evalcall2 def_simple_2_recursive,$(trg)_$(prop).$(trg_key))
+ endif
+ $(trg)_$(prop).$(trg_key) <= $$($(trg)_$(prop).$(src_key))
+endif
+endef
+
+## @copydoc def_inherit_one_prepending_deferred_l
+define def_inherit_one_keyword_prepending_deferred_r
+ifdef $(trg)_$(prop).$(src_key)
+ ifeq ($$(flavor $(trg)_$(prop).$(trg_key)),simple)
+  $$(evalcall2 def_simple_2_recursive,$(trg)_$(prop).$(trg_key))
+ endif
+ $(trg)_$(prop).$(trg_key) += $$($(trg)_$(prop).$(src_key))
+endif
+endef
+
+
+# EXPAND_BY = appending
+
+## Inherit one keyword in an appending manner.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+define def_inherit_one_keyword_appending_now_l
+ifdef $(trg)_$(prop).$(src_key)
+ $(trg)_$(prop).$(trg_key) := $($(trg)_$(prop).$(trg_key)) $($(trg)_$(prop).$(src_key))
+endif
+endef
+
+## @copydoc def_inherit_one_appending_now_l
+define def_inherit_one_keyword_appending_now_r
+ifdef $(trg)_$(prop).$(src_key)
+ $(trg)_$(prop).$(trg_key) := $($(trg)_$(prop).$(src_key)) $($(trg)_$(prop).$(trg_key))
+endif
+endef
+
+## Inherit one keyword in a non-accumulative manner, deferred expansion.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+# @remark This define relies on double evaluation
+define def_inherit_one_keyword_appending_deferred
+ifdef $(trg)_$(prop).$(src_key)
+ ifndef $(trg)_$(prop).$(trg_key)
+  $(trg)_$(prop).$(trg_key) = $$($(trg)_$(prop).$(src_key))
+ endif
+endif
+endef
+
+## Inherit one keyword in an appending manner, deferred expansion.
+# @param    $(trg)          Target object.
+# @param    $(prop)     	The property.
+# @param    $(src_key)      Source keyword.
+# @param    $(trg_key)      Target keyword.
+define def_inherit_one_keyword_appending_deferred_l
+ifdef $(trg)_$(prop).$(src_key)
+ ifeq ($$(flavor $(trg)_$(prop).$(trg_key)),simple)
+  $$(evalcall2 def_simple_2_recursive,$(trg)_$(prop).$(trg_key))
+ endif
+ $(trg)_$(prop).$(trg_key) += $$($(trg)_$(prop).$(src_key))
+endif
+endef
+
+## @copydoc def_inherit_one_appending_deferred_l
+define def_inherit_one_keyword_appending_deferred_r
+ifdef $(trg)_$(prop).$(src_key)
+ ifeq ($$(flavor $(trg)_$(prop).$(trg_key)),simple)
+  $$(evalcall2 def_simple_2_recursive,$(trg)_$(prop).$(trg_key))
+ endif
+ $(trg)_$(prop).$(trg_key) <= $$($(trg)_$(prop).$(src_key))
+endif
+endef
+
+
+## Worker for def_inherit that deals with one keyword that makes
+# use of inheritance.
+# @param    prefix_keyword        key_prefix:keyword. The cool join/split game as usual.
+# @param    trg                   Object to consider for inheriting.
+# @param    properties            List of the properties with straight expansion.
+# @param    properties_now_l      List of the properties with immediate expansion, accumulating on the left side.
+# @param    properties_now_r      List of the properties with immediate expansion, accumulating on the right side.
+# @param    properties_deferred   List of the properties with deferred expansion (e.g. function), non-accumulative .
+# @param    properties_deferred_l List of the properties with deferred expansion (e.g. function), accumulating on the left side.
+# @param    properties_deferred_r List of the properties with deferred expansion (e.g. function), accumulating on the right side.
+define def_inherit_keyword
+local prefix   := $(word 1,$(subst :, ,$(prefix_keyword)))
+local trg_key  := $(word 2,$(subst :, ,$(prefix_keyword)))
+local src_key  := $($(prefix)_$(trg_key)_EXTENDS)
+local by       := $($(prefix)_$(trg_key)_EXTENDS_BY)
+
+# Inherit the properties.
+$(foreach prop, $(properties),            $(eval $(def_inherit_one_keyword)))
+$(foreach prop, $(properties_now_l),      $(eval $(def_inherit_one_keyword_$(by)_now_l)))
+$(foreach prop, $(properties_now_r),      $(eval $(def_inherit_one_keyword_$(by)_now_r)))
+$(foreach prop, $(properties_deferred),   $(eval $(def_inherit_one_keyword_$(by)_deferred)))
+$(foreach prop, $(properties_deferred_l), $(eval $(def_inherit_one_keyword_$(by)_deferred_l)))
+$(foreach prop, $(properties_deferred_r), $(eval $(def_inherit_one_keyword_$(by)_deferred_r)))
+
+endef # def_inherit_keyword
+
+
+## Inherit one template property in a non-accumulative manner.
+# @param    $(prop)         Property name
+# @param    $(src)          Source (parent) object.
+# @param    $(trg)          Target (child) object.
+define def_inherit_one
+ifdef $(src)_$(prop)
+ ifndef $(trg)_$(prop)
+  $(trg)_$(prop) = $($(src)_$(prop))
+ endif
+endif
+endef
+
+
+# EXPAND_BY = overriding
+
+## Inherit one template property in a non-accumulative manner.
+# @param    $(prop)         Property name
+# @param    $(src)          Source (parent) object.
+# @param    $(trg)          Target (child) object.
+define def_inherit_one_overriding_now_l
+ifdef $(src)_$(prop)
+ ifndef $(trg)_$(prop)
+  $(trg)_$(prop) := $($(src)_$(prop))
+ endif
+endif
+endef
+
+## @copydoc def_inherit_one_overriding_now_l
+define def_inherit_one_overriding_now_r
+ifdef $(src)_$(prop)
+ ifndef $(trg)_$(prop)
+  $(trg)_$(prop) := $($(src)_$(prop))
+ endif
+endif
+endef
+
+## Inherit one template property in a non-accumulative manner, deferred expansion.
+# @param    $(prop)         Property name
+# @param    $(src)          Source
+# @param    $(trg)          Target
+# @remark This define relies on double evaluation
+define def_inherit_one_overriding_deferred
+ifdef $(src)_$(prop)
+ ifndef $(trg)_$(prop)
+  $(trg)_$(prop) = $$($(src)_$(prop))
+ endif
+endif
+endef
+
+## @copydoc def_inherit_one_overriding_deferred
+define def_inherit_one_overriding_deferred_l
+ifdef $(src)_$(prop)
+ ifndef $(trg)_$(prop)
+  $(trg)_$(prop) = $$($(src)_$(prop))
+ endif
+endif
+endef
+
+## @copydoc def_inherit_one_overriding_deferred
+define def_inherit_one_overriding_deferred_r
+ifdef $(src)_$(prop)
+ ifndef $(trg)_$(prop)
+  $(trg)_$(prop) = $$($(src)_$(prop))
+ endif
+endif
+endef
+
+
+# EXPAND_BY = prepending
+
+## Inherit one template property in a prepending manner.
+# @param    $(prop)         Property name
+# @param    $(src)          Source (parent) object.
+# @param    $(trg)          Target (child) object.
+define def_inherit_one_prepending_now_l
+ifdef $(src)_$(prop)
+ $(trg)_$(prop) := $($(src)_$(prop)) $($(trg)_$(prop))
+endif
+endef
+
+## @copydoc def_inherit_one_prepending_now_l
+define def_inherit_one_prepending_now_r
+ifdef $(src)_$(prop)
+ $(trg)_$(prop) := $($(trg)_$(prop)) $($(src)_$(prop))
+endif
+endef
+
+## Inherit one template property in a non-accumulative manner, deferred expansion.
+# @param    $(prop)         Property name
+# @param    $(src)          Source
+# @param    $(trg)          Target
+# @remark This define relies on double evaluation
+define def_inherit_one_prepending_deferred
+ifdef $(src)_$(prop)
+ ifndef $(trg)_$(prop)
+  $(trg)_$(prop) = $$($(src)_$(prop))
+ endif
+endif
+endef
+
+## Inherit one template property in a prepending manner, deferred expansion.
+# @param    $(prop)         Property name
+# @param    $(src)          Source (parent) object.
+# @param    $(trg)          Target (child) object.
+define def_inherit_one_prepending_deferred_l
+ifdef $(src)_$(prop)
+ ifeq ($$(flavor $(trg)_$(prop)),simple)
+  $$(evalcall2 def_simple_2_recursive,$(trg)_$(prop))
+ endif
+ $(trg)_$(prop) <= $$($(src)_$(prop))
+endif
+endef
+
+## @copydoc def_inherit_one_prepending_deferred_l
+define def_inherit_one_prepending_deferred_r
+ifdef $(src)_$(prop)
+ ifeq ($$(flavor $(trg)_$(prop)),simple)
+  $$(evalcall2 def_simple_2_recursive,$(trg)_$(prop))
+ endif
+ $(trg)_$(prop) += $$($(src)_$(prop))
+endif
+endef
+
+
+# EXPAND_BY = appending
+
+## Inherit one template property in an appending manner.
+# @param    $(prop)         Property name
+# @param    $(src)          Source (parent) object.
+# @param    $(trg)          Target (child) object.
+define def_inherit_one_appending_now_l
+ifdef $(src)_$(prop)
+ $(trg)_$(prop) := $($(trg)_$(prop)) $($(src)_$(prop))
+endif
+endef
+
+## @copydoc def_inherit_one_appending_now_l
+define def_inherit_one_appending_now_r
+ifdef $(src)_$(prop)
+ $(trg)_$(prop) := $($(src)_$(prop)) $($(trg)_$(prop))
+endif
+endef
+
+## Inherit one template property in a non-accumulative manner, deferred expansion.
+# @param    $(prop)         Property name
+# @param    $(src)          Source
+# @param    $(trg)          Target
+# @remark This define relies on double evaluation
+define def_inherit_one_appending_deferred
+ifdef $(src)_$(prop)
+ ifndef $(trg)_$(prop)
+  $(trg)_$(prop) = $$($(src)_$(prop))
+ endif
+endif
+endef
+
+## Inherit one template property in an appending manner, deferred expansion.
+# @param    $(prop)         Property name
+# @param    $(src)          Source (parent) object.
+# @param    $(trg)          Target (child) object.
+define def_inherit_one_appending_deferred_l
+ifdef $(src)_$(prop)
+ ifeq ($$(flavor $(trg)_$(prop)),simple)
+  $$(evalcall2 def_simple_2_recursive,$(trg)_$(prop))
+ endif
+ $(trg)_$(prop) += $$($(src)_$(prop))
+endif
+endef
+
+## @copydoc def_inherit_one_appending_deferred_l
+define def_inherit_one_appending_deferred_r
+ifdef $(src)_$(prop)
+ ifeq ($$(flavor $(trg)_$(prop)),simple)
+  $$(evalcall2 def_simple_2_recursive,$(trg)_$(prop))
+ endif
+ $(trg)_$(prop) <= $$($(src)_$(prop))
+endif
+endef
+
+
+## combines the specified properties $(1) with the $(_KEYWORDS) list.
+_INHERIT_JOIN_KEYWORDS = $(1)  $(foreach keyword,$(_KEYWORDS), $(addsuffix .$(keyword), $(1)))
+
+
+## Generic inheritance for use with targets templates and tools.
+# @param    trg                   Object to consider for inheriting.
+# @param    src_prefix            What to prefix the value found in EXTENDS with to get the object.
+# @param    load_function         Load function for stuff that needs
+# @param    properties            List of the properties with straight expansion.
+# @param    properties_now_l      List of the properties with immediate expansion, accumulating on the left side.
+# @param    properties_now_r      List of the properties with immediate expansion, accumulating on the right side.
+# @param    properties_deferred   List of the properties with deferred expansion (e.g. function), non-accumulative .
+# @param    properties_deferred_l List of the properties with deferred expansion (e.g. function), accumulating on the left side.
+# @param    properties_deferred_r List of the properties with deferred expansion (e.g. function), accumulating on the right side.
+define def_inherit
+
+# Load it - loading is a mess, fix.
+ifneq ($(load_function),)
+ local loading := $(patsubst $(src_prefix)%,%,$(trg))
+ $(evalvalctx $(load_function))
+endif
+
+local src := $(strip $($(trg)_EXTENDS))
+ifneq ($(src),)
+ ifndef $(trg)_EXTENDS_STATUS_
+  $(trg)_EXTENDS_STATUS_ := 0
+
+  # Load the source.
+  ifneq ($(load_function),)
+   local loading := $(src)
+   $(evalvalctx $(load_function))
+  endif
+
+  # less typing.
+  local src := $(src_prefix)$(src)
+
+  # Recursivly process the parent (src) if it's inherting from somebody too.
+  ifdef $(src)_EXTENDS
+   ifneq ($($(src)_EXTENDS_STATUS_),42)
+    # 'foreach' will create 'trg' in a new variable context hiding
+    # out current variable. 'src' OTOH will be overwritten.
+    $(foreach trg, $(src), $(evalval def_inherit))
+    local src := $(src_prefix)$(strip $($(trg)_EXTENDS))
+   endif
+  endif
+
+  # Get & check EXTENDS_BY.
+  local by = $(strip $($(trg)_EXTENDS_BY))
+  ifeq ($(by),)
+   local by = overriding
+  else ifn1of ($(by), overriding appending prepending)
+   $(error kBuild: Invalid EXTENDS_BY value '$(by)' on '$(trg)'!)
+  endif
+
+  # Inherit the properties.
+  $(foreach prop, $(call _INHERIT_JOIN_KEYWORDS,$(properties)),            $(eval $(def_inherit_one)))
+  $(foreach prop, $(call _INHERIT_JOIN_KEYWORDS,$(properties_now_l)),      $(eval $(def_inherit_one_$(by)_now_l)))
+  $(foreach prop, $(call _INHERIT_JOIN_KEYWORDS,$(properties_now_r)),      $(eval $(def_inherit_one_$(by)_now_r)))
+  $(foreach prop, $(call _INHERIT_JOIN_KEYWORDS,$(properties_deferred)),   $(eval $(def_inherit_one_$(by)_deferred)))
+  $(foreach prop, $(call _INHERIT_JOIN_KEYWORDS,$(properties_deferred_l)), $(eval $(def_inherit_one_$(by)_deferred_l)))
+  $(foreach prop, $(call _INHERIT_JOIN_KEYWORDS,$(properties_deferred_r)), $(eval $(def_inherit_one_$(by)_deferred_r)))
+
+  # Mark the target as done.
+  $(trg)_EXTENDS_STATUS_ := 42
+ else
+  # Check for inheritance loops.
+  ifneq ($($(trg)_EXTENDS_STATUS_),42)
+   $(error kBuild: Target inheritance loop! target=$(trg) $(trg)_EXTENDS_STATUS_=$($(trg)_EXTENDS_STATUS_))
+  endif
+ endif
+endif
+
+# Keyword inheritance.
+$(foreach prefix_keyword, $(join $(_KEYWORDS_PREFIX), $(addprefix :,$(_KEYWORDS_EXTENDS))), $(evalval def_inherit_keyword))
+
+endef # def_inherit
+
+
+#
+# Load global units before doing any inheriting so they can add new properties.
+#
+# This only applies to the guys listed in the global USES since there is
+# no reliable way to deal with things on a target level without first
+# applying templates. So, to avoid having USES mess up all targets,
+# we'll make the global and per-target USES property work differently:
+#     The global USES does not apply to targets, just globally.
+#
+
+## Unit load function.
+# @param loading    The unit name
+define def_unit_load_function
+ifndef UNIT_$(loading)
+ UNIT_$(loading)_KMK_FILE := $(firstword $(foreach path, $(KBUILD_UNIT_PATHS) $(KBUILD_PATH)/units $(KBUILD_DEFAULT_PATHS), $(wildcard $(path)/$(loading).kmk)))
+ ifeq ($(UNIT_$(loading)_KMK_FILE),)
+  $(error kBuild: Cannot find include file for the unit '$(loading)'! Searched: $(KBUILD_UNIT_PATHS) $(KBUILD_PATH)/units $(KBUILD_DEFAULT_PATHS))
+ endif
+ include $(UNIT_$(loading)_KMK_FILE)
+ ifndef UNIT_$(loading)
+  $(warning kBuild: UNIT_$(loading) was not defined by $(UNIT_$(loading)_KMK_FILE)!)
+ endif
+endif
+endef # def_unit_load_function
+
+$(foreach loading, \
+	$(USES.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) \
+	$(USES.$(KBUILD_TARGET_CPU)) \
+	$(USES.$(KBUILD_TARGET_ARCH)) \
+	$(USES.$(KBUILD_TARGET)) \
+	$(USES.$(KBUILD_HOST).$(KBUILD_HOST_ARCH)) \
+	$(USES.$(KBUILD_HOST_CPU)) \
+	$(USES.$(KBUILD_HOST_ARCH)) \
+	$(USES.$(KBUILD_TARGET)) \
+	$(USES.$(KBUILD_TYPE)) \
+	$(USES),$(evalval def_unit_load_function))
+
+
+#
+# Determin all the templates that is being used and make
+# sure they are present before we try collect keywords.
+#
+_TEMPLATES := $(TEMPLATE)
+define def_templates
+ifdef $(target)_TEMPLATE
+ ifneq ("$($(target)_TEMPLATE)","$(strip $($(target)_TEMPLATE))")
+  $$(error kBuild: The template name of target '$(target)' contains tabs ($($(target)_TEMPLATE))). Please remove them)
+ endif
+ _TEMPLATES += $($(target)_TEMPLATE)
+endif
+endef # def_templates
+$(foreach target, $(_ALL_TARGETS), $(eval $(def_templates)))
+_TEMPLATES := $(sort $(_TEMPLATES))
+
+## Template load function.
+# @param loading    The template name. This is prefixed.
+define def_templates_load_function
+ifndef TEMPLATE_$(loading)
+ TEMPLATE_$(loading)_KMK_FILE := $(firstword $(foreach path, $(KBUILD_TEMPLATE_PATHS) $(KBUILD_PATH)/templates $(KBUILD_DEFAULT_PATHS), $(wildcard $(path)/$(loading).kmk)))
+ ifeq ($(TEMPLATE_$(loading)_KMK_FILE),)
+  $(error kBuild: Cannot find include file for the template '$(loading)'! Searched: $(KBUILD_TEMPLATE_PATHS) $(KBUILD_PATH)/templates $(KBUILD_DEFAULT_PATHS))
+ endif
+ include $(TEMPLATE_$(loading)_KMK_FILE)
+ ifndef TEMPLATE_$(loading)
+  $(warning kBuild: TEMPLATE_$(loading) was not defined by $(TEMPLATE_$(loading)_KMK_FILE)!)
+ endif
+endif
+endef # def_templates_load_function
+$(foreach loading, $(_TEMPLATES), $(evalval def_templates_load_function))
+
+
+#
+# Determin the keywords required for correct inherting and setup keyword inheritance.
+#
+# This means walking all the lists of immediate template and targets and
+# pick up all the BLD_T* keywords. Since templates that are referenced
+# indirectly in the inheritance hierarchy, the result from this exercise
+# might not be 100% accurate... :-/
+#
+_BLD_TYPES   := $(KBUILD_TYPE)
+_BLD_TARGETS := $(KBUILD_TARGET) $(KBUILD_HOSTS)
+_BLD_ARCHES  := $(KBUILD_TARGET_ARCH) $(KBUILD_HOST_ARCH)
+_BLD_CPUS    := $(KBUILD_TARGET_CPU) $(KBUILD_HOST_CPU)
+
+define def_collect_bld_xyz
+ifdef $(src)_BLD_TYPE
+ ifn1of ($($(src)_BLD_TYPE), $(KBUILD_BLD_TYPES))
+  $(error kBuild: $(src)_BLD_TYPE=$($(src)_BLD_TYPE) not in KBUILD_BLD_TYPES={$(KBUILD_BLD_TYPES)}!)
+ endif
+ _BLD_TYPES += $($(src)_BLD_TYPE)
+endif
+ifdef $(src)_BLD_TRG
+ ifn1of ($($(src)_BLD_TRG), $(KBUILD_OSES))
+  $(error kBuild: $(src)_BLD_TRG=$($(src)_BLD_TRG) not in KBUILD_OSES={$(KBUILD_OSES)}!)
+ endif
+ _BLD_TARGETS += $($(src)_BLD_TRG)
+endif
+ifdef $(src)_BLD_TRG_ARCH
+ ifn1of ($($(src)_BLD_TRG_ARCH), $(KBUILD_ARCHES))
+  $(error kBuild: $(src)_BLD_TRG_ARCH=$($(src)_BLD_TRG_ARCH) not in KBUILD_ARCHES={$(KBUILD_ARCHES)}!)
+ endif
+ _BLD_ARCHES += $($(src)_BLD_TRG_ARCH)
+endif
+ifdef $(src)_BLD_TRG_CPU
+ if1of ($($(src)_BLD_CPU), $(KBUILD_ARCHES) $(KBUILD_OSES) $(KBUILD_BLD_TYPES))
+  $(error kBuild: $(src)_BLD_TRG_CPU=$($(src)_BLD_TRG_CPU) found in KBUILD_ARCHES, KBUILD_OSES or KBUILD_BLD_TYPES!)
+ endif
+ _BLD_CPUS += $($(src)_BLD_TRG_CPU)
+endif
+endef # def_collect_bld_xyz
+$(foreach src, $(addprefix TEMPLATE_, $(_TEMPLATES)) $(_ALL_TARGETS) \
+	,$(evalval def_collect_bld_xyz))
+
+# Drop duplicate values.
+# WARNING! These list might not include keywords only involved in inheritance.
+_BLD_TYPES   := $(sort $(_BLD_TYPES))
+_BLD_TARGETS := $(sort $(_BLD_TARGETS))
+_BLD_ARCHES  := $(sort $(_BLD_ARCHES))
+_BLD_CPUS    := $(sort $(_BLD_CPUS))
+
+## Look for keywords which extends others and order them.
+# @param    keyword
+# @param    prefix
+# @param    valid
+define def_keyword_ordering
+# Check for EXTENDS, fix and validate it if found.
+local src := $(strip $($(prefix)_$(keyword)_EXTENDS))
+ifneq ($(src),)
+ ifndef $(prefix)_$(keyword)_EXTENDS_STATUS_
+  ifn1of ($(src), $(valid))
+   $(error kBuild: $(keyword) tries to extend unknown keyword '$(src)'! (known = $(valid)))
+  endif
+
+  # Recursivly process the parent (src).
+  ifneq ($($(prefix)_$(src)_EXTENDS_STATUS_),42)
+   $(prefix)_$(keyword)_EXTENDS_STATUS_ := 0
+   # 'foreach' will create 'keyword' in a new variable context hiding
+   # out current variable. 'src' OTOH will be overwritten.
+   $(foreach keyword, $(src), $(evalval def_keyword_ordering))
+   local src := $(strip $($(prefix)_$(keyword)_EXTENDS))
+  endif
+
+  # Check and strip EXTENDS_BY.
+  local by = $(strip $($(prefix)_$(keyword)_EXTENDS_BY))
+  ifeq ($(by),)
+   local by = overriding
+  else ifn1of ($(by), overriding appending prepending)
+   $(error kBuild: Invalid EXTENDS_BY value '$(by)' on '$(keyword)'!)
+  endif
+
+  # Update the attributes with stripped
+  $(prefix)_$(keyword)_EXTENDS_BY := $(by)
+  $(prefix)_$(keyword)_EXTENDS := $(src)
+
+  # Add it to the list and mark it as done.
+  _KEYWORDS_EXTENDS += $(keyword)
+  _KEYWORDS_PREFIX  += $(prefix)
+  $(prefix)_$(keyword)_EXTENDS_STATUS_ := 42
+ else
+  # Check for inheritance loops.
+  ifneq ($($(trg)_EXTENDS_STATUS_),42)
+   $(error kBuild: Keyword inheritance loop! keyword=$(keyword) $(prefix)_$(keyword)_EXTENDS_STATUS_=$($(prefix)_$(keyword)_EXTENDS_STATUS_))
+  endif
+ endif
+else
+ # Add it to the ordered list and mark it as done.
+ _KEYWORDS_ORDERED += $(keyword)
+ $(prefix)_$(src)_EXTENDS_STATUS_ := 42
+endif
+endef # def_keyword_ordering
+$(eval-opt-var def_keyword_ordering)
+
+# Look for keywords which extends others and their parents, and from this
+# construct two lists.
+_KEYWORDS_ORDERED :=
+_KEYWORDS_EXTENDS :=
+_KEYWORDS_PREFIX  :=
+
+prefix := BLD_TYPE
+valid := $(KBUILD_BLD_TYPES)
+$(foreach keyword, $(_BLD_TYPES)  , $(evalval def_keyword_ordering))
+
+prefix := BLD_TRG
+valid := $(KBUILD_OSES)
+$(foreach keyword, $(_BLD_TARGETS), $(evalval def_keyword_ordering))
+
+prefix := BLD_ARCH
+valid := $(KBUILD_ARCHES)
+$(foreach keyword, $(_BLD_ARCHES) , $(evalval def_keyword_ordering))
+
+prefix := BLD_CPU
+valid := $(KBUILD_CPUS)
+$(foreach keyword, $(_BLD_CPUS)   , $(evalval def_keyword_ordering))
+
+## @todo Inherit bld_trg.bld_arch for too?
+
+# Construct all the possible keywords.
+_KEYWORDS := $(_KEYWORDS_ORDERED) $(_KEYWORDS_EXTENDS) \
+	$(foreach bld_trg,$(_BLD_TARGETS),$(addprefix $(bld_trg).,$(_BLD_ARCHES)))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done keywords)
+endif
+
+
+#
+# Target inheritance.
+#
+# This has to be done on a per target list basis as to avoid adding
+# incorrect properties that will wast memory, time, and may confuse
+# later strictness checks. This also has to be done *before* templates
+# are applied to the targets. Since we're doing that part rather
+# early on, the target inheritance feature is a bit restricted at
+# the moment. However, this will be addressed in a little(?) while.
+#
+
+src_prefix :=
+load_function :=
+properties_deferred_l :=
+properties_deferred_r :=
+
+# Fetches.
+properties          := $(PROPS_FETCHES_SINGLE)
+properties_now_l    := $(PROPS_FETCHES_ACCUMULATE_L)
+properties_now_r    := $(PROPS_FETCHES_ACCUMULATE_R)
+properties_deferred := $(PROPS_FETCHES_DEFERRED)
+$(foreach trg, $(_ALL_FETCHES),$(evalval def_inherit))
+
+## Patches. - not implemented yet.
+#properties          := $(PROPS_PATCHES_SINGLE)
+#properties_now_l    := $(PROPS_PATCHES_ACCUMULATE_L)
+#properties_now_r    := $(PROPS_PATCHES_ACCUMULATE_R)
+#properties_deferred := $(PROPS_PATCHES_DEFERRED)
+#$(foreach trg, $(_ALL_PATCHES),$(evalval def_inherit))
+
+# Programs and build programs.
+properties          := $(PROPS_PROGRAMS_SINGLE)
+properties_now_l    := $(PROPS_PROGRAMS_ACCUMULATE_L)
+properties_now_r    := $(PROPS_PROGRAMS_ACCUMULATE_R)
+properties_deferred := $(PROPS_PROGRAMS_DEFERRED)
+$(foreach trg, $(_ALL_BLDPROGS) $(_ALL_PROGRAMS),$(evalval def_inherit))
+
+# Libraries and import libraries.
+properties          := $(PROPS_LIBRARIES_SINGLE)
+properties_now_l    := $(PROPS_LIBRARIES_ACCUMULATE_L)
+properties_now_r    := $(PROPS_LIBRARIES_ACCUMULATE_R)
+properties_deferred := $(PROPS_LIBRARIES_DEFERRED)
+if1of ($(KBUILD_TARGET), nt os2 win)
+ $(foreach trg, $(_ALL_LIBRARIES) $(_ALL_IMPORT_LIBS),$(evalval def_inherit))
+else
+ $(foreach trg, $(_ALL_LIBRARIES),$(evalval def_inherit))
+endif
+
+# DLLs.
+properties          := $(PROPS_DLLS_SINGLE)
+properties_now_l    := $(PROPS_DLLS_ACCUMULATE_L)
+properties_now_r    := $(PROPS_DLLS_ACCUMULATE_R)
+properties_deferred := $(PROPS_DLLS_DEFERRED)
+if1of ($(KBUILD_TARGET), nt os2 win)
+ $(foreach trg, $(_ALL_DLLS),$(evalval def_inherit))
+else
+ $(foreach trg, $(_ALL_DLLS) $(_ALL_IMPORT_LIBS),$(evalval def_inherit))
+endif
+
+# System modules.
+properties          := $(PROPS_SYSMODS_SINGLE)
+properties_now_l    := $(PROPS_SYSMODS_ACCUMULATE_L)
+properties_now_r    := $(PROPS_SYSMODS_ACCUMULATE_R)
+properties_deferred := $(PROPS_SYSMODS_DEFERRED)
+$(foreach trg, $(_ALL_SYSMODS),$(evalval def_inherit))
+
+# Misc binaries.
+properties          := $(PROPS_MISCBINS_SINGLE)
+properties_now_l    := $(PROPS_MISCBINS_ACCUMULATE_L)
+properties_now_r    := $(PROPS_MISCBINS_ACCUMULATE_R)
+properties_deferred := $(PROPS_MISCBINS_DEFERRED)
+$(foreach trg, $(_ALL_MISCBINS),$(evalval def_inherit))
+
+# Installs.
+properties          := $(PROPS_INSTALLS_SINGLE)
+properties_now_l    := $(PROPS_INSTALLS_ACCUMULATE_L)
+properties_now_r    := $(PROPS_INSTALLS_ACCUMULATE_R)
+properties_deferred := $(PROPS_INSTALLS_DEFERRED)
+$(foreach trg, $(_ALL_INSTALLS),$(evalval def_inherit))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done target inheritance)
+endif
+
+
+#
+# Template Inheritance.
+#
+# This is much the same as with target inheritance, except we cannot
+# restrict the properties involved since we haven't got a clue which
+# target platforms/archs are using them. But, we can drop the instance
+# expansion we're doing for targets since there won't be any more
+# changes to either the source nor the target templates beyond this
+# exercise.
+#
+
+src_prefix := TEMPLATE_
+load_function := def_templates_load_function
+properties :=
+properties_now_l :=
+properties_now_r :=
+properties_deferred   := $(PROPS_SINGLE) $(PROPS_DEFERRED)
+properties_deferred_l := $(PROPS_ACCUMULATE_L)
+properties_deferred_r := $(PROPS_ACCUMULATE_R)
+$(foreach trg, $(addprefix TEMPLATE_,$(_TEMPLATES)),$(evalval def_inherit))
+
+# done inheriting.
+src_prefix :=
+load_function :=
+properties :=
+properties_now_l :=
+properties_now_r :=
+properties_deferred :=
+properties_deferred_l :=
+properties_deferred_r :=
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done template inheritance)
+endif
+
+
+
+
+#
+# Template/Target Expansion.
+#
+# Extend all targets with the values from the template. Doing this up front
+# allows more generic code and less mess down in the pass 2 target handling.
+# However it does eat a good deal of memory.
+#
+
+define def_inherit_template_workaround_target
+local _tmpl         := $(firstword $($(target)_TEMPLATE) $(TEMPLATE))
+local _bld_type     := $(firstword $($(target)_BLD_TYPE)     $(TEMPLATE_$(_tmpl)_BLD_TYPE)     $(KBUILD_TYPE))
+local _bld_trg      := $(firstword $($(target)_BLD_TRG)      $(TEMPLATE_$(_tmpl)_BLD_TRG)      $(KBUILD_TARGET))
+local _bld_trg_arch := $(firstword $($(target)_BLD_TRG_ARCH) $(TEMPLATE_$(_tmpl)_BLD_TRG_ARCH) $(KBUILD_TARGET_ARCH))
+local _bld_trg_cpu  := $(firstword $($(target)_BLD_TRG_CPU)  $(TEMPLATE_$(_tmpl)_BLD_TRG_CPU)  $(KBUILD_TARGET_CPU))
+$(kb-exp-tmpl 1,$(target),$(_bld_trg),$(_bld_trg_arch),$(_bld_trg_cpu),$(_bld_type))
+endef # def_inherit_template_workaround_target
+#$(kb-exp-tmpl 1,$(_ALL_TARGET_TARGETS),$(KBUILD_TARGET),$(KBUILD_TARGET_ARCH),$(KBUILD_TARGET_CPU),$(KBUILD_TYPE))
+$(foreach target,$(_ALL_TARGET_TARGETS),$(evalval def_inherit_template_workaround_target))
+
+define def_inherit_template_workaround_host
+local _tmpl         := $(firstword $($(target)_TEMPLATE) $(TEMPLATE))
+local _bld_type     := $(firstword $($(target)_BLD_TYPE)     $(TEMPLATE_$(_tmpl)_BLD_TYPE)     $(KBUILD_TYPE))
+local _bld_trg      := $(firstword $($(target)_BLD_TRG)      $(TEMPLATE_$(_tmpl)_BLD_TRG)      $(KBUILD_HOST))
+local _bld_trg_arch := $(firstword $($(target)_BLD_TRG_ARCH) $(TEMPLATE_$(_tmpl)_BLD_TRG_ARCH) $(KBUILD_HOST_ARCH))
+local _bld_trg_cpu  := $(firstword $($(target)_BLD_TRG_CPU)  $(TEMPLATE_$(_tmpl)_BLD_TRG_CPU)  $(KBUILD_HOST_CPU))
+$(kb-exp-tmpl 1,$(target),$(_bld_trg),$(_bld_trg_arch),$(_bld_trg_cpu),$(_bld_type))
+endef # def_inherit_template_workaround_target
+#$(kb-exp-tmpl 1,$(_ALL_HOST_TARGETS),$(KBUILD_HOST),$(KBUILD_HOST_ARCH),$(KBUILD_HOST_CPU),$(KBUILD_TYPE))
+$(foreach target,$(_ALL_HOST_TARGETS),$(evalval def_inherit_template_workaround_host))
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done template/target expansion)
+endif
+
+
+#
+# Include tools, sdks and units.
+#
+# The first part of this exercise is to figure out which TOOLS and SDKS
+# that should be included.
+#
+_TOOLS := $(TOOL.$(KBUILD_TARGET))   $(TOOL.$(KBUILD_TARGET_ARCH))   $(TOOL.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) \
+          $(TOOL.$(KBUILD_HOST)) $(TOOL.$(KBUILD_HOST_ARCH)) $(TOOL.$(KBUILD_HOST).$(KBUILD_HOST_ARCH)) \
+	  $(TOOL)
+_SDKS  := $(SDKS.$(KBUILD_TARGET))   $(SDKS.$(KBUILD_TARGET_ARCH))   $(SDKS.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) \
+          $(SDKS.$(KBUILD_HOST)) $(SDKS.$(KBUILD_HOST_ARCH)) $(SDKS.$(KBUILD_HOST).$(KBUILD_HOST_ARCH)) \
+	  $(SDKS.$(KBUILD_TYPE)) \
+	  $(SDKS)
+_USES  := $(USES.$(KBUILD_TARGET))   $(USES.$(KBUILD_TARGET_ARCH))   $(USES.$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)) \
+          $(USES.$(KBUILD_HOST)) $(USES.$(KBUILD_HOST_ARCH)) $(USES.$(KBUILD_HOST).$(KBUILD_HOST_ARCH)) \
+	  $(USES.$(KBUILD_TYPE)) \
+	  $(USES)
+define def_tools_sdks_target_source
+$(eval _TOOLS += $(foreach prop, $(PROPS_TOOLS), \
+	$($(source)_$(prop).$(_bld_trg)) \
+	$($(target)_$(source)_$(prop).$(_bld_trg)) \
+	$($(source)_$(prop).$(_bld_trg).$(_bld_trg_arch)) \
+	$($(target)_$(source)_$(prop).$(_bld_trg).$(_bld_trg_arch)) \
+	$($(source)_$(prop).$(_bld_trg_arch)) \
+	$($(target)_$(source)_$(prop).$(_bld_trg_arch)) \
+	$($(source)_$(prop)) \
+	$($(target)_$(source)_$(prop))))
+$(eval _SDKS += \
+	$($(source)_SDKS.$(_bld_trg)) \
+	$($(target)_$(source)_SDKS.$(_bld_trg)) \
+	$($(source)_SDKS.$(_bld_trg).$(_bld_trg_arch)) \
+	$($(target)_$(source)_SDKS.$(_bld_trg).$(_bld_trg_arch)) \
+	$($(source)_SDKS.$(_bld_trg_arch)) \
+	$($(target)_$(source)_SDKS.$(_bld_trg_arch)) \
+	$($(source)_SDKS.$(KBUILD_TYPE)) \
+	$($(target)_$(source)_SDKS.$(KBUILD_TYPE)) \
+	$($(source)_SDKS) \
+	$($(target)_$(source)_SDKS))
+$(eval _USES += \
+	$($(source)_USES.$(_bld_trg)) \
+	$($(target)_$(source)_USES.$(_bld_trg)) \
+	$($(source)_USES.$(_bld_trg).$(_bld_trg_arch)) \
+	$($(target)_$(source)_USES.$(_bld_trg).$(_bld_trg_arch)) \
+	$($(source)_USES.$(_bld_trg_arch)) \
+	$($(target)_$(source)_USES.$(_bld_trg_arch)) \
+	$($(source)_USES.$(KBUILD_TYPE)) \
+	$($(target)_$(source)_USES.$(KBUILD_TYPE)) \
+	$($(source)_USES) \
+	$($(target)_$(source)_USES))
+endef # def_tools_sdks_target_source
+$(eval-opt-var def_tools_sdks_target_source)
+
+define def_tools_sdks_target
+local _bld_type := $(firstword $($(target)_BLD_TYPE) $(KBUILD_TYPE))
+local _bld_trg := $(firstword $($(target)_BLD_TRG) $(bld_trg))
+local _bld_trg_arch := $(firstword $($(target)_BLD_TRG_ARCH) $(bld_trg_arch))
+local _bld_trg_cpu := $(firstword $($(target)_BLD_TRG_CPU) $(bld_trg_cpu))
+
+$(eval _TOOLS += $(foreach prop, $(PROPS_TOOLS), \
+	$($(target)_$(prop).$(_bld_trg)) \
+	$($(target)_$(prop).$(_bld_trg_arch)) \
+	$($(target)_$(prop).$(_bld_trg).$(_bld_trg_arch)) \
+	$($(target)_$(prop))))
+$(eval _SDKS += \
+	$($(target)_SDKS.$(_bld_trg)) \
+	$($(target)_SDKS.$(_bld_trg_arch)) \
+	$($(target)_SDKS.$(_bld_trg).$(_bld_trg_arch)) \
+	$($(target)_SDKS))
+$(eval _USES += \
+	$($(target)_USES.$(_bld_trg)) \
+	$($(target)_USES.$(_bld_trg_arch)) \
+	$($(target)_USES.$(_bld_trg).$(_bld_trg_arch)) \
+	$($(target)_USES))
+$(foreach source, \
+	$($(target)_SOURCES.$(_bld_trg)) \
+	$($(target)_SOURCES.$(_bld_trg_arch)) \
+	$($(target)_SOURCES.$(_bld_trg).$(_bld_trg_arch)) \
+	$($(target)_SOURCES.$(_bld_trg_cpu)) \
+	$($(target)_SOURCES.$(_bld_type)) \
+	$($(target)_SOURCES) \
+	, $(evalval def_tools_sdks_target_source))
+endef # def_tools_sdks_target
+$(eval-opt-var def_tools_sdks_target)
+
+define def_tools_srcname_target
+local _bld_type := $(firstword $($(target)_BLD_TYPE) $(KBUILD_TYPE))
+local _bld_trg := $(firstword $($(target)_BLD_TRG) $(bld_trg))
+local _bld_trg_arch := $(firstword $($(target)_BLD_TRG_ARCH) $(bld_trg_arch))
+local _bld_trg_cpu := $(firstword $($(target)_BLD_TRG_CPU) $(bld_trg_cpu))
+
+$(foreach source, $(notdir\
+	$($(target)_SOURCES.$(_bld_trg)) \
+	$($(target)_SOURCES.$(_bld_trg_arch)) \
+	$($(target)_SOURCES.$(_bld_trg).$(_bld_trg_arch)) \
+	$($(target)_SOURCES.$(_bld_trg_cpu)) \
+	$($(target)_SOURCES.$(_bld_type)) \
+	$($(target)_SOURCES) \
+	), $(evalval def_tools_sdks_target_source))
+endef # def_tools_srcname_target
+$(eval-opt-var def_tools_srcname_target)
+
+bld_trg := $(KBUILD_TARGET)
+bld_trg_arch := $(KBUILD_TARGET_ARCH)
+bld_trg_cpu := $(KBUILD_TARGET_CPU)
+$(foreach target, $(_ALL_TARGET_TARGETS), $(evalval def_tools_sdks_target))
+$(foreach target, $(_ALL_SRCNAME_TARGETS), $(evalval def_tools_srcname_target))
+
+bld_trg := $(KBUILD_HOST)
+bld_trg_arch := $(KBUILD_HOST_ARCH)
+bld_trg_cpu := $(KBUILD_HOST_CPU)
+$(foreach target, $(_ALL_HOST_TARGETS), $(evalval def_tools_sdks_target))
+
+_TOOLS := $(sort $(_TOOLS))
+_SDKS := $(sort $(_SDKS))
+
+## Tool load function.
+# @param loading    The tool name
+define def_tools_load_function
+ifndef TOOL_$(loading)
+ TOOL_$(loading)_KMK_FILE := $(firstword $(foreach path, $(KBUILD_TOOL_PATHS) $(KBUILD_PATH)/tools $(KBUILD_DEFAULT_PATHS), $(wildcard $(path)/$(loading).kmk)))
+ ifeq ($(TOOL_$(loading)_KMK_FILE),)
+  $(error kBuild: Cannot find include file for the tool '$(loading)'! Searched: $(KBUILD_TOOL_PATHS) $(KBUILD_PATH)/tools $(KBUILD_DEFAULT_PATHS))
+ endif
+ include $(TOOL_$(loading)_KMK_FILE)
+ ifndef TOOL_$(loading)
+  $(warning kBuild: TOOL_$(loading) was not defined by $(TOOL_$(loading)_KMK_FILE)!)
+ endif
+endif
+endef # def_tools_include
+
+## SDK load function.
+# @param loading    The tool name
+define def_sdk_load_function
+ifndef SDK_$(loading)
+ SDK_$(loading)_KMK_FILE := $(firstword $(foreach path, $(KBUILD_SDK_PATHS) $(KBUILD_PATH)/sdks $(KBUILD_DEFAULT_PATHS), $(wildcard $(path)/$(loading).kmk)))
+ ifeq ($(SDK_$(loading)_KMK_FILE),)
+  $(error kBuild: Cannot find include file for the SDK '$(loading)'! Searched: $(KBUILD_SDK_PATHS) $(KBUILD_PATH)/sdks $(KBUILD_DEFAULT_PATHS))
+ endif
+ include $(SDK_$(loading)_KMK_FILE)
+ ifndef SDK_$(loading)
+  $(warning kBuild: SDK_$(loading) was not defined by $(SDK_$(loading)_KMK_FILE)!)
+ endif
+endif
+endef # def_sdk_load_function
+
+
+properties :=
+properties_now_l :=
+properties_now_r :=
+properties_deferred   := $(PROPS_SINGLE) $(PROPS_DEFERRED)
+properties_deferred_l := $(PROPS_ACCUMULATE_L)
+properties_deferred_r := $(PROPS_ACCUMULATE_R)
+
+src_prefix := SDK_
+load_function := def_sdk_load_function
+$(foreach trg, $(addprefix SDK_,$(_SDKS)), $(evalval def_inherit))
+
+properties_deferred   := $(PROPS_SINGLE) $(PROPS_DEFERRED) $(PROPS_TOOLS_ONLY)
+src_prefix := TOOL_
+load_function := def_tools_load_function
+$(foreach trg, $(addprefix TOOL_,$(_TOOLS)), $(evalval def_inherit))
+
+# done inheriting.
+src_prefix :=
+load_function :=
+properties :=
+properties_now_l :=
+properties_now_r :=
+properties_deferred :=
+properties_deferred_l :=
+properties_deferred_r :=
+
+# No inheriting for the uses, they're just global 'code'.
+$(foreach loading, $(_USES), $(evalval def_unit_load_function))
+
+
+ifdef KBUILD_PROFILE_SELF
+ $(evalcall def_profile_self, done tools + sdks + units)
+endif
+

@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi"
+         xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+<?if $(env.VBOX_WITH_NETFLT) = "yes" ?>
+    <Component Id="cp_NetFltDriver" Guid="F0A02F6B-A349-42f8-A2EB-569DCAAAF846" Win64="$(var.Property_Win64)">
+        <File Id="file_VBoxNetFlt.sys" Name="VBoxNetFlt.sys"   KeyPath="yes"
+              Source="$(env.PATH_OUT)\bin\VBoxNetFlt.sys" Checksum="yes"/>
+        <File Id="file_VBoxNetFltNobj.sys" Name="VBoxNetFltNobj.dll"
+              Source="$(env.PATH_OUT)\bin\VBoxNetFltNobj.dll" Checksum="yes"/>
+        <File Id="file_VBoxNetFltM.inf" Name="VBoxNetFltM.inf"
+              Source="$(env.PATH_OUT)\bin\VBoxNetFltM.inf" />
+        <File Id="file_VBoxNetFlt.inf" Name="VBoxNetFlt.inf"
+              Source="$(env.PATH_OUT)\bin\VBoxNetFlt.inf" />
+<?if $(env.VBOX_SIGNING_MODE) != none ?>
+        <File Id="file_VBoxNetFlt.cat" Name="VBoxNetFlt.cat"
+              Source="$(env.PATH_OUT)\bin\VBoxNetFlt.cat" />
+<?endif ?>
+
+<?if $(env.VBOX_WITH_MSM_INSTALL) = "yes" ?>
+        <Condition><![CDATA[(localMSMNetworkType="NDIS5")]]></Condition>
+<?else ?>
+        <Condition><![CDATA[(NETWORKTYPE="NDIS5")]]></Condition>
+<?endif ?>
+
+    </Component>
+
+<?endif ?> <!-- VBOX_WITH_NETFLT -->
+
+</Include>

@@ -1,0 +1,151 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for the VirtualBox Windows Guest Shared Folders FSD.
+#
+
+#
+# Copyright (C) 2006-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+SUB_DEPTH = ../../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#
+# VBoxSF
+# Note! On X86 this is only used for windows 8 and later.
+# Note! On X86 we must link against ntoskrnl.lib from the default WDK when /guard:cf is enabled,
+#       or the linker barfs at loadcfg.obj not containing a large enough load config structure.
+#
+SYSMODS += VBoxSF
+VBoxSF_TEMPLATE    = VBoxGuestR0Drv
+VBoxSF_DEFS        = LOG_TO_BACKDOOR VBOX_WITH_HGCM IN_RING0
+#VBoxSF_DEFS       += LOG_ENABLED
+
+VBoxSF_SDKS        = ReorderCompilerIncs $(VBOX_WINDDK_GST_WLH)
+
+VBoxSF_LDFLAGS.x86   = -Entry:DriverEntry@8
+VBoxSF_LDFLAGS.amd64 = -Entry:DriverEntry
+VBoxSF_SOURCES     = \
+	vbsf.cpp \
+	net.cpp \
+	file.cpp \
+	info.cpp \
+	path.cpp \
+	vbsfhlp.cpp \
+	VBoxSF.rc
+VBoxSF_SOURCES.x86 = \
+	Win2kWorkarounds.c \
+	Win2kWorkaroundsA.asm
+
+VBoxSF_LIBS = \
+	$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/rxce.lib \
+	$(VBoxSF_0_OUTDIR)/rdbsslib.lib \
+	$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/copysup.lib \
+	$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/hal.lib \
+	$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/ksecdd.lib
+ifneq ($(VBOX_VCC_CC_GUARD_CF),)
+ VBoxSF_LIBS += \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB.$(KBUILD_TARGET_ARCH))/ntoskrnl.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB.$(KBUILD_TARGET_ARCH))/BufferOverflowK.lib
+else
+ VBoxSF_LIBS += \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/ntoskrnl.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/BufferOverflowK.lib
+endif
+VBoxSF_LIBS += \
+	$(VBOX_LIB_VBGL_R0) \
+	$(VBOX_LIB_IPRT_GUEST_R0)
+
+VBoxSF_CLEAN = \
+	$(VBoxSF_0_OUTDIR)/rdbsslib.lib
+
+VBoxSF_USES.win += vboximportchecker
+VBoxSF_VBOX_IMPORT_CHECKER.win.x86 = w8/r0
+VBoxSF_VBOX_IMPORT_CHECKER.win.amd64 = xp64/r0
+
+
+ifeq ($(KBUILD_TARGET_ARCH),x86)
+ #
+ # This driver version is used for Windows 2000, XP, W2K3, Vista and 7.
+ # Note! Including int64.lib here for _aulldvrm which isn't exported by w2k.
+ #
+ SYSMODS += VBoxSFW2K
+ VBoxSFW2K_EXTENDS      := VBoxSF
+ VBoxSFW2K_SDKS         = ReorderCompilerIncs $(VBOX_WINDDK_GST_W2K3)
+ VBoxSFW2K_LIBS         = \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB.x86)/rxce.lib \
+ 	$(VBoxSFW2K_0_OUTDIR)/rdbsslib.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB.x86)/copysup.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB.x86)/hal.lib \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB.x86)/ksecdd.lib \
+ 	\
+ 	$(VBOX_LIB_VBGL_R0) \
+ 	$(VBOX_LIB_IPRT_GUEST_R0) \
+ 	$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB)/int64.lib
+ ifneq ($(VBOX_VCC_CC_GUARD_CF),)
+  VBoxSFW2K_LIBS += \
+  	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB.x86)/ntoskrnl.lib \
+  	$(PATH_SDK_$(VBOX_WINDDK_GST)_LIB.x86)/BufferOverflowK.lib
+ else
+  VBoxSFW2K_LIBS += \
+  	$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB.x86)/ntoskrnl.lib \
+  	$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB.x86)/BufferOverflowK.lib
+ endif
+ VBoxSFW2K_CLEAN = \
+ 	$(VBoxSFW2K_0_OUTDIR)/rdbsslib.lib
+ VBoxSFW2K_USES.win += vboximportchecker
+ VBoxSFW2K_VBOX_IMPORT_CHECKER.win.x86 = w2k/r0
+endif
+
+include $(FILE_KBUILD_SUB_FOOTER)
+
+$(call KB_FN_AUTO_CMD_DEPS,$(VBoxSF_0_OUTDIR)/rdbsslib.lib)
+
+ifeq ($(KBUILD_TARGET_ARCH),x86)
+ $(VBoxSF_0_OUTDIR)/rdbsslib.lib: $$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/rdbsslib.lib | $$(dir $$@) $(VBOX_EDIT_COFF_LIB)
+	$(call KB_FN_AUTO_CMD_DEPS_COMMANDS)
+	$(VBOX_EDIT_COFF_LIB) --input "$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/rdbsslib.lib" --output "$@" \
+		--select "write.obj" \
+               --redefine-sym "__imp__CcFlushCache@16=_g_pfnWrFlushCache" \
+               --redefine-sym "__imp__CcPurgeCacheSection@16=_g_pfnWrPurgeCacheSection" \
+		--select "read.obj" \
+               --redefine-sym "__imp__CcFlushCache@16=_g_pfnRdFlushCache"
+
+ $(call KB_FN_AUTO_CMD_DEPS,$(VBoxSFW2K_0_OUTDIR)/rdbsslib.lib)
+ $(VBoxSFW2K_0_OUTDIR)/rdbsslib.lib: $$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB.$(KBUILD_TARGET_ARCH))/rdbsslib.lib | $$(dir $$@) $(VBOX_EDIT_COFF_LIB)
+	$(call KB_FN_AUTO_CMD_DEPS_COMMANDS)
+	$(VBOX_EDIT_COFF_LIB) --input "$(PATH_SDK_$(VBOX_WINDDK_GST_W2K3)_LIB.$(KBUILD_TARGET_ARCH))/rdbsslib.lib" --output "$@" \
+		--select "write.obj" \
+               --redefine-sym "__imp__CcFlushCache@16=_g_pfnWrFlushCache" \
+               --redefine-sym "__imp__CcPurgeCacheSection@16=_g_pfnWrPurgeCacheSection" \
+		--select "read.obj" \
+               --redefine-sym "__imp__CcFlushCache@16=_g_pfnRdFlushCache"
+else
+ $(VBoxSF_0_OUTDIR)/rdbsslib.lib: $$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/rdbsslib.lib | $$(dir $$@) $(VBOX_EDIT_COFF_LIB)
+	$(call KB_FN_AUTO_CMD_DEPS_COMMANDS)
+	$(VBOX_EDIT_COFF_LIB) --input "$(PATH_SDK_$(VBOX_WINDDK_GST_WLH)_LIB.$(KBUILD_TARGET_ARCH))/rdbsslib.lib" --output "$@" \
+		--select "write.obj" \
+               --redefine-sym "__imp_CcFlushCache=g_pfnWrFlushCache" \
+               --redefine-sym "__imp_CcPurgeCacheSection=g_pfnWrPurgeCacheSection" \
+		--select "read.obj" \
+               --redefine-sym "__imp_CcFlushCache=g_pfnRdFlushCache"
+endif
+

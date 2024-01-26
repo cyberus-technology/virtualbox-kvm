@@ -1,0 +1,84 @@
+; $Id: VBoxMouse.inf $
+;; @file
+; INF file for installing the VBox Guest Mouse (driver for Windows NT5+).
+;
+
+;
+; Copyright (C) 2011-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; SPDX-License-Identifier: GPL-3.0-only
+;
+
+[Version]
+Signature="$Windows NT$"
+Provider=%ORACLE%
+ClassGuid={4D36E96F-E325-11CE-BFC1-08002BE10318}
+Class=Mouse
+DriverPackageType=ClassFilter
+;edit-DriverVer=08/26/2008,2.00.0000
+;cat CatalogFile=VBoxMouse.cat
+
+[SourceDisksNames]
+1 = %VBoxMouse.MediaDesc%
+
+[SourceDisksFiles]
+VBoxMouse.sys = 1
+
+[DestinationDirs]
+DefaultDestDir = 12     ; DIRID_DRIVERS
+
+; Disabled install via [Manufacturer], not working. See [DefaultInstall].
+;[Manufacturer]
+;%ORACLE%=VBoxMouse@COMMA-NT-ARCH@
+;
+;[VBoxMouse@DOT-NT-ARCH@]
+;%VBoxMouse.SvcDesc%=VBoxMouse_Install
+;
+;[VBoxMouse_Install]
+;CopyFiles = @VBoxMouse.sys
+;
+;[VBoxMouse_Install.Services]
+;AddService = VBoxMouse,,VBoxMouse.Service
+
+[DefaultInstall@DOT-NT-ARCH@]
+CopyFiles = @VBoxMouse.sys
+
+[DefaultInstall@DOT-NT-ARCH@.Services]
+AddService = VBoxMouse,,VBoxMouse.Service
+
+[VBoxMouse.AddRegistry]
+HKLM, System\CurrentControlSet\Control\Class\{4D36E96F-E325-11CE-BFC1-08002BE10318}, UpperFilters, 0x00010000, "VBoxMouse", "mouclass"
+
+[VBoxMouse.Service]
+DisplayName    = %VBoxMouse.SvcDesc%
+ServiceType    = %SERVICE_KERNEL_DRIVER%
+StartType      = %SERVICE_DEMAND_START%
+ErrorControl   = %SERVICE_ERROR_IGNORE%
+ServiceBinary  = %12%\VBoxMouse.sys
+AddReg         = VBoxMouse.AddRegistry
+
+[Strings]
+VBoxMouse.SvcDesc       = "VirtualBox Guest Mouse Service"
+VBoxMouse.MediaDesc     = "VirtualBox Guest Mouse Driver Installation Media"
+ORACLE                  = "Oracle Corporation"
+
+; Useful constants
+SERVICE_KERNEL_DRIVER = 1
+SERVICE_DEMAND_START  = 3
+SERVICE_ERROR_IGNORE  = 0

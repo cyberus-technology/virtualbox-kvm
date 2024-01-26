@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<!--
+    VirtualBox Windows Installation Script (WiX)
+-->
+<!--
+    Copyright (C) 2006-2023 Oracle and/or its affiliates.
+
+    This file is part of VirtualBox base platform packages, as
+    available from https://www.virtualbox.org.
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation, in version 3 of the
+    License.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see <https://www.gnu.org/licenses>.
+
+    SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<Include xmlns="http://schemas.microsoft.com/wix/2006/wi"
+         xmlns:difxapp="http://schemas.microsoft.com/wix/DifxAppExtension">
+
+<?if $(env.VBOX_WITH_32_ON_64_MAIN_API) = "yes" ?>
+    <Directory Id="dir_VBoxCOM32On64X86" Name="x86">
+        <!-- The 32-bit client COM component (see also cp_MainCom in VBoxMergeApp.wxi) -->
+        <Component Id="cp_MainCOM_x86" Guid="B600824E-4A25-2EB3-4B44-3D8CB7F9B92D" Win64="no">
+            <!-- Note: This file ID *must not* be changed because of our typelib template generation file! -->
+    <?if $(env.VBOX_WITH_MIDL_PROXY_STUB) != "yes" ?>
+            <File Id="VBoxClient_x86" Name="VBoxClient-x86.dll"
+                  Source="$(env.PATH_OUT)\bin\x86\VBoxClient-x86.dll" KeyPath="yes"
+                  DiskId="$(var.Property_DiskIdCommon)">
+            </File>
+    <?else?>
+            <File Id="VBoxClient_x86" Name="VBoxClient-x86.dll"
+                  Source="$(env.PATH_OUT)\bin\x86\VBoxClient-x86.dll"
+                  DiskId="$(var.Property_DiskIdCommon)">
+            </File>
+            <!-- Our key path, see VBoxMergeApp.wxi. -->
+            <File Id="file_VBoxProxyStub_x86" Name="VBoxProxyStub-x86.dll" KeyPath="yes"
+                Source="$(env.PATH_OUT)\bin\x86\VBoxProxyStub-x86.dll"
+                DiskId="$(var.Property_DiskIdCommon)">
+                <Class Id="$(env.VBOX_MIDL_PROXY_CLSID)" Context="InprocServer32"
+                    Description="PSFactoryBuffer" ThreadingModel="both" />
+            </File>
+    <?endif?>
+            <File Id="file_VBoxRT_x86" Name="VBoxRT-x86.dll"
+                  Source="$(env.PATH_OUT)\bin\x86\VBoxRT-x86.dll"
+                  DiskId="$(var.Property_DiskIdCommon)">
+            </File>
+            <?include $(env.PATH_TARGET)\VirtualBox_TypeLib_x86.wxi ?>
+
+    <?if $(env.VBOX_WITH_CRT_PACKING) = "yes" ?>
+            <!-- Include CRT Dlls (specific to the compiler). -->
+            <?include $(env.PATH_TARGET)\VBoxCrtDlls32.wxi ?>
+    <?endif?>
+        </Component>
+    </Directory>
+<?endif?>
+
+</Include>

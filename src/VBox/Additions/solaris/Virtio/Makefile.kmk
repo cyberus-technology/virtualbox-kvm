@@ -1,0 +1,68 @@
+# $Id: Makefile.kmk $
+## @file
+# Sub-Makefile for Solaris Virtio drivers.
+#
+
+#
+# Copyright (C) 2010-2023 Oracle and/or its affiliates.
+#
+# This file is part of VirtualBox base platform packages, as
+# available from https://www.virtualbox.org.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation, in version 3 of the
+# License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <https://www.gnu.org/licenses>.
+#
+# The contents of this file may alternatively be used under the terms
+# of the Common Development and Distribution License Version 1.0
+# (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+# in the VirtualBox distribution, in which case the provisions of the
+# CDDL are applicable instead of those of the GPL.
+#
+# You may elect to license modified versions of this file under the
+# terms and conditions of either the GPL or the CDDL or both.
+#
+# SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+#
+
+SUB_DEPTH = ../../../../..
+include $(KBUILD_PATH)/subheader.kmk
+
+#ifneq ($(KBUILD_HOST),solaris)
+#$(error "The Solaris guest additions can only be built on Solaris!")
+#endif
+
+#
+# virtionet ("virtnet" on Solaris) - The Virtio Network Drivers
+#
+SYSMODS.solaris        += virtionet
+virtionet_NAME.solaris  = virtnet
+virtionet_TEMPLATE      = VBoxGuestR0Drv
+ifdef VBOX_WITH_AUTOMATIC_DEFS_QUOTING
+ virtionet_DEFS         = VBOX_WITH_HGCM VBOX_SVN_REV=$(VBOX_SVN_REV) VBOX_VERSION_STRING="$(VBOX_VERSION_STRING)"
+else
+ virtionet_DEFS         = VBOX_WITH_HGCM VBOX_SVN_REV=$(VBOX_SVN_REV) VBOX_VERSION_STRING=\"$(VBOX_VERSION_STRING)\"
+endif
+virtionet_DEPS          = $(VBOX_SVN_REV_KMK)
+virtionet_INCS         := .
+virtionet_SOURCES       = \
+	Virtio-solaris.c \
+	VirtioPci-solaris.c \
+	VirtioRing-solaris.c \
+	VirtioNet-solaris.c
+# virtionet should resolve all IPRT bits from vboxguest.
+#virtionet_LIBS          = \
+#	$(VBOX_LIB_IPRT_GUEST_R0)
+virtionet_LDFLAGS      += -N drv/vboxguest -N misc/mac
+
+include $(FILE_KBUILD_SUB_FOOTER)
+

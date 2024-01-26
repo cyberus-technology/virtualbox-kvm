@@ -1,0 +1,69 @@
+/* $Id: tstVDDiscard.vd $ */
+/**
+ * Storage: Testcase for discarding data in a disk.
+ */
+
+/*
+ * Copyright (C) 2011-2023 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+void main()
+{
+    /* Init I/O RNG for generating random data for writes. */
+    iorngcreate(10M, "manual", 1234567890);
+
+    print("Testing VDI");
+
+    /* Create disk containers, read verification is on. */
+    createdisk("disk", true /* fVerify */);
+    /* Create the disk. */
+    create("disk", "base", "tstCompact.vdi", "dynamic", "VDI", 2G, false /* fIgnoreFlush */, false);
+    /* Fill the disk with random data */
+    io("disk", false, 1, "seq", 64K, 0, 200M, 200M, 100, "none");
+    /* Read the data to verify it once. */
+    io("disk", false, 1, "seq", 64K, 0, 200M, 200M,   0, "none");
+    close("disk", "single", false);
+
+    open("disk", "tstCompact.vdi", "VDI", true, false, false, true, false, false);
+    printfilesize("disk", 0);
+    discard("disk", true, "6,0M,512K,1M,512K,2M,512K,3M,512K,4M,512K,5M,512K");
+    discard("disk", true, "6,6M,512K,7M,512K,8M,512K,9M,512K,10M,512K,11M,512K");
+    discard("disk", true, "1,512K,512K");
+    discard("disk", false, "1,1024K,64K");
+    printfilesize("disk", 0);
+
+    print("Discard whole block");
+    discard("disk", true, "1,20M,1M");
+    printfilesize("disk", 0);
+
+    print("Split Discard");
+    discard("disk", true, "1,21M,512K");
+    printfilesize("disk", 0);
+    discard("disk", true, "1,22016K,512K");
+    printfilesize("disk", 0);
+
+    /* Cleanup */
+    close("disk", "single", true);
+    destroydisk("disk");
+
+    /* Destroy RNG and pattern */
+    iorngdestroy();
+}

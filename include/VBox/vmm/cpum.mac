@@ -1,0 +1,275 @@
+;; @file
+; CPUM - CPU Monitor, Assembly header file.
+;
+
+;
+; Copyright (C) 2006-2023 Oracle and/or its affiliates.
+;
+; This file is part of VirtualBox base platform packages, as
+; available from https://www.virtualbox.org.
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation, in version 3 of the
+; License.
+;
+; This program is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, see <https://www.gnu.org/licenses>.
+;
+; The contents of this file may alternatively be used under the terms
+; of the Common Development and Distribution License Version 1.0
+; (CDDL), a copy of it is provided in the "COPYING.CDDL" file included
+; in the VirtualBox distribution, in which case the provisions of the
+; CDDL are applicable instead of those of the GPL.
+;
+; You may elect to license modified versions of this file under the
+; terms and conditions of either the GPL or the CDDL or both.
+;
+; SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
+;
+
+%ifndef ___VBox_vmm_cpum_mac__
+%define ___VBox_vmm_cpum_mac__
+
+%include "iprt/asmdefs.mac"
+
+
+;;
+; The volatile XSAVE components when VBOX_WITH_KERNEL_USING_XMM is active.
+; @note ASSUMED to be at the most 32-bit in width at the moment.
+%ifdef VBOX_WITH_KERNEL_USING_XMM
+ %define CPUM_VOLATILE_XSAVE_GUEST_COMPONENTS (XSAVE_C_SSE | XSAVE_C_YMM | XSAVE_C_ZMM_HI256 | XSAVE_C_ZMM_16HI)
+%endif
+
+;;
+; CPUID leaf.
+; @remarks This structure is used by the patch manager and can only be extended
+;          by adding to the end of it.
+struc CPUMCPUIDLEAF
+    .uLeaf              resd    1
+    .uSubLeaf           resd    1
+    .fSubLeafMask       resd    1
+    .uEax               resd    1
+    .uEbx               resd    1
+    .uEcx               resd    1
+    .uEdx               resd    1
+    .fFlags             resd    1
+endstruc
+%define CPUMCPUIDLEAF_F_INTEL_TOPOLOGY_SUBLEAVES    RT_BIT_32(0)
+%define CPUMCPUIDLEAF_F_CONTAINS_APIC_ID            RT_BIT_32(1)
+%define CPUMCPUIDLEAF_F_CONTAINS_OSXSAVE            RT_BIT_32(2)
+%define CPUMCPUIDLEAF_F_CONTAINS_APIC               RT_BIT_32(3)
+
+
+;;
+; For the default CPUID leaf value.
+; @remarks This is used by the patch manager and cannot be modified in any way.
+struc CPUMCPUID
+    .uEax               resd    1
+    .uEbx               resd    1
+    .uEcx               resd    1
+    .uEdx               resd    1
+endstruc
+
+
+;; @name Method used to deal with unknown CPUID leaves.
+;; @{
+%define CPUMUNKNOWNCPUID_DEFAULTS                1
+%define CPUMUNKNOWNCPUID_LAST_STD_LEAF           2
+%define CPUMUNKNOWNCPUID_LAST_STD_LEAF_WITH_ECX  3
+%define CPUMUNKNOWNCPUID_PASSTHRU                4
+;; @}
+
+
+%define XSTATE_SIZE             8192
+
+;; Note! Updates here must be reflected in CPUMInternal.mac too!
+struc CPUMCTX
+    .eax                resq    1
+    .ecx                resq    1
+    .edx                resq    1
+    .ebx                resq    1
+    .esp                resq    1
+    .ebp                resq    1
+    .esi                resq    1
+    .edi                resq    1
+    .r8                 resq    1
+    .r9                 resq    1
+    .r10                resq    1
+    .r11                resq    1
+    .r12                resq    1
+    .r13                resq    1
+    .r14                resq    1
+    .r15                resq    1
+    .es.Sel             resw    1
+    .es.PaddingSel      resw    1
+    .es.ValidSel        resw    1
+    .es.fFlags          resw    1
+    .es.u64Base         resq    1
+    .es.u32Limit        resd    1
+    .es.Attr            resd    1
+    .cs.Sel             resw    1
+    .cs.PaddingSel      resw    1
+    .cs.ValidSel        resw    1
+    .cs.fFlags          resw    1
+    .cs.u64Base         resq    1
+    .cs.u32Limit        resd    1
+    .cs.Attr            resd    1
+    .ss.Sel             resw    1
+    .ss.PaddingSel      resw    1
+    .ss.ValidSel        resw    1
+    .ss.fFlags          resw    1
+    .ss.u64Base         resq    1
+    .ss.u32Limit        resd    1
+    .ss.Attr            resd    1
+    .ds.Sel             resw    1
+    .ds.PaddingSel      resw    1
+    .ds.ValidSel        resw    1
+    .ds.fFlags          resw    1
+    .ds.u64Base         resq    1
+    .ds.u32Limit        resd    1
+    .ds.Attr            resd    1
+    .fs.Sel             resw    1
+    .fs.PaddingSel      resw    1
+    .fs.ValidSel        resw    1
+    .fs.fFlags          resw    1
+    .fs.u64Base         resq    1
+    .fs.u32Limit        resd    1
+    .fs.Attr            resd    1
+    .gs.Sel             resw    1
+    .gs.PaddingSel      resw    1
+    .gs.ValidSel        resw    1
+    .gs.fFlags          resw    1
+    .gs.u64Base         resq    1
+    .gs.u32Limit        resd    1
+    .gs.Attr            resd    1
+    .ldtr.Sel           resw    1
+    .ldtr.PaddingSel    resw    1
+    .ldtr.ValidSel      resw    1
+    .ldtr.fFlags        resw    1
+    .ldtr.u64Base       resq    1
+    .ldtr.u32Limit      resd    1
+    .ldtr.Attr          resd    1
+    .tr.Sel             resw    1
+    .tr.PaddingSel      resw    1
+    .tr.ValidSel        resw    1
+    .tr.fFlags          resw    1
+    .tr.u64Base         resq    1
+    .tr.u32Limit        resd    1
+    .tr.Attr            resd    1
+    alignb 8
+    .eip                resq    1
+    .eflags             resq    1
+    .fExtrn             resq    1
+    .uRipInhibitInt     resq    1
+    .cr0                resq    1
+    .cr2                resq    1
+    .cr3                resq    1
+    .cr4                resq    1
+    .dr                 resq    8
+    .gdtrPadding        resw    3
+    .gdtr               resw    0
+    .gdtr.cbGdt         resw    1
+    .gdtr.pGdt          resq    1
+    .idtrPadding        resw    3
+    .idtr               resw    0
+    .idtr.cbIdt         resw    1
+    .idtr.pIdt          resq    1
+    .SysEnter.cs        resb    8
+    .SysEnter.eip       resb    8
+    .SysEnter.esp       resb    8
+    .msrEFER            resb    8
+    .msrSTAR            resb    8
+    .msrPAT             resb    8
+    .msrLSTAR           resb    8
+    .msrCSTAR           resb    8
+    .msrSFMASK          resb    8
+    .msrKERNELGSBASE    resb    8
+
+    alignb 32
+    .aPaePdpes          resq    4
+
+    alignb 8
+    .aXcr               resq    2
+    .fXStateMask        resq    1
+    .fUsedFpuGuest      resb    1
+    alignb 8
+    .aoffXState         resw    64
+    alignb 256
+    .abXState           resb    0x4000-0x300
+    .XState             EQU     .abXState
+
+    alignb 4096
+    .hwvirt                             resb        0
+    .hwvirt.svm                         resb        0
+    .hwvirt.vmx                         resb        0
+
+    .hwvirt.svm.Vmcb                    EQU         .hwvirt.svm
+    .hwvirt.svm.abMsrBitmap             EQU         (.hwvirt.svm.Vmcb                   + 0x1000)
+    .hwvirt.svm.abIoBitmap              EQU         (.hwvirt.svm.abMsrBitmap            + 0x2000)
+    .hwvirt.svm.uMsrHSavePa             EQU         (.hwvirt.svm.abIoBitmap             + 0x3000)   ; resq        1
+    .hwvirt.svm.GCPhysVmcb              EQU         (.hwvirt.svm.uMsrHSavePa            + 8)        ; resq        1
+    alignb 8
+    .hwvirt.svm.HostState               EQU         (.hwvirt.svm.GCPhysVmcb             + 8)        ; resb        184
+    .hwvirt.svm.uPrevPauseTick          EQU         (.hwvirt.svm.HostState              + 184)      ; resq        1
+    .hwvirt.svm.cPauseFilter            EQU         (.hwvirt.svm.uPrevPauseTick         + 8)        ; resw        1
+    .hwvirt.svm.cPauseFilterThreshold   EQU         (.hwvirt.svm.cPauseFilter           + 2)        ; resw        1
+    .hwvirt.svm.fInterceptEvents        EQU         (.hwvirt.svm.cPauseFilterThreshold  + 2)        ; resb        1
+
+    .hwvirt.vmx.Vmcs                    resb        0x1000
+    .hwvirt.vmx.ShadowVmcs              resb        0x1000
+    .hwvirt.vmx.abVmreadBitmap          resb        0x1000
+    .hwvirt.vmx.abVmwriteBitmap         resb        0x1000
+    .hwvirt.vmx.aEntryMsrLoadArea       resb        0x2000
+    .hwvirt.vmx.aExitMsrStoreArea       resb        0x2000
+    .hwvirt.vmx.aExitMsrLoadArea        resb        0x2000
+    .hwvirt.vmx.abMsrBitmap             resb        0x1000
+    .hwvirt.vmx.abIoBitmap              resb        0x1000+0x1000
+    alignb 8
+    .hwvirt.vmx.GCPhysVmxon             resq        1
+    .hwvirt.vmx.GCPhysVmcs              resq        1
+    .hwvirt.vmx.GCPhysShadowVmcs        resq        1
+    .hwvirt.vmx.enmDiag                 resd        1
+    .hwvirt.vmx.enmAbort                resd        1
+    .hwvirt.vmx.uDiagAux                resq        1
+    .hwvirt.vmx.uAbortAux               resd        1
+    .hwvirt.vmx.fInVmxRootMode          resb        1
+    .hwvirt.vmx.fInVmxNonRootMode       resb        1
+    .hwvirt.vmx.fInterceptEvents        resb        1
+    .hwvirt.vmx.fNmiUnblockingIret      resb        1
+    .hwvirt.vmx.uFirstPauseLoopTick     resq        1
+    .hwvirt.vmx.uPrevPauseTick          resq        1
+    .hwvirt.vmx.uEntryTick              resq        1
+    .hwvirt.vmx.offVirtApicWrite        resw        1
+    .hwvirt.vmx.fVirtNmiBlocking        resb        1
+    alignb 8
+    .hwvirt.vmx.Msrs                    resb        224
+
+    alignb 8
+    .hwvirt.enmHwvirt                   resd        1
+    .hwvirt.fGif                        resb        1
+    alignb 4
+    .hwvirt.fSavedInhibit               resd        1
+    alignb 64
+endstruc
+
+
+%define CPUMSELREG_FLAGS_VALID      0x0001
+%define CPUMSELREG_FLAGS_STALE      0x0002
+%define CPUMSELREG_FLAGS_VALID_MASK 0x0003
+
+
+;;
+; Guest MSR state.
+struc CPUMCTXMSRS
+    .au64               resq  64
+endstruc
+
+
+%endif
+

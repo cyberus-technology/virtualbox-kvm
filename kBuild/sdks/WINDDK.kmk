@@ -1,0 +1,133 @@
+# $Id: WINDDK.kmk 3418 2020-08-21 11:02:13Z bird $
+## @file
+# kBuild SDK - The Microsoft Windows Vista and Server 2008 DDKs.
+#              Defaults to $(KBUILD_TARGET_ARCH). Base SDK.
+#
+
+#
+# Copyright (c) 2006-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
+#
+# This file is part of kBuild.
+#
+# kBuild is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# kBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with kBuild; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# As a special exception you are granted permission to include this file, via
+# the kmk include directive, as you wish without this in itself causing the
+# resulting makefile, program or whatever to be covered by the GPL license.
+# This exception does not however invalidate any other reasons why the makefile,
+# program, whatever should not be covered the GPL.
+#
+#
+
+SDK_WINDDK := The Microsoft Windows Vista and Server 2008 DDKs. \
+              Defaults to $(KBUILD_TARGET_ARCH). Base SDK.
+
+# SDK Specific Properties
+ifndef PATH_SDK_WINDDK
+ PATH_SDK_WINDDK := $(wildcard $(KBUILD_DEVTOOLS_TRG)/ddk/6*)
+ ifeq ($(PATH_SDK_WINDDK),)
+  PATH_SDK_WINDDK := $(wildcard $(KBUILD_DEVTOOLS)/win.x86/ddk/6*)
+ endif
+ ifeq ($(PATH_SDK_WINDDK),)
+  PATH_SDK_WINDDK := $(wildcard $(KBUILD_DEVTOOLS)/win.amd64/ddk/6*)
+ endif
+ ifeq ($(PATH_SDK_WINDDK),)
+  ifeq ($(KBUILD_HOST),win)
+   PATH_SDK_WINDDK := $(wildcard C:/WinDDK/6*)
+  endif
+ endif
+ ifneq ($(PATH_SDK_WINDDK),)
+  PATH_SDK_WINDDK := $(lastword $(sort $(PATH_SDK_WINDDK)))
+ else
+  $(warning kBuild: PATH_SDK_WINDDK couldn't be determined!)
+  PATH_SDK_WINDDK := $(KBUILD_DEVTOOLS)/win.x86/ddk/not/found
+ endif
+else
+ # Resolve any fancy stuff once and for all.
+ PATH_SDK_WINDDK := $(PATH_SDK_WINDDK)
+endif
+
+PATH_SDK_WINDDK_INC     ?= $(PATH_SDK_WINDDK)/inc
+PATH_SDK_WINDDK_INC_API ?= $(PATH_SDK_WINDDK_INC)/api
+PATH_SDK_WINDDK_INC_CRT ?= $(PATH_SDK_WINDDK_INC)/crt
+PATH_SDK_WINDDK_INC_DDK ?= $(PATH_SDK_WINDDK_INC)/ddk
+
+PATH_SDK_WINDDK_LIB_ROOT      ?= $(PATH_SDK_WINDDK)/lib
+PATH_SDK_WINDDK_LIB_WLH_ROOT  ?= $(PATH_SDK_WINDDK_LIB_ROOT)/wlh
+PATH_SDK_WINDDK_LIB_WNET_ROOT ?= $(PATH_SDK_WINDDK_LIB_ROOT)/wnet
+PATH_SDK_WINDDK_LIB_WXP_ROOT  ?= $(PATH_SDK_WINDDK_LIB_ROOT)/wxp
+PATH_SDK_WINDDK_LIB_W2K_ROOT  ?= $(PATH_SDK_WINDDK_LIB_ROOT)/w2k
+PATH_SDK_WINDDK_LIB_WDF_ROOT  ?= $(PATH_SDK_WINDDK_LIB_ROOT)/w2k
+
+PATH_SDK_WINDDK_LIB_WLH.amd64 ?= $(PATH_SDK_WINDDK_LIB_WLH_ROOT)/amd64
+PATH_SDK_WINDDK_LIB_WLH.ia64  ?= $(PATH_SDK_WINDDK_LIB_WLH_ROOT)/ia64
+PATH_SDK_WINDDK_LIB_WLH.x86   ?= $(PATH_SDK_WINDDK_LIB_WLH_ROOT)/i386
+PATH_SDK_WINDDK_LIB_WLH       ?= $(PATH_SDK_WINDDK_LIB_WLH.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK_LIB_WNET.amd64?= $(PATH_SDK_WINDDK_LIB_WNET_ROOT)/amd64
+PATH_SDK_WINDDK_LIB_WNET.ia64 ?= $(PATH_SDK_WINDDK_LIB_WNET_ROOT)/ia64
+PATH_SDK_WINDDK_LIB_WNET.x86  ?= $(PATH_SDK_WINDDK_LIB_WNET_ROOT)/i386
+PATH_SDK_WINDDK_LIB_WNET      ?= $(PATH_SDK_WINDDK_LIB_WNET.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK_LIB_WXP.x86   ?= $(PATH_SDK_WINDDK_LIB_WXP_ROOT)/i386
+PATH_SDK_WINDDK_LIB_WXP       ?= $(PATH_SDK_WINDDK_LIB_WXP.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK_LIB_W2K.x86   ?= $(PATH_SDK_WINDDK_LIB_W2K_ROOT)/i386
+PATH_SDK_WINDDK_LIB_W2K       ?= $(PATH_SDK_WINDDK_LIB_W2K.$(KBUILD_TARGET_ARCH))
+
+PATH_SDK_WINDDK_LIB.amd64     ?= $(PATH_SDK_WINDDK_LIB_WLH.amd64)
+PATH_SDK_WINDDK_LIB.ia64      ?= $(PATH_SDK_WINDDK_LIB_WLH.ia64)
+PATH_SDK_WINDDK_LIB.x86       ?= $(PATH_SDK_WINDDK_LIB_WLH.x86)
+PATH_SDK_WINDDK_LIB           ?= $(PATH_SDK_WINDDK_LIB.$(KBUILD_TARGET_ARCH))
+
+# General Properties used by kBuild
+SDK_WINDDK_DEFS.amd64    ?= _AMD64_ AMD64 _WIN64
+SDK_WINDDK_DEFS.ia64     ?= _IA64_=1 IA64=1 _WIN64 _MSC_EXTENSIONS
+SDK_WINDDK_DEFS.x86      ?= _X86_=1 i386=1 STD_CALL
+SDK_WINDDK_INCS          ?= \
+	$(PATH_SDK_WINDDK_INC_API) \
+	$(PATH_SDK_WINDDK_INC_DDK)
+# The compiler tool(s) will have to select the appropriate crt includes.
+SDK_WINDDK_LIBPATH.amd64 ?= $(PATH_SDK_WINDDK_LIB_WLH.amd64)
+SDK_WINDDK_LIBPATH.ia64  ?= $(PATH_SDK_WINDDK_LIB_WLH.ia64)
+SDK_WINDDK_LIBPATH.x86   ?= $(PATH_SDK_WINDDK_LIB_WLH.x86)
+
+#
+# CDFS defines for the various build environments. Just to give an idea what
+# you should put in your templates and target DEFS.
+#
+
+# Vista / Server Longhorn x64 Free:  NT_INST=0 WIN32=100 _WIN32_WINNT=0x0600 WINVER=0x0600 _WIN32_IE=0x0700 NTDDI_VERSION=0x06000000 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL
+# Vista / Server Longhorn ia64 Free: NT_INST=0 WIN32=100 _WIN32_WINNT=0x0600 WINVER=0x0600 _WIN32_IE=0x0700 NTDDI_VERSION=0x06000000 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL NO_HW_DETECT _MSC_EXTENSIONS _MERCED_A0_=1 FPO=0
+# Vista / Server Longhorn x86 Free:  NT_INST=0 WIN32=100 _WIN32_WINNT=0x0600 WINVER=0x0600 _WIN32_IE=0x0700 NTDDI_VERSION=0x06000000 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL STD_CALL FPO=0
+# Windows Server 2003 amd64 Free:    NT_INST=0 WIN32=100 _WIN32_WINNT=0x0502 WINVER=0x0502 _WIN32_IE=0x0603 NTDDI_VERSION=0x05020100 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL
+# Windows Server 2003 ia64 Free:     NT_INST=0 WIN32=100 _WIN32_WINNT=0x0502 WINVER=0x0502 _WIN32_IE=0x0603 NTDDI_VERSION=0x05020100 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL NO_HW_DETECT _MSC_EXTENSIONS _MERCED_A0_=1 FPO=0
+# Windows Server 2003 x86 Free:      NT_INST=0 WIN32=100 _WIN32_WINNT=0x0502 WINVER=0x0502 _WIN32_IE=0x0603 NTDDI_VERSION=0x05020100 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL STD_CALL FPO=0
+# Windows XP Free:                   NT_INST=0 WIN32=100 _WIN32_WINNT=0x0501 WINVER=0x0501 _WIN32_IE=0x0603 NTDDI_VERSION=0x05010200 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL STD_CALL FPO=0
+# Windows 2000 Free:                 NT_INST=0 WIN32=100 _WIN32_WINNT=0x0500 WINVER=0x0500 _WIN32_IE=0x0501 NTDDI_VERSION=0x05000400 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL STD_CALL FPO=0
+# Windows 2000 Checked:              NT_INST=0 WIN32=100 _WIN32_WINNT=0x0500 WINVER=0x0500 _WIN32_IE=0x0501 NTDDI_VERSION=0x05000400 KMDF_MAJOR_VERSION=01 KMDF_MINOR_VERSION=005 WIN32_LEAN_AND_MEAN=1 CONDITION_HANDLING=1 DEVL=1 NDEBUG __BUILDMACHINE__=WinDDK _DLL STD_CALL FPO=0 MSC_NOOPT
+
+# Some notes about the defines:
+#  NTDDI_VERSION indicates the target NT version, looks kind of important to get right.
+#  _WIN32_WINNT, WINVER and _WIN32_IE are used by a bunch of headers for selecting features.
+#  WIN32_LEAN_AND_MEAN is used by api\WINDOWS.H to drop a bunch of includes.
+#  WIN32 is just used for some ifdef'ing by a handful headers.
+#  __BUILDMACHINE__ is used by api\common.ver (for resources it seems).
+#  STD_CALL is used by ddk\stdcall.inc (masm).
+#  DEVL governs the IF_NTOS_DEBUG() macro in ddk\wdm.h.
+#  NDEBUG is used by crt\assert.h dictated by the standards.
+#  CONDITION_HANDLING, FPO, KMDF_MAJOR_VERSION, KMDF_MINOR_VERSION, MSC_NOOPT and NT_INST are not referenced in any headers.
+
