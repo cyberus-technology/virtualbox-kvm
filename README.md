@@ -26,10 +26,29 @@ workload.
 
 ## How to use
 
-There are no prebuilt packages of VirtualBox KVM and it needs to be build from
+There are no prebuilt packages of VirtualBox KVM and it needs to be built from
 source. The process of building VirtualBox from source can be found
 [on virtualbox.org](https://www.virtualbox.org/wiki/Linux%20build%20instructions) and only
 minor adjustments are required to build VirtualBox with KVM as a backend.
+
+On a fresh install of Ubuntu 22.04, you can use the following command to install
+all prerequisites via `apt`:
+
+```shell
+apt install acpica-tools chrpath doxygen g++-multilib libasound2-dev libcap-dev \
+        libcurl4-openssl-dev libdevmapper-dev libidl-dev libopus-dev libpam0g-dev \
+        libpulse-dev libqt5opengl5-dev libqt5x11extras5-dev qttools5-dev libsdl1.2-dev libsdl-ttf2.0-dev \
+        libssl-dev libvpx-dev libxcursor-dev libxinerama-dev libxml2-dev libxml2-utils \
+        libxmu-dev libxrandr-dev make nasm python3-dev python2-dev qttools5-dev-tools \
+        texlive texlive-fonts-extra texlive-latex-extra unzip xsltproc \
+        \
+        default-jdk libstdc++5 libxslt1-dev linux-kernel-headers makeself \
+        mesa-common-dev subversion yasm zlib1g-dev glslang-tools \
+        libc6-dev-i386 lib32stdc++6 libtpms-dev
+```
+
+Newer GCC versions (>= 12) might cause build issues. The command above installs a
+compatible version on Ubuntu 22.04.
 
 After having all the prerequisites installed, the build process can be condensed
 to the following steps:
