@@ -294,69 +294,6 @@ VMMR3_INT_DECL(int) NEMR3KvmGetHvCpuIdLeaves(PVM pVM, PCPUMCPUIDLEAF *outpCpuId,
 VMMR3_INT_DECL(int) NEMR3KvmGetCpuIdLeaves(PVM pVM, PCPUMCPUIDLEAF *outpCpuId, size_t *outcLeaves);
 #endif
 
-#if defined(VBOX_WITH_KVM) && defined(IN_RING3)
-
-#define KVM_SPLIT_IRQCHIP_NUM_INTR_PINS 24
-
-/**
- * Execute state load operation. This sets the correct KVM MP state depending on
- * the VBox vCPUs state.
- * @param pVM The cross context VM structure
- */
-VMMR3_INT_DECL(int) NEMR3LoadExec(PVM pVM);
-
-/**
- * Retrieves the local APIC state from the in-kernel irqchip.
- * @param pVCpu The vCpu to retrieve the APIC state from
- * @param pXApicPage Pointer to the memory the APIC state is saved to. Must be
- *                   at least of size KVM_APIC_REG_SIZE.
- * @returns VBox status code
- */
-VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipGetApicState(PVMCPU pVCpu, void* pXApicPage);
-
-/**
- * Configures the local APIC state of the in-kernel irqchip.
- * @param pVCpu The vCpu for which to set the APIC state
- * @param pXApicPage Pointer to the memory containing APIC state. Must be at
- *                   least of size KVM_APIC_REG_SIZE.
- * @returns VBox status code
- */
-VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipSetApicState(PVMCPU pVCpu, void* pXApicPage);
-
-/**
- * Deliver a MSI via the in-kernel irqchip.
- *
- * @returns VBox status code
- * @param pVM The cross context VM structure
- * @param pMsi The MSI to inject into the guest
- */
-VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipDeliverMsi(PVM pVM, PCMSIMSG pMsi);
-
-/**
- * Add or update the Entry in the Redirection Table indexed by the GSI number.
- *
- * Interrupts configured via this interface will cause an EOI exit when the
- * guest acknowledges them. Typically, this is only necessary for level
- * triggered interrupts.
- *
- * @returns VBox status code
- * @param pVM The cross context VM structure
- * @param gsi The GSI number
- * @param pMSI The MSI that should be delivered when the interrupt fires
- */
-VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipAddUpdateRTE(PVM pVM, uint16_t u16Gsi, PCMSIMSG pMsi);
-
-/**
- *  Remove an Redirection Table entry indexed by the GSI number
- *
- *  @returns VBox status code
- *  @param pVM The cross context VM structure
- *  @param gsi The GSI number for what the Redirection Table Entry should be
- *  removed
- */
-VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipRemoveRTE(PVM pVM, uint16_t u16Gsi);
-#endif
-
 /** @name Flags for NEMR3NotifyPhysRomRegisterEarly and NEMR3NotifyPhysRomRegisterLate.
  * @{ */
 /** Set if the range is replacing RAM rather that unused space. */
