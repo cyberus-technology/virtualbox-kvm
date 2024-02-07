@@ -1102,6 +1102,7 @@ AssertCompileSize(GIMHVEXTGETBOOTZEROMEM, 16);
 
 /** Microsoft Hyper-V vendor signature. */
 #define GIM_HV_VENDOR_MICROSOFT                   "Microsoft Hv"
+#define GIM_HV_VENDOR_VBOX                        "VBoxVBoxVBox"
 
 /**
  * MMIO2 region indices.
