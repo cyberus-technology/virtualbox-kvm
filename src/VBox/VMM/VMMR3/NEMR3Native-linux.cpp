@@ -1112,13 +1112,6 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
         /** @todo add more? */
         MSR_RANGE_END(64);
 
-/*
- * FIXME: If we want KVM to handle these MSRs, we also need to sync them correctly in
- * nemHCLnxImportState and nemHCLnxExportState. Otherwise, VM reboot and
- * state save/resume will be broken for guests that utilize the HyperV PV interface
- * because the MSRs go out of sync.
- */
-#if 0
         if (pVM->gim.s.enmProviderId == GIMPROVIDERID_HYPERV)
         {
             MSR_RANGE_BEGIN(0x40000000, 0x40003000, KVM_MSR_FILTER_READ | KVM_MSR_FILTER_WRITE);
@@ -1161,7 +1154,6 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
 
             MSR_RANGE_END(64);
         }
-#endif
 
         /** @todo Specify other ranges too? Like hyper-V and KVM to make sure we get
          *        the MSR requests instead of KVM. */
