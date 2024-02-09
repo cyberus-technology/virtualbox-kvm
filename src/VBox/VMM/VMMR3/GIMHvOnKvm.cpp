@@ -451,15 +451,32 @@ VMMR3_INT_DECL(void) gimR3HvReset(PVM pVM)
     pHv->uDbgPendingBufferMsr = 0;
     pHv->uDbgSendBufferMsr    = 0;
     pHv->uDbgRecvBufferMsr    = 0;
+
+    PVMCPU pVCpuBsp = pVM->apCpusR3[0];
+    NEMR3KvmSetMsr(pVCpuBsp, MSR_GIM_HV_GUEST_OS_ID, pHv->u64GuestOsIdMsr);
+    NEMR3KvmSetMsr(pVCpuBsp, MSR_GIM_HV_HYPERCALL, pHv->u64HypercallMsr);
+    NEMR3KvmSetMsr(pVCpuBsp, MSR_GIM_HV_REF_TSC, pHv->u64TscPageMsr);
+    NEMR3KvmSetMsr(pVCpuBsp, MSR_GIM_HV_SYNTH_DEBUG_STATUS, pHv->uDbgStatusMsr);
+    NEMR3KvmSetMsr(pVCpuBsp, MSR_GIM_HV_SYNTH_DEBUG_PENDING_BUFFER, pHv->uDbgPendingBufferMsr);
+    NEMR3KvmSetMsr(pVCpuBsp, MSR_GIM_HV_SYNTH_DEBUG_SEND_BUFFER, pHv->uDbgSendBufferMsr);
+    NEMR3KvmSetMsr(pVCpuBsp, MSR_GIM_HV_SYNTH_DEBUG_RECEIVE_BUFFER, pHv->uDbgRecvBufferMsr);
+
     for (VMCPUID idCpu = 0; idCpu < pVM->cCpus; idCpu++)
     {
         PGIMHVCPU pHvCpu = &pVM->apCpusR3[idCpu]->gim.s.u.HvCpu;
+        PVMCPU pVCpu = pVM->apCpusR3[idCpu];
+
         pHvCpu->uSControlMsr = 0;
         pHvCpu->uSimpMsr  = 0;
         pHvCpu->uSiefpMsr = 0;
         pHvCpu->uApicAssistPageMsr = 0;
 
-        for (uint8_t idxSint = 0; idxSint < RT_ELEMENTS(pHvCpu->auSintMsrs); idxSint++)
+        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_SCONTROL, pHvCpu->uSControlMsr);
+        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_SIMP, pHvCpu->uSimpMsr);
+        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_SIEFP, pHvCpu->uSiefpMsr);
+        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_APIC_ASSIST_PAGE, pHvCpu->uApicAssistPageMsr);
+
+        for (uint8_t idxSint = 0; idxSint < RT_ELEMENTS(pHvCpu->auSintMsrs); idxSint++) {
             pHvCpu->auSintMsrs[idxSint] = MSR_GIM_HV_SINT_MASKED;
             if (isSynICAllowed(pHv)) {
                 NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_SINT0 + idxSint, pHvCpu->auSintMsrs[idxSint]);
@@ -471,6 +488,8 @@ VMMR3_INT_DECL(void) gimR3HvReset(PVM pVM)
             PGIMHVSTIMER pHvStimer = &pHvCpu->aStimers[idxStimer];
             pHvStimer->uStimerConfigMsr = 0;
             pHvStimer->uStimerCountMsr  = 0;
+            NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_STIMER0_CONFIG + idxStimer, pHvStimer->uStimerConfigMsr);
+            NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_STIMER0_COUNT + idxStimer, pHvStimer->uStimerCountMsr);
         }
     }
 }
