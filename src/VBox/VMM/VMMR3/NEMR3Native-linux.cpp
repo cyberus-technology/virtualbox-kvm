@@ -1562,6 +1562,44 @@ VMMR3_INT_DECL(int) NEMR3LoadExec(PVM pVM)
     return VINF_SUCCESS;
 }
 
+VMMR3_INT_DECL(int) NEMR3KvmGetMsr(PVMCPU pVCpu, uint64_t msr, uint64_t* val)
+{
+    alignas(struct kvm_msrs) char backing[sizeof(struct kvm_msrs) + sizeof(struct kvm_msr_entry)];
+    struct kvm_msrs* msr_data {reinterpret_cast<struct kvm_msrs*>(&backing[0])};
+    RT_ZERO(backing);
+
+    msr_data->nmsrs = 1;
+    msr_data->entries[0].index = msr;
+
+    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_GET_MSRS, msr_data);
+    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmGetMsr: \
+                Failed to get MSR data. Error: %d, errno %d\n", rcLnx, errno), VERR_NOT_SUPPORTED);
+
+    AssertLogRelMsgReturn(val != nullptr, ("NEMR3KvmGetMsr: \
+                Invalid buffer\n", rcLnx, errno), VERR_NEM_IPE_5);
+
+    *val = msr_data->entries[0].data;
+
+    return VINF_SUCCESS;
+}
+
+VMMR3_INT_DECL(int) NEMR3KvmSetMsr(PVMCPU pVCpu, uint64_t msr, uint64_t val)
+{
+    alignas(struct kvm_msrs) char backing[sizeof(struct kvm_msrs) + sizeof(struct kvm_msr_entry)];
+    struct kvm_msrs* msr_data {reinterpret_cast<struct kvm_msrs*>(&backing[0])};
+    RT_ZERO(backing);
+
+    msr_data->nmsrs = 1;
+    msr_data->entries[0].index = msr;
+    msr_data->entries[0].data = val;
+
+    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_MSRS, msr_data);
+    AssertLogRelMsgReturn(rcLnx == 1, ("NEMR3KvmSetMsr: \
+                Failed to set MSR[%lx] data. Error: %d, errno %d\n", msr, rcLnx, errno), VERR_NOT_SUPPORTED);
+
+    return VINF_SUCCESS;
+}
+
 VMMR3_INT_DECL(int) NEMR3KvmGetLapicState(PVMCPU pVCpu, void* pXApicPage)
 {
     struct kvm_lapic_state state;

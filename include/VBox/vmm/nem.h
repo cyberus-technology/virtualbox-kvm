@@ -171,6 +171,24 @@ VMMR3_INT_DECL(int)  NEMR3NotifyPhysRomRegisterLate(PVM pVM, RTGCPHYS GCPhys, RT
 #if defined(VBOX_WITH_KVM) && defined(IN_RING3)
 
 /**
+ * Retrieves the value of a single model specific register (MSR).
+ * @param pVCpu The vCPU in which context the MSR should be read (can be any vCPU for global MSRs).
+ * @param msr The index of the MSR that should be read.
+ * @param val A buffer that will contain the value of the specified MSR, if reading was successful.
+ * @return VBox status code, VINF_SUCCESS, if the read access was successful.
+ */
+VMMR3_INT_DECL(int) NEMR3KvmGetMsr(PVMCPU pVCpu, uint64_t msr, uint64_t* val);
+
+/**
+ * Writes a value to single model specific register (MSR).
+ * @param pVCpu The vCPU in which context the MSR should be written (can be any vCPU for global MSRs).
+ * @param msr The index of the MSR that should be written.
+ * @param val The value that should be written to the MSR.
+ * @return VBox status code, VINF_SUCCESS, if the write access was successful.
+ */
+VMMR3_INT_DECL(int) NEMR3KvmSetMsr(PVMCPU pVCpu, uint64_t msr, uint64_t val);
+
+/**
  * Asserts a specific interrupt line on both PIC and I/O APIC.
  * @param  pVM The cross context VM structure.
  * @param  u16Gsi the GSI of the interrupt lines that should be asserted.
