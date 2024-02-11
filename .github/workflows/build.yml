@@ -35,6 +35,7 @@ jobs:
     - name: Archive
       if: github.event_name == 'push'
       run: |
+        echo '${{ github.sha }}' > out/dev-build-commit.txt
         tar czvf dev-build.tar.gz out/
         sha384sum dev-build.tar.gz | tee dev-build.tar.gz.sha384sum
     - uses: ncipollo/release-action@v1
@@ -43,6 +44,5 @@ jobs:
         artifacts: "dev-build.tar.gz,dev-build.tar.gz.sha384sum"
         allowUpdates: true
         replacesArtifacts: true
-        body: 'Build for commit ${{ github.sha }}'
         tag: dev-build
         prerelease: true
