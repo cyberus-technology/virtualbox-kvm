@@ -6,7 +6,7 @@ VirtualBox KVM uses Linux KVM as the underlying hypervisor.
 
 ## What to expect
 
-The basic look and feel of VirtualBox KVM will be the same as with an
+The basic look and feel of VirtualBox KVM will be the same as with a
 conventional VirtualBox. The user is able to boot the same guest VMs in their
 existing VirtualBox configuration.
 
