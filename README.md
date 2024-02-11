@@ -32,7 +32,7 @@ found at https://github.com/cyberus-technology/virtualbox-kvm/releases/tag/dev-b
 Optionally download the sha384sums and validate.
 
 ```shell
-$ sha384sum -c dev-build.tar.gz.sha384sums
+$ sha384sum -c dev-build.tar.gz.sha384sum
 dev-build.tar.gz: OK
 ```
 
