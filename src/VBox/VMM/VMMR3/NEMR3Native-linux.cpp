@@ -2592,8 +2592,31 @@ static int nemHCLnxExportState(PVM pVM, PVMCPU pVCpu, PCPUMCTX pCtx, struct kvm_
 VMM_INT_DECL(int) NEMHCQueryCpuTick(PVMCPUCC pVCpu, uint64_t *pcTicks, uint32_t *puAux)
 {
     STAM_REL_COUNTER_INC(&pVCpu->nem.s.StatQueryCpuTick);
-    // KVM_GET_CLOCK?
-    RT_NOREF(pVCpu, pcTicks, puAux);
+
+    // This function is called when the VM is paused or
+    // suspended. It's called for all vCPUs.
+
+    const size_t NMSRS = 2;
+
+    size_t szReq = RT_UOFFSETOF_DYN(struct kvm_msrs, entries[NMSRS]);
+    struct kvm_msrs *pReq = static_cast<kvm_msrs *>(alloca(szReq));
+    memset(pReq, 0, szReq);
+
+    pReq->nmsrs = NMSRS;
+    pReq->entries[0].index = MSR_IA32_TSC;
+    pReq->entries[1].index = MSR_K8_TSC_AUX;
+
+    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_GET_MSRS, pReq);
+    AssertLogRelMsgReturn(rcLnx == NMSRS, ("rcLnx=%d errno=%d\n", rcLnx, errno), VERR_NEM_IPE_5);
+
+    if (pcTicks) {
+      *pcTicks = pReq->entries[0].data;
+    }
+
+    if (puAux) {
+      *puAux = static_cast<uint32_t>(pReq->entries[1].data);
+    }
+
     return VINF_SUCCESS;
 }
 
@@ -2610,8 +2633,39 @@ VMM_INT_DECL(int) NEMHCQueryCpuTick(PVMCPUCC pVCpu, uint64_t *pcTicks, uint32_t 
  */
 VMM_INT_DECL(int) NEMHCResumeCpuTickOnAll(PVMCC pVM, PVMCPUCC pVCpu, uint64_t uPausedTscValue)
 {
-    // KVM_SET_CLOCK?
-    RT_NOREF(pVM, pVCpu, uPausedTscValue);
+    RT_NOREF(pVCpu);
+
+    // This function is called once during unpause or resume. Despite
+    // the pVCpu parameter it is _not_ called for all vCPUs.
+
+    const size_t NMSRS = 1;
+
+    size_t szReq = RT_UOFFSETOF_DYN(struct kvm_msrs, entries[NMSRS]);
+    struct kvm_msrs *pReq = static_cast<kvm_msrs *>(alloca(szReq));
+    memset(pReq, 0, szReq);
+
+    pReq->nmsrs = NMSRS;
+    pReq->entries[0].index = MSR_IA32_TSC;
+    pReq->entries[0].data = uPausedTscValue;
+
+    // Setting the individual TSC values of all CPUs is fundamentally
+    // flawed, because the TSCs keep ticking while we set them. That
+    // means that we never really end up with synchronized TSC values
+    // unless KVM's built-in TSC synchronization magic fixes things up
+    // for us. But the interface doesn't leave us a lot of choice here
+    // for now.
+    //
+    // A better approach would be to use KVM_GET_CLOCK/KVM_SET_CLOCK
+    // and restore TSC_ADJUST values. We should validate whether this
+    // does the right thing though first.
+    for (VMCPUID idCpu = 0; idCpu < pVM->cCpus; idCpu++)
+    {
+        PVMCPU pVCpuCur = pVM->apCpusR3[idCpu];
+
+        int rcLnx = ioctl(pVCpuCur->nem.s.fdVCpu, KVM_SET_MSRS, pReq);
+        AssertLogRelMsgReturn(rcLnx == NMSRS, ("rcLnx=%d errno=%d\n", rcLnx, errno), VERR_NEM_IPE_5);
+    }
+
     return VINF_SUCCESS;
 }
 
