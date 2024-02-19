@@ -1419,51 +1419,6 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
         pStdFeatureLeaf->uEcx &= ~X86_CPUID_FEATURE_ECX_PCID;
         LogRel(("CPUM: Disabled PCID without FSGSBASE to workaround buggy guests\n"));
     }
-#if defined(VBOX_WITH_KVM)
-    /* Disable PCID support on Intel Alder Lake and Raptor Lake because invlpg
-     * is broken and does not correctly invalidate global entries. The Linux
-     * kernel does not allow PCID to be enabled on those systems. If we expose
-     * it anyway, the guest will get an #GP when it tries to enable it via
-     * CR4.PCIDE. For more details, see:
-     * https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/commit/?h=x86/urgent&id=ce0b15d11ad837fbacc5356941712218e38a0a83
-     */
-    static constexpr uint32_t MODEL_SHIFT { 4u };
-    static constexpr uint32_t MODEL_MASK { 0xF0u };
-    static constexpr uint32_t EXTENDED_MODEL_SHIFT { 16u };
-    static constexpr uint32_t EXTENDED_MODEL_MASK { 0xF0000u };
-    static constexpr uint32_t FAMILY_SHIFT { 8u };
-    static constexpr uint32_t FAMILY_MASK { 0xF00u };
-
-    static constexpr uint32_t INTEL_CORE_FAMILY_6 { 0x6 };
-    static constexpr uint32_t INTEL_EFF_MODEL_ADL   { 0x97 };
-    static constexpr uint32_t INTEL_EFF_MODEL_ADL_L { 0x9A };
-    static constexpr uint32_t INTEL_EFF_MODEL_ADL_N { 0xBE };
-    static constexpr uint32_t INTEL_EFF_MODEL_RPL   { 0xB7 };
-    static constexpr uint32_t INTEL_EFF_MODEL_RPL_P { 0xBA };
-    static constexpr uint32_t INTEL_EFF_MODEL_RPL_S { 0xBF };
-    static constexpr uint32_t EFFECTIVE_MODEL_EXTENDED_SHIFT { 4u };
-
-    auto effectiveFamily {(pStdFeatureLeaf->uEax & FAMILY_MASK) >> FAMILY_SHIFT};
-    auto extendedModel {(pStdFeatureLeaf->uEax & EXTENDED_MODEL_MASK) >> EXTENDED_MODEL_SHIFT};
-    auto model {(pStdFeatureLeaf->uEax & MODEL_MASK) >> MODEL_SHIFT};
-    auto effectiveModel { (extendedModel << EFFECTIVE_MODEL_EXTENDED_SHIFT) | model};
-
-    if (effectiveFamily == INTEL_CORE_FAMILY_6) {
-            switch (effectiveModel) {
-                case INTEL_EFF_MODEL_ADL:
-                case INTEL_EFF_MODEL_ADL_L:
-                case INTEL_EFF_MODEL_ADL_N:
-                case INTEL_EFF_MODEL_RPL:
-                case INTEL_EFF_MODEL_RPL_S:
-                case INTEL_EFF_MODEL_RPL_P:
-                    pStdFeatureLeaf->uEcx &= ~X86_CPUID_FEATURE_ECX_PCID;
-                    LogRel(("CPUM: Disabled PCID for ADL and RTL platforms\n"));
-                    break;
-                default:
-                    break;
-            }
-    }
-#endif
 
     if (pCpum->u8PortableCpuIdLevel > 0)
     {
