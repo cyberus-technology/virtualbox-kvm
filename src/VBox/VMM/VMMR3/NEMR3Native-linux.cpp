@@ -921,7 +921,7 @@ static int nemR3LnxInitGuestInterface(PVM pVM)
 
           The CPUID implementation hints must also indicate deprecating AutoEOI to make APICv work.
          */
-#if 0
+#if 1
         LogRel(("NEM: Enabling SYNIC.\n"));
 
         for (VMCPUID idCpu = 0; idCpu < pVM->cCpus; idCpu++)
