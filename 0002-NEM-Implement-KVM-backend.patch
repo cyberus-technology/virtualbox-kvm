@@ -1,0 +1,3280 @@
+From e1b953abdcc0f7c5270ea75e191d10a1633ef239 Mon Sep 17 00:00:00 2001
+From: Martin Messer <martin.messer@cyberus-technology.de>
+Date: Wed, 5 Apr 2023 13:49:04 +0000
+Subject: [PATCH 02/17] NEM: Implement KVM backend
+
+NEM: Log A20 changes everytime.
+
+In VBox 6 we had crashes during the boot of Linux with GRUB, when
+the A20 gate was toggled during runtime.
+The crashes does not occur with VBox7 anymore.
+To be save that the bugs are fixed by VBox internaly, we Log A20 changes
+anytime in the Release log.
+This should not occur very often.
+
+SUPLib-linux: Use MAP_POPULATE when ramprealloc is on by default
+
+svp-backend: fix tsc offset on resume
+
+Our ResumeCpuTickOnAll function was broken and led to TSC guest values
+jumping backwards. As the function is only called for certain events
+like pausing the VM, we did not notice this earlier.
+
+This commit fixes the issue by calculating a fresh TSC offset whenever
+the ResumeCpuTickOnAll is called.
+
+NEM: Correctly clear and set interrupt blocking states
+
+NEM: Handle alignment check exception
+
+Alignment check exceptions are special because there is some obscure
+scenario where they can cause a processor to completely hang. Hedron
+forces an exception exit for this vector, which needs to be handled by
+just re-injecting it to the guest. With this test case, VMMs can verify
+that everything works as expected.
+
+nem: fix TSC handling during State Save/Restore
+
+During State Save/Resume of VMs there are situations, where a VCPU poke
+is pending before a VM has executed any guest code.
+There is a contract with the hypervisor backend, that ensures, that the
+host tsc value is stored in the tsc_val field of the vcpu state timely
+after every vm exit.
+In the case, where the VCPU is poked, before the VCPU can execute any
+guest code, the tsc_val is never set and does not contain a valid value.
+
+We fix this issue, by submitting the current host tsc value calculated
+with the tsc offset to the TM subsystem, instead of relying on the
+tsc_val value from the hypervisor backend
+
+nem: fix style in HandleTimestampWRMSR
+
+svp-backend: port to new libslvm interface
+
+SLVM has switched to a simpler C structure for vCPU state. Adapt the
+code accordingly. This should be a strict 1:1 conversion.
+
+NEM: Fix KVM backend and make it performant
+
+NEM: fix interrupt window handling
+
+NEM: KVM: fix TPR handling
+
+vbox: disable PCID on machines from alderlake to newer
+
+NEM/KVM: sync LAPIC#TPR with CR8 from KVM
+
+This is required to support guests that set the TPR via CR8 or the MMIO
+path. The behaviour will change again if we use KVMs IRQCHIP feature
+eventually.
+
+NEM/KVM: add constants for TPR
+
+vbox/kvm: restore xsave state mask from xcr0
+
+NEM/KVM: only unblock poke signal for vCPU
+
+So far the poke signal was always unblocked. We only need to unblock
+it for guest execution. This should also prevent us from losing pokes,
+because pokes are now sticky until we try to run the vCPU.
+
+NEM/KVM: interrupt guest execution when timers expire
+
+NEM/KVM: don't reprogram the timer when nothing has changed
+
+iprt/thread-posix: expose poke signal
+
+NEM backends may have to do special handling to interrupt guest
+execution when the vCPU thread is poked.
+
+NEM/KVM: don't hardcode thread poke signal number
+
+NEM/KVM: let guest access FS_BASE MSR
+
+NEM/KVM: don't trigger RTThreadPoke assertion
+
+... in debug build.
+
+NEM: KVM: fix consuming poke signals
+
+NEM: KVM: exit immediately if poked by self
+
+NEM: KVM: fix whitespace
+
+NEM: KVM: program the same deadline on all vCPUs
+
+TM: check timers when we ask for a deadline
+
+There seems to be no harm in this and it might expedite the delivery
+of some timer events.
+
+TM: add more helpful message when we execute too long
+
+NEM: KVM: warn on split_lock_detection mitigation
+
+This mitigation causes hangs at least up to Linux 6.6, because any
+signal that arrives while the kernel throttles us leads to a situation
+where the guest makes no forward progress.
+
+NEM: KVM: apply cpu bug mitigations on first vCPU run
+
+NEM: add definitions
+
+NEM/KVM: implement KVM Split Irq Chip MSI handling
+
+NEM/KVM: Add GSI Routing support with Split IRQCHIP
+
+NEM/KVM: let kvm manage APICBASE MSR
+
+NEM/KVM: broadcast EOI on KVM EOI exit
+
+When using the split IRQ chip, KVM gives us an KVM EOI exit so we can go
+through our interrupt state machine. We handle this exit by broadcasting
+the EOI via VBox board utilities.
+
+NEM/KVM: use ioctl for issuing pic interrupts
+
+NEM/KVM: only handle pic interrupts with irq chip
+
+NEM/KVM: enable split irq chip
+
+NEM/KVM: use kvm ready for injection mechanism
+
+kvm offers some way to check if the guest is ready for interrupts. This
+saves us from doing checks manually.
+
+NEM/KVM: pass apic base to kvm
+
+NEM/KVM: disable x2apic HV hint when irq chip is on
+
+Otherwise, Windows will not boot.
+
+NEM/KVM: fix SMP support when using IRQ chip
+
+The HLT handling changes slightly when using the IRQ chip, thus we have
+to adapt the initial vCPU state and take care not to leave the vcpu run
+loop in certain cases.
+
+NEM: state save/resume for irqchip
+
+kvm: disable x2apic cpuid bit when split irq chip is enabled
+
+KVM/NEM: fix reset
+
+The guest reset now properly works when using the split irq chip. The
+problem was the vCPU state that was set to WAIT_SIPI. With the split irq
+chip, KVM manages the wait for SIPI state for us and we need to stay in
+the NEM vcpu state so VBox calls KVM_RUN again.
+
+APIC/KVM: retieve LAPIC from KVM when dumping the state via the VBox internal debugger
+
+NEM/KVM: fix interrupt handling with split irq chip
+
+We now always queue pending PIC interrupts in the TRPM and only inject them via KVM_INTERRUPT right before we continue executing via KVM_RUN.
+This ensures that we never call KVM_INTERRUPT twice, e.g. when exiting the run loop due to pending force flags.
+
+NEM/KVM: remove non-irqchip code
+
+APIC/NEM: sync lapic state between VBox and KVM after construction
+
+IOAPIC/KVM: reprogram GSI_ROUTING_TABLE before re-evaluating pending interrupts
+
+NEM/KVM: don't set immediate_exit when poking the current vCPU thread
+
+Revert "NEM: Add SVP Backend with basic VM support"
+
+This reverts commit b660655dcae2e6e4030c740fd65c556659f650a0.
+
+VBox: re introduce basic features for VBox operation with other hypervisors
+
+NEM/KVM: enable full irqchip if VBOX_WITH_KVM_IRQCHIP full is specified
+
+NEM/KVM: disable TRPM injection logic if full irqchip is in use
+
+NEM/KVM: add KvmIrqLine interface
+
+PDM: add PIC helpers that utilize KVM_IRQ_LINE
+
+DevIoApic: only handle redirection table entries if full-irqchip is not in use
+
+NEM: KVM routing support for full irqchip
+
+DevIoApic: interrupt injection support via full-irqchip
+
+DevPIC: interrupt injection support via full-irqchip
+
+NEM: drop A20 support when KVM full-irqchip is in use
+
+NEM: add and use constants for PIC INTR pins
+
+NEM/KVM: remove SplitIrqchip prefix from LAPIC get/set helpers
+
+NEM/KVM: implement PIC state get/set helpers
+
+NEM/KVM: implement IOAPIC state get/set helpers
+
+DevPic: state save/resume handling for KVM with full-irqchip
+
+DevIoApic: state save/resume handling for KVM
+
+DevACPI: add override for all PCI interrupt lines and make them level-high instead of level low
+
+The sad story is that KVM does not correctly support level low interrupts and requires the VMM to
+configure all PCI interrupts to level high.
+
+NEM: KVM: prepare enabling SYNIC when Hyper-PV GI is enabled
+
+NEM: KVM: allow querying supported Hyper-V CPUID leaves
+
+NEM: KVM: forward Hyper-V exits to guest interface code
+
+NEM: KVM: allow access to Hyper-V MSRs
+
+GIM: update Hyper-V hints and features for KVM
+
+VMM: ignore A20 conditions when running with KVM + full irqchip
+
+Because we do not support A20 with full IRQCHIP. This condition triggers in debug mode when booting grub.
+
+KVM/IoApic: do not remove routing table entries when an RTE is masked
+
+It is completely OK for the guest to issue an EOI while the entry is masked. If we don't leave the entry intact, we do not get an EOI exit in this scenario.
+
+IOAPIC: irq storm detection and prevention support
+
+NEM/KVM: switch to split-irqchip
+
+NEM: add kvm cpuid leaf api
+
+The function returns the valid CPUID leaves supported by the host and
+kvm. As e.g. the GRSEC kernel defeatures fsgsbase, we must check the
+leaves that vbox wants to offer to the guest against what KVM supports.
+
+NEM: only offer supported CPUID values
+
+VirtualBox detects the CPUID values it offers to the guest mostly by
+probing the CPUID of the host system. Linux or KVM may have disabled
+some features, which are still reported via the host CPUID.
+
+Therefore, we check the supported KVM CPUID values and take those into
+account for the CPUID values VBox wants to offer to the guest.
+---
+ include/VBox/vmm/nem.h                        |  197 ++++
+ include/VBox/vmm/pdmdev.h                     |  121 ++
+ include/iprt/mangling.h                       |    1 +
+ include/iprt/thread.h                         |    6 +
+ src/VBox/Devices/PC/DevACPI.cpp               |   71 +-
+ src/VBox/Devices/PC/DevIoApic.cpp             |  185 ++-
+ src/VBox/Devices/PC/DevPIC.cpp                |   65 ++
+ src/VBox/HostDrivers/Support/Makefile.kmk     |    1 +
+ .../Support/linux/SUPLib-linux.cpp            |    4 +
+ src/VBox/Main/Makefile.kmk                    |    4 +-
+ src/VBox/Runtime/r3/posix/thread-posix.cpp    |    4 +
+ src/VBox/Runtime/testcase/Makefile.kmk        |    1 +
+ src/VBox/VMM/VMMAll/APICAll.cpp               |   10 +
+ src/VBox/VMM/VMMAll/PGMAllBth.h               |    3 +
+ src/VBox/VMM/VMMAll/TMAll.cpp                 |    5 +-
+ src/VBox/VMM/VMMAll/TMAllVirtual.cpp          |    4 +
+ src/VBox/VMM/VMMR3/APIC.cpp                   |   21 +
+ src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp            |   47 +
+ src/VBox/VMM/VMMR3/EM.cpp                     |   11 +
+ src/VBox/VMM/VMMR3/GIMHv.cpp                  |   77 +-
+ src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp      | 1013 +++++++++++++++--
+ src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp          |  102 ++
+ src/VBox/VMM/VMMR3/PGMPhys.cpp                |    5 +
+ src/VBox/VMM/VMMR3/VMM.cpp                    |    5 +
+ src/VBox/VMM/include/GIMHvInternal.h          |    2 +
+ src/VBox/VMM/include/NEMInternal.h            |   28 +-
+ 26 files changed, 1895 insertions(+), 98 deletions(-)
+
+diff --git a/include/VBox/vmm/nem.h b/include/VBox/vmm/nem.h
+index 0d960a7eee..26d055fcd0 100644
+--- a/include/VBox/vmm/nem.h
++++ b/include/VBox/vmm/nem.h
+@@ -43,6 +43,14 @@
+ #include <VBox/vmm/vmapi.h>
+ #include <VBox/vmm/pgm.h>
+ 
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++// For KVMPICSTATE and KVMIRQCHIP
++#include <VBox/vmm/pdmdev.h>
++#endif
++
++#if defined(VBOX_WITH_KVM) && defined(IN_RING3)
++#include <VBox/vmm/cpum.h>      /* for PCPUMCPUIDLEAF */
++#endif
+ 
+ RT_C_DECLS_BEGIN
+ 
+@@ -160,6 +168,195 @@ VMMR3_INT_DECL(int)  NEMR3NotifyPhysRomRegisterEarly(PVM pVM, RTGCPHYS GCPhys, R
+ VMMR3_INT_DECL(int)  NEMR3NotifyPhysRomRegisterLate(PVM pVM, RTGCPHYS GCPhys, RTGCPHYS cb, void *pvPages,
+                                                     uint32_t fFlags, uint8_t *pu2State, uint32_t *puNemRange);
+ 
++#if defined(VBOX_WITH_KVM) && defined(IN_RING3)
++
++/**
++ * Asserts a specific interrupt line on both PIC and I/O APIC.
++ * @param  pVM The cross context VM structure.
++ * @param  u16Gsi the GSI of the interrupt lines that should be asserted.
++ * @param  iLevel Line level, either PDM_IRQ_LEVEL_HIGH, PDM_IRQ_LEVEL_LOW or PDM_IRQ_LEVEL_FLIP_FLOP.
++ * @return Vbox status code.
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSetIrqLine(PVM pVM, uint16_t u16Gsi, int iLevel);
++
++/**
++ * Execute state load operation. This sets the correct KVM MP state depending on
++ * the VBox vCPUs state.
++ * @param pVM The cross context VM structure
++ */
++VMMR3_INT_DECL(int) NEMR3LoadExec(PVM pVM);
++
++/**
++ * Retrieves the local APIC state from the in-kernel irqchip.
++ * @param pVCpu The vCpu to retrieve the APIC state from
++ * @param pXApicPage Pointer to the memory the APIC state is saved to. Must be
++ *                   at least of size KVM_APIC_REG_SIZE.
++ * @returns VBox status code
++ */
++VMMR3_INT_DECL(int) NEMR3KvmGetLapicState(PVMCPU pVCpu, void* pXApicPage);
++
++/**
++ * Configures the local APIC state of the in-kernel irqchip.
++ * @param pVCpu The vCpu for which to set the APIC state
++ * @param pXApicPage Pointer to the memory containing APIC state. Must be at
++ *                   least of size KVM_APIC_REG_SIZE.
++ * @returns VBox status code
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSetLapicState(PVMCPU pVCpu, void* pXApicPage);
++
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++
++/**
++ * Retrieves the PIC state from the in-kernel irqchip.
++ * @param pVM The VM to retrieve the PIC state from
++ * @param irqchip Whether to retrieve the state from the master or slave pic
++ * @param state Buffer to store the PIC state in.
++ * @returns VBox status code
++ */
++VMMR3_INT_DECL(int) NEMR3KvmGetPicState(PVM pVM, KVMIRQCHIP irqchip, KVMPICSTATE* state);
++
++/**
++ * Configures the PIC state of the in-kernel irqchip.
++ * @param pVM The VM to for which to set the PIC state
++ * @param irqchip Whether to set the state of the master or slave pic
++ * @param state Pointer to the memory containing PIC state.
++ * @returns VBox status code
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSetPicState(PVM pVM, KVMIRQCHIP irqchip, KVMPICSTATE* state);
++
++/**
++ * Retrieves the I/O APIC state from the in-kernel irqchip.
++ * @param pVM The VM to retrieve the I/O APIC state from
++ * @param state Buffer where to store I/O APIC state.
++ * @returns VBox status code
++ */
++VMMR3_INT_DECL(int) NEMR3KvmGetIoApicState(PVM pVM, KVMIOAPICSTATE* state);
++
++/**
++ * Configures the I/O APIC state of the in-kernel irqchip.
++ * @param pVM The VM to for which to set the I/O APIC state
++ * @param state Pointer to the memory containing I/O APIC state.
++ * @returns VBox status code
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSetIoApicState(PVM pVM, KVMIOAPICSTATE* state);
++#endif
++/**
++ * Deliver a MSI via the in-kernel irqchip.
++ *
++ * @returns VBox status code
++ * @param pVM The cross context VM structure
++ * @param pMsi The MSI to inject into the guest
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipDeliverMsi(PVM pVM, PCMSIMSG pMsi);
++
++/**
++ * Add or update the Entry in the Redirection Table indexed by the GSI number.
++ *
++ * Interrupts configured via this interface will cause an EOI exit when the
++ * guest acknowledges them. Typically, this is only necessary for level
++ * triggered interrupts.
++ *
++ * @returns VBox status code
++ * @param pVM The cross context VM structure
++ * @param gsi The GSI number
++ * @param pMSI The MSI that should be delivered when the interrupt fires
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipAddUpdateRTE(PVM pVM, uint16_t u16Gsi, PCMSIMSG pMsi);
++
++/**
++ *  Remove an Redirection Table entry indexed by the GSI number
++ *
++ *  @returns VBox status code
++ *  @param pVM The cross context VM structure
++ *  @param gsi The GSI number for what the Redirection Table Entry should be
++ *  removed
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipRemoveRTE(PVM pVM, uint16_t u16Gsi);
++
++/**
++ * Returns an array of Hyper-V CPUID leaves supported by KVM.
++ *
++ * @returns VBox status code
++ * @param pVM The cross context VM structure
++ * @param outpCpuId The pointer where the CPUID leaves will be returned. Must be freed by the caller!
++ * @param outcLeaves The pointer where the number of CPUID leaves will be returned.
++ */
++VMMR3_INT_DECL(int) NEMR3KvmGetHvCpuIdLeaves(PVM pVM, PCPUMCPUIDLEAF *outpCpuId, size_t *outcLeaves);
++
++/**
++ * Returns an array of CPUID leaves supported by KVM.
++ *
++ * @returns VBox status code
++ * @param pVM The cross context VM structure
++ * @param outpCpuId The pointer where the CPUID leaves will be returned. Must be freed by the caller!
++ * @param outcLeaves The pointer where the number of CPUID leaves will be returned.
++ */
++VMMR3_INT_DECL(int) NEMR3KvmGetCpuIdLeaves(PVM pVM, PCPUMCPUIDLEAF *outpCpuId, size_t *outcLeaves);
++#endif
++
++#if defined(VBOX_WITH_KVM) && defined(IN_RING3)
++
++#define KVM_SPLIT_IRQCHIP_NUM_INTR_PINS 24
++
++/**
++ * Execute state load operation. This sets the correct KVM MP state depending on
++ * the VBox vCPUs state.
++ * @param pVM The cross context VM structure
++ */
++VMMR3_INT_DECL(int) NEMR3LoadExec(PVM pVM);
++
++/**
++ * Retrieves the local APIC state from the in-kernel irqchip.
++ * @param pVCpu The vCpu to retrieve the APIC state from
++ * @param pXApicPage Pointer to the memory the APIC state is saved to. Must be
++ *                   at least of size KVM_APIC_REG_SIZE.
++ * @returns VBox status code
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipGetApicState(PVMCPU pVCpu, void* pXApicPage);
++
++/**
++ * Configures the local APIC state of the in-kernel irqchip.
++ * @param pVCpu The vCpu for which to set the APIC state
++ * @param pXApicPage Pointer to the memory containing APIC state. Must be at
++ *                   least of size KVM_APIC_REG_SIZE.
++ * @returns VBox status code
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipSetApicState(PVMCPU pVCpu, void* pXApicPage);
++
++/**
++ * Deliver a MSI via the in-kernel irqchip.
++ *
++ * @returns VBox status code
++ * @param pVM The cross context VM structure
++ * @param pMsi The MSI to inject into the guest
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipDeliverMsi(PVM pVM, PCMSIMSG pMsi);
++
++/**
++ * Add or update the Entry in the Redirection Table indexed by the GSI number.
++ *
++ * Interrupts configured via this interface will cause an EOI exit when the
++ * guest acknowledges them. Typically, this is only necessary for level
++ * triggered interrupts.
++ *
++ * @returns VBox status code
++ * @param pVM The cross context VM structure
++ * @param gsi The GSI number
++ * @param pMSI The MSI that should be delivered when the interrupt fires
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipAddUpdateRTE(PVM pVM, uint16_t u16Gsi, PCMSIMSG pMsi);
++
++/**
++ *  Remove an Redirection Table entry indexed by the GSI number
++ *
++ *  @returns VBox status code
++ *  @param pVM The cross context VM structure
++ *  @param gsi The GSI number for what the Redirection Table Entry should be
++ *  removed
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipRemoveRTE(PVM pVM, uint16_t u16Gsi);
++#endif
++
+ /** @name Flags for NEMR3NotifyPhysRomRegisterEarly and NEMR3NotifyPhysRomRegisterLate.
+  * @{ */
+ /** Set if the range is replacing RAM rather that unused space. */
+diff --git a/include/VBox/vmm/pdmdev.h b/include/VBox/vmm/pdmdev.h
+index f895eb86f5..525d82e030 100644
+--- a/include/VBox/vmm/pdmdev.h
++++ b/include/VBox/vmm/pdmdev.h
+@@ -64,6 +64,49 @@
+ #include <iprt/stdarg.h>
+ #include <iprt/list.h>
+ 
++#ifdef VBOX_WITH_KVM
++#define KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS 24
++#define KVM_IRQCHIP_NUM_PIC_INTR_PINS 16
++#endif
++
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++struct KVMPICSTATE
++{
++    uint8_t         last_irr;
++    uint8_t         irr;
++    uint8_t         imr;
++    uint8_t         isr;
++    uint8_t         priority_add;
++    uint8_t         irq_base;
++    uint8_t         read_reg_select;
++    uint8_t         poll;
++    uint8_t         special_mask;
++    uint8_t         init_state;
++    uint8_t         auto_eoi;
++    uint8_t         rotate_on_auto_eoi;
++    uint8_t         special_fully_nested_mode;
++    uint8_t         init4;
++    uint8_t         elcr;
++    uint8_t         elcr_mask;
++};
++
++enum class KVMIRQCHIP
++{
++    PIC_MASTER = 0,
++    PIC_SLAVE = 1,
++};
++
++struct KVMIOAPICSTATE
++{
++    uint64_t base_address;
++    uint32_t ioregsel;
++    uint32_t id;
++    uint32_t irr;
++
++    uint64_t redirtbl[KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS];
++};
++#endif
++
+ 
+ RT_C_DECLS_BEGIN
+ 
+@@ -1747,6 +1790,35 @@ typedef struct PDMPICHLP
+      */
+     DECLCALLBACKMEMBER(void, pfnUnlock,(PPDMDEVINS pDevIns));
+ 
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++    /**
++     * Asserts a PIC INTR Line.
++     * @param   pDevIns The PIC device instance.
++     * @param   u16Gsu  The GSI of the line to assert.
++     * @param   iLevel  Either PDM_IRQ_LEVEL_HIGH, PDM_IRQ_LEVEL_LOW or PDM_IRQ_LEVEL_FLIP_FLOP.
++     * @return  Vbox status code.
++     */
++    DECLCALLBACKMEMBER(int, pfnKvmSetIrqLine,(PPDMDEVINS pDevIns, uint16_t u16Gsi, int iLevel));
++
++    /**
++     * Retrieves the PIC state from the in-kernel irqchip.
++     * @param   pDevIns The PIC device instance.
++     * @param   irqchip Whether to retrieve the state from the master or slave pic
++     * @param   state   Buffer to store the PIC state in.
++     * @returns VBox status code
++     */
++    DECLCALLBACKMEMBER(int, pfnKvmGetPicState,(PPDMDEVINS pDevIns, KVMIRQCHIP irqchip, KVMPICSTATE* state));
++
++    /**
++     * Configures the PIC state of the in-kernel irqchip.
++     * @param   pDevIns The PIC device instance.
++     * @param   irqchip Whether to set the state of the master or slave pic.
++     * @param   state   Pointer to the memory containing PIC state.
++     * @returns VBox status code
++     */
++    DECLCALLBACKMEMBER(int, pfnKvmSetPicState,(PPDMDEVINS pDevIns, KVMIRQCHIP irqchip, KVMPICSTATE* state));
++#endif
++
+     /** Just a safety precaution. */
+     uint32_t                u32TheEnd;
+ } PDMPICHLP;
+@@ -1974,6 +2046,55 @@ typedef struct PDMIOAPICHLP
+      */
+     DECLCALLBACKMEMBER(int, pfnIommuMsiRemap,(PPDMDEVINS pDevIns, uint16_t idDevice, PCMSIMSG pMsiIn, PMSIMSG pMsiOut));
+ 
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
++    DECLCALLBACKMEMBER(int, pfnKvmSetIrqLine,(PPDMDEVINS pDevIns, uint16_t u16Gsi, int iLevel));
++    /**
++     * Private interface between IOAPIC and KVM Split Irq Chip
++     *
++     * @returns status code.
++     * @param pDevIns Device instance of the IOAPIC.
++     * @param pMsi The MSI to deliver to the KVM Split Irq Chip
++     */
++    DECLCALLBACKMEMBER(int, pfnKvmSplitIrqchipDeliverMsi,(PPDMDEVINS pDevIns, PCMSIMSG pMsi));
++
++    /**
++     * Add or Update Redirection Table Entry for the desired GSI
++     *
++     * @returns status code.
++     * @param pDevIns Device instance of the IOAPIC
++     * @param u16Gsi The GSI number to change the redirection table entry for.
++     * @param pMsi The MSI that should be sent when GSI is triggered
++     */
++    DECLCALLBACKMEMBER(int, pfnKvmSplitIrqchipAddUpdateRTE, (PPDMDEVINS pDevIns, uint16_t u16Gsi, PCMSIMSG pMsi));
++
++    /**
++     * Remove the entry from the Redirection Table indicated by the GSI number.
++     *
++     * @retruns status code.
++     * @param pDevIns Device instance of the IOAPIC
++     * @param u16Gsi The GSI number to remove from the Redirection Table
++     */
++    DECLCALLBACKMEMBER(int, pfnKvmSplitIrqchipRemoveRTE, (PPDMDEVINS pDevIns, uint16_t u16Gsi));
++#endif
++
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++    /**
++     * Retrieves the I/O APIC state from the in-kernel irqchip.
++     * @param   pDevIns The I/O APIC device instance.
++     * @param   state   Buffer to store the I/O APIC state in.
++     * @returns VBox status code
++     */
++    DECLCALLBACKMEMBER(int, pfnKvmGetIoApicState,(PPDMDEVINS pDevIns, KVMIOAPICSTATE* state));
++
++    /**
++     * Configures the I/O APIC state of the in-kernel irqchip.
++     * @param   pDevIns The I/O APIC device instance.
++     * @param   state Pointer to the memory containing I/O APIC state.
++     * @returns VBox status code
++     */
++    DECLCALLBACKMEMBER(int, pfnKvmSetIoApicState,(PPDMDEVINS pDevIns, KVMIOAPICSTATE* state));
++#endif
++
+     /** Just a safety precaution. */
+     uint32_t                u32TheEnd;
+ } PDMIOAPICHLP;
+diff --git a/include/iprt/mangling.h b/include/iprt/mangling.h
+index 0c8c027f1b..7b27bba35d 100644
+--- a/include/iprt/mangling.h
++++ b/include/iprt/mangling.h
+@@ -2555,6 +2555,7 @@
+ # define RTThreadIsSelfKnown                            RT_MANGLER(RTThreadIsSelfKnown)
+ # define RTThreadNativeSelf                             RT_MANGLER(RTThreadNativeSelf)
+ # define RTThreadControlPokeSignal                      RT_MANGLER(RTThreadControlPokeSignal) /* not-win not-os2 */
++# define RTThreadPokeSignal                             RT_MANGLER(RTThreadPokeSignal) /* not-win not-os2 */
+ # define RTThreadPoke                                   RT_MANGLER(RTThreadPoke) /* not-win not-os2 */
+ # define RTThreadPreemptDisable                         RT_MANGLER(RTThreadPreemptDisable)     /* r0drv */
+ # define RTThreadPreemptIsEnabled                       RT_MANGLER(RTThreadPreemptIsEnabled)   /* r0drv */
+diff --git a/include/iprt/thread.h b/include/iprt/thread.h
+index 7d9257ec4c..243d76de75 100644
+--- a/include/iprt/thread.h
++++ b/include/iprt/thread.h
+@@ -555,6 +555,12 @@ RTDECL(int) RTThreadPoke(RTTHREAD hThread);
+  */
+ RTDECL(int) RTThreadControlPokeSignal(RTTHREAD hThread, bool fEnable);
+ 
++/**
++ * Returns the signal that is used to poke threads.
++ *
++ * @returns a signal number or -1.
++ */
++RTDECL(int) RTThreadPokeSignal(void);
+ 
+ # ifdef IN_RING0
+ 
+diff --git a/src/VBox/Devices/PC/DevACPI.cpp b/src/VBox/Devices/PC/DevACPI.cpp
+index abf2ba5e25..672b9afae0 100644
+--- a/src/VBox/Devices/PC/DevACPI.cpp
++++ b/src/VBox/Devices/PC/DevACPI.cpp
+@@ -812,7 +812,11 @@ struct ACPITBLISO
+     uint16_t            u16Flags;               /**< MPS INTI flags Global */
+ };
+ AssertCompileSize(ACPITBLISO, 10);
+-#define NUMBER_OF_IRQ_SOURCE_OVERRIDES 2
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++#define NUMBER_OF_IRQ_SOURCE_OVERRIDES (10)
++#else
++#define NUMBER_OF_IRQ_SOURCE_OVERRIDES (2)
++#endif
+ 
+ /** HPET Descriptor Structure */
+ struct ACPITBLHPET
+@@ -3295,8 +3299,73 @@ static void acpiR3SetupMadt(PPDMDEVINS pDevIns, PACPISTATE pThis, RTGCPHYS32 add
+     isos[1].u8Bus      = 0; /* Must be 0 */
+     isos[1].u8Source   = 9; /* IRQ9 */
+     isos[1].u32GSI     = 9; /* connected to pin 9 */
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    isos[1].u16Flags   = 0xd; /* active high, level triggered */
++#else
+     isos[1].u16Flags   = 0xf; /* active low, level triggered */
++#endif
++
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    isos[2].u8Type     = 2;
++    isos[2].u8Length   = sizeof(ACPITBLISO);
++    isos[2].u8Bus      = 0; /* Must be 0 */
++    isos[2].u8Source   = 16; /* IRQ16 */
++    isos[2].u32GSI     = 16; /* connected to pin 16 */
++    isos[2].u16Flags   = 0xd; /* active high, level triggered */
++
++    isos[3].u8Type     = 2;
++    isos[3].u8Length   = sizeof(ACPITBLISO);
++    isos[3].u8Bus      = 0; /* Must be 0 */
++    isos[3].u8Source   = 17; /* IRQ17 */
++    isos[3].u32GSI     = 17; /* connected to pin 17 */
++    isos[3].u16Flags   = 0xd; /* active high, level triggered */
++
++    isos[4].u8Type     = 2;
++    isos[4].u8Length   = sizeof(ACPITBLISO);
++    isos[4].u8Bus      = 0; /* Must be 0 */
++    isos[4].u8Source   = 18; /* IRQ18 */
++    isos[4].u32GSI     = 18; /* connected to pin 18 */
++    isos[4].u16Flags   = 0xd; /* active high, level triggered */
++
++    isos[5].u8Type     = 2;
++    isos[5].u8Length   = sizeof(ACPITBLISO);
++    isos[5].u8Bus      = 0; /* Must be 0 */
++    isos[5].u8Source   = 19; /* IRQ19 */
++    isos[5].u32GSI     = 19; /* connected to pin 19 */
++    isos[5].u16Flags   = 0xd; /* active high, level triggered */
++
++    isos[6].u8Type     = 2;
++    isos[6].u8Length   = sizeof(ACPITBLISO);
++    isos[6].u8Bus      = 0; /* Must be 0 */
++    isos[6].u8Source   = 20; /* IRQ20 */
++    isos[6].u32GSI     = 20; /* connected to pin 20 */
++    isos[6].u16Flags   = 0xd; /* active high, level triggered */
++
++    isos[7].u8Type     = 2;
++    isos[7].u8Length   = sizeof(ACPITBLISO);
++    isos[7].u8Bus      = 0; /* Must be 0 */
++    isos[7].u8Source   = 21; /* IRQ21 */
++    isos[7].u32GSI     = 21; /* connected to pin 21 */
++    isos[7].u16Flags   = 0xd; /* active high, level triggered */
++
++    isos[8].u8Type     = 2;
++    isos[8].u8Length   = sizeof(ACPITBLISO);
++    isos[8].u8Bus      = 0; /* Must be 0 */
++    isos[8].u8Source   = 22; /* IRQ22 */
++    isos[8].u32GSI     = 22; /* connected to pin 22 */
++    isos[8].u16Flags   = 0xd; /* active high, level triggered */
++
++    isos[9].u8Type     = 2;
++    isos[9].u8Length   = sizeof(ACPITBLISO);
++    isos[9].u8Bus      = 0; /* Must be 0 */
++    isos[9].u8Source   = 23; /* IRQ23 */
++    isos[9].u32GSI     = 23; /* connected to pin 23 */
++    isos[9].u16Flags   = 0xd; /* active high, level triggered */
++
++    Assert(NUMBER_OF_IRQ_SOURCE_OVERRIDES == 10);
++#else
+     Assert(NUMBER_OF_IRQ_SOURCE_OVERRIDES == 2);
++#endif
+ 
+     madt.header_addr()->u8Checksum = acpiR3Checksum(madt.data(), madt.size());
+     acpiR3PhysCopy(pDevIns, addr, madt.data(), madt.size());
+diff --git a/src/VBox/Devices/PC/DevIoApic.cpp b/src/VBox/Devices/PC/DevIoApic.cpp
+index a69d8e3f02..f56c66725d 100644
+--- a/src/VBox/Devices/PC/DevIoApic.cpp
++++ b/src/VBox/Devices/PC/DevIoApic.cpp
+@@ -32,6 +32,14 @@
+ #define LOG_GROUP LOG_GROUP_DEV_IOAPIC
+ #include <VBox/log.h>
+ #include <VBox/vmm/hm.h>
++
++#ifdef VBOX_WITH_KVM
++#include <VBox/vmm/nem.h>
++#ifdef IN_RING3
++#include <vector>
++#endif
++#endif
++
+ #include <VBox/msi.h>
+ #include <VBox/pci.h>
+ #include <VBox/vmm/pdmdev.h>
+@@ -40,7 +48,6 @@
+ #include <iprt/x86.h>
+ #include <iprt/string.h>
+ 
+-
+ /*********************************************************************************************************************************
+ *   Defined Constants And Macros                                                                                                 *
+ *********************************************************************************************************************************/
+@@ -68,6 +75,10 @@ Controller" */
+ 
+ /** The number of interrupt input pins. */
+ #define IOAPIC_NUM_INTR_PINS                    24
++
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
++AssertCompile(IOAPIC_NUM_INTR_PINS == KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS);
++#endif
+ /** Maximum redirection entires. */
+ #define IOAPIC_MAX_RTE_INDEX                    (IOAPIC_NUM_INTR_PINS - 1)
+ /** Reduced RTEs used by SIO.A (82379AB). */
+@@ -340,6 +351,19 @@ typedef struct IOAPIC
+ #endif
+     /** Per-vector stats. */
+     STAMCOUNTER             aStatVectors[256];
++
++#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
++    /** Handle to the timer that is used for delayed IRQ injection */
++    TMTIMERHANDLE           hIoapicDelayedInjectionHandler;
++
++    /** List of PINs that need delayed injection handling, protected by IOAPIC_LOCK */
++    std::vector<uint8_t> delayed_interrupt_list;
++
++    /** A per-GSI counter that is increased whenever a level triggered interrupt is
++        instantly pending following an EOI. The counter is reset to zero when no
++        interrupt is pending following an EOI. */
++    uint64_t gsi_counter[IOAPIC_NUM_INTR_PINS] {};
++#endif
+ } IOAPIC;
+ AssertCompileMemberAlignment(IOAPIC, au64RedirTable, 8);
+ /** Pointer to shared IOAPIC data. */
+@@ -572,6 +596,35 @@ DECLINLINE(void) ioapicGetMsiFromRte(uint64_t u64Rte, IOAPICTYPE enmType, PMSIMS
+ #endif
+ 
+ 
++static bool handlePossibleInterruptStorm(PPDMDEVINS pDevIns, PIOAPIC pThis, unsigned idxRte)
++{
++#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
++
++    /** There are buggy drivers that do not clear all interrupt conditions before sending an EOI to the IOAPIC.
++        On real HW, such drivers make slow foward progress because the IOAPIC needs a few cycles the next interrupt
++        is injected after an EOI. If we detect this situation, delay the interrupt and give the guest driver the
++        opportunity to fix this mess. */
++
++    static constexpr uint64_t NUM_EXCESSIVE_INTERRUPTS {10000};
++    if (++pThis->gsi_counter[idxRte] == NUM_EXCESSIVE_INTERRUPTS) {
++        LogRel(("Interrupt storm on GSI %d, delaying injection\n", idxRte));
++
++        // Reset our counter so the next injection of this GSI succeeds.
++        pThis->gsi_counter[idxRte] = 0;
++
++        // Remember which GSI we have to raise after our delay.
++        pThis->delayed_interrupt_list.push_back(idxRte);
++
++        // Arm the delayed injection handler.
++        PDMDevHlpTimerSetMillies(pDevIns, pThis->hIoapicDelayedInjectionHandler, 100 /* ms */);
++        return true;
++    }
++#else
++    NOREF(pDevIns); NOREF(pThis); NOREF(idxRte);
++#endif
++
++    return false;
++}
+ /**
+  * Signals the next pending interrupt for the specified Redirection Table Entry
+  * (RTE).
+@@ -608,6 +661,10 @@ static void ioapicSignalIntrForRte(PPDMDEVINS pDevIns, PIOAPIC pThis, PIOAPICCC
+             STAM_COUNTER_INC(&pThis->StatSuppressedLevelIntr);
+             return;
+         }
++
++        if (handlePossibleInterruptStorm(pDevIns, pThis, idxRte)) {
++            return;
++        }
+     }
+ 
+     XAPICINTR ApicIntr;
+@@ -655,6 +712,11 @@ static void ioapicSignalIntrForRte(PPDMDEVINS pDevIns, PIOAPIC pThis, PIOAPICCC
+     }
+ #endif
+ 
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++    AssertReleaseMsg(rcRemap == VERR_IOMMU_NOT_PRESENT || rcRemap == VERR_IOMMU_CANNOT_CALL_SELF,
++                     ("Interrupt remapping not supported yet."));
++    int rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipDeliverMsi(pDevIns, &MsiIn);
++#else
+     uint32_t const u32TagSrc = pThis->au32TagSrc[idxRte];
+     Log2(("IOAPIC: Signaling %s-triggered interrupt. Dest=%#x DestMode=%s Vector=%#x (%u)\n",
+           ApicIntr.u8TriggerMode == IOAPIC_RTE_TRIGGER_MODE_EDGE ? "edge" : "level", ApicIntr.u8Dest,
+@@ -672,6 +734,7 @@ static void ioapicSignalIntrForRte(PPDMDEVINS pDevIns, PIOAPIC pThis, PIOAPICCC
+                                                     ApicIntr.u8Polarity,
+                                                     ApicIntr.u8TriggerMode,
+                                                     u32TagSrc);
++#endif
+     /* Can't reschedule to R3. */
+     Assert(rc == VINF_SUCCESS || rc == VERR_APIC_INTR_DISCARDED);
+ #ifdef DEBUG_ramshankar
+@@ -781,6 +844,16 @@ static VBOXSTRICTRC ioapicSetRedirTableEntry(PPDMDEVINS pDevIns, PIOAPIC pThis,
+ 
+         LogFlow(("IOAPIC: ioapicSetRedirTableEntry: uIndex=%#RX32 idxRte=%u uValue=%#RX32\n", uIndex, idxRte, uValue));
+ 
++#if defined(VBOX_WITH_KVM) && defined(IN_RING3) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++        const uint64_t u64RteNew { pThis->au64RedirTable[idxRte] };
++        if (not IOAPIC_RTE_IS_MASKED(u64RteNew)) {
++            MSIMSG msi;
++            RT_ZERO(msi);
++            ioapicGetMsiFromRte(u64RteNew, pThis->enmType, &msi);
++            rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipAddUpdateRTE(pDevIns, idxRte, &msi);
++        }
++#endif
++
+         /*
+          * Signal the next pending interrupt for this RTE.
+          */
+@@ -790,7 +863,6 @@ static VBOXSTRICTRC ioapicSetRedirTableEntry(PPDMDEVINS pDevIns, PIOAPIC pThis,
+             LogFlow(("IOAPIC: ioapicSetRedirTableEntry: Signalling pending interrupt. idxRte=%u\n", idxRte));
+             ioapicSignalIntrForRte(pDevIns, pThis, pThisCC, idxRte);
+         }
+-
+         IOAPIC_UNLOCK(pDevIns, pThis, pThisCC);
+     }
+     else
+@@ -940,6 +1012,15 @@ static DECLCALLBACK(void) ioapicSetIrq(PPDMDEVINS pDevIns, PCIBDF uBusDevFn, int
+     PIOAPIC   pThis   = PDMDEVINS_2_DATA(pDevIns, PIOAPIC);
+     PIOAPICCC pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
+     LogFlow(("IOAPIC: ioapicSetIrq: iIrq=%d iLevel=%d uTagSrc=%#x\n", iIrq, iLevel, uTagSrc));
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++    pThisCC->pIoApicHlp->pfnKvmSetIrqLine(pDevIns, iIrq, iLevel & PDM_IRQ_LEVEL_HIGH);
++
++    if ((iLevel & PDM_IRQ_LEVEL_FLIP_FLOP) == PDM_IRQ_LEVEL_FLIP_FLOP) {
++        pThisCC->pIoApicHlp->pfnKvmSetIrqLine(pDevIns, iIrq, PDM_IRQ_LEVEL_LOW);
++    }
++
++    return;
++#endif
+ 
+     STAM_COUNTER_INC(&pThis->CTX_SUFF_Z(StatSetIrq));
+ 
+@@ -962,6 +1043,9 @@ static DECLCALLBACK(void) ioapicSetIrq(PPDMDEVINS pDevIns, PCIBDF uBusDevFn, int
+ #endif
+         if (!fActive)
+         {
++#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
++            pThis->gsi_counter[idxRte] = 0;
++#endif
+             pThis->uIrr &= ~uPinMask;
+             pThis->au32TagSrc[idxRte] = 0;
+             IOAPIC_UNLOCK(pDevIns, pThis, pThisCC);
+@@ -1080,7 +1164,11 @@ static DECLCALLBACK(void) ioapicSendMsi(PPDMDEVINS pDevIns, PCIBDF uBusDevFn, PC
+ #else
+     NOREF(uBusDevFn);
+ #endif
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
++    int rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipDeliverMsi(pDevIns, pMsi);
+ 
++    AssertReleaseMsg(rc == VINF_SUCCESS || rc == VERR_APIC_INTR_DISCARDED, ("ioapicSendMsi: Could not deliver MSI! error %d\n", rc));
++#else
+     ioapicGetApicIntrFromMsi(pMsi, &ApicIntr);
+ 
+     /*
+@@ -1098,6 +1186,7 @@ static DECLCALLBACK(void) ioapicSendMsi(PPDMDEVINS pDevIns, PCIBDF uBusDevFn, PC
+                                                     uTagSrc);
+     /* Can't reschedule to R3. */
+     Assert(rc == VINF_SUCCESS || rc == VERR_APIC_INTR_DISCARDED); NOREF(rc);
++#endif
+ }
+ 
+ 
+@@ -1444,10 +1533,33 @@ static DECLCALLBACK(void) ioapicR3DbgInfo(PPDMDEVINS pDevIns, PCDBGFINFOHLP pHlp
+  */
+ static DECLCALLBACK(int) ioapicR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
+ {
+-    PCIOAPIC        pThis = PDMDEVINS_2_DATA(pDevIns, PCIOAPIC);
++    PIOAPIC         pThis = PDMDEVINS_2_DATA(pDevIns, PIOAPIC);
+     PCPDMDEVHLPR3   pHlp  = pDevIns->pHlpR3;
+     LogFlow(("IOAPIC: ioapicR3SaveExec\n"));
+ 
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    PIOAPICCC pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
++    KVMIOAPICSTATE kvm_ioapic_state;
++
++    for (unsigned pic = 0; pic < 2; ++pic) {
++        int rc = pThisCC->pIoApicHlp->pfnKvmGetIoApicState(pDevIns, &kvm_ioapic_state);
++        AssertLogRelMsg(RT_SUCCESS(rc), ("Unable to retrieve IOPIC state from KVM"));
++
++        /**
++         * There's no need to look at kvm_ioapic_state.base_address because
++         * VBox does not support IOAPIC relocation, thus, it will always be
++         * at IOAPIC_MMIO_BASE_PHYSADDR.
++         */
++        pThis->uIrr = kvm_ioapic_state.irr;
++        pThis->u8Id = kvm_ioapic_state.id;
++        pThis->u8Index = kvm_ioapic_state.ioregsel;
++
++        for (uint8_t idxRte = 0; idxRte < RT_ELEMENTS(pThis->au64RedirTable); idxRte++) {
++            pThis->au64RedirTable[idxRte] = kvm_ioapic_state.redirtbl[idxRte];
++        }
++    }
++#endif
++
+     pHlp->pfnSSMPutU32(pSSM, pThis->uIrr);
+     pHlp->pfnSSMPutU8(pSSM,  pThis->u8Id);
+     pHlp->pfnSSMPutU8(pSSM,  pThis->u8Index);
+@@ -1490,6 +1602,39 @@ static DECLCALLBACK(int) ioapicR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, u
+     for (uint8_t idxRte = 0; idxRte < RT_ELEMENTS(pThis->au64RedirTable); idxRte++)
+         pHlp->pfnSSMGetU64(pSSM, &pThis->au64RedirTable[idxRte]);
+ 
++#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++    PIOAPICCC pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
++    for (uint8_t idxRte = 0; idxRte < RT_ELEMENTS(pThis->au64RedirTable); idxRte++) {
++        const uint64_t u64RteNew { pThis->au64RedirTable[idxRte] };
++        if (not IOAPIC_RTE_IS_MASKED(u64RteNew) and (IOAPIC_RTE_GET_TRIGGER_MODE(u64RteNew) != IOAPIC_RTE_TRIGGER_MODE_EDGE)) {
++            MSIMSG msi;
++            RT_ZERO(msi);
++            ioapicGetMsiFromRte(u64RteNew, pThis->enmType, &msi);
++            int rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipAddUpdateRTE(pDevIns, idxRte, &msi);
++            AssertLogRelMsg(RT_SUCCESS(rc), ("Adding redirection table entry failed."));
++        }
++    }
++#endif
++
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    PIOAPICCC pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
++    KVMIOAPICSTATE kvm_ioapic_state;
++
++    for (unsigned pic = 0; pic < 2; ++pic) {
++        kvm_ioapic_state.base_address = IOAPIC_MMIO_BASE_PHYSADDR;
++        kvm_ioapic_state.irr = pThis->uIrr;
++        kvm_ioapic_state.id = pThis->u8Id;
++        kvm_ioapic_state.ioregsel = pThis->u8Index;
++
++        for (uint8_t idxRte = 0; idxRte < RT_ELEMENTS(pThis->au64RedirTable); idxRte++) {
++            kvm_ioapic_state.redirtbl[idxRte] = pThis->au64RedirTable[idxRte];
++        }
++
++        int rc = pThisCC->pIoApicHlp->pfnKvmSetIoApicState(pDevIns, &kvm_ioapic_state);
++        AssertLogRelMsg(RT_SUCCESS(rc), ("Unable to retrieve IOPIC state from KVM"));
++    }
++#endif
++
+     if (uVersion > IOAPIC_SAVED_STATE_VERSION_NO_FLIPFLOP_MAP)
+         for (uint8_t idx = 0; idx < RT_ELEMENTS(pThis->bmFlipFlop); idx++)
+             pHlp->pfnSSMGetU64(pSSM, &pThis->bmFlipFlop[idx]);
+@@ -1518,6 +1663,10 @@ static DECLCALLBACK(void) ioapicR3Reset(PPDMDEVINS pDevIns)
+     {
+         pThis->au64RedirTable[idxRte] = IOAPIC_RTE_MASK;
+         pThis->au32TagSrc[idxRte] = 0;
++#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++        int rc = pThisCC->pIoApicHlp->pfnKvmSplitIrqchipRemoveRTE(pDevIns, idxRte);
++        AssertLogRelMsg(RT_SUCCESS(rc), ("Removing redirection table entry failed."));
++#endif
+     }
+ 
+     IOAPIC_UNLOCK(pDevIns, pThis, pThisCC);
+@@ -1545,6 +1694,10 @@ static DECLCALLBACK(int) ioapicR3Destruct(PPDMDEVINS pDevIns)
+     PIOAPIC pThis = PDMDEVINS_2_DATA(pDevIns, PIOAPIC);
+     LogFlow(("IOAPIC: ioapicR3Destruct: pThis=%p\n", pThis));
+ 
++#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
++    PDMDevHlpTimerDestroy(pDevIns, pThis->hIoapicDelayedInjectionHandler);
++#endif
++
+ # ifndef IOAPIC_WITH_PDM_CRITSECT
+     /*
+      * Destroy the RTE critical section.
+@@ -1558,6 +1711,26 @@ static DECLCALLBACK(int) ioapicR3Destruct(PPDMDEVINS pDevIns)
+     return VINF_SUCCESS;
+ }
+ 
++static DECLCALLBACK(void) ioapicDelayedInjectionHandler(PPDMDEVINS pDevIns, TMTIMERHANDLE hTimer, void *pvUser)
++{
++    NOREF(hTimer); NOREF(pvUser);
++#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
++    PIOAPIC         pThis   = PDMDEVINS_2_DATA(pDevIns, PIOAPIC);
++    PIOAPICCC       pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PIOAPICCC);
++
++    IOAPIC_LOCK(pDevIns, pThis, pThisCC, VERR_IGNORED);
++
++    for(auto iPin : pThis->delayed_interrupt_list) {
++        ioapicSignalIntrForRte(pDevIns, pThis, pThisCC, iPin);
++    }
++
++    pThis->delayed_interrupt_list.clear();
++
++    IOAPIC_UNLOCK(pDevIns, pThis, pThisCC);
++#else
++    NOREF(pDevIns);
++#endif
++}
+ 
+ /**
+  * @interface_method_impl{PDMDEVREG,pfnConstruct}
+@@ -1571,6 +1744,12 @@ static DECLCALLBACK(int) ioapicR3Construct(PPDMDEVINS pDevIns, int iInstance, PC
+     LogFlow(("IOAPIC: ioapicR3Construct: pThis=%p iInstance=%d\n", pThis, iInstance));
+     Assert(iInstance == 0); RT_NOREF(iInstance);
+ 
++#if defined(VBOX_WITH_KVM) && !defined(VBOX_WITH_KVM_IRQCHIP_FULL) && defined(IN_RING3)
++    int rc_timer = PDMDevHlpTimerCreate(pDevIns, TMCLOCK_VIRTUAL, ioapicDelayedInjectionHandler, pThis,
++            TMTIMER_FLAGS_NO_CRIT_SECT | TMTIMER_FLAGS_NO_RING0, "IOAPIC Delayed IRQ", &pThis->hIoapicDelayedInjectionHandler);
++    AssertRCReturn(rc_timer, rc_timer);
++#endif
++
+     /*
+      * Validate and read the configuration.
+      */
+diff --git a/src/VBox/Devices/PC/DevPIC.cpp b/src/VBox/Devices/PC/DevPIC.cpp
+index b4e195952e..f44e2c6f73 100644
+--- a/src/VBox/Devices/PC/DevPIC.cpp
++++ b/src/VBox/Devices/PC/DevPIC.cpp
+@@ -366,6 +366,16 @@ static DECLCALLBACK(void) picSetIrq(PPDMDEVINS pDevIns, int iIrq, int iLevel, ui
+ {
+     PDEVPIC     pThis   = PDMDEVINS_2_DATA(pDevIns, PDEVPIC);
+     PDEVPICCC   pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PDEVPICCC);
++
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++    pThisCC->pPicHlp->pfnKvmSetIrqLine(pDevIns, iIrq, iLevel & PDM_IRQ_LEVEL_HIGH);
++
++    if ((iLevel & PDM_IRQ_LEVEL_FLIP_FLOP) == PDM_IRQ_LEVEL_FLIP_FLOP) {
++        pThisCC->pPicHlp->pfnKvmSetIrqLine(pDevIns, iIrq, PDM_IRQ_LEVEL_LOW);
++    }
++
++    return;
++#else
+     AssertMsgReturnVoid(iIrq < 16, ("iIrq=%d\n", iIrq));
+ 
+     Log(("picSetIrq %d %d\n", iIrq, iLevel));
+@@ -383,6 +393,7 @@ static DECLCALLBACK(void) picSetIrq(PPDMDEVINS pDevIns, int iIrq, int iLevel, ui
+     }
+     pic_set_irq1(&RT_SAFE_SUBSCRIPT(pThis->aPics, iIrq >> 3), iIrq & 7, iLevel & PDM_IRQ_LEVEL_HIGH, uTagSrc);
+     pic_update_irq(pDevIns, pThis, pThisCC);
++#endif
+ }
+ 
+ 
+@@ -830,6 +841,33 @@ static DECLCALLBACK(int) picR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
+     PDEVPIC         pThis = PDMDEVINS_2_DATA(pDevIns, PDEVPIC);
+     PCPDMDEVHLPR3   pHlp  = pDevIns->pHlpR3;
+ 
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    PDEVPICCC   pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PDEVPICCC);
++    KVMPICSTATE kvm_pic_state;
++
++    for (unsigned pic = 0; pic < 2; ++pic) {
++        int rc = pThisCC->pPicHlp->pfnKvmGetPicState(pDevIns, pic == 0 ? KVMIRQCHIP::PIC_MASTER : KVMIRQCHIP::PIC_SLAVE, &kvm_pic_state);
++        AssertLogRelMsg(RT_SUCCESS(rc), ("Unable to retrieve PIC state from KVM"));
++
++        pThis->aPics[pic].last_irr = kvm_pic_state.last_irr;
++        pThis->aPics[pic].irr = kvm_pic_state.irr;
++        pThis->aPics[pic].imr = kvm_pic_state.imr;
++        pThis->aPics[pic].isr = kvm_pic_state.isr;
++        pThis->aPics[pic].priority_add = kvm_pic_state.priority_add;
++        pThis->aPics[pic].irq_base = kvm_pic_state.irq_base;
++        pThis->aPics[pic].read_reg_select = kvm_pic_state.read_reg_select;
++        pThis->aPics[pic].poll = kvm_pic_state.poll;
++        pThis->aPics[pic].special_mask = kvm_pic_state.special_mask;
++        pThis->aPics[pic].init_state = kvm_pic_state.init_state;
++        pThis->aPics[pic].auto_eoi = kvm_pic_state.auto_eoi;
++        pThis->aPics[pic].rotate_on_auto_eoi = kvm_pic_state.rotate_on_auto_eoi;
++        pThis->aPics[pic].special_fully_nested_mode = kvm_pic_state.special_fully_nested_mode;
++        pThis->aPics[pic].init4 = kvm_pic_state.init4;
++        pThis->aPics[pic].elcr = kvm_pic_state.elcr;
++        pThis->aPics[pic].elcr_mask = kvm_pic_state.elcr_mask;
++    }
++#endif
++
+     for (unsigned i = 0; i < RT_ELEMENTS(pThis->aPics); i++)
+     {
+         pHlp->pfnSSMPutU8(pSSM, pThis->aPics[i].last_irr);
+@@ -883,6 +921,33 @@ static DECLCALLBACK(int) picR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uint
+         pHlp->pfnSSMGetU8(pSSM, &pThis->aPics[i].elcr);
+     }
+ 
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    PDEVPICCC   pThisCC = PDMDEVINS_2_DATA_CC(pDevIns, PDEVPICCC);
++    KVMPICSTATE kvm_pic_state;
++
++    for (unsigned pic = 0; pic < 2; ++pic) {
++        kvm_pic_state.last_irr = pThis->aPics[pic].last_irr;
++        kvm_pic_state.irr = pThis->aPics[pic].irr;
++        kvm_pic_state.imr = pThis->aPics[pic].imr;
++        kvm_pic_state.isr = pThis->aPics[pic].isr;
++        kvm_pic_state.priority_add = pThis->aPics[pic].priority_add;
++        kvm_pic_state.irq_base = pThis->aPics[pic].irq_base;
++        kvm_pic_state.read_reg_select = pThis->aPics[pic].read_reg_select;
++        kvm_pic_state.poll = pThis->aPics[pic].poll;
++        kvm_pic_state.special_mask = pThis->aPics[pic].special_mask;
++        kvm_pic_state.init_state = pThis->aPics[pic].init_state;
++        kvm_pic_state.auto_eoi = pThis->aPics[pic].auto_eoi;
++        kvm_pic_state.rotate_on_auto_eoi = pThis->aPics[pic].rotate_on_auto_eoi;
++        kvm_pic_state.special_fully_nested_mode = pThis->aPics[pic].special_fully_nested_mode;
++        kvm_pic_state.init4 = pThis->aPics[pic].init4;
++        kvm_pic_state.elcr = pThis->aPics[pic].elcr;
++        kvm_pic_state.elcr_mask = pThis->aPics[pic].elcr_mask;
++
++        int rc = pThisCC->pPicHlp->pfnKvmSetPicState(pDevIns, pic == 0 ? KVMIRQCHIP::PIC_MASTER : KVMIRQCHIP::PIC_SLAVE, &kvm_pic_state);
++        AssertLogRelMsg(RT_SUCCESS(rc), ("Unable to push PIC state to KVM"));
++    }
++#endif
++
+     /* Note! PDM will restore the VMCPU_FF_INTERRUPT_PIC state. */
+     return VINF_SUCCESS;
+ }
+diff --git a/src/VBox/HostDrivers/Support/Makefile.kmk b/src/VBox/HostDrivers/Support/Makefile.kmk
+index 6543b624f6..205c66e930 100644
+--- a/src/VBox/HostDrivers/Support/Makefile.kmk
++++ b/src/VBox/HostDrivers/Support/Makefile.kmk
+@@ -191,6 +191,7 @@ SUPR3_DEFS          = \
+ 	$(if $(VBOX_WITH_MAIN),VBOX_WITH_MAIN,) \
+ 	$(if $(VBOX_WITH_RAW_MODE),VBOX_WITH_RAW_MODE,) \
+ 	$(if $(VBOX_WITH_DRIVERLESS_NEM_FALLBACK),VBOX_WITH_DRIVERLESS_NEM_FALLBACK,) \
++        $(if $(VBOX_WITH_PREALLOC_RAM_BY_DEFAULT),VBOX_WITH_PREALLOC_RAM_BY_DEFAULT,) \
+ 	VBOX_PERMIT_MORE \
+ 	VBOX_PERMIT_EVEN_MORE
+ SUPR3_INCS         := $(PATH_SUB_CURRENT)
+diff --git a/src/VBox/HostDrivers/Support/linux/SUPLib-linux.cpp b/src/VBox/HostDrivers/Support/linux/SUPLib-linux.cpp
+index 5bdcda63c4..61ffb906da 100644
+--- a/src/VBox/HostDrivers/Support/linux/SUPLib-linux.cpp
++++ b/src/VBox/HostDrivers/Support/linux/SUPLib-linux.cpp
+@@ -255,6 +255,10 @@ DECLHIDDEN(int) suplibOsPageAlloc(PSUPLIBDATA pThis, size_t cPages, uint32_t fFl
+         fMmap |= MAP_HUGETLB;
+ #endif
+ 
++#ifdef VBOX_WITH_PREALLOC_RAM_BY_DEFAULT
++    fMmap |= MAP_POPULATE;
++#endif
++
+     size_t cbMmap = cPages << PAGE_SHIFT;
+     if (   !pThis->fSysMadviseWorks
+         && (fFlags & (SUP_PAGE_ALLOC_F_FOR_LOCKING | SUP_PAGE_ALLOC_F_LARGE_PAGES)) == SUP_PAGE_ALLOC_F_FOR_LOCKING)
+diff --git a/src/VBox/Main/Makefile.kmk b/src/VBox/Main/Makefile.kmk
+index 5711816d74..6f5d1a7071 100644
+--- a/src/VBox/Main/Makefile.kmk
++++ b/src/VBox/Main/Makefile.kmk
+@@ -1088,7 +1088,9 @@ if !defined(VBOX_ONLY_SDK) && !defined(VBOX_ONLY_EXTPACKS) # Note this goes on f
+ 
+ 
+  VBoxC_LIBS += \
+- 	$(PATH_STAGE_LIB)/VBoxAPIWrap$(VBOX_SUFF_LIB)
++	$(PATH_STAGE_LIB)/VBoxAPIWrap$(VBOX_SUFF_LIB) \
++	$(PATH_STAGE_LIB)/VMMR3Imp.so
++
+  VBoxC_LIBS.win += \
+  	$(PATH_SDK_$(VBOX_WINPSDK)_LIB)/psapi.lib \
+  	$(PATH_TOOL_$(VBOX_VCC_TOOL)_LIB)/delayimp.lib
+diff --git a/src/VBox/Runtime/r3/posix/thread-posix.cpp b/src/VBox/Runtime/r3/posix/thread-posix.cpp
+index cd621ce0a1..c89c600e46 100644
+--- a/src/VBox/Runtime/r3/posix/thread-posix.cpp
++++ b/src/VBox/Runtime/r3/posix/thread-posix.cpp
+@@ -727,6 +727,10 @@ RTDECL(int) RTThreadControlPokeSignal(RTTHREAD hThread, bool fEnable)
+     return rc;
+ }
+ 
++RTDECL(int) RTThreadPokeSignal(void)
++{
++    return g_iSigPokeThread;
++}
+ 
+ #endif
+ 
+diff --git a/src/VBox/Runtime/testcase/Makefile.kmk b/src/VBox/Runtime/testcase/Makefile.kmk
+index c3a097b821..4ecc3e535a 100644
+--- a/src/VBox/Runtime/testcase/Makefile.kmk
++++ b/src/VBox/Runtime/testcase/Makefile.kmk
+@@ -559,6 +559,7 @@ ifdef VBOX_WITH_TESTCASES # The whole file
+   tstLog_CLEAN        = $(tstLog_0_OUTDIR)/tstLogGroups.h
+   $$(tstLog_0_OUTDIR)/tstLogGroups.h: $(PATH_ROOT)/include/VBox/log.h
+ 	$(call MSG_GENERATE,,$@,$<)
++	$(QUIET)$(MKDIR) -p $(tstLog_0_OUTDIR)
+ 	$(QUIET)$(RM) -f -- "$@"
+ 	$(QUIET)$(SED) -n -e 's/^ *LOG_GROUP_\([A-Z0-9_]*\),.*$(DOLLAR)/{ LOG_GROUP_\1, "\1" },/p' --output "$@" "$<"
+  endif # !VBOX_ONLY_VALIDATIONKIT
+diff --git a/src/VBox/VMM/VMMAll/APICAll.cpp b/src/VBox/VMM/VMMAll/APICAll.cpp
+index 6041a8433a..e2df2ec202 100644
+--- a/src/VBox/VMM/VMMAll/APICAll.cpp
++++ b/src/VBox/VMM/VMMAll/APICAll.cpp
+@@ -2726,6 +2726,16 @@ VMM_INT_DECL(VBOXSTRICTRC) APICLocalInterrupt(PVMCPUCC pVCpu, uint8_t u8Pin, uin
+     AssertReturn(u8Level <= 1, VERR_INVALID_PARAMETER);
+ 
+     VBOXSTRICTRC rcStrict = VINF_SUCCESS;
++#ifdef VBOX_WITH_KVM
++    /* TODO: Fix the local interrupt handling. See vbox-engineering#430. */
++    if (u8Level) {
++        apicSetInterruptFF(pVCpu, PDMAPICIRQ_EXTINT);
++    } else {
++        apicClearInterruptFF(pVCpu, PDMAPICIRQ_EXTINT);
++    }
++
++    return VINF_SUCCESS;
++#endif
+ 
+     /* If the APIC is enabled, the interrupt is subject to LVT programming. */
+     if (APICIsEnabled(pVCpu))
+diff --git a/src/VBox/VMM/VMMAll/PGMAllBth.h b/src/VBox/VMM/VMMAll/PGMAllBth.h
+index 50b7a30e84..9d4bd8ca62 100644
+--- a/src/VBox/VMM/VMMAll/PGMAllBth.h
++++ b/src/VBox/VMM/VMMAll/PGMAllBth.h
+@@ -5046,7 +5046,10 @@ PGM_BTH_DECL(int, MapCR3)(PVMCPUCC pVCpu, RTGCPHYS GCPhysCR3)
+  || PGM_GST_TYPE == PGM_TYPE_AMD64
+ 
+     LogFlow(("MapCR3: %RGp\n", GCPhysCR3));
++
++#ifndef VBOX_WITH_KVM_IRQCHIP_FULL
+     PGM_A20_ASSERT_MASKED(pVCpu, GCPhysCR3);
++#endif
+ 
+ # if PGM_GST_TYPE == PGM_TYPE_PAE
+     if (   !pVCpu->pgm.s.CTX_SUFF(fPaePdpesAndCr3Mapped)
+diff --git a/src/VBox/VMM/VMMAll/TMAll.cpp b/src/VBox/VMM/VMMAll/TMAll.cpp
+index 677decdd81..8edc178af1 100644
+--- a/src/VBox/VMM/VMMAll/TMAll.cpp
++++ b/src/VBox/VMM/VMMAll/TMAll.cpp
+@@ -208,7 +208,10 @@ VMMDECL(void) TMNotifyEndOfExecution(PVMCC pVM, PVMCPUCC pVCpu, uint64_t uTsc)
+     uint64_t       cTicks = uTsc - pVCpu->tm.s.uTscStartExecuting - SUPGetTscDeltaByCpuSetIndex(pVCpu->iHostCpuSet);
+     uint64_t const uCpuHz = SUPGetCpuHzFromGipBySetIndex(g_pSUPGlobalInfoPage, pVCpu->iHostCpuSet);
+ # endif
+-    AssertStmt(cTicks <= uCpuHz << 2, cTicks = uCpuHz << 2); /* max 4 sec */
++    /* Execute for at most 4s. */
++    AssertMsgStmt(cTicks <= uCpuHz << 2,
++                  ("TM/%u: execution took longer than 4s: cTicks=%llu uCpuHz=%llu\n", pVCpu->idCpu, cTicks, uCpuHz),
++                  cTicks = uCpuHz << 2);
+ 
+     uint64_t cNsExecutingDelta;
+     if (uCpuHz < _4G)
+diff --git a/src/VBox/VMM/VMMAll/TMAllVirtual.cpp b/src/VBox/VMM/VMMAll/TMAllVirtual.cpp
+index 9244bd850b..2e34aeaf6d 100644
+--- a/src/VBox/VMM/VMMAll/TMAllVirtual.cpp
++++ b/src/VBox/VMM/VMMAll/TMAllVirtual.cpp
+@@ -952,7 +952,11 @@ VMM_INT_DECL(uint64_t) TMVirtualSyncGetWithDeadlineNoCheck(PVMCC pVM, uint64_t *
+ VMMDECL(uint64_t) TMVirtualSyncGetNsToDeadline(PVMCC pVM, uint64_t *puDeadlineVersion, uint64_t *puTscNow)
+ {
+     uint64_t cNsToDeadline;
++#ifdef VBOX_WITH_KVM
++    tmVirtualSyncGetEx(pVM, true /*fCheckTimers*/, &cNsToDeadline, puDeadlineVersion, puTscNow);
++#else
+     tmVirtualSyncGetEx(pVM, false /*fCheckTimers*/, &cNsToDeadline, puDeadlineVersion, puTscNow);
++#endif
+     return cNsToDeadline;
+ }
+ 
+diff --git a/src/VBox/VMM/VMMR3/APIC.cpp b/src/VBox/VMM/VMMR3/APIC.cpp
+index 6753ac6080..b5ff86cc7f 100644
+--- a/src/VBox/VMM/VMMR3/APIC.cpp
++++ b/src/VBox/VMM/VMMR3/APIC.cpp
+@@ -36,6 +36,7 @@
+ #include <VBox/vmm/cpum.h>
+ #include <VBox/vmm/hm.h>
+ #include <VBox/vmm/mm.h>
++#include <VBox/vmm/nem.h>
+ #include <VBox/vmm/pdmdev.h>
+ #include <VBox/vmm/ssm.h>
+ #include <VBox/vmm/vm.h>
+@@ -347,6 +348,10 @@ static DECLCALLBACK(void) apicR3Info(PVM pVM, PCDBGFINFOHLP pHlp, const char *ps
+     PCXAPICPAGE  pXApicPage  = VMCPU_TO_CXAPICPAGE(pVCpu);
+     PCX2APICPAGE pX2ApicPage = VMCPU_TO_CX2APICPAGE(pVCpu);
+ 
++#ifdef VBOX_WITH_KVM
++    NEMR3KvmGetLapicState(pVCpu, VMCPU_TO_XAPICPAGE(pVCpu));
++#endif
++
+     uint64_t const uBaseMsr  = pApicCpu->uApicBaseMsr;
+     APICMODE const enmMode   = apicGetMode(uBaseMsr);
+     bool const   fX2ApicMode = XAPIC_IN_X2APIC_MODE(pVCpu);
+@@ -975,6 +980,10 @@ static DECLCALLBACK(int) apicR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
+         PVMCPU pVCpu = pVM->apCpusR3[idCpu];
+         PCAPICCPU pApicCpu = VMCPU_TO_APICCPU(pVCpu);
+ 
++#ifdef VBOX_WITH_KVM
++        NEMR3KvmGetLapicState(pVCpu, pApicCpu->pvApicPageR3);
++#endif
++
+         /* Update interrupts from the pending-interrupts bitmaps to the IRR. */
+         APICUpdatePendingInterrupts(pVCpu);
+ 
+@@ -1068,6 +1077,10 @@ static DECLCALLBACK(int) apicR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uin
+             else
+                 pHlp->pfnSSMGetStruct(pSSM, pApicCpu->pvApicPageR3, &g_aXApicPageFields[0]);
+ 
++#ifdef VBOX_WITH_KVM
++            NEMR3KvmSetLapicState(pVCpu, pApicCpu->pvApicPageR3);
++#endif
++
+             /* Load the timer. */
+             rc = pHlp->pfnSSMGetU64(pSSM, &pApicCpu->u64TimerInitial);     AssertRCReturn(rc, rc);
+             rc = PDMDevHlpTimerLoad(pDevIns, pApicCpu->hTimer, pSSM);      AssertRCReturn(rc, rc);
+@@ -1196,6 +1209,11 @@ DECLCALLBACK(void) apicR3Reset(PPDMDEVINS pDevIns)
+ 
+         /* Clear the interrupt pending force flag. */
+         apicClearInterruptFF(pVCpuDest, PDMAPICIRQ_HARDWARE);
++
++#ifdef VBOX_WITH_KVM
++        PXAPICPAGE  pXApicPage  = VMCPU_TO_XAPICPAGE(pVCpuDest);
++        NEMR3KvmSetLapicState(pVCpuDest, pXApicPage);
++#endif
+     }
+ }
+ 
+@@ -1547,6 +1565,9 @@ DECLCALLBACK(int) apicR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFGMNODE p
+     {
+         PVMCPU   pVCpu     = pVM->apCpusR3[idCpu];
+         PAPICCPU pApicCpu  = VMCPU_TO_APICCPU(pVCpu);
++#ifdef VBOX_WITH_KVM
++        NEMR3KvmSetLapicState(pVCpu, pApicCpu->pvApicPageR3);
++#endif
+ 
+         APIC_REG_COUNTER(&pApicCpu->StatPostIntrCnt,   "%u",  "APIC/VCPU stats / number of apicPostInterrupt calls.");
+         for (size_t i = 0; i < RT_ELEMENTS(pApicCpu->aStatVectors); i++)
+diff --git a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+index a22882500f..c448c9ecd8 100644
+--- a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
++++ b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+@@ -1419,6 +1419,51 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+         pStdFeatureLeaf->uEcx &= ~X86_CPUID_FEATURE_ECX_PCID;
+         LogRel(("CPUM: Disabled PCID without FSGSBASE to workaround buggy guests\n"));
+     }
++#if defined(VBOX_WITH_KVM)
++    /* Disable PCID support on Intel Alder Lake and Raptor Lake because invlpg
++     * is broken and does not correctly invalidate global entries. The Linux
++     * kernel does not allow PCID to be enabled on those systems. If we expose
++     * it anyway, the guest will get an #GP when it tries to enable it via
++     * CR4.PCIDE. For more details, see:
++     * https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/commit/?h=x86/urgent&id=ce0b15d11ad837fbacc5356941712218e38a0a83
++     */
++    static constexpr uint32_t MODEL_SHIFT { 4u };
++    static constexpr uint32_t MODEL_MASK { 0xF0u };
++    static constexpr uint32_t EXTENDED_MODEL_SHIFT { 16u };
++    static constexpr uint32_t EXTENDED_MODEL_MASK { 0xF0000u };
++    static constexpr uint32_t FAMILY_SHIFT { 8u };
++    static constexpr uint32_t FAMILY_MASK { 0xF00u };
++
++    static constexpr uint32_t INTEL_CORE_FAMILY_6 { 0x6 };
++    static constexpr uint32_t INTEL_EFF_MODEL_ADL   { 0x97 };
++    static constexpr uint32_t INTEL_EFF_MODEL_ADL_L { 0x9A };
++    static constexpr uint32_t INTEL_EFF_MODEL_ADL_N { 0xBE };
++    static constexpr uint32_t INTEL_EFF_MODEL_RPL   { 0xB7 };
++    static constexpr uint32_t INTEL_EFF_MODEL_RPL_P { 0xBA };
++    static constexpr uint32_t INTEL_EFF_MODEL_RPL_S { 0xBF };
++    static constexpr uint32_t EFFECTIVE_MODEL_EXTENDED_SHIFT { 4u };
++
++    auto effectiveFamily {(pStdFeatureLeaf->uEax & FAMILY_MASK) >> FAMILY_SHIFT};
++    auto extendedModel {(pStdFeatureLeaf->uEax & EXTENDED_MODEL_MASK) >> EXTENDED_MODEL_SHIFT};
++    auto model {(pStdFeatureLeaf->uEax & MODEL_MASK) >> MODEL_SHIFT};
++    auto effectiveModel { (extendedModel << EFFECTIVE_MODEL_EXTENDED_SHIFT) | model};
++
++    if (effectiveFamily == INTEL_CORE_FAMILY_6) {
++            switch (effectiveModel) {
++                case INTEL_EFF_MODEL_ADL:
++                case INTEL_EFF_MODEL_ADL_L:
++                case INTEL_EFF_MODEL_ADL_N:
++                case INTEL_EFF_MODEL_RPL:
++                case INTEL_EFF_MODEL_RPL_S:
++                case INTEL_EFF_MODEL_RPL_P:
++                    pStdFeatureLeaf->uEcx &= ~X86_CPUID_FEATURE_ECX_PCID;
++                    LogRel(("CPUM: Disabled PCID for ADL and RTL platforms\n"));
++                    break;
++                default:
++                    break;
++            }
++    }
++#endif
+ 
+     if (pCpum->u8PortableCpuIdLevel > 0)
+     {
+@@ -3337,6 +3382,7 @@ VMMR3_INT_DECL(void) CPUMR3SetGuestCpuIdFeature(PVM pVM, CPUMCPUIDFEATURE enmFea
+          * Note! ASSUMES CPUMCPUIDFEATURE_APIC is called first.
+          */
+         case CPUMCPUIDFEATURE_X2APIC:
++#ifndef VBOX_WITH_KVM
+             pLeaf = cpumCpuIdGetLeaf(pVM, UINT32_C(0x00000001));
+             if (pLeaf)
+                 pVM->cpum.s.aGuestCpuIdPatmStd[1].uEcx = pLeaf->uEcx |= X86_CPUID_FEATURE_ECX_X2APIC;
+@@ -3351,6 +3397,7 @@ VMMR3_INT_DECL(void) CPUMR3SetGuestCpuIdFeature(PVM pVM, CPUMCPUIDFEATURE enmFea
+             }
+ 
+             LogRel(("CPUM: SetGuestCpuIdFeature: Enabled x2APIC\n"));
++#endif
+             break;
+ 
+         /*
+diff --git a/src/VBox/VMM/VMMR3/EM.cpp b/src/VBox/VMM/VMMR3/EM.cpp
+index bd15b8872c..5e52065aab 100644
+--- a/src/VBox/VMM/VMMR3/EM.cpp
++++ b/src/VBox/VMM/VMMR3/EM.cpp
+@@ -219,7 +219,11 @@ VMMR3_INT_DECL(int) EMR3Init(PVM pVM)
+     {
+         PVMCPU pVCpu = pVM->apCpusR3[idCpu];
+ 
++#ifdef VBOX_WITH_KVM
++        pVCpu->em.s.enmState            = EMSTATE_NONE;
++#else
+         pVCpu->em.s.enmState            = idCpu == 0 ? EMSTATE_NONE : EMSTATE_WAIT_SIPI;
++#endif
+         pVCpu->em.s.enmPrevState        = EMSTATE_NONE;
+         pVCpu->em.s.u64TimeSliceStart   = 0; /* paranoia */
+         pVCpu->em.s.idxContinueExitRec  = UINT16_MAX;
+@@ -2353,7 +2357,14 @@ VMMR3_INT_DECL(int) EMR3ExecuteVM(PVM pVM, PVMCPU pVCpu)
+                     else
+                     {
+                         /* All other VCPUs go into the wait for SIPI state. */
++#ifdef VBOX_WITH_KVM
++                        /* In case the KVM split irq chip is used, KVM manages
++                         * the wait for SIPI state for us and we need to stay in
++                         * the NEM state. */
++                        pVCpu->em.s.enmState = EMSTATE_NEM;
++#else
+                         pVCpu->em.s.enmState = EMSTATE_WAIT_SIPI;
++#endif
+                     }
+                     break;
+                 }
+diff --git a/src/VBox/VMM/VMMR3/GIMHv.cpp b/src/VBox/VMM/VMMR3/GIMHv.cpp
+index 0452facbe3..1da9065120 100644
+--- a/src/VBox/VMM/VMMR3/GIMHv.cpp
++++ b/src/VBox/VMM/VMMR3/GIMHv.cpp
+@@ -34,6 +34,9 @@
+ #include <VBox/vmm/gim.h>
+ #include <VBox/vmm/cpum.h>
+ #include <VBox/vmm/mm.h>
++#if defined(VBOX_WITH_KVM)
++#include <VBox/vmm/nem.h>
++#endif
+ #include <VBox/vmm/ssm.h>
+ #include <VBox/vmm/hm.h>
+ #include <VBox/vmm/pdmapi.h>
+@@ -270,6 +273,51 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
+     rc = CFGMR3QueryBoolDef(pCfgHv, "HypercallDebugInterface", &pHv->fDbgHypercallInterface, false);
+     AssertLogRelRCReturn(rc, rc);
+ 
++#ifdef VBOX_WITH_KVM
++    uint32_t uKvmBaseFeat = 0;
++    uint32_t uKvmPartFlags = 0;
++    uint32_t uKvmPowMgmtFeat = 0;
++    uint32_t uKvmMiscFeat = 0;
++    uint32_t uKvmHyperHints = 0;
++
++    {
++        PCPUMCPUIDLEAF pKvmCpuidLeaves = nullptr;
++        size_t cKvmCpuidLeaves = 0;
++
++        rc = NEMR3KvmGetHvCpuIdLeaves(pVM, &pKvmCpuidLeaves, &cKvmCpuidLeaves);
++        AssertLogRelRCReturn(rc, rc);
++
++        for (size_t uLeaf = 0; uLeaf < cKvmCpuidLeaves; uLeaf++) {
++            LogRel(("GIM: KVM CPUID[%08x] eax=%08x ebx=%08x ecx=%08x edx=%08x\n",
++                    pKvmCpuidLeaves[uLeaf].uLeaf,
++                    pKvmCpuidLeaves[uLeaf].uEax, pKvmCpuidLeaves[uLeaf].uEbx,
++                    pKvmCpuidLeaves[uLeaf].uEcx, pKvmCpuidLeaves[uLeaf].uEdx));
++
++            /*
++              See this documentation for an overview of Hyper-V CPUID flags:
++              https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/tlfs/feature-discovery
++             */
++
++            switch (pKvmCpuidLeaves[uLeaf].uLeaf) {
++            case 0x40000003: /* Features */
++                uKvmBaseFeat = pKvmCpuidLeaves[uLeaf].uEax;
++                uKvmPartFlags = pKvmCpuidLeaves[uLeaf].uEbx;
++                uKvmPowMgmtFeat = pKvmCpuidLeaves[uLeaf].uEcx;
++                uKvmMiscFeat = pKvmCpuidLeaves[uLeaf].uEdx;
++                break;
++            case 0x40000004: /* Implementation Recommendations */
++                uKvmHyperHints = pKvmCpuidLeaves[uLeaf].uEax;
++                break;
++            default:
++                // Ignore
++                break;
++            }
++        }
++
++        RTMemFree(pKvmCpuidLeaves);
++    }
++#endif
++
+     /*
+      * Determine interface capabilities based on the version.
+      */
+@@ -277,7 +325,11 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
+     {
+         /* Basic features. */
+         pHv->uBaseFeat = 0
++#ifdef VBOX_WITH_KVM
++                       | GIM_HV_BASE_FEAT_VP_RUNTIME_MSR
++#else
+                      //| GIM_HV_BASE_FEAT_VP_RUNTIME_MSR
++#endif
+                        | GIM_HV_BASE_FEAT_PART_TIME_REF_COUNT_MSR
+                      //| GIM_HV_BASE_FEAT_BASIC_SYNIC_MSRS          // Both required for synethetic timers
+                      //| GIM_HV_BASE_FEAT_STIMER_MSRS               // Both required for synethetic timers
+@@ -300,15 +352,29 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
+                          | GIM_HV_MISC_FEAT_GUEST_CRASH_MSRS
+                        //| GIM_HV_MISC_FEAT_DEBUG_MSRS
+                          ;
+-
++#ifdef VBOX_WITH_KVM
++        /* Hypervisor recommendations to the guest. */
++        pHv->uHyperHints = GIM_HV_HINT_RELAX_TIME_CHECKS
++                         /* Causes assertion failures in interrupt injection. */
++                       //| GIM_HV_HINT_MSR_FOR_APIC_ACCESS
++                         /* Inform the guest whether the host has hyperthreading disabled. */
++                         | (GIM_HV_HINT_NO_NONARCH_CORESHARING & uKvmHyperHints)
++                         ;
++#else
+         /* Hypervisor recommendations to the guest. */
+         pHv->uHyperHints = GIM_HV_HINT_MSR_FOR_SYS_RESET
+                          | GIM_HV_HINT_RELAX_TIME_CHECKS
+                          | GIM_HV_HINT_X2APIC_MSRS
+                          ;
++#endif
+ 
+         /* Partition features. */
++#ifdef VBOX_WITH_KVM
++        /* Extended hypercalls require KVM_EXIT_HYPER_HCALL exits to be forwarded gimHvHypercall.
++           So we don't expose them for now. */
++#else
+         pHv->uPartFlags |= GIM_HV_PART_FLAGS_EXTENDED_HYPERCALLS;
++#endif
+ 
+         /* Expose more if we're posing as Microsoft. We can, if needed, force MSR-based Hv
+            debugging by not exposing these bits while exposing the VS interface. The better
+@@ -320,6 +386,15 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
+ 
+             pHv->uPartFlags |= GIM_HV_PART_FLAGS_DEBUGGING;
+         }
++
++#ifdef VBOX_WITH_KVM
++        // We should not enable features and hints that KVM doesn't know about.
++        Assert((pHv->uHyperHints & ~uKvmHyperHints) == 0);
++        Assert((pHv->uBaseFeat & ~uKvmBaseFeat) == 0);
++        Assert((pHv->uMiscFeat & ~uKvmMiscFeat) == 0);
++        Assert((pHv->uPartFlags & ~uKvmPartFlags) == 0);
++        Assert((pHv->uPowMgmtFeat & ~uKvmPowMgmtFeat) == 0);
++#endif
+     }
+ 
+     /*
+diff --git a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+index fa73141590..38251a5568 100644
+--- a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
++++ b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+@@ -38,20 +38,29 @@
+ #include <VBox/vmm/pdm.h>
+ #include <VBox/vmm/trpm.h>
+ #include "NEMInternal.h"
++#include "HMInternal.h"
++#include "GIMInternal.h"
++#include "GIMHvInternal.h"
+ #include <VBox/vmm/vmcc.h>
+ 
+ #include <iprt/alloca.h>
++#include <iprt/mem.h>
+ #include <iprt/string.h>
+ #include <iprt/system.h>
+ #include <iprt/x86.h>
+ 
+ #include <errno.h>
+ #include <unistd.h>
++#include <signal.h>
+ #include <sys/ioctl.h>
+ #include <sys/fcntl.h>
+ #include <sys/mman.h>
++#include <sys/prctl.h>
+ #include <linux/kvm.h>
+ 
++#include <algorithm>
++#include <vector>
++
+ /*
+  * Supply stuff missing from the kvm.h on the build box.
+  */
+@@ -59,7 +68,19 @@
+ # define KVM_INTERNAL_ERROR_UNEXPECTED_EXIT_REASON 4
+ #endif
+ 
++/**
++ * The MMIO address of the TPR register of the LAPIC.
++ */
++static constexpr uint64_t XAPIC_TPR_ADDR {0xfee00080};
+ 
++/**
++ * The class priority shift for the TPR register.
++ */
++static constexpr uint64_t LAPIC_TPR_SHIFT {4};
++
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++static int kvmSetGsiRoutingFullIrqChip(PVM pVM);
++#endif
+ 
+ /**
+  * Worker for nemR3NativeInit that gets the hypervisor capabilities.
+@@ -439,6 +460,23 @@ static int nemR3LnxInitSetupVm(PVM pVM, PRTERRINFO pErrInfo)
+     if (rcLnx == -1)
+         return RTErrInfoSetF(pErrInfo, VERR_NEM_VM_CREATE_FAILED, "Failed to enable KVM_CAP_X86_USER_SPACE_MSR failed: %u", errno);
+ 
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    rcLnx = ioctl(pVM->nem.s.fdVm, KVM_CREATE_IRQCHIP, 0);
++    if (rcLnx == -1)
++        return RTErrInfoSetF(pErrInfo, VERR_NEM_VM_CREATE_FAILED, "Failed to execute KVM_CREATE_VCPU: %u", errno);
++
++    kvmSetGsiRoutingFullIrqChip(pVM);
++#else
++    struct kvm_enable_cap CapSplitIrqChip =
++    {
++        KVM_CAP_SPLIT_IRQCHIP, 0,
++        { KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS, 0, 0, 0}
++    };
++    rcLnx = ioctl(pVM->nem.s.fdVm, KVM_ENABLE_CAP, &CapSplitIrqChip);
++    if (rcLnx == -1)
++        return RTErrInfoSetF(pErrInfo, VERR_NEM_VM_CREATE_FAILED, "Failed to enable KVM_CAP_SPLIT_IRQCHIP: %u", errno);
++#endif
++
+     /*
+      * Create the VCpus.
+      */
+@@ -460,19 +498,118 @@ static int nemR3LnxInitSetupVm(PVM pVM, PRTERRINFO pErrInfo)
+         /* We want all x86 registers and events on each exit. */
+         pVCpu->nem.s.pRun->kvm_valid_regs = KVM_SYNC_X86_REGS | KVM_SYNC_X86_SREGS | KVM_SYNC_X86_EVENTS;
+     }
++
++    pVM->nem.s.pARedirectionTable = std::make_unique<std::array<std::optional<MSIMSG>, KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS>>();
++
++    return VINF_SUCCESS;
++}
++
++static VBOXSTRICTRC nemR3LnxSetVCpuSignalMask(PVMCPU pVCpu, sigset_t *pSigset)
++{
++    /*
++     * glibc and Linux/KVM do not agree on the size of sigset_t.
++     */
++    constexpr size_t kernel_sigset_size = 8;
++
++    alignas(kvm_signal_mask) char backing[sizeof(kvm_signal_mask) + kernel_sigset_size];
++    kvm_signal_mask *pKvmSignalMask = reinterpret_cast<kvm_signal_mask *>(backing);
++
++    static_assert(sizeof(sigset_t) >= kernel_sigset_size);
++
++    pKvmSignalMask->len = kernel_sigset_size;
++    memcpy(pKvmSignalMask->sigset, pSigset, kernel_sigset_size);
++
++    int rc = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_SIGNAL_MASK, pKvmSignalMask);
++    AssertLogRelMsgReturn(rc == 0, ("Failed to set vCPU signal mask: %d", errno),
++                          VERR_NEM_INIT_FAILED);
++
+     return VINF_SUCCESS;
+ }
+ 
++static void nemR3LnxConsumePokeSignal()
++{
++    int iPokeSignal = RTThreadPokeSignal();
++    AssertReturnVoid(iPokeSignal >= 0);
++
++    sigset_t sigset;
++    sigemptyset(&sigset);
++    sigaddset(&sigset, iPokeSignal);
++
++    struct timespec timeout;
++
++    /* Don't wait for a signal, just poll. */
++    timeout.tv_sec = 0;
++    timeout.tv_nsec = 0;
++
++    int rc = sigtimedwait(&sigset, nullptr, &timeout);
++    AssertLogRelMsg(rc >= 0 || errno == EAGAIN || errno == EINTR, ("Failed to consume signal: %d", errno));
++}
+ 
+ /** @callback_method_impl{FNVMMEMTRENDEZVOUS}   */
+ static DECLCALLBACK(VBOXSTRICTRC) nemR3LnxFixThreadPoke(PVM pVM, PVMCPU pVCpu, void *pvUser)
+ {
+     RT_NOREF(pVM, pvUser);
+-    int rc = RTThreadControlPokeSignal(pVCpu->hThread, true /*fEnable*/);
++
++    int iPokeSignal = RTThreadPokeSignal();
++    AssertReturn(iPokeSignal >= 0, VERR_NEM_INIT_FAILED);
++
++    /* We disable the poke signal for the host. We never want that signal to be delivered. */
++    int rc = RTThreadControlPokeSignal(pVCpu->hThread, false /*fEnable*/);
+     AssertLogRelRC(rc);
++
++    sigset_t sigset;
++
++    /* Fetch the current signal mask. */
++    int rcProcMask = pthread_sigmask(SIG_BLOCK /* ignored */, nullptr, &sigset);
++    AssertLogRelMsgReturn(rcProcMask == 0, ("Failed to retrieve thread signal mask"), VERR_NEM_INIT_FAILED);
++
++    sigdelset(&sigset, iPokeSignal);
++
++    /* We enable the poke signal for the vCPU. Any poke will kick the vCPU out of guest execution. */
++    VBOXSTRICTRC rcVcpuMask = nemR3LnxSetVCpuSignalMask(pVCpu, &sigset);
++    AssertRCSuccessReturn(rcVcpuMask, rcVcpuMask);
++
++    /* Create a timer that delivers the poke signal. */
++    struct sigevent sev {};
++
++    sev.sigev_notify = SIGEV_THREAD_ID;
++    sev.sigev_signo = iPokeSignal;
++    sev._sigev_un._tid = gettid();
++
++    int rcTimer = timer_create(CLOCK_MONOTONIC, &sev, &pVCpu->nem.s.pTimer);
++    AssertLogRelMsgReturn(rcTimer == 0, ("Failed to create timer: %d", errno), VERR_NEM_INIT_FAILED);
++
+     return VINF_SUCCESS;
+ }
+ 
++/**
++ * Check common environment problems and inform the user about misconfigurations.
++ */
++int nemR3CheckEnvironment(void)
++{
++    static const char szSplitLockMitigationFile[] = "/proc/sys/kernel/split_lock_mitigate";
++
++    char buf[64] {};
++    int fd = open(szSplitLockMitigationFile, O_RDONLY | O_CLOEXEC);
++
++    // Older kernels might not have this. A hard error feels unjustified here.
++    AssertLogRelMsgReturn(fd >= 0, ("Failed to check %s (%d). Assuming there is no problem.\n", szSplitLockMitigationFile, fd),
++                          VINF_SUCCESS);
++
++    /* Leave one character to ensure that the string is zero-terminated. */
++    ssize_t bytes = read(fd, buf, sizeof(buf) - 1);
++    AssertLogRelMsgReturn(bytes >= 0, ("Failed to read %s (%zd)\n", szSplitLockMitigationFile, bytes),
++                          VERR_NEM_INIT_FAILED);
++
++    int mitigationStatus = atoi(buf);
++
++    if (mitigationStatus != 0) {
++        LogRel(("NEM: WARNING: %s is %d. This can cause VM hangs, unless you set split_lock_detect=off on the host kernel command line! Please set it to 0.\n",
++                szSplitLockMitigationFile, mitigationStatus));
++    }
++
++    return VINF_SUCCESS;
++}
+ 
+ /**
+  * Try initialize the native API.
+@@ -490,6 +627,10 @@ static DECLCALLBACK(VBOXSTRICTRC) nemR3LnxFixThreadPoke(PVM pVM, PVMCPU pVCpu, v
+ int nemR3NativeInit(PVM pVM, bool fFallback, bool fForced)
+ {
+     RT_NOREF(pVM, fFallback, fForced);
++
++    int rcCheck = nemR3CheckEnvironment();
++    AssertLogRelMsgReturn(RT_SUCCESS(rcCheck), ("Failed to check environment\n"), VERR_NEM_INIT_FAILED);
++
+     /*
+      * Some state init.
+      */
+@@ -636,6 +777,83 @@ int nemR3NativeInitAfterCPUM(PVM pVM)
+     return VINF_SUCCESS;
+ }
+ 
++static PCPUMCPUIDLEAF findKvmLeaf(PCPUMCPUIDLEAF paKvmSupportedLeaves,
++                                  uint32_t cKvmSupportedLeaves,
++                                  uint32_t leaf,
++                                  uint32_t subleaf)
++{
++    for (uint32_t i = 0; i < cKvmSupportedLeaves; i++) {
++        auto& kvmLeaf = paKvmSupportedLeaves[i];
++
++        if (kvmLeaf.uLeaf == leaf && kvmLeaf.uSubLeaf == subleaf) {
++            return &kvmLeaf;
++        }
++    }
++
++    return nullptr;
++}
++
++static void maybeMaskUnsupportedKVMCpuidLeafValues(PCPUMCPUIDLEAF paKvmSupportedLeaves,
++                                                   uint32_t cKvmSupportedLeaves,
++                                                   uint32_t leaf,
++                                                   uint32_t subleaf,
++                                                   uint32_t& eax,
++                                                   uint32_t& ebx,
++                                                   uint32_t& ecx,
++                                                   uint32_t& edx)
++{
++    static const uint32_t CPUID_FEATURE_INFORMATION_LEAF = 0x1;
++
++    /*
++     * A list of CPUID leaves that we want to mask with the KVM
++     * supported values. For example, we want to make sure that FSGSBASE
++     * support is supported by KVM before we offer it to the guest.
++     * VirtualBox detects the features it wants to offer via CPUID,
++     * which bypasses Linux/KVM.
++     */
++    const std::vector<uint32_t> leavesToMask = {
++        CPUID_FEATURE_INFORMATION_LEAF,
++        0x6,        // Thermal and power management
++        0x7,        // Structured Extended Feature Flags Enumeration
++        0x12,       // SGX capabilities
++        0x14,       // Processor Trace
++        0x19,       // AES Key Locker features
++        0x24,       // AVX10 Features
++        0x80000001, // Extended Processor Info and Feature Bits
++        0x80000007, // Processor Power Management Information and RAS Capabilities
++        0x80000008, // Virtual and Physical address Sizes
++        0x8000000A, // Secure Virtual Machine features
++        0x8000001F, // Encrypted Memory Capabilities
++        0x80000021, // Extended Feature Identification 2
++    };
++
++    if (std::find(leavesToMask.begin(), leavesToMask.end(), leaf) == leavesToMask.end()) {
++        return;
++    }
++
++    auto* paKvmSupportedLeaf = findKvmLeaf(paKvmSupportedLeaves, cKvmSupportedLeaves, leaf, subleaf);
++
++    if (paKvmSupportedLeaf == nullptr) {
++        return;
++    }
++
++    switch (leaf) {
++    case CPUID_FEATURE_INFORMATION_LEAF:
++        eax &= paKvmSupportedLeaf->uEax;
++        // ebx reports APIC IDs which we would mask if we use the
++        // KVM supported values.
++        ecx &= paKvmSupportedLeaf->uEcx;
++        ecx |= X86_CPUID_FEATURE_ECX_HVP; // The hypervisor bit is not enabled in the KVM values.
++        edx &= paKvmSupportedLeaf->uEdx;
++        break;
++    default:
++        eax &= paKvmSupportedLeaf->uEax;
++        ebx &= paKvmSupportedLeaf->uEbx;
++        ecx &= paKvmSupportedLeaf->uEcx;
++        edx &= paKvmSupportedLeaf->uEdx;
++        break;
++    }
++}
+ 
+ /**
+  * Update the CPUID leaves for a VCPU.
+@@ -654,6 +872,12 @@ static int nemR3LnxUpdateCpuIdsLeaves(PVM pVM, PVMCPU pVCpu)
+     pReq->nent    = cLeaves;
+     pReq->padding = 0;
+ 
++    size_t cKvmSupportedLeaves = 0;
++    PCPUMCPUIDLEAF paKvmSupportedLeaves = nullptr;
++    int rc = NEMR3KvmGetCpuIdLeaves(pVM, &paKvmSupportedLeaves, &cKvmSupportedLeaves);
++    AssertLogRelMsgReturn(RT_SUCCESS(rc), ("Could not retrieve supported CPUID leaves"), rc);
++
++
+     for (uint32_t i = 0; i < cLeaves; i++)
+     {
+         CPUMGetGuestCpuId(pVCpu, paLeaves[i].uLeaf, paLeaves[i].uSubLeaf, -1 /*f64BitMode*/,
+@@ -661,6 +885,16 @@ static int nemR3LnxUpdateCpuIdsLeaves(PVM pVM, PVMCPU pVCpu)
+                           &pReq->entries[i].ebx,
+                           &pReq->entries[i].ecx,
+                           &pReq->entries[i].edx);
++
++        maybeMaskUnsupportedKVMCpuidLeafValues(paKvmSupportedLeaves,
++                                               cKvmSupportedLeaves,
++                                               paLeaves[i].uLeaf,
++                                               paLeaves[i].uSubLeaf,
++                                               pReq->entries[i].eax,
++                                               pReq->entries[i].ebx,
++                                               pReq->entries[i].ecx,
++                                               pReq->entries[i].edx);
++
+         pReq->entries[i].function   = paLeaves[i].uLeaf;
+         pReq->entries[i].index      = paLeaves[i].uSubLeaf;
+         pReq->entries[i].flags      = !paLeaves[i].fSubLeafMask ? 0 : KVM_CPUID_FLAG_SIGNIFCANT_INDEX;
+@@ -675,6 +909,111 @@ static int nemR3LnxUpdateCpuIdsLeaves(PVM pVM, PVMCPU pVCpu)
+     return VINF_SUCCESS;
+ }
+ 
++static int nemR3LnxInitGuestInterface(PVM pVM)
++{
++    switch (pVM->gim.s.enmProviderId) {
++    case GIMPROVIDERID_HYPERV:
++        /*
++          SynIC is currently disabled pending investigation of interrupt issues. See #19.
++
++          Enabling this capability is not sufficient to enable SynNIC. The corresponding features in the Hyper-V CPUID
++          leaves also have to be enabled. Look for SYNIC and STIMER in GIMHv.cpp.
++
++          The CPUID implementation hints must also indicate deprecating AutoEOI to make APICv work.
++         */
++#if 0
++        LogRel(("NEM: Enabling SYNIC.\n"));
++
++        for (VMCPUID idCpu = 0; idCpu < pVM->cCpus; idCpu++)
++        {
++            PVMCPU pVCpu = pVM->apCpusR3[idCpu];
++
++            struct kvm_enable_cap CapSynIC =
++            {
++                KVM_CAP_HYPERV_SYNIC2, 0, { 0, 0, 0, 0 }
++            };
++
++            int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_ENABLE_CAP, &CapSynIC);
++            AssertLogRelMsgReturn(rcLnx == 0, ("Failed to enable SYNIC: rcLnx=%d errno=%d\n", rcLnx, errno),
++                                  RTErrConvertFromErrno(errno));
++        }
++#endif
++
++        break;
++
++    default:
++        /* Other guest interfaces are not fully supported. */
++        break;
++    }
++
++    return VINF_SUCCESS;
++}
++
++namespace
++{
++
++enum class KvmCpuIdIoctl : uint32_t
++{
++    CPUID = KVM_GET_SUPPORTED_CPUID,
++    HV_CPUID = KVM_GET_SUPPORTED_HV_CPUID
++};
++
++int KvmGetCpuIdLeavesGeneric(PVM pVM, KvmCpuIdIoctl ioctlNum, PCPUMCPUIDLEAF *outpCpuId, size_t *outcLeaves)
++{
++    struct kvm_cpuid2 *pKvmCpuid;
++    uint32_t cLeaves = 0;
++    int rc;
++
++    /* In case we exit due to errors. */
++    *outpCpuId = nullptr;
++    *outcLeaves = 0;
++
++    /* There is no way to query how many leaves there are. We just try until we hit the right size. */
++    do
++    {
++        cLeaves += 1;
++        Log(("Querying for %u leaves\n", cLeaves));
++
++        pKvmCpuid = static_cast<struct kvm_cpuid2 *>(alloca(RT_UOFFSETOF_DYN(struct kvm_cpuid2, entries[cLeaves])));
++
++        pKvmCpuid->nent = cLeaves;
++        pKvmCpuid->padding = 0;
++
++        rc = ioctl(pVM->nem.s.fdKvm, static_cast<uint32_t>(ioctlNum), pKvmCpuid);
++    } while (rc != 0 && errno == E2BIG);
++    AssertLogRelMsgReturn(rc == 0, ("Failed to query supported CPUID leaves: errno=%d", errno), RTErrConvertFromErrno(errno));
++    AssertFatal(cLeaves == pKvmCpuid->nent);
++
++    PCPUMCPUIDLEAF pCpuId = static_cast<PCPUMCPUIDLEAF>(RTMemAllocZ(sizeof(*pCpuId) * cLeaves));
++
++    for (uint32_t uLeaf = 0; uLeaf < cLeaves; uLeaf++)
++    {
++        pCpuId[uLeaf].uLeaf = pKvmCpuid->entries[uLeaf].function;
++        pCpuId[uLeaf].uSubLeaf = pKvmCpuid->entries[uLeaf].index;
++
++        pCpuId[uLeaf].uEax = pKvmCpuid->entries[uLeaf].eax;
++        pCpuId[uLeaf].uEbx = pKvmCpuid->entries[uLeaf].ebx;
++        pCpuId[uLeaf].uEcx = pKvmCpuid->entries[uLeaf].ecx;
++        pCpuId[uLeaf].uEdx = pKvmCpuid->entries[uLeaf].edx;
++    }
++
++    *outpCpuId = pCpuId;
++    *outcLeaves = cLeaves;
++
++    return VINF_SUCCESS;
++}
++
++} // anonymous namespace
++
++int NEMR3KvmGetHvCpuIdLeaves(PVM pVM, PCPUMCPUIDLEAF *outpCpuId, size_t *outcLeaves)
++{
++    return KvmGetCpuIdLeavesGeneric(pVM, KvmCpuIdIoctl::HV_CPUID, outpCpuId, outcLeaves);
++}
++
++int NEMR3KvmGetCpuIdLeaves(PVM pVM, PCPUMCPUIDLEAF *outpCpuId, size_t *outcLeaves)
++{
++    return KvmGetCpuIdLeavesGeneric(pVM, KvmCpuIdIoctl::CPUID, outpCpuId, outcLeaves);
++}
+ 
+ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+ {
+@@ -697,6 +1036,12 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+         }
+     }
+ 
++    if (enmWhat == VMINITCOMPLETED_RING3)
++    {
++        int rc = nemR3LnxInitGuestInterface(pVM);
++        AssertRCReturn(rc, rc);
++    }
++
+     /*
+      * Configure MSRs after ring-3 init is done.
+      *
+@@ -725,6 +1070,8 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+             MsrFilters.ranges[iRange].bitmap = (uint8_t *)&RT_CONCAT(bm, a_uBase)[0]
+ #define MSR_RANGE_ADD(a_Msr) \
+         do { Assert((uint32_t)(a_Msr) - uBase < cMsrs); ASMBitSet(pbm, (uint32_t)(a_Msr) - uBase); } while (0)
++#define MSR_RANGE_ADD_CLOSED_IVL(first_Msr, last_Msr) \
++        for (uint32_t uMsr = (first_Msr); uMsr <= last_Msr; uMsr++) { MSR_RANGE_ADD(uMsr); }
+ #define MSR_RANGE_END(a_cMinMsrs) \
+             /* optimize the range size before closing: */ \
+             uint32_t cBitmap = cMsrs / 64; \
+@@ -737,6 +1084,7 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+         /* 1st Intel range: 0000_0000 to 0000_3000. */
+         MSR_RANGE_BEGIN(0x00000000, 0x00003000, KVM_MSR_FILTER_READ | KVM_MSR_FILTER_WRITE);
+         MSR_RANGE_ADD(MSR_IA32_TSC);
++        MSR_RANGE_ADD(MSR_IA32_APICBASE);
+         MSR_RANGE_ADD(MSR_IA32_SYSENTER_CS);
+         MSR_RANGE_ADD(MSR_IA32_SYSENTER_ESP);
+         MSR_RANGE_ADD(MSR_IA32_SYSENTER_EIP);
+@@ -748,6 +1096,13 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+         MSR_RANGE_BEGIN(0xc0000000, 0xc0003000, KVM_MSR_FILTER_READ | KVM_MSR_FILTER_WRITE);
+         MSR_RANGE_ADD(MSR_K6_EFER);
+         MSR_RANGE_ADD(MSR_K6_STAR);
++
++        /*
++         * If we don't allow direct access to FS_BASE, we clobber the FS base for the guest. This sounds like a bug in
++         * our state synchronization with KVM.
++         */
++        MSR_RANGE_ADD(MSR_K8_FS_BASE);
++
+         MSR_RANGE_ADD(MSR_K8_GS_BASE);
+         MSR_RANGE_ADD(MSR_K8_KERNEL_GS_BASE);
+         MSR_RANGE_ADD(MSR_K8_LSTAR);
+@@ -757,6 +1112,49 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+         /** @todo add more? */
+         MSR_RANGE_END(64);
+ 
++        if (pVM->gim.s.enmProviderId == GIMPROVIDERID_HYPERV)
++        {
++            MSR_RANGE_BEGIN(0x40000000, 0x40003000, KVM_MSR_FILTER_READ | KVM_MSR_FILTER_WRITE);
++
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE0_FIRST, MSR_GIM_HV_RANGE0_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE1_FIRST, MSR_GIM_HV_RANGE1_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE2_FIRST, MSR_GIM_HV_RANGE2_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE3_FIRST, MSR_GIM_HV_RANGE3_LAST);
++
++            /* SynIC / STimer */
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE4_FIRST, MSR_GIM_HV_RANGE4_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE5_FIRST, MSR_GIM_HV_RANGE5_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE6_FIRST, MSR_GIM_HV_RANGE6_LAST);
++
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE7_FIRST, MSR_GIM_HV_RANGE7_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE8_FIRST, MSR_GIM_HV_RANGE8_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE9_FIRST, MSR_GIM_HV_RANGE9_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE10_FIRST, MSR_GIM_HV_RANGE10_LAST);
++            MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE11_FIRST, MSR_GIM_HV_RANGE11_LAST);
++
++            /*
++             * Crash MSRs
++             *
++             * We deliberately don't add them here, so we can handle them instead of KVM. This allows us to log the
++             * crash reason into VM log instead of it ending up in the kernel's log.
++             */
++            // MSR_RANGE_ADD_CLOSED_IVL(MSR_GIM_HV_RANGE12_FIRST, MSR_GIM_HV_RANGE12_LAST);
++
++            /*
++             * These should be available to the guest with feature bit 23 in the base features, which we don't
++             * expose. But Windows touches them anyway?
++             */
++            MSR_RANGE_ADD(0x40000114 /* HV_X64_MSR_STIME_UNHALTED_TIMER_CONFIG */);
++            MSR_RANGE_ADD(0x40000115 /* HV_X64_MSR_STIME_UNHALTED_TIMER_COUNT */);
++
++            /*
++             * These are available to the guest with feature bit 15 in the base features (undocumented).
++             */
++            MSR_RANGE_ADD(0x40000118 /* HV_X64_MSR_TSC_INVARIANT_CONTROL */);
++
++            MSR_RANGE_END(64);
++        }
++
+         /** @todo Specify other ranges too? Like hyper-V and KVM to make sure we get
+          *        the MSR requests instead of KVM. */
+ 
+@@ -805,6 +1203,9 @@ int nemR3NativeTerm(PVM pVM)
+         close(pVM->nem.s.fdKvm);
+         pVM->nem.s.fdKvm = -1;
+     }
++
++    pVM->nem.s.pARedirectionTable.reset();
++
+     return VINF_SUCCESS;
+ }
+ 
+@@ -816,7 +1217,18 @@ int nemR3NativeTerm(PVM pVM)
+  */
+ void nemR3NativeReset(PVM pVM)
+ {
+-    RT_NOREF(pVM);
++    pVM->nem.s.pARedirectionTable->fill(std::nullopt);
++
++    for (VMCPUID idCpu = 0; idCpu < pVM->cCpus; idCpu++)
++    {
++        PVMCPU pVCpu = pVM->apCpusR3[idCpu];
++
++        struct kvm_mp_state mp;
++        mp.mp_state = pVCpu->idCpu == 0 ? KVM_MP_STATE_RUNNABLE : KVM_MP_STATE_UNINITIALIZED;
++
++        int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_MP_STATE, &mp);
++        AssertLogRelMsg(rcLnx == 0, ("nemR3NativeReset: Failed to set MP state. Error: %d, errno %d\n", rcLnx, errno));
++    }
+ }
+ 
+ 
+@@ -1121,6 +1533,287 @@ VMMR3_INT_DECL(int)  NEMR3NotifyPhysRomRegisterLate(PVM pVM, RTGCPHYS GCPhys, RT
+ }
+ 
+ 
++VMMR3_INT_DECL(int) NEMR3LoadExec(PVM pVM)
++{
++    // TODO: this code leaves a small window between the guest sending an INIT IPI
++    // and a subsequent SIPI IPI. If that's the case, we need to set the MP state
++    // `KVM_MP_STATE_INIT_RECEIVED` which requires some serious interaction
++    // between the NEM and SSM. For now, we hope that noone suspends a VM during
++    // VCPU bringup. See vbox-engineering#426.
++    for (VMCPUID i = 0; i < pVM->cCpus; i++) {
++        PVMCPU pVCpu = pVM->apCpusR3[i];
++        auto state = VMCPU_GET_STATE(pVCpu);
++        if (state == VMCPUSTATE_STARTED || state == VMCPUSTATE_STARTED_EXEC_NEM || state == VMCPUSTATE_STARTED_EXEC_NEM_WAIT )
++        {
++            struct kvm_mp_state mp;
++            mp.mp_state = KVM_MP_STATE_RUNNABLE;
++            int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_MP_STATE, &mp);
++            AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3Load: Failed to set MP state. Error: %d, errno %d\n", rcLnx, errno), VERR_NEM_IPE_5);
++        }
++    }
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmGetLapicState(PVMCPU pVCpu, void* pXApicPage)
++{
++    struct kvm_lapic_state state;
++
++    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_GET_LAPIC, &state);
++    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmGetLapicState: \
++                Failed to get APIC state. Error: %d, errno %d\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++    memcpy(pXApicPage, &state.regs[0], KVM_APIC_REG_SIZE);
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmSetLapicState(PVMCPU pVCpu, void* pXApicPage)
++{
++    struct kvm_lapic_state state;
++
++    memcpy(&state.regs[0], pXApicPage, KVM_APIC_REG_SIZE);
++
++    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_LAPIC, &state);
++    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmSetApicState: \
++                Failed to set APIC state. Error %d, errno %d\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmSetIrqLine(PVM pVM, uint16_t u16Gsi, int iLevel)
++{
++    struct kvm_irq_level irq;
++    RT_ZERO(irq);
++
++    irq.irq = u16Gsi;
++    irq.level = iLevel;
++
++    int rcLnx = ioctl(pVM->nem.s.fdVm, KVM_IRQ_LINE, &irq);
++    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmSetIrqLine: Failed to set irq line %d! error: %d, errno %d\n", u16Gsi, rcLnx, errno), VERR_NEM_IPE_5);
++
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipDeliverMsi(PVM pVM, PCMSIMSG pMsi)
++{
++    AssertLogRelReturn(pVM != nullptr, VERR_INVALID_POINTER);
++    AssertLogRelReturn(pMsi != nullptr, VERR_INVALID_POINTER);
++
++    struct kvm_msi msi;
++    RT_ZERO(msi);
++    msi.address_lo = pMsi->Addr.au32[0];
++    msi.address_hi = pMsi->Addr.au32[1];
++    msi.data = pMsi->Data.u32;
++
++    int rcLnx = ioctl(pVM->nem.s.fdVm, KVM_SIGNAL_MSI, &msi);
++    AssertLogRelMsgReturn(rcLnx >= 0, ("NEMR3KvmSplitIrqchipDeliverMsi: Failed to deliver MSI! error: %d, errno %d\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++    return rcLnx == 0 ? VERR_APIC_INTR_DISCARDED : VINF_SUCCESS;
++}
++
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++static int kvmSetGsiRoutingFullIrqChip(PVM pVM)
++{
++    alignas(kvm_irq_routing) char backing[ sizeof(struct kvm_irq_routing) +
++        (KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS + KVM_IRQCHIP_NUM_PIC_INTR_PINS) * sizeof(struct kvm_irq_routing_entry) ] {};
++    kvm_irq_routing* routing = reinterpret_cast<kvm_irq_routing*>(backing);
++
++    for (unsigned i = 0; i < KVM_IRQCHIP_NUM_PIC_INTR_PINS; ++i) {
++        routing->entries[i].gsi = i;
++        routing->entries[i].type = KVM_IRQ_ROUTING_IRQCHIP;
++        routing->entries[i].u.irqchip.irqchip = (i < 8) ? KVM_IRQCHIP_PIC_MASTER : KVM_IRQCHIP_PIC_SLAVE;
++        routing->entries[i].u.irqchip.pin = (i < 8) ? i : (i - 8);
++    }
++
++    for (unsigned i = 0; i < KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS; ++i) {
++        uint64_t arr_idx = i + KVM_IRQCHIP_NUM_PIC_INTR_PINS;
++        routing->entries[arr_idx].gsi = i;
++        routing->entries[arr_idx].type = KVM_IRQ_ROUTING_IRQCHIP;
++        routing->entries[arr_idx].u.irqchip.irqchip = KVM_IRQCHIP_IOAPIC;
++        if (i == 0) {
++            routing->entries[arr_idx].u.irqchip.pin = 2;
++        } else {
++            routing->entries[arr_idx].u.irqchip.pin = i;
++        }
++    }
++    routing->nr = KVM_IRQCHIP_NUM_PIC_INTR_PINS + KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS;
++
++    int rc = ioctl(pVM->nem.s.fdVm, KVM_SET_GSI_ROUTING, routing);
++
++    AssertLogRelMsgReturn(rc >= 0, ("NEM/KVM: Unable to set GSI routing! rc: %d errno %d \n", rc, errno), VERR_INTERNAL_ERROR);
++
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmGetPicState(PVM pVM, KVMIRQCHIP irqchip, KVMPICSTATE* state)
++{
++    struct kvm_irqchip irqchip_state;
++    irqchip_state.chip_id = irqchip == KVMIRQCHIP::PIC_MASTER ? KVM_IRQCHIP_PIC_MASTER : KVM_IRQCHIP_PIC_SLAVE;
++
++    if (state == nullptr) {
++        return VERR_INVALID_POINTER;
++    }
++
++    int rcLnx = ioctl(pVM->nem.s.fdVm, KVM_GET_IRQCHIP, &irqchip_state);
++    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmGetPicState: \
++                Failed to get PIC state. Error: %d, errno %d\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++    state->last_irr = irqchip_state.chip.pic.last_irr;
++    state->irr = irqchip_state.chip.pic.irr;
++    state->imr = irqchip_state.chip.pic.imr;
++    state->isr = irqchip_state.chip.pic.isr;
++    state->priority_add = irqchip_state.chip.pic.priority_add;
++    state->irq_base = irqchip_state.chip.pic.irq_base;
++    state->read_reg_select = irqchip_state.chip.pic.read_reg_select;
++    state->poll = irqchip_state.chip.pic.poll;
++    state->special_mask = irqchip_state.chip.pic.special_mask;
++    state->init_state = irqchip_state.chip.pic.init_state;
++    state->auto_eoi = irqchip_state.chip.pic.auto_eoi;
++    state->rotate_on_auto_eoi = irqchip_state.chip.pic.rotate_on_auto_eoi;
++    state->special_fully_nested_mode = irqchip_state.chip.pic.special_fully_nested_mode;
++    state->init4 = irqchip_state.chip.pic.init4;
++    state->elcr = irqchip_state.chip.pic.elcr;
++    state->elcr_mask = irqchip_state.chip.pic.elcr_mask;
++
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmSetPicState(PVM pVM, KVMIRQCHIP irqchip, KVMPICSTATE* state)
++{
++    struct kvm_irqchip irqchip_state;
++    irqchip_state.chip_id = irqchip == KVMIRQCHIP::PIC_MASTER ? KVM_IRQCHIP_PIC_MASTER : KVM_IRQCHIP_PIC_SLAVE;
++
++    if (state == nullptr) {
++        return VERR_INVALID_POINTER;
++    }
++
++    irqchip_state.chip.pic.last_irr = state->last_irr;
++    irqchip_state.chip.pic.irr = state->irr;
++    irqchip_state.chip.pic.imr = state->imr;
++    irqchip_state.chip.pic.isr = state->isr;
++    irqchip_state.chip.pic.priority_add = state->priority_add;
++    irqchip_state.chip.pic.irq_base = state->irq_base;
++    irqchip_state.chip.pic.read_reg_select = state->read_reg_select;
++    irqchip_state.chip.pic.poll = state->poll;
++    irqchip_state.chip.pic.special_mask = state->special_mask;
++    irqchip_state.chip.pic.init_state = state->init_state;
++    irqchip_state.chip.pic.auto_eoi = state->auto_eoi;
++    irqchip_state.chip.pic.rotate_on_auto_eoi = state->rotate_on_auto_eoi;
++    irqchip_state.chip.pic.special_fully_nested_mode = state->special_fully_nested_mode;
++    irqchip_state.chip.pic.init4 = state->init4;
++    irqchip_state.chip.pic.elcr = state->elcr;
++    irqchip_state.chip.pic.elcr_mask = state->elcr_mask;
++
++    int rcLnx = ioctl(pVM->nem.s.fdVm, KVM_GET_IRQCHIP, &irqchip_state);
++    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmSetPicState: \
++                Failed to get PIC state. Error: %d, errno %d\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmGetIoApicState(PVM pVM, KVMIOAPICSTATE* state)
++{
++    struct kvm_irqchip irqchip_state;
++    irqchip_state.chip_id = KVM_IRQCHIP_IOAPIC;
++
++    if (state == nullptr) {
++        return VERR_INVALID_POINTER;
++    }
++
++    int rcLnx = ioctl(pVM->nem.s.fdVm, KVM_GET_IRQCHIP, &irqchip_state);
++    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmGetIoApicState: \
++                Failed to get IOAPIC state. Error: %d, errno %d\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++    state->base_address = irqchip_state.chip.ioapic.base_address;
++    state->ioregsel = irqchip_state.chip.ioapic.ioregsel;
++    state->id = irqchip_state.chip.ioapic.id;
++    state->irr = irqchip_state.chip.ioapic.irr;
++
++    for (unsigned i = 0; i < KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS; ++i) {
++        state->redirtbl[i] = irqchip_state.chip.ioapic.redirtbl[i].bits;
++    }
++
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmSetIoApicState(PVM pVM, KVMIOAPICSTATE* state)
++{
++    struct kvm_irqchip irqchip_state;
++    irqchip_state.chip_id = KVM_IRQCHIP_IOAPIC;
++
++    if (state == nullptr) {
++        return VERR_INVALID_POINTER;
++    }
++
++    irqchip_state.chip.ioapic.base_address = state->base_address;
++    irqchip_state.chip.ioapic.ioregsel = state->ioregsel;
++    irqchip_state.chip.ioapic.id = state->id;
++    irqchip_state.chip.ioapic.irr = state->irr;
++
++    for (unsigned i = 0; i < KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS; ++i) {
++        irqchip_state.chip.ioapic.redirtbl[i].bits = state->redirtbl[i];
++    }
++
++    int rcLnx = ioctl(pVM->nem.s.fdVm, KVM_SET_IRQCHIP, &irqchip_state);
++    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmSetIoApicState: \
++                Failed to set IOPIC state. Error: %d, errno %d\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++    return VINF_SUCCESS;
++}
++#endif
++
++static int kvmSetGsiRouting(PVM pVM)
++{
++    alignas(kvm_irq_routing) char backing[ sizeof(struct kvm_irq_routing) + KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS * sizeof(struct kvm_irq_routing_entry) ] {};
++    kvm_irq_routing* routing = reinterpret_cast<kvm_irq_routing*>(backing);
++
++    unsigned routingCount {0};
++
++    for(unsigned i {0}; i < KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS; ++i)
++    {
++        if (pVM->nem.s.pARedirectionTable->at(i).has_value())
++        {
++            PMSIMSG msi = &(pVM->nem.s.pARedirectionTable->at(i).value());
++            routing->entries[routingCount].gsi = i;
++            routing->entries[routingCount].type = KVM_IRQ_ROUTING_MSI;
++            routing->entries[routingCount].u.msi.address_lo = msi->Addr.au32[0];
++            routing->entries[routingCount].u.msi.address_hi = msi->Addr.au32[1];
++            routing->entries[routingCount].u.msi.data = msi->Data.u32;
++            routingCount++;
++        }
++    }
++
++    routing->nr = routingCount;
++
++    int rc = ioctl(pVM->nem.s.fdVm, KVM_SET_GSI_ROUTING, routing);
++
++    AssertLogRelMsgReturn(rc >= 0, ("NEM/KVM: Unable to set GSI routing! rc: %d errno %d \n", rc, errno), VERR_INTERNAL_ERROR);
++
++    return VINF_SUCCESS;
++}
++
++
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipAddUpdateRTE(PVM pVM, uint16_t u16Gsi, PCMSIMSG pMsi)
++{
++    AssertRelease(pVM->nem.s.pARedirectionTable != nullptr);
++    AssertRelease(u16Gsi < KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS);
++
++    pVM->nem.s.pARedirectionTable->at(u16Gsi) = *pMsi;
++
++    return kvmSetGsiRouting(pVM);
++}
++
++
++VMMR3_INT_DECL(int) NEMR3KvmSplitIrqchipRemoveRTE(PVM pVM, uint16_t u16Gsi)
++{
++    AssertRelease(pVM->nem.s.pARedirectionTable != nullptr);
++    AssertRelease(u16Gsi < KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS);
++
++    pVM->nem.s.pARedirectionTable->at(u16Gsi) = std::nullopt;
++
++    return kvmSetGsiRouting(pVM);
++}
++
++
+ VMMR3_INT_DECL(void) NEMR3NotifySetA20(PVMCPU pVCpu, bool fEnabled)
+ {
+     Log(("nemR3NativeNotifySetA20: fEnabled=%RTbool\n", fEnabled));
+@@ -1329,8 +2022,7 @@ static int nemHCLnxImportState(PVMCPUCC pVCpu, uint64_t fWhat, PCPUMCTX pCtx, st
+                 }
+             }
+         }
+-        if (fWhat & CPUMCTX_EXTRN_APIC_TPR)
+-            APICSetTpr(pVCpu, (uint8_t)pRun->s.regs.sregs.cr8 << 4);
++
+         if (fWhat & CPUMCTX_EXTRN_EFER)
+         {
+             if (pCtx->msrEFER != pRun->s.regs.sregs.efer)
+@@ -1397,6 +2089,7 @@ static int nemHCLnxImportState(PVMCPUCC pVCpu, uint64_t fWhat, PCPUMCTX pCtx, st
+ 
+             pCtx->aXcr[0] = Xcrs.xcrs[0].value;
+             pCtx->aXcr[1] = Xcrs.xcrs[1].value;
++            pCtx->fXStateMask = Xcrs.xcrs[0].value;
+         }
+     }
+ 
+@@ -1481,12 +2174,6 @@ static int nemHCLnxImportState(PVMCPUCC pVCpu, uint64_t fWhat, PCPUMCTX pCtx, st
+                                          pVCpu->cpum.GstCtx.rip);
+         CPUMUpdateInterruptInhibitingByNmi(&pVCpu->cpum.GstCtx, KvmEvents.nmi.masked != 0);
+ 
+-        if (KvmEvents.interrupt.injected)
+-        {
+-            STAM_REL_COUNTER_INC(&pVCpu->nem.s.StatImportPendingInterrupt);
+-            TRPMAssertTrap(pVCpu, KvmEvents.interrupt.nr, !KvmEvents.interrupt.soft ? TRPM_HARDWARE_INT : TRPM_SOFTWARE_INT);
+-        }
+-
+         Assert(KvmEvents.nmi.injected == 0);
+         Assert(KvmEvents.nmi.pending  == 0);
+     }
+@@ -1656,9 +2343,6 @@ static int nemHCLnxExportState(PVM pVM, PVMCPU pVCpu, PCPUMCTX pCtx, struct kvm_
+         pRun->s.regs.sregs.apic_base = uApicBase;
+         pVCpu->nem.s.uKvmApicBase    = uApicBase;
+ 
+-        if (fExtrn & CPUMCTX_EXTRN_APIC_TPR)
+-            pRun->s.regs.sregs.cr8   = CPUMGetGuestCR8(pVCpu);
+-
+ #define NEM_LNX_EXPORT_SEG(a_KvmSeg, a_CtxSeg) do { \
+             (a_KvmSeg).base     = (a_CtxSeg).u64Base; \
+             (a_KvmSeg).limit    = (a_CtxSeg).u32Limit; \
+@@ -1862,37 +2546,20 @@ static int nemHCLnxExportState(PVM pVM, PVMCPU pVCpu, PCPUMCTX pCtx, struct kvm_
+                ==           (CPUMCTX_EXTRN_INHIBIT_INT | CPUMCTX_EXTRN_INHIBIT_NMI));
+ 
+         struct kvm_vcpu_events KvmEvents = {0};
++        int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_GET_VCPU_EVENTS, &KvmEvents);
++        AssertLogRelMsgReturn(rcLnx == 0, ("rcLnx=%d errno=%d\n", rcLnx, errno), VERR_NEM_IPE_5);
+ 
+         KvmEvents.flags = KVM_VCPUEVENT_VALID_SHADOW;
+         if (!CPUMIsInInterruptShadowWithUpdate(&pVCpu->cpum.GstCtx))
+         { /* probably likely */ }
+         else
+-            KvmEvents.interrupt.shadow = (CPUMIsInInterruptShadowAfterSs()  ? KVM_X86_SHADOW_INT_MOV_SS : 0)
+-                                       | (CPUMIsInInterruptShadowAfterSti() ? KVM_X86_SHADOW_INT_STI    : 0);
++            KvmEvents.interrupt.shadow = (CPUMIsInInterruptShadowAfterSs(&pVCpu->cpum.GstCtx)  ? KVM_X86_SHADOW_INT_MOV_SS : 0)
++                                       | (CPUMIsInInterruptShadowAfterSti(&pVCpu->cpum.GstCtx) ? KVM_X86_SHADOW_INT_STI    : 0);
+ 
+         /* No flag - this is updated unconditionally. */
+         KvmEvents.nmi.masked = CPUMAreInterruptsInhibitedByNmi(&pVCpu->cpum.GstCtx);
+ 
+-        if (TRPMHasTrap(pVCpu))
+-        {
+-            TRPMEVENT enmType = TRPM_32BIT_HACK;
+-            uint8_t   bTrapNo = 0;
+-            TRPMQueryTrap(pVCpu, &bTrapNo, &enmType);
+-            Log(("nemHCLnxExportState: Pending trap: bTrapNo=%#x enmType=%d\n", bTrapNo, enmType));
+-            if (   enmType == TRPM_HARDWARE_INT
+-                || enmType == TRPM_SOFTWARE_INT)
+-            {
+-                KvmEvents.interrupt.soft     = enmType == TRPM_SOFTWARE_INT;
+-                KvmEvents.interrupt.nr       = bTrapNo;
+-                KvmEvents.interrupt.injected = 1;
+-                STAM_REL_COUNTER_INC(&pVCpu->nem.s.StatExportPendingInterrupt);
+-                TRPMResetTrap(pVCpu);
+-            }
+-            else
+-                AssertFailed();
+-        }
+-
+-        int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_VCPU_EVENTS, &KvmEvents);
++        rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_VCPU_EVENTS, &KvmEvents);
+         AssertLogRelMsgReturn(rcLnx == 0, ("rcLnx=%d errno=%d\n", rcLnx, errno), VERR_NEM_IPE_3);
+     }
+ 
+@@ -1958,6 +2625,7 @@ VMM_INT_DECL(uint32_t) NEMHCGetFeatures(PVMCC pVM)
+ 
+ VMMR3_INT_DECL(bool) NEMR3CanExecuteGuest(PVM pVM, PVMCPU pVCpu)
+ {
++#ifndef VBOX_WITH_KVM_IRQCHIP_FULL
+     /*
+      * Only execute when the A20 gate is enabled as I cannot immediately
+      * spot any A20 support in KVM.
+@@ -1965,6 +2633,15 @@ VMMR3_INT_DECL(bool) NEMR3CanExecuteGuest(PVM pVM, PVMCPU pVCpu)
+     RT_NOREF(pVM);
+     Assert(VM_IS_NEM_ENABLED(pVM));
+     return PGMPhysIsA20Enabled(pVCpu);
++#else
++    /*
++     * In full-irqchip mode, we always need to execute via KVM because we
++     * have no other way to inject interrupt into the guest (because the PIC is
++     * in the kernel!). Otherwise, we will break non-UEFI boot. This will
++     * break DOS support.
++     */
++    return true;
++#endif
+ }
+ 
+ 
+@@ -1977,6 +2654,14 @@ bool nemR3NativeSetSingleInstruction(PVM pVM, PVMCPU pVCpu, bool fEnable)
+ 
+ void nemR3NativeNotifyFF(PVM pVM, PVMCPU pVCpu, uint32_t fFlags)
+ {
++    if (pVCpu->hThread == RTThreadSelf()) {
++        // RTThreadPoke doesn't like poking the current thread. We can
++        // safely return here because the vCPU thread is currently handling
++        // an exit and will will check all conditions again when we re-enter
++        // the run-loop.
++        return;
++    }
++
+     int rc = RTThreadPoke(pVCpu->hThread);
+     LogFlow(("nemR3NativeNotifyFF: #%u -> %Rrc\n", pVCpu->idCpu, rc));
+     AssertRC(rc);
+@@ -2010,12 +2695,10 @@ static VBOXSTRICTRC nemHCLnxHandleInterruptFF(PVM pVM, PVMCPU pVCpu, struct kvm_
+      * only inject one event per KVM_RUN call.  This can only happend if we
+      * can directly from the loop in EM, so the inhibit bits must be internal.
+      */
+-    if (!TRPMHasTrap(pVCpu))
+-    { /* semi likely */ }
+-    else
++    if (TRPMHasTrap(pVCpu))
+     {
+-        Assert(!(pVCpu->cpum.GstCtx.fExtrn & (CPUMCTX_EXTRN_INHIBIT_INT | CPUMCTX_EXTRN_INHIBIT_NMI)));
+         Log8(("nemHCLnxHandleInterruptFF: TRPM has an pending event already\n"));
++
+         return VINF_SUCCESS;
+     }
+ 
+@@ -2024,12 +2707,12 @@ static VBOXSTRICTRC nemHCLnxHandleInterruptFF(PVM pVM, PVMCPU pVCpu, struct kvm_
+      */
+     if (VMCPU_FF_TEST_AND_CLEAR(pVCpu, VMCPU_FF_UPDATE_APIC))
+     {
+-        APICUpdatePendingInterrupts(pVCpu);
+-        if (!VMCPU_FF_IS_ANY_SET(pVCpu, VMCPU_FF_INTERRUPT_APIC | VMCPU_FF_INTERRUPT_PIC
+-                                      | VMCPU_FF_INTERRUPT_NMI  | VMCPU_FF_INTERRUPT_SMI))
+-            return VINF_SUCCESS;
++        AssertLogRelMsgReturn(false, ("VMCPU_FF_UPDATE_APIC is set"), VERR_NEM_IPE_5);
+     }
+ 
++    if (!VMCPU_FF_IS_ANY_SET(pVCpu, VMCPU_FF_INTERRUPT_PIC | VMCPU_FF_INTERRUPT_NMI  | VMCPU_FF_INTERRUPT_SMI))
++        return VINF_SUCCESS;
++
+     /*
+      * We don't currently implement SMIs.
+      */
+@@ -2052,12 +2735,12 @@ static VBOXSTRICTRC nemHCLnxHandleInterruptFF(PVM pVM, PVMCPU pVCpu, struct kvm_
+     KvmEvents.flags |= KVM_VCPUEVENT_VALID_SHADOW;
+     if (!(pVCpu->cpum.GstCtx.fExtrn & CPUMCTX_EXTRN_INHIBIT_INT))
+         KvmEvents.interrupt.shadow = !CPUMIsInInterruptShadowWithUpdate(&pVCpu->cpum.GstCtx) ? 0
+-                                   :   (CPUMIsInInterruptShadowAfterSs()  ? KVM_X86_SHADOW_INT_MOV_SS : 0)
+-                                     | (CPUMIsInInterruptShadowAfterSti() ? KVM_X86_SHADOW_INT_STI    : 0);
++                                   :   (CPUMIsInInterruptShadowAfterSs(&pVCpu->cpum.GstCtx)  ? KVM_X86_SHADOW_INT_MOV_SS : 0)
++                                     | (CPUMIsInInterruptShadowAfterSti(&pVCpu->cpum.GstCtx) ? KVM_X86_SHADOW_INT_STI    : 0);
+     else
+         CPUMUpdateInterruptShadowSsStiEx(&pVCpu->cpum.GstCtx,
+                                          RT_BOOL(KvmEvents.interrupt.shadow & KVM_X86_SHADOW_INT_MOV_SS),
+-                                         RT_BOOL(KvmEvents.interrupt.shadow & KVM_X86_SHADOW_INT_MOV_STI),
++                                         RT_BOOL(KvmEvents.interrupt.shadow & KVM_X86_SHADOW_INT_STI),
+                                          pRun->s.regs.regs.rip);
+ 
+     if (!(pVCpu->cpum.GstCtx.fExtrn & CPUMCTX_EXTRN_INHIBIT_NMI))
+@@ -2085,35 +2768,24 @@ static VBOXSTRICTRC nemHCLnxHandleInterruptFF(PVM pVM, PVMCPU pVCpu, struct kvm_
+         Log8(("Queuing NMI on %u\n", pVCpu->idCpu));
+     }
+ 
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    AssertLogRelMsg(!VMCPU_FF_IS_ANY_SET(pVCpu, VMCPU_FF_INTERRUPT_PIC), ("PDM has pic interrupt but full irqchip is enabled"));
++#else
+     /*
+-     * APIC or PIC interrupt?
++     * PIC interrupt?
+      */
+-    if (VMCPU_FF_IS_ANY_SET(pVCpu, VMCPU_FF_INTERRUPT_APIC | VMCPU_FF_INTERRUPT_PIC))
++    if (VMCPU_FF_IS_ANY_SET(pVCpu, VMCPU_FF_INTERRUPT_PIC))
+     {
+         if (pRun->s.regs.regs.rflags & X86_EFL_IF)
+         {
+-            if (KvmEvents.interrupt.shadow == 0)
++            if (pRun->ready_for_interrupt_injection)
+             {
+-                /*
+-                 * If CR8 is in KVM, update the VBox copy so PDMGetInterrupt will
+-                 * work correctly.
+-                 */
+-                if (pVCpu->cpum.GstCtx.fExtrn & CPUMCTX_EXTRN_APIC_TPR)
+-                    APICSetTpr(pVCpu, (uint8_t)pRun->cr8 << 4);
+-
+                 uint8_t bInterrupt;
+                 int rc = PDMGetInterrupt(pVCpu, &bInterrupt);
+                 if (RT_SUCCESS(rc))
+                 {
+-                    Assert(KvmEvents.interrupt.injected == false);
+-#if 0
+-                    int rcLnx = ioctl(pVCpu->nem.s.fdVm, KVM_INTERRUPT, (unsigned long)bInterrupt);
+-                    AssertLogRelMsgReturn(rcLnx == 0, ("rcLnx=%d errno=%d\n", rcLnx, errno), VERR_NEM_IPE_5);
+-#else
+-                    KvmEvents.interrupt.nr       = bInterrupt;
+-                    KvmEvents.interrupt.soft     = false;
+-                    KvmEvents.interrupt.injected = true;
+-#endif
++                    TRPMAssertTrap(pVCpu, bInterrupt, TRPM_HARDWARE_INT);
++
+                     Log8(("Queuing interrupt %#x on %u: %04x:%08RX64 efl=%#x\n", bInterrupt, pVCpu->idCpu,
+                           pVCpu->cpum.GstCtx.cs.Sel, pVCpu->cpum.GstCtx.rip, pVCpu->cpum.GstCtx.eflags.u));
+                 }
+@@ -2134,7 +2806,7 @@ static VBOXSTRICTRC nemHCLnxHandleInterruptFF(PVM pVM, PVMCPU pVCpu, struct kvm_
+             Log8(("Interrupt window pending on %u (#1)\n", pVCpu->idCpu));
+         }
+     }
+-
++#endif
+     /*
+      * Now, update the state.
+      */
+@@ -2321,6 +2993,16 @@ static VBOXSTRICTRC nemHCLnxHandleExitMmio(PVMCC pVM, PVMCPUCC pVCpu, struct kvm
+     VBOXSTRICTRC rcStrict;
+     if (pRun->mmio.is_write)
+     {
++        /*
++         * Sync LAPIC TPR register with cr8 from KVM. This is required as long
++         * as we don't use KVM's IRQCHIP feature.
++         *
++         * This doesn't cover the X2APIC mode. But the whole cr8-code will be
++         * gone very soon anyway as we will use KVM's split-irqchip.
++         */
++        if (pRun->mmio.phys_addr == XAPIC_TPR_ADDR) {
++            pRun->cr8 = *pRun->mmio.data >> LAPIC_TPR_SHIFT;
++        }
+         rcStrict = PGMPhysWrite(pVM, pRun->mmio.phys_addr, pRun->mmio.data, pRun->mmio.len, PGMACCESSORIGIN_HM);
+         Log4(("MmioExit/%u: %04x:%08RX64: WRITE %#x LB %u, %.*Rhxs -> rcStrict=%Rrc\n",
+               pVCpu->idCpu, pRun->s.regs.sregs.cs.selector, pRun->s.regs.regs.rip,
+@@ -2420,8 +3102,6 @@ static VBOXSTRICTRC nemHCLnxHandleExitWrMsr(PVMCPUCC pVCpu, struct kvm_run *pRun
+     return rcStrict;
+ }
+ 
+-
+-
+ static VBOXSTRICTRC nemHCLnxHandleExit(PVMCC pVM, PVMCPUCC pVCpu, struct kvm_run *pRun, bool *pfStatefulExit)
+ {
+     STAM_REL_COUNTER_INC(&pVCpu->nem.s.StatExitTotal);
+@@ -2450,12 +3130,10 @@ static VBOXSTRICTRC nemHCLnxHandleExit(PVMCC pVM, PVMCPUCC pVCpu, struct kvm_run
+             return VINF_SUCCESS;
+ 
+         case KVM_EXIT_SET_TPR:
+-            STAM_REL_COUNTER_INC(&pVCpu->nem.s.StatExitSetTpr);
+             AssertFailed();
+             break;
+ 
+         case KVM_EXIT_TPR_ACCESS:
+-            STAM_REL_COUNTER_INC(&pVCpu->nem.s.StatExitTprAccess);
+             AssertFailed();
+             break;
+ 
+@@ -2481,6 +3159,10 @@ static VBOXSTRICTRC nemHCLnxHandleExit(PVMCC pVM, PVMCPUCC pVCpu, struct kvm_run
+                              pRun->s.regs.regs.rip + pRun->s.regs.sregs.cs.base, ASMReadTSC());
+             STAM_REL_COUNTER_INC(&pVCpu->nem.s.StatExitIntr);
+             Log5(("Intr/%u\n", pVCpu->idCpu));
++
++            /* If we don't consume the poke signal, subsequent KVM_RUN invocations will immediately return EINTR again. */
++            nemR3LnxConsumePokeSignal();
++
+             return VINF_SUCCESS;
+ 
+         case KVM_EXIT_HYPERCALL:
+@@ -2497,11 +3179,53 @@ static VBOXSTRICTRC nemHCLnxHandleExit(PVMCC pVM, PVMCPUCC pVCpu, struct kvm_run
+             AssertFailed();
+             break;
+         case KVM_EXIT_IOAPIC_EOI:
+-            AssertFailed();
+-            break;
++            PDMIoApicBroadcastEoi(pVM, pRun->eoi.vector);
++            return VINF_SUCCESS;
+         case KVM_EXIT_HYPERV:
+-            AssertFailed();
+-            break;
++            Assert(pVM->gim.s.enmProviderId == GIMPROVIDERID_HYPERV);
++
++            switch (pRun->hyperv.type)
++            {
++            case KVM_EXIT_HYPERV_SYNDBG:
++                /* The synthetic debugger is not enabled and we should not get these exits. */
++                AssertFailed();
++                break;
++            case KVM_EXIT_HYPERV_HCALL:
++                LogRel2(("Hyper-V hcall input:%lx p0:%lx p1:%lx\n", pRun->hyperv.u.hcall.input, pRun->hyperv.u.hcall.params[0], pRun->hyperv.u.hcall.params[1]));
++
++                /* TODO KVM handles the performance-critical hypercalls on its own. We get mostly extended hypercalls
++                   here. We would need to forward them to gimHvHypercall. None of these features are enabled right now,
++                   so we can just deny the hypercall right away. */
++
++                pRun->hyperv.u.hcall.result = GIM_HV_STATUS_ACCESS_DENIED;
++                break;
++            case KVM_EXIT_HYPERV_SYNIC:
++                LogRel2(("HyperV synic msr:%lx control:%lx evt_page:%lx msg_page:%lx\n",
++                         pRun->hyperv.u.synic.msr,
++                         pRun->hyperv.u.synic.control,
++                         pRun->hyperv.u.synic.evt_page,
++                         pRun->hyperv.u.synic.msg_page));
++
++                switch (pRun->hyperv.u.synic.msr)
++                {
++                case MSR_GIM_HV_SCONTROL:
++                    gimHvWriteMsr(pVCpu, MSR_GIM_HV_SCONTROL, 0, pRun->hyperv.u.synic.control);
++                    break;
++                case MSR_GIM_HV_SIMP:
++                    gimHvWriteMsr(pVCpu, MSR_GIM_HV_SIMP, 0, pRun->hyperv.u.synic.msg_page);
++                    break;
++                case MSR_GIM_HV_SIEFP:
++                    gimHvWriteMsr(pVCpu, MSR_GIM_HV_SIEFP, 0, pRun->hyperv.u.synic.evt_page);
++                    break;
++                default:
++                    AssertReleaseFailed();
++                }
++                break;
++            default:
++                AssertReleaseFailed();
++            }
++
++            return VINF_SUCCESS;
+ 
+         case KVM_EXIT_DIRTY_RING_FULL:
+             AssertFailed();
+@@ -2569,6 +3293,83 @@ static VBOXSTRICTRC nemHCLnxHandleExit(PVMCC pVM, PVMCPUCC pVCpu, struct kvm_run
+     return VERR_NOT_IMPLEMENTED;
+ }
+ 
++static VBOXSTRICTRC nemHCLnxHandleTimers(PVMCC pVM, PVMCPUCC pVCpu)
++{
++    uint64_t nsAbsNextTimerEvt;
++    uint64_t uTscNow;
++    uint64_t nsDelta = TMVirtualSyncGetNsToDeadline(pVM, &nsAbsNextTimerEvt, &uTscNow);
++
++    [[maybe_unused]] uint64_t const nsAbsOldTimerEvt = pVCpu->nem.s.nsAbsNextTimerEvt;
++
++    pVCpu->nem.s.nsAbsNextTimerEvt = nsAbsNextTimerEvt;
++
++    /*
++     * With this optimization we only program timers once when something changes. We can enable this when we are
++     * confident that everything works correctly.
++     */
++#ifdef VBOX_KVM_DONT_REPROGRAM_TIMERS
++    if (nsAbsOldTimerEvt == nsAbsNextTimerEvt) {
++        return VINF_SUCCESS;
++    }
++#endif
++
++    if (nsDelta == 0) {
++        /* If there is no timeout, program a catch-all timer instead. */
++        nsDelta = RT_NS_1MS_64;
++    } else if (nsDelta >= RT_NS_1SEC_64) {
++        /* We need to exit at least once every 4 seconds. */
++        nsDelta = RT_NS_1SEC_64;
++    }
++
++    struct itimerspec timeout {};
++
++    /*
++     * It would be nice to program absolute timeouts here instead for better accuracy, but VBox times do not correlate
++     * to any Linux timer.
++     */
++    timeout.it_value.tv_sec = nsDelta / RT_NS_1SEC_64;
++    timeout.it_value.tv_nsec = nsDelta % RT_NS_1SEC_64;
++
++    int rcTimer = timer_settime(pVCpu->nem.s.pTimer, 0 /* relative timeout */,
++                                    &timeout, nullptr);
++    AssertLogRel(rcTimer == 0);
++
++    return VINF_SUCCESS;
++}
++
++static VBOXSTRICTRC nemHCLnxCheckAndInjectInterrupts(PVMCPUCC pVCpu)
++{
++#ifdef VBOX_WITH_KVM_IRQCHIP_FULL
++    NOREF(pVCpu);
++    AssertLogRelMsg(!TRPMHasTrap(pVCpu), ("TRPM has trap but full irqchip is enabled"));
++    return VINF_SUCCESS;
++#else
++    if (TRPMHasTrap(pVCpu))
++    {
++        TRPMEVENT enmType = TRPM_32BIT_HACK;
++        uint8_t   bTrapNo = 0;
++        TRPMQueryTrap(pVCpu, &bTrapNo, &enmType);
++        Log(("nemHCLnxCheckAndInjectInterrupts: Pending trap: bTrapNo=%#x enmType=%d\n", bTrapNo, enmType));
++        if (enmType == TRPM_HARDWARE_INT)
++        {
++            struct kvm_interrupt kvm_int;
++            RT_ZERO(kvm_int);
++            kvm_int.irq = bTrapNo;
++            int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_INTERRUPT, &kvm_int);
++            AssertLogRelMsgReturn(rcLnx == 0, ("rcLnx=%d errno=%d\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++            TRPMResetTrap(pVCpu);
++        }
++        else
++        {
++            return VERR_NOT_SUPPORTED;
++        }
++
++    }
++    return VINF_SUCCESS;
++#endif
++}
++
+ 
+ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+ {
+@@ -2584,6 +3385,28 @@ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+         return VINF_SUCCESS;
+     }
+ 
++    /*
++     * The first time we come here, we have to apply Spectre mitigations. The prctl interface only allows us to set
++     * these only for the current thread.
++     */
++    if (!pVCpu->nem.s.fMitigationsApplied) {
++        Log(("NEM/%u: applying mitigations\n", pVCpu->idCpu));
++        if (pVM->hm.s.fIbpbOnVmEntry || pVM->hm.s.fIbpbOnVmExit) {
++            int rcLnx = prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_INDIRECT_BRANCH, PR_SPEC_FORCE_DISABLE, 0, 0);
++
++            if (rcLnx != 0 && errno == EPERM) {
++                LogRel(("WARNING: requested IBPB, but kernel API is not activated! Boot Linux with spectre_v2_user=prctl.\n", pVCpu->idCpu));
++            } else {
++                AssertLogRelMsgReturn(rcLnx == 0,
++                                      ("rcLnx=%d errno=%d\n", rcLnx, errno),
++                                      VERR_NEM_MISSING_KERNEL_API_1);
++                Log(("NEM/%u: enabled IBPB\n", pVCpu->idCpu));
++            }
++        }
++
++        pVCpu->nem.s.fMitigationsApplied = true;
++    }
++
+     /*
+      * The run loop.
+      */
+@@ -2612,6 +3435,8 @@ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+             }
+         }
+ 
++    // See NEMR3CanExecuteGuest for details why we ignore A20 at this point.
++#ifndef VBOX_WITH_KVM_IRQCHIP_FULL
+         /*
+          * Do not execute in KVM if the A20 isn't enabled.
+          */
+@@ -2623,6 +3448,7 @@ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+             LogFlow(("NEM/%u: breaking: A20 disabled\n", pVCpu->idCpu));
+             break;
+         }
++#endif
+ 
+         /*
+          * Ensure KVM has the whole state.
+@@ -2633,17 +3459,9 @@ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+             AssertRCReturn(rc2, rc2);
+         }
+ 
+-        /*
+-         * Poll timers and run for a bit.
+-         *
+-         * With the VID approach (ring-0 or ring-3) we can specify a timeout here,
+-         * so we take the time of the next timer event and uses that as a deadline.
+-         * The rounding heuristics are "tuned" so that rhel5 (1K timer) will boot fine.
+-         */
+-        /** @todo See if we cannot optimize this TMTimerPollGIP by only redoing
+-         *        the whole polling job when timers have changed... */
+-        uint64_t       offDeltaIgnored;
+-        uint64_t const nsNextTimerEvt = TMTimerPollGIP(pVM, pVCpu, &offDeltaIgnored); NOREF(nsNextTimerEvt);
++        /* Poll timers and run for a bit. */
++        nemHCLnxHandleTimers(pVM, pVCpu);
++
+         if (   !VM_FF_IS_ANY_SET(pVM, VM_FF_EMT_RENDEZVOUS | VM_FF_TM_VIRTUAL_SYNC)
+             && !VMCPU_FF_IS_ANY_SET(pVCpu, VMCPU_FF_HM_TO_R3_MASK))
+         {
+@@ -2653,13 +3471,22 @@ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+                          pVCpu->idCpu, pRun->s.regs.sregs.cs.selector, pRun->s.regs.regs.rip,
+                          !!(pRun->s.regs.regs.rflags & X86_EFL_IF), pRun->s.regs.regs.rflags,
+                          pRun->s.regs.sregs.ss.selector, pRun->s.regs.regs.rsp, pRun->s.regs.sregs.cr0));
++
++                VBOXSTRICTRC rc2 = nemHCLnxCheckAndInjectInterrupts(pVCpu);
++                AssertLogRelMsg(RT_SUCCESS(rc2), ("Failed to inject interrupt"));
++
+                 TMNotifyStartOfExecution(pVM, pVCpu);
+ 
++                uint64_t const uApicBase = APICGetBaseMsrNoCheck(pVCpu);
++                pRun->apic_base = uApicBase;
+                 int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_RUN, 0UL);
++                int errno_ = errno;
+ 
+                 VMCPU_CMPXCHG_STATE(pVCpu, VMCPUSTATE_STARTED_EXEC_NEM, VMCPUSTATE_STARTED_EXEC_NEM_WAIT);
+                 TMNotifyEndOfExecution(pVM, pVCpu, ASMReadTSC());
+ 
++                pVCpu->nem.s.pRun->immediate_exit = 0;
++
+ #ifdef LOG_ENABLED
+                 if (LogIsFlowEnabled())
+                 {
+@@ -2672,7 +3499,7 @@ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+                 }
+ #endif
+                 fStatefulExit = false;
+-                if (RT_LIKELY(rcLnx == 0 || errno == EINTR))
++                if (RT_LIKELY(rcLnx == 0 || errno_ == EINTR))
+                 {
+                     /*
+                      * Deal with the exit.
+@@ -2687,10 +3514,19 @@ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+                         break;
+                     }
+                 }
++                else if (errno_ == EAGAIN) {
++                    /*
++                    * We might drop out of KVM_RUN if the vCPU is still in an
++                    * uninitialized state (e.g. WAIT_FOR_INIT) and some spurious
++                    * wakeup event is received. In this case, simply do nothing
++                    * and let the run loop enter KVM_RUN again.
++                    * See https://elixir.bootlin.com/linux/v6.6/source/arch/x86/kvm/x86.c#L11138
++                    */
++                }
+                 else
+                 {
+-                    int rc2 = RTErrConvertFromErrno(errno);
+-                    AssertLogRelMsgFailedReturn(("KVM_RUN failed: rcLnx=%d errno=%u rc=%Rrc\n", rcLnx, errno, rc2), rc2);
++                    rc2 = RTErrConvertFromErrno(errno_);
++                    AssertLogRelMsgFailedReturn(("KVM_RUN failed: rcLnx=%d errno=%u rc=%Rrc\n", rcLnx, errno_, rc2), rc2);
+                 }
+ 
+                 /*
+@@ -2835,4 +3671,3 @@ VBOXSTRICTRC nemR3NativeRunGC(PVM pVM, PVMCPU pVCpu)
+  * This is using KVM.
+  *
+  */
+-
+diff --git a/src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp b/src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp
+index f11f0b2151..d723f54531 100644
+--- a/src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp
++++ b/src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp
+@@ -34,6 +34,7 @@
+ #include <VBox/vmm/pdm.h>
+ #include <VBox/vmm/pgm.h>
+ #include <VBox/vmm/hm.h>
++#include <VBox/vmm/nem.h>
+ #include <VBox/vmm/apic.h>
+ #include <VBox/vmm/vm.h>
+ #include <VBox/vmm/vmm.h>
+@@ -98,6 +99,34 @@ static DECLCALLBACK(void) pdmR3PicHlp_Unlock(PPDMDEVINS pDevIns)
+     pdmUnlock(pDevIns->Internal.s.pVMR3);
+ }
+ 
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++/** @interface_method_impl{PDMPICHLP,pfnKvmSetIrqLine} */
++static DECLCALLBACK(int) pdmR3PicHlp_KvmSetIrqLine(PPDMDEVINS pDevIns, uint16_t u16Gsi, int iLevel)
++{
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmSetIrqLine(pVM, u16Gsi, iLevel);
++}
++
++/** @interface_method_impl{PDMPICHLP,pfnKvmGetPicState} */
++static DECLCALLBACK(int) pdmR3PicHlp_KvmGetPicState(PPDMDEVINS pDevIns, KVMIRQCHIP irqchip, KVMPICSTATE* state)
++{
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmGetPicState(pVM, irqchip, state);
++}
++
++/** @interface_method_impl{PDMPICHLP,pfnKvmSetPicState} */
++static DECLCALLBACK(int) pdmR3PicHlp_KvmSetPicState(PPDMDEVINS pDevIns, KVMIRQCHIP irqchip, KVMPICSTATE* state)
++{
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmSetPicState(pVM, irqchip, state);
++}
++#endif
+ 
+ /**
+  * PIC Device Helpers.
+@@ -109,6 +138,11 @@ const PDMPICHLP g_pdmR3DevPicHlp =
+     pdmR3PicHlp_ClearInterruptFF,
+     pdmR3PicHlp_Lock,
+     pdmR3PicHlp_Unlock,
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++    pdmR3PicHlp_KvmSetIrqLine,
++    pdmR3PicHlp_KvmGetPicState,
++    pdmR3PicHlp_KvmSetPicState,
++#endif
+     PDM_PICHLP_VERSION /* the end */
+ };
+ 
+@@ -175,7 +209,64 @@ static DECLCALLBACK(int) pdmR3IoApicHlp_IommuMsiRemap(PPDMDEVINS pDevIns, uint16
+     return VERR_IOMMU_NOT_PRESENT;
+ }
+ 
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
++/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSetIrqLine} */
++static DECLCALLBACK(int) pdmR3IoApicHlp_KvmSetIrqLine(PPDMDEVINS pDevIns, uint16_t u16Gsi, int iLevel) {
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmSetIrqLine(pVM, u16Gsi, iLevel);
++}
++
++/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSplitIrqchipDeliverMsi} */
++static DECLCALLBACK(int) pdmR3IoApicHlp_KvmSplitIrqchipDeliverMsi(PPDMDEVINS pDevIns, PCMSIMSG pMsi)
++{
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmSplitIrqchipDeliverMsi(pVM, pMsi);
++}
++
+ 
++/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSplitIrqchipAddUpdateRTE} */
++static DECLCALLBACK(int) pdmR3IoApicHlp_KvmSplitIrqchipAddUpdateRTE(PPDMDEVINS pDevIns, uint16_t gsi, PCMSIMSG pMsi)
++{
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmSplitIrqchipAddUpdateRTE(pVM, gsi, pMsi);
++}
++
++
++/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSplitIrqchipRemoveRTE} */
++static DECLCALLBACK(int) pdmR3IoApicHlp_KvmSplitIrqchipRemoveRTE(PPDMDEVINS pDevIns, uint16_t gsi)
++{
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmSplitIrqchipRemoveRTE(pVM, gsi);
++}
++#endif
++
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++/** @interface_method_impl{PDMIOAPICHLP,pfnKvmGetIoApicState} */
++static DECLCALLBACK(int) pdmR3IoApicHlp_pfnKvmGetIoApicState(PPDMDEVINS pDevIns, KVMIOAPICSTATE* state)
++{
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmGetIoApicState(pVM, state);
++}
++
++/** @interface_method_impl{PDMIOAPICHLP,pfnKvmSetIoApicState} */
++static DECLCALLBACK(int) pdmR3IoApicHlp_pfnKvmSetIoApicState(PPDMDEVINS pDevIns, KVMIOAPICSTATE* state)
++{
++    PDMDEV_ASSERT_DEVINS(pDevIns);
++    PVM pVM = pDevIns->Internal.s.pVMR3;
++
++    return NEMR3KvmSetIoApicState(pVM, state);
++}
++#endif
+ /**
+  * I/O APIC Device Helpers.
+  */
+@@ -187,6 +278,17 @@ const PDMIOAPICHLP g_pdmR3DevIoApicHlp =
+     pdmR3IoApicHlp_Unlock,
+     pdmR3IoApicHlp_LockIsOwner,
+     pdmR3IoApicHlp_IommuMsiRemap,
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
++    pdmR3IoApicHlp_KvmSetIrqLine,
++    pdmR3IoApicHlp_KvmSplitIrqchipDeliverMsi,
++    pdmR3IoApicHlp_KvmSplitIrqchipAddUpdateRTE,
++    pdmR3IoApicHlp_KvmSplitIrqchipRemoveRTE,
++#endif
++
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM_IRQCHIP_FULL)
++    pdmR3IoApicHlp_pfnKvmGetIoApicState,
++    pdmR3IoApicHlp_pfnKvmSetIoApicState,
++#endif
+     PDM_IOAPICHLP_VERSION /* the end */
+ };
+ 
+diff --git a/src/VBox/VMM/VMMR3/PGMPhys.cpp b/src/VBox/VMM/VMMR3/PGMPhys.cpp
+index fb9fd66828..b54be52089 100644
+--- a/src/VBox/VMM/VMMR3/PGMPhys.cpp
++++ b/src/VBox/VMM/VMMR3/PGMPhys.cpp
+@@ -1862,7 +1862,12 @@ int pgmR3PhysRamPreAllocate(PVM pVM)
+     Assert(pVM->pgm.s.fRamPreAlloc);
+     Log(("pgmR3PhysRamPreAllocate: enter\n"));
+ #ifdef VBOX_WITH_PGM_NEM_MODE
++#ifdef VBOX_WITH_PREALLOC_RAM_BY_DEFAULT
++    Log(("pgmR3PhysRamPreAllocate: Handled by default in NEM mode, skip\n"));
++    return VINF_SUCCESS;
++#else
+     AssertLogRelReturn(!pVM->pgm.s.fNemMode, VERR_PGM_NOT_SUPPORTED_FOR_NEM_MODE);
++#endif
+ #endif
+ 
+     /*
+diff --git a/src/VBox/VMM/VMMR3/VMM.cpp b/src/VBox/VMM/VMMR3/VMM.cpp
+index e235184c56..787df961f1 100644
+--- a/src/VBox/VMM/VMMR3/VMM.cpp
++++ b/src/VBox/VMM/VMMR3/VMM.cpp
+@@ -1092,6 +1092,11 @@ static DECLCALLBACK(int) vmmR3Load(PVM pVM, PSSMHANDLE pSSM, uint32_t uVersion,
+         AssertMsgFailed(("u32=%#x\n", u32));
+         return VERR_SSM_DATA_UNIT_FORMAT_CHANGED;
+     }
++
++#ifdef VBOX_WITH_KVM
++    NEMR3LoadExec(pVM);
++#endif
++
+     return VINF_SUCCESS;
+ }
+ 
+diff --git a/src/VBox/VMM/include/GIMHvInternal.h b/src/VBox/VMM/include/GIMHvInternal.h
+index 960dc36c6c..14b00b7394 100644
+--- a/src/VBox/VMM/include/GIMHvInternal.h
++++ b/src/VBox/VMM/include/GIMHvInternal.h
+@@ -202,6 +202,8 @@
+ #define GIM_HV_HINT_INT_FOR_MBEC_SYSCALLS                   RT_BIT(13)
+ /** Recommend using enlightened VMCS interfacea and nested enlightenments. */
+ #define GIM_HV_HINT_NESTED_ENLIGHTENED_VMCS_INTERFACE       RT_BIT(14)
++/** Indicates that core-sharing is not possible. */
++#define GIM_HV_HINT_NO_NONARCH_CORESHARING                  RT_BIT(18)
+ /** @}  */
+ 
+ 
+diff --git a/src/VBox/VMM/include/NEMInternal.h b/src/VBox/VMM/include/NEMInternal.h
+index e0817e219c..35a7665f4f 100644
+--- a/src/VBox/VMM/include/NEMInternal.h
++++ b/src/VBox/VMM/include/NEMInternal.h
+@@ -35,13 +35,24 @@
+ #include <VBox/types.h>
+ #include <VBox/vmm/nem.h>
+ #include <VBox/vmm/cpum.h> /* For CPUMCPUVENDOR. */
++#ifdef VBOX_WITH_KVM
++#include <VBox/vmm/pdmdev.h> /* For KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS */
++#endif
+ #include <VBox/vmm/stam.h>
+ #include <VBox/vmm/vmapi.h>
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
++#include <array>
++#include <memory>
++#include <optional>
++#include <VBox/msi.h>
++#endif
+ #ifdef RT_OS_WINDOWS
+ #include <iprt/nt/hyperv.h>
+ #include <iprt/critsect.h>
+ #elif defined(RT_OS_DARWIN)
+ # include "VMXInternal.h"
++#elif defined(RT_OS_LINUX)
++# include <time.h>
+ #endif
+ 
+ RT_C_DECLS_BEGIN
+@@ -207,6 +218,9 @@ typedef struct NEM
+     uint16_t                    idPrevSlot;
+     /** Memory slot ID allocation bitmap. */
+     uint64_t                    bmSlotIds[_32K / 8 / sizeof(uint64_t)];
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
++    std::unique_ptr<std::array<std::optional<MSIMSG>, KVM_IRQCHIP_NUM_IOAPIC_INTR_PINS>> pARedirectionTable;
++#endif
+ 
+ #elif defined(RT_OS_WINDOWS)
+     /** Set if we've created the EMTs. */
+@@ -354,11 +368,22 @@ typedef struct NEMCPU
+     bool                        fGCMTrapXcptDE : 1;
+ 
+ #if defined(RT_OS_LINUX)
+-    uint8_t                     abPadding[3];
++    uint8_t                     abPadding[2];
++    /** Whether processor bug mitigations have already been applied. */
++    bool                        fMitigationsApplied;
+     /** The KVM VCpu file descriptor. */
+     int32_t                     fdVCpu;
+     /** Pointer to the KVM_RUN data exchange region. */
+     R3PTRTYPE(struct kvm_run *) pRun;
++
++#if defined(IN_RING3) && defined(VBOX_WITH_KVM)
++    /** The vCPU timer. */
++    timer_t                     pTimer;
++
++    /** The the next timeout (absolute). */
++    uint64_t                    nsAbsNextTimerEvt;
++#endif
++
+     /** The MSR_IA32_APICBASE value known to KVM. */
+     uint64_t                    uKvmApicBase;
+ 
+@@ -666,4 +691,3 @@ int     nemHCNativeNotifyPhysPageAllocated(PVMCC pVM, RTGCPHYS GCPhys, RTHCPHYS
+ RT_C_DECLS_END
+ 
+ #endif /* !VMM_INCLUDED_SRC_include_NEMInternal_h */
+-
+-- 
+2.43.0
+

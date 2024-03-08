@@ -1,0 +1,108 @@
+From 2b8c0f68a0c23ea4e80bedd82cda4a0cd22c13f3 Mon Sep 17 00:00:00 2001
+From: Martin Messer <martin.messer@cyberus-technology.de>
+Date: Wed, 5 Apr 2023 11:22:27 +0200
+Subject: [PATCH 01/17] config: add Cyberus configuration adjustments
+
+config: make kvm backend configurable
+
+config: make KVM split irqchip configurable
+
+config: remove svp configuration options
+
+Config.kmk
+
+config: define for VBOX_WITH_KVM_IRQCHIP_FULL
+---
+ Config.kmk | 23 +++++++++++++++++++++++
+ configure  |  6 ++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/Config.kmk b/Config.kmk
+index 38833aa29f..d353b0920f 100644
+--- a/Config.kmk
++++ b/Config.kmk
+@@ -1584,6 +1584,19 @@ ifdef VBOX_HEADLESS
+  VBOX_WITH_VRDP_RDESKTOP =
+ endif
+ 
++#
++# Configure VirtualBox to use the KVM NEM backend.
++#
++ifdef VBOX_WITH_KVM
++ VBOX_WITH_DRIVERLESS_FORCED = 1
++ VBOX_WITH_NATIVE_NEM=1
++ # KVM doesn't need the VirtualBox Ring 0 drivers
++ VBOX_WITH_VBOXDRV=
++ VBOX_WITH_NETFLT=
++ VBOX_WITH_NETFLT_CROSSBOW=
++ VBOX_WITH_NETADP=
++endif
++
+ #
+ # Undefined VBOX_WITH_MAIN implies exclusion of a few more items.
+ #
+@@ -1993,6 +2006,14 @@ endif
+ ifdef VBOX_WITH_DRIVERLESS_FORCED
+  DEFS += VBOX_WITH_DRIVERLESS_FORCED
+ endif
++CYBERUS_CXX_FLAGS = -Werror -Wall
++ifdef VBOX_WITH_KVM
++ DEFS += VBOX_WITH_KVM
++ DEFS += VBOX_WITH_KVM_IRQCHIP_FULL
++endif
++ifndef VBOX_HEADLESS
++ DEFS += VBOX_WITH_GVT_RENDERING
++endif
+ 
+ # Don't flood CDEFS, old MASMs doesn't like too many defines.
+ ifdef VBOX_WITH_DEBUGGER
+@@ -3519,6 +3540,8 @@ ifndef VBOX_GCC_std
+   VBOX_GCC_std := -std=c++17
+   # else if "$(VBOX_CLANG_VERSION_CXX)" vge 60000 # Most language features complete by v6. Lib stuff was less complete in v6, but hopefully acceptable for out purposes.
+   #VBOX_GCC_std := -std=c++17
++ else if VBOX_WITH_KVM
++  VBOX_GCC_std := -std=c++17
+  else if "$(VBOX_CLANG_VERSION_CXX)" vge 50000 # darwin Xcode 5 allegedly knows what C++11 is
+   VBOX_GCC_std := -std=c++11
+   # else if "$(VBOX_GCC_VERSION_CXX)" vge 70000 # Language feature P0512R0 was v8, rest v7 or earlier. Most lib stuff present in 7, complete in v12.
+diff --git a/configure b/configure
+index 4b69712cd6..22709bf934 100755
+--- a/configure
++++ b/configure
+@@ -86,6 +86,7 @@ SETUP_WINE=
+ ONLY_ADDITIONS=0
+ TARGET_MACHINE=""
+ TARGET_CPU=""
++WITH_KVM=0
+ WITH_XPCOM=1
+ WITH_PYTHON=1
+ WITH_JAVA=1
+@@ -2529,6 +2530,7 @@ cat << EOF
+   --build-libssl           build openssl from sources
+   --build-libtpms          build libtpms from sources
+   --build-liblzma          build liblzma from sources
++  --with-kvm               build with kvm backend
+ EOF
+ [ $OSE -eq 0 ] && cat << EOF
+   --build-libcurl          build libcurl from sources
+@@ -2688,6 +2690,9 @@ for option in "$@"; do
+     --with-linux=*)
+       LINUX=`echo $option | cut -d'=' -f2`
+       ;;
++    --with-kvm)
++      WITH_KVM=1
++      ;;
+     --with-makeself=*)
+       MAKESELF=`echo $option | cut -d'=' -f2`
+       ;;
+@@ -2969,6 +2974,7 @@ fi
+ [ $WITH_JAVA      -eq 0 ] && cnf_append "VBOX_WITH_JWS" ""
+ [ $WITH_HARDENING -eq 0 ] && cnf_append "VBOX_WITHOUT_HARDENING" "1"
+ [ $WITH_HARDENING -eq 2 ] && cnf_append "VBOX_WITH_HARDENING" "2"
++[ $WITH_KVM       -eq 1 ] && cnf_append "VBOX_WITH_KVM" "1"
+ [ $WITH_VMMRAW    -eq 0 ] && cnf_append "VBOX_WITH_RAW_MODE" ""
+ [ $WITH_LIBTPMS   -eq 0 ] && cnf_append "VBOX_WITH_LIBTPMS" ""
+ [ $WITH_LIBLZMA   -eq 0 ] && cnf_append "VBOX_WITH_LIBLZMA" ""
+-- 
+2.43.0
+

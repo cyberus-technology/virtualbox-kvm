@@ -1,0 +1,91 @@
+From 04f4f243f9567bde1114a6596bd3cb2b18d8ce27 Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Fri, 9 Feb 2024 08:58:06 +0000
+Subject: [PATCH 13/17] NEM: MSR access helpers
+
+---
+ include/VBox/vmm/nem.h                   | 18 +++++++++++
+ src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp | 38 ++++++++++++++++++++++++
+ 2 files changed, 56 insertions(+)
+
+diff --git a/include/VBox/vmm/nem.h b/include/VBox/vmm/nem.h
+index 71f66d3dba..8603297854 100644
+--- a/include/VBox/vmm/nem.h
++++ b/include/VBox/vmm/nem.h
+@@ -170,6 +170,24 @@ VMMR3_INT_DECL(int)  NEMR3NotifyPhysRomRegisterLate(PVM pVM, RTGCPHYS GCPhys, RT
+ 
+ #if defined(VBOX_WITH_KVM) && defined(IN_RING3)
+ 
++/**
++ * Retrieves the value of a single model specific register (MSR).
++ * @param pVCpu The vCPU in which context the MSR should be read (can be any vCPU for global MSRs).
++ * @param msr The index of the MSR that should be read.
++ * @param val A buffer that will contain the value of the specified MSR, if reading was successful.
++ * @return VBox status code, VINF_SUCCESS, if the read access was successful.
++ */
++VMMR3_INT_DECL(int) NEMR3KvmGetMsr(PVMCPU pVCpu, uint64_t msr, uint64_t* val);
++
++/**
++ * Writes a value to single model specific register (MSR).
++ * @param pVCpu The vCPU in which context the MSR should be written (can be any vCPU for global MSRs).
++ * @param msr The index of the MSR that should be written.
++ * @param val The value that should be written to the MSR.
++ * @return VBox status code, VINF_SUCCESS, if the write access was successful.
++ */
++VMMR3_INT_DECL(int) NEMR3KvmSetMsr(PVMCPU pVCpu, uint64_t msr, uint64_t val);
++
+ /**
+  * Asserts a specific interrupt line on both PIC and I/O APIC.
+  * @param  pVM The cross context VM structure.
+diff --git a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+index 2b78453e71..4e1876a944 100644
+--- a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
++++ b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+@@ -1562,6 +1562,44 @@ VMMR3_INT_DECL(int) NEMR3LoadExec(PVM pVM)
+     return VINF_SUCCESS;
+ }
+ 
++VMMR3_INT_DECL(int) NEMR3KvmGetMsr(PVMCPU pVCpu, uint64_t msr, uint64_t* val)
++{
++    alignas(struct kvm_msrs) char backing[sizeof(struct kvm_msrs) + sizeof(struct kvm_msr_entry)];
++    struct kvm_msrs* msr_data {reinterpret_cast<struct kvm_msrs*>(&backing[0])};
++    RT_ZERO(backing);
++
++    msr_data->nmsrs = 1;
++    msr_data->entries[0].index = msr;
++
++    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_GET_MSRS, msr_data);
++    AssertLogRelMsgReturn(rcLnx == 0, ("NEMR3KvmGetMsr: \
++                Failed to get MSR data. Error: %d, errno %d\n", rcLnx, errno), VERR_NOT_SUPPORTED);
++
++    AssertLogRelMsgReturn(val != nullptr, ("NEMR3KvmGetMsr: \
++                Invalid buffer\n", rcLnx, errno), VERR_NEM_IPE_5);
++
++    *val = msr_data->entries[0].data;
++
++    return VINF_SUCCESS;
++}
++
++VMMR3_INT_DECL(int) NEMR3KvmSetMsr(PVMCPU pVCpu, uint64_t msr, uint64_t val)
++{
++    alignas(struct kvm_msrs) char backing[sizeof(struct kvm_msrs) + sizeof(struct kvm_msr_entry)];
++    struct kvm_msrs* msr_data {reinterpret_cast<struct kvm_msrs*>(&backing[0])};
++    RT_ZERO(backing);
++
++    msr_data->nmsrs = 1;
++    msr_data->entries[0].index = msr;
++    msr_data->entries[0].data = val;
++
++    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_MSRS, msr_data);
++    AssertLogRelMsgReturn(rcLnx == 1, ("NEMR3KvmSetMsr: \
++                Failed to set MSR[%lx] data. Error: %d, errno %d\n", msr, rcLnx, errno), VERR_NOT_SUPPORTED);
++
++    return VINF_SUCCESS;
++}
++
+ VMMR3_INT_DECL(int) NEMR3KvmGetLapicState(PVMCPU pVCpu, void* pXApicPage)
+ {
+     struct kvm_lapic_state state;
+-- 
+2.43.0
+

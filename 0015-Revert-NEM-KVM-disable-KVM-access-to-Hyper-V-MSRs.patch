@@ -1,0 +1,39 @@
+From 09db0738ed1610806adc6d82a4c2dd32176fed0a Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Fri, 9 Feb 2024 13:58:29 +0000
+Subject: [PATCH 15/17] Revert "NEM: KVM: disable KVM access to Hyper-V MSRs"
+
+This reverts commit 18a6f0a5a32bdb98031839974233909388c40e53.
+---
+ src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+index 4e1876a944..86717f8424 100644
+--- a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
++++ b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+@@ -1112,13 +1112,6 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+         /** @todo add more? */
+         MSR_RANGE_END(64);
+ 
+-/*
+- * FIXME: If we want KVM to handle these MSRs, we also need to sync them correctly in
+- * nemHCLnxImportState and nemHCLnxExportState. Otherwise, VM reboot and
+- * state save/resume will be broken for guests that utilize the HyperV PV interface
+- * because the MSRs go out of sync.
+- */
+-#if 0
+         if (pVM->gim.s.enmProviderId == GIMPROVIDERID_HYPERV)
+         {
+             MSR_RANGE_BEGIN(0x40000000, 0x40003000, KVM_MSR_FILTER_READ | KVM_MSR_FILTER_WRITE);
+@@ -1161,7 +1154,6 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+ 
+             MSR_RANGE_END(64);
+         }
+-#endif
+ 
+         /** @todo Specify other ranges too? Like hyper-V and KVM to make sure we get
+          *        the MSR requests instead of KVM. */
+-- 
+2.43.0
+
