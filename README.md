@@ -59,7 +59,7 @@ $ git clone https://github.com/cyberus-technology/virtualbox-kvm vbox-patches
 $ cd VirtualBox-7.0.14
 $ git add *
 $ git commit -m "VirtualBox vanilla code"
-$ git am ../vbox-patches/*.patch
+$ git am ../vbox-patches/patches/*.patch
 $ ./configure --with-kvm --disable-kmods --disable-docs --disable-hardening --disable-java
 $ source ./env.sh
 $ kmk
