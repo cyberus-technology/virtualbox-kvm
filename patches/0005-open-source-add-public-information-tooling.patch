@@ -1,0 +1,137 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Stefan Hertrampf <stefan.hertrampf@cyberus-technology.de>
+Date: Thu, 18 Jan 2024 16:08:47 +0100
+Subject: [PATCH] open-source: add public information/tooling
+
+doc: Add readme for open-source release
+
+The Readme is placed in the vboxsrc/ directory, so that is directly
+included when shipping our vbox sources.
+
+open-source: add github issue template
+---
+ .github/ISSUE_TEMPLATE/issue_template.md | 37 +++++++++++++
+ README.md                                | 67 ++++++++++++++++++++++++
+ 2 files changed, 104 insertions(+)
+ create mode 100644 vboxsrc/.github/ISSUE_TEMPLATE/issue_template.md
+ create mode 100644 vboxsrc/README.md
+
+diff --git a/.github/ISSUE_TEMPLATE/issue_template.md b/.github/ISSUE_TEMPLATE/issue_template.md
+new file mode 100644
+index 000000000..264a4f24c
+--- /dev/null
++++ b/.github/ISSUE_TEMPLATE/issue_template.md
+@@ -0,0 +1,37 @@
++---
++name: Bug report
++about: Create a bug report
++title: ''
++labels: ''
++assignees: ''
++
++---
++
++### Bug Description
++
++A clear and concise description of what the bug is.
++
++### How to Reproduce
++
++Steps to reproduce the behavior.
++
++### VM configuration
++
++Guest OS configuration details:
++
++* Guest OS type and version (e.g. Windows 10 22H2)
++* Attach guest VM configuration file from `VirtualBox VMs/<guest VM name>/<guest VM name>.vbox`
++
++Host OS details:
++
++* Host OS distribution
++* Host OS kernel version
++
++### Logs
++
++Following logs are required:
++
++* Linux kernel output
++* VirtualBox Release Log
++  * In the VirtualBox GUI click the three dots next to the
++    guest VM name -> Logs -> Save
+diff --git a/README.md b/README.md
+new file mode 100644
+index 000000000..09ab81668
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,67 @@
++# VirtualBox KVM
++
++This repository contains an adapted version of the open source virtualization
++tool VirtualBox called VirtualBox KVM.
++VirtualBox KVM uses Linux KVM as the underlying hypervisor.
++
++## What to expect
++
++The basic look and feel of VirtualBox KVM will be the same as with an
++conventional VirtualBox. The user is able to boot the same guest VMs in their
++existing VirtualBox configuration.
++
++Nonetheless, there are the following benefits of using VirtualBox KVM compared
++to the conventional VirtualBox:
++
++* VirtualBox can run in parallel to QEMU/KVM
++* VirtualBox kernel driver (`vboxdrv`) is not required
++* Modern virtualization features supported by KVM are automatically used (e.g.
++  APICv)
++* KVM is part of the Linux kernel and therefore always directly available with
++  every kernel update
++
++Due to the replacement of the underlying hypervisor, there will be differences
++in the guest performance. Performance differences heavily depend on the guest
++workload.
++
++## How to use
++
++There are no prebuilt packages of VirtualBox KVM and it needs to be build from
++source. The process of building VirtualBox from source can be found
++[on virtualbox.org](https://www.virtualbox.org/wiki/Linux%20build%20instructions) and only
++minor adjustments are required to build VirtualBox with KVM as a backend.
++
++After having all the prerequisites installed, the build process can be condensed
++to the following steps:
++
++```shell
++$ ./configure --with-kvm --disable-kmods --disable-docs --disable-hardening --disable-java
++$ source ./env.sh
++$ kmk
++$ out/linux.amd64/release/bin/VirtualBox
++```
++
++The noticeable difference to the official build process is the addition of
++`--with-kvm` when calling `./configure`.
++
++## Known issues and limitations
++
++* Currently, Intel x86_64 is the only supported host platform.
++  * AMD will most likely work too but is considered experimental at the moment.
++* Linux is required as a host operating system for building and running
++  VirtualBox KVM.
++* Starting with Intel Tiger Lake (11th Gen Core processors) or newer, split lock
++  detection must be turned off in the host system. This can be achieved using
++  the Linux kernel command line parameter `split_lock_detect=off` or using the
++  `split_lock_mitigate` sysctl.
++
++## How to engage
++
++If you would like to use VirtualBox with KVM or if you have a need for custom
++virtualization solutions, we are happy to provide guidance and engineering
++services. Please reach out to us via our
++[support form](https://cyberus-technology.de/contact) or via e-mail at
++<service@cyberus-technology.de>.
++
++If you encounter any issues please use the provided issue template and describe
++your problem as detailed as possible.
+-- 
+2.44.0
+

@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Mon, 18 Mar 2024 13:21:34 +0000
+Subject: [PATCH] NEM/KVM: cpuid: allow guests to use SMEP and SMAP
+
+---
+ src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+index 247f0fa32..3c9d323f0 100644
+--- a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
++++ b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+@@ -1859,7 +1859,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+                                //| X86_CPUID_STEXT_FEATURE_EBX_HLE               RT_BIT(4)
+                                | PASSTHRU_FEATURE(pConfig->enmAvx2, pHstFeat->fAvx2, X86_CPUID_STEXT_FEATURE_EBX_AVX2)
+                                | X86_CPUID_STEXT_FEATURE_EBX_FDP_EXCPTN_ONLY
+-                               //| X86_CPUID_STEXT_FEATURE_EBX_SMEP              RT_BIT(7)
++                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EBX_SMEP)
+                                | X86_CPUID_STEXT_FEATURE_EBX_BMI2
+                                //| X86_CPUID_STEXT_FEATURE_EBX_ERMS              RT_BIT(9)
+                                | PASSTHRU_FEATURE(pConfig->enmInvpcid, pHstFeat->fInvpcid, X86_CPUID_STEXT_FEATURE_EBX_INVPCID)
+@@ -1872,7 +1872,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+                                //| RT_BIT(17) - reserved
+                                | PASSTHRU_FEATURE_TODO(pConfig->enmRdSeed, X86_CPUID_STEXT_FEATURE_EBX_RDSEED)
+                                //| X86_CPUID_STEXT_FEATURE_EBX_ADX               RT_BIT(19)
+-                               //| X86_CPUID_STEXT_FEATURE_EBX_SMAP              RT_BIT(20)
++                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EBX_SMAP)
+                                //| RT_BIT(21) - reserved
+                                //| RT_BIT(22) - reserved
+                                | PASSTHRU_FEATURE(pConfig->enmCLFlushOpt, pHstFeat->fClFlushOpt, X86_CPUID_STEXT_FEATURE_EBX_CLFLUSHOPT)
+-- 
+2.44.0
+

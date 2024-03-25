@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Mon, 18 Mar 2024 12:49:25 +0000
+Subject: [PATCH] NEM/KVM: expose SERIALIZE instruction to the guest
+
+---
+ include/iprt/x86.h                 | 2 ++
+ src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/include/iprt/x86.h b/include/iprt/x86.h
+index abaf70224..b9dffccf1 100644
+--- a/include/iprt/x86.h
++++ b/include/iprt/x86.h
+@@ -699,6 +699,8 @@ typedef const X86CPUIDFEATEDX *PCX86CPUIDFEATEDX;
+ #define X86_CPUID_STEXT_FEATURE_EDX_FSRM              RT_BIT(4)
+ /** EDX Bit 10 - MD_CLEAR - Supports flushing MDS related buffers. */
+ #define X86_CPUID_STEXT_FEATURE_EDX_MD_CLEAR          RT_BIT_32(10)
++/** EDX Bit 14 - SERIALIZE - Supports the SERIALIZE CPU instruction. */
++#define X86_CPUID_STEXT_FEATURE_EDX_SERIALIZE         RT_BIT_32(14)
+ /** EDX Bit 26 - IBRS & IBPB - Supports the IBRS flag in IA32_SPEC_CTRL and
+  *  IBPB command in IA32_PRED_CMD. */
+ #define X86_CPUID_STEXT_FEATURE_EDX_IBRS_IBPB         RT_BIT_32(26)
+diff --git a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+index 42d8a00f5..ab44cf161 100644
+--- a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
++++ b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+@@ -1890,6 +1890,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+                                ;
+                 pCurLeaf->uEdx &= 0
+                                | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_FSRM)
++                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_SERIALIZE)
+                                | PASSTHRU_FEATURE(pConfig->enmMdsClear,   pHstFeat->fMdsClear, X86_CPUID_STEXT_FEATURE_EDX_MD_CLEAR)
+                                | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_IBRS_IBPB)
+                                | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_STIBP)
+-- 
+2.44.0
+

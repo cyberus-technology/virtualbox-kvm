@@ -1,7 +1,7 @@
-From 165a9c5ea8b5b416655eaeecf8b54f400b53e954 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Sebastian Eydam <sebastian.eydam@cyberus-technology.de>
 Date: Mon, 15 Aug 2022 14:13:14 +0200
-Subject: [PATCH 04/17] virtio-gpu: Add virtiogpu implementation
+Subject: [PATCH] virtio-gpu: Add virtiogpu implementation
 
 virtiogpu: enable hotplug support
 
@@ -111,7 +111,7 @@ license: virtiogpu
  create mode 100644 vboxsrc/src/VBox/Devices/testcase/tstVirtioGpuCmdHandling.cpp
 
 diff --git a/include/VBox/log.h b/include/VBox/log.h
-index aaec2b54bd..93129cb334 100644
+index aaec2b54b..93129cb33 100644
 --- a/include/VBox/log.h
 +++ b/include/VBox/log.h
 @@ -184,6 +184,8 @@ typedef enum VBOXLOGGROUP
@@ -132,7 +132,7 @@ index aaec2b54bd..93129cb334 100644
      "DEV_VMM", \
      "DEV_VMM_BACKDOOR", \
 diff --git a/include/VBox/vmm/pdmcommon.h b/include/VBox/vmm/pdmcommon.h
-index cbad79983e..8746e53afc 100644
+index cbad79983..8746e53af 100644
 --- a/include/VBox/vmm/pdmcommon.h
 +++ b/include/VBox/vmm/pdmcommon.h
 @@ -111,6 +111,11 @@
@@ -148,7 +148,7 @@ index cbad79983e..8746e53afc 100644
  /**
   * Is asynchronous handling of suspend or power off notification completed?
 diff --git a/include/VBox/vmm/pdmifs.h b/include/VBox/vmm/pdmifs.h
-index c4eaeb1fca..86a3a94afb 100644
+index c4eaeb1fc..86a3a94af 100644
 --- a/include/VBox/vmm/pdmifs.h
 +++ b/include/VBox/vmm/pdmifs.h
 @@ -42,6 +42,9 @@
@@ -177,7 +177,7 @@ index c4eaeb1fca..86a3a94afb 100644
  /** Pointer to a display port interface. */
  typedef struct PDMIDISPLAYPORT *PPDMIDISPLAYPORT;
 diff --git a/include/VBox/vmm/vmmr3vtable-def.h b/include/VBox/vmm/vmmr3vtable-def.h
-index e603a58997..b4207844f5 100644
+index e603a5899..b4207844f 100644
 --- a/include/VBox/vmm/vmmr3vtable-def.h
 +++ b/include/VBox/vmm/vmmr3vtable-def.h
 @@ -595,6 +595,7 @@ VTABLE_ENTRY(PDMR3DeviceDetach)
@@ -190,7 +190,7 @@ index e603a58997..b4207844f5 100644
  VTABLE_ENTRY(PDMR3QueryLun)
 diff --git a/include/cyberus/edid.hpp b/include/cyberus/edid.hpp
 new file mode 100644
-index 0000000000..b05b59ebb3
+index 000000000..b05b59ebb
 --- /dev/null
 +++ b/include/cyberus/edid.hpp
 @@ -0,0 +1,423 @@
@@ -622,7 +622,7 @@ similarity index 100%
 rename from include/svp/pci.h
 rename to include/cyberus/pci.h
 diff --git a/src/VBox/Devices/Bus/DevVfio.h b/src/VBox/Devices/Bus/DevVfio.h
-index cfe384d7a1..d6bfb0a9f2 100644
+index cfe384d7a..d6bfb0a9f 100644
 --- a/src/VBox/Devices/Bus/DevVfio.h
 +++ b/src/VBox/Devices/Bus/DevVfio.h
 @@ -19,7 +19,7 @@
@@ -635,7 +635,7 @@ index cfe384d7a1..d6bfb0a9f2 100644
  #include <VBox/err.h>
  #include <VBox/pci.h>
 diff --git a/src/VBox/Devices/Graphics/DevVGA.cpp b/src/VBox/Devices/Graphics/DevVGA.cpp
-index a2ce3b3937..6c0ab349b6 100644
+index a2ce3b393..6c0ab349b 100644
 --- a/src/VBox/Devices/Graphics/DevVGA.cpp
 +++ b/src/VBox/Devices/Graphics/DevVGA.cpp
 @@ -6213,6 +6213,49 @@ static DECLCALLBACK(void) vgaR3Relocate(PPDMDEVINS pDevIns, RTGCINTPTR offDelta)
@@ -702,7 +702,7 @@ index a2ce3b3937..6c0ab349b6 100644
                      VERR_INVALID_PARAMETER);
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpu.cpp b/src/VBox/Devices/Graphics/DevVirtioGpu.cpp
 new file mode 100644
-index 0000000000..20f3e54de8
+index 000000000..20f3e54de
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpu.cpp
 @@ -0,0 +1,407 @@
@@ -1115,7 +1115,7 @@ index 0000000000..20f3e54de8
 +}
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpu.hpp b/src/VBox/Devices/Graphics/DevVirtioGpu.hpp
 new file mode 100644
-index 0000000000..72474ed6eb
+index 000000000..72474ed6e
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpu.hpp
 @@ -0,0 +1,373 @@
@@ -1494,7 +1494,7 @@ index 0000000000..72474ed6eb
 +};
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpuCmdHandler.cpp b/src/VBox/Devices/Graphics/DevVirtioGpuCmdHandler.cpp
 new file mode 100644
-index 0000000000..4db05af5b7
+index 000000000..4db05af5b
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpuCmdHandler.cpp
 @@ -0,0 +1,687 @@
@@ -2187,7 +2187,7 @@ index 0000000000..4db05af5b7
 +}
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpuCmdHandler.hpp b/src/VBox/Devices/Graphics/DevVirtioGpuCmdHandler.hpp
 new file mode 100644
-index 0000000000..7cf4bf583d
+index 000000000..7cf4bf583
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpuCmdHandler.hpp
 @@ -0,0 +1,353 @@
@@ -2546,7 +2546,7 @@ index 0000000000..7cf4bf583d
 +};
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpuDefinitions.hpp b/src/VBox/Devices/Graphics/DevVirtioGpuDefinitions.hpp
 new file mode 100644
-index 0000000000..fbb2fa78e8
+index 000000000..fbb2fa78e
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpuDefinitions.hpp
 @@ -0,0 +1,360 @@
@@ -2912,7 +2912,7 @@ index 0000000000..fbb2fa78e8
 +} // namespace virtioGpu
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpuDisplayManager.cpp b/src/VBox/Devices/Graphics/DevVirtioGpuDisplayManager.cpp
 new file mode 100644
-index 0000000000..7a04ca9d5c
+index 000000000..7a04ca9d5
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpuDisplayManager.cpp
 @@ -0,0 +1,413 @@
@@ -3331,7 +3331,7 @@ index 0000000000..7a04ca9d5c
 +}
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpuDisplayManager.hpp b/src/VBox/Devices/Graphics/DevVirtioGpuDisplayManager.hpp
 new file mode 100644
-index 0000000000..838a23602d
+index 000000000..838a23602
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpuDisplayManager.hpp
 @@ -0,0 +1,213 @@
@@ -3550,7 +3550,7 @@ index 0000000000..838a23602d
 +};
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpuResource.hpp b/src/VBox/Devices/Graphics/DevVirtioGpuResource.hpp
 new file mode 100644
-index 0000000000..f27d57618f
+index 000000000..f27d57618
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpuResource.hpp
 @@ -0,0 +1,80 @@
@@ -3636,7 +3636,7 @@ index 0000000000..f27d57618f
 +};
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpuVBoxStubs.cpp b/src/VBox/Devices/Graphics/DevVirtioGpuVBoxStubs.cpp
 new file mode 100644
-index 0000000000..5a5d18c2e2
+index 000000000..5a5d18c2e
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpuVBoxStubs.cpp
 @@ -0,0 +1,342 @@
@@ -3984,7 +3984,7 @@ index 0000000000..5a5d18c2e2
 +}
 diff --git a/src/VBox/Devices/Graphics/DevVirtioGpuVBoxStubs.hpp b/src/VBox/Devices/Graphics/DevVirtioGpuVBoxStubs.hpp
 new file mode 100644
-index 0000000000..fd6a56241c
+index 000000000..fd6a56241
 --- /dev/null
 +++ b/src/VBox/Devices/Graphics/DevVirtioGpuVBoxStubs.hpp
 @@ -0,0 +1,71 @@
@@ -4060,7 +4060,7 @@ index 0000000000..fd6a56241c
 +DECLCALLBACK(void) vbvavirtioGpuPortReportHostCursorCapabilities(PPDMIDISPLAYPORT, bool, bool);
 +DECLCALLBACK(void) vbvavirtioGpuPortReportHostCursorPosition(PPDMIDISPLAYPORT, uint32_t, uint32_t, bool);
 diff --git a/src/VBox/Devices/Makefile.kmk b/src/VBox/Devices/Makefile.kmk
-index d2bef9129d..a4caa91016 100644
+index d2bef9129..a4caa9101 100644
 --- a/src/VBox/Devices/Makefile.kmk
 +++ b/src/VBox/Devices/Makefile.kmk
 @@ -197,6 +197,10 @@ if !defined(VBOX_ONLY_EXTPACKS) && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SU
@@ -4088,7 +4088,7 @@ index d2bef9129d..a4caa91016 100644
    VBoxDD_SOURCES += Storage/HBDMgmt-generic.cpp
   endif
 diff --git a/src/VBox/Devices/VirtIO/VirtioCore.cpp b/src/VBox/Devices/VirtIO/VirtioCore.cpp
-index 3849aa7cbe..8abd7619ba 100644
+index 3849aa7cb..8abd7619b 100644
 --- a/src/VBox/Devices/VirtIO/VirtioCore.cpp
 +++ b/src/VBox/Devices/VirtIO/VirtioCore.cpp
 @@ -1272,7 +1272,7 @@ static int virtioNudgeGuest(PPDMDEVINS pDevIns, PVIRTIOCORE pVirtio, uint8_t uCa
@@ -4101,7 +4101,7 @@ index 3849aa7cbe..8abd7619ba 100644
      }
      else if (uMsixVector != VIRTIO_MSI_NO_VECTOR)
 diff --git a/src/VBox/Devices/build/VBoxDD.cpp b/src/VBox/Devices/build/VBoxDD.cpp
-index d601e45546..e7497c649f 100644
+index d601e4554..e7497c649 100644
 --- a/src/VBox/Devices/build/VBoxDD.cpp
 +++ b/src/VBox/Devices/build/VBoxDD.cpp
 @@ -250,6 +250,9 @@ extern "C" DECLEXPORT(int) VBoxDevicesRegister(PPDMDEVREGCB pCallbacks, uint32_t
@@ -4115,7 +4115,7 @@ index d601e45546..e7497c649f 100644
      return VINF_SUCCESS;
  }
 diff --git a/src/VBox/Devices/build/VBoxDD.h b/src/VBox/Devices/build/VBoxDD.h
-index d208ea1e7f..63dedfaa64 100644
+index d208ea1e7..63dedfaa6 100644
 --- a/src/VBox/Devices/build/VBoxDD.h
 +++ b/src/VBox/Devices/build/VBoxDD.h
 @@ -109,6 +109,7 @@ extern const PDMDEVREG g_DevicePciRaw;
@@ -4127,7 +4127,7 @@ index d208ea1e7f..63dedfaa64 100644
  #ifdef VBOX_WITH_VIRTUALKD
  extern const PDMDEVREG g_DeviceVirtualKD;
 diff --git a/src/VBox/Devices/testcase/Makefile.kmk b/src/VBox/Devices/testcase/Makefile.kmk
-index a65768b802..288199e3bc 100644
+index a65768b80..288199e3b 100644
 --- a/src/VBox/Devices/testcase/Makefile.kmk
 +++ b/src/VBox/Devices/testcase/Makefile.kmk
 @@ -70,12 +70,18 @@ ifeq ($(KBUILD_TARGET),$(KBUILD_HOST))
@@ -4196,7 +4196,7 @@ index a65768b802..288199e3bc 100644
  include $(FILE_KBUILD_SUB_FOOTER)
 diff --git a/src/VBox/Devices/testcase/tstVirtioGpuAdapter.hpp b/src/VBox/Devices/testcase/tstVirtioGpuAdapter.hpp
 new file mode 100644
-index 0000000000..9e23a733cf
+index 000000000..9e23a733c
 --- /dev/null
 +++ b/src/VBox/Devices/testcase/tstVirtioGpuAdapter.hpp
 @@ -0,0 +1,181 @@
@@ -4383,7 +4383,7 @@ index 0000000000..9e23a733cf
 +};
 diff --git a/src/VBox/Devices/testcase/tstVirtioGpuCmdHandling.cpp b/src/VBox/Devices/testcase/tstVirtioGpuCmdHandling.cpp
 new file mode 100644
-index 0000000000..a10d4e1aaf
+index 000000000..a10d4e1aa
 --- /dev/null
 +++ b/src/VBox/Devices/testcase/tstVirtioGpuCmdHandling.cpp
 @@ -0,0 +1,450 @@
@@ -4838,7 +4838,7 @@ index 0000000000..a10d4e1aaf
 +    }
 +}
 diff --git a/src/VBox/Frontends/VBoxManage/VBoxManageInfo.cpp b/src/VBox/Frontends/VBoxManage/VBoxManageInfo.cpp
-index fffa353734..3381669b3c 100644
+index fffa35373..3381669b3 100644
 --- a/src/VBox/Frontends/VBoxManage/VBoxManageInfo.cpp
 +++ b/src/VBox/Frontends/VBoxManage/VBoxManageInfo.cpp
 @@ -1457,6 +1457,18 @@ HRESULT showVMInfo(ComPtr<IVirtualBox> pVirtualBox,
@@ -4861,7 +4861,7 @@ index fffa353734..3381669b3c 100644
                  if (details == VMINFO_MACHINEREADABLE)
                      pszCtrl = "unknown";
 diff --git a/src/VBox/Frontends/VBoxManage/VBoxManageModifyVM.cpp b/src/VBox/Frontends/VBoxManage/VBoxManageModifyVM.cpp
-index aa3ecf7986..ce922b008c 100644
+index aa3ecf798..ce922b008 100644
 --- a/src/VBox/Frontends/VBoxManage/VBoxManageModifyVM.cpp
 +++ b/src/VBox/Frontends/VBoxManage/VBoxManageModifyVM.cpp
 @@ -1005,6 +1005,12 @@ RTEXITCODE handleModifyVM(HandlerArg *a)
@@ -4878,7 +4878,7 @@ index aa3ecf7986..ce922b008c 100644
                  {
                      errorArgument(ModifyVM::tr("Invalid --graphicscontroller argument '%s'"), ValueUnion.psz);
 diff --git a/src/VBox/Frontends/VirtualBox/src/converter/UIConverterBackendCOM.cpp b/src/VBox/Frontends/VirtualBox/src/converter/UIConverterBackendCOM.cpp
-index 3799bcab84..f5da2c826a 100644
+index 3799bcab8..f5da2c826 100644
 --- a/src/VBox/Frontends/VirtualBox/src/converter/UIConverterBackendCOM.cpp
 +++ b/src/VBox/Frontends/VirtualBox/src/converter/UIConverterBackendCOM.cpp
 @@ -316,6 +316,8 @@ template<> QString toString(const KGraphicsControllerType &type)
@@ -4900,7 +4900,7 @@ index 3799bcab84..f5da2c826a 100644
      {
          AssertMsgFailed(("No value for '%s'", strType.toUtf8().constData()));
 diff --git a/src/VBox/Main/idl/VirtualBox.xidl b/src/VBox/Main/idl/VirtualBox.xidl
-index 26e9d94aa0..ad6b2dd395 100644
+index 26e9d94aa..ad6b2dd39 100644
 --- a/src/VBox/Main/idl/VirtualBox.xidl
 +++ b/src/VBox/Main/idl/VirtualBox.xidl
 @@ -6536,6 +6536,12 @@
@@ -4917,7 +4917,7 @@ index 26e9d94aa0..ad6b2dd395 100644
  
    <enum
 diff --git a/src/VBox/Main/include/ConsoleImpl.h b/src/VBox/Main/include/ConsoleImpl.h
-index e1fc1f9b4d..6c35170064 100644
+index e1fc1f9b4..6c3517006 100644
 --- a/src/VBox/Main/include/ConsoleImpl.h
 +++ b/src/VBox/Main/include/ConsoleImpl.h
 @@ -729,7 +729,8 @@ private:
@@ -4942,7 +4942,7 @@ index e1fc1f9b4d..6c35170064 100644
      typedef struct LEDSET *PLEDSET;
      PPDMLED volatile *i_getLedSet(uint32_t iLedSet);
 diff --git a/src/VBox/Main/src-client/BusAssignmentManager.cpp b/src/VBox/Main/src-client/BusAssignmentManager.cpp
-index b4665d696c..1085b52865 100644
+index b4665d696..1085b5286 100644
 --- a/src/VBox/Main/src-client/BusAssignmentManager.cpp
 +++ b/src/VBox/Main/src-client/BusAssignmentManager.cpp
 @@ -120,7 +120,9 @@ static const DeviceAssignmentRule g_aGenericRules[] =
@@ -4957,7 +4957,7 @@ index b4665d696c..1085b52865 100644
      /* ISA/LPC controller */
      {"lpc",           0, 31,  0, 0},
 diff --git a/src/VBox/Main/src-client/ConsoleImpl2.cpp b/src/VBox/Main/src-client/ConsoleImpl2.cpp
-index 7a4ee5db5f..b571253e26 100644
+index 7a4ee5db5..b571253e2 100644
 --- a/src/VBox/Main/src-client/ConsoleImpl2.cpp
 +++ b/src/VBox/Main/src-client/ConsoleImpl2.cpp
 @@ -674,7 +674,7 @@ HRESULT Console::i_attachRawPCIDevices(PUVM pUVM, BusAssignmentManager *pBusMgr,
@@ -5109,7 +5109,7 @@ index 7a4ee5db5f..b571253e26 100644
  #ifdef VBOX_WITH_2X_4GB_ADDR_SPACE
          InsertConfigInteger(pCfg,  "R0Enabled",            fHMEnabled);
 diff --git a/src/VBox/Main/src-client/DisplayImpl.cpp b/src/VBox/Main/src-client/DisplayImpl.cpp
-index 5a4beefebb..1f236d913d 100644
+index 5a4beefeb..1f236d913 100644
 --- a/src/VBox/Main/src-client/DisplayImpl.cpp
 +++ b/src/VBox/Main/src-client/DisplayImpl.cpp
 @@ -65,6 +65,9 @@
@@ -5176,7 +5176,7 @@ index 5a4beefebb..1f236d913d 100644
                                      || aScreenLayoutMode == ScreenLayoutMode_Apply;
                  bool const fNotify = aScreenLayoutMode != ScreenLayoutMode_Silent;
 diff --git a/src/VBox/Main/src-server/GraphicsAdapterImpl.cpp b/src/VBox/Main/src-server/GraphicsAdapterImpl.cpp
-index 759f4324ff..481d18a50f 100644
+index 759f4324f..481d18a50 100644
 --- a/src/VBox/Main/src-server/GraphicsAdapterImpl.cpp
 +++ b/src/VBox/Main/src-server/GraphicsAdapterImpl.cpp
 @@ -198,6 +198,8 @@ HRESULT GraphicsAdapter::setGraphicsControllerType(GraphicsControllerType_T aGra
@@ -5189,7 +5189,7 @@ index 759f4324ff..481d18a50f 100644
          default:
              return setError(E_INVALIDARG, tr("The graphics controller type (%d) is invalid"), aGraphicsControllerType);
 diff --git a/src/VBox/Main/src-server/SystemPropertiesImpl.cpp b/src/VBox/Main/src-server/SystemPropertiesImpl.cpp
-index c238ae37cf..cfee49e932 100644
+index c238ae37c..cfee49e93 100644
 --- a/src/VBox/Main/src-server/SystemPropertiesImpl.cpp
 +++ b/src/VBox/Main/src-server/SystemPropertiesImpl.cpp
 @@ -1687,6 +1687,8 @@ HRESULT SystemProperties::getSupportedGraphicsControllerTypes(std::vector<Graphi
@@ -5202,7 +5202,7 @@ index c238ae37cf..cfee49e932 100644
      };
      aSupportedGraphicsControllerTypes.assign(aGraphicsControllerTypes,
 diff --git a/src/VBox/Main/xml/Settings.cpp b/src/VBox/Main/xml/Settings.cpp
-index e818eeb23f..bf4c7ae293 100644
+index e818eeb23..bf4c7ae29 100644
 --- a/src/VBox/Main/xml/Settings.cpp
 +++ b/src/VBox/Main/xml/Settings.cpp
 @@ -5433,6 +5433,10 @@ void MachineConfigFile::readHardware(const xml::ElementNode &elmHardware,
@@ -5226,7 +5226,7 @@ index e818eeb23f..bf4c7ae293 100644
              }
              pelmDisplay->setAttribute("controller", pcszGraphics);
 diff --git a/src/VBox/Main/xml/VirtualBox-settings.xsd b/src/VBox/Main/xml/VirtualBox-settings.xsd
-index 60f7303c5e..460c5e7907 100644
+index 60f7303c5..460c5e790 100644
 --- a/src/VBox/Main/xml/VirtualBox-settings.xsd
 +++ b/src/VBox/Main/xml/VirtualBox-settings.xsd
 @@ -289,6 +289,8 @@
@@ -5239,7 +5239,7 @@ index 60f7303c5e..460c5e7907 100644
  </xsd:simpleType>
  
 diff --git a/src/VBox/Runtime/VBox/log-vbox.cpp b/src/VBox/Runtime/VBox/log-vbox.cpp
-index 9d9c5d731e..5b75d76fbe 100644
+index 9d9c5d731..5b75d76fb 100644
 --- a/src/VBox/Runtime/VBox/log-vbox.cpp
 +++ b/src/VBox/Runtime/VBox/log-vbox.cpp
 @@ -273,6 +273,7 @@ RTDECL(PRTLOGGER) RTLogDefaultInit(void)
@@ -5251,7 +5251,7 @@ index 9d9c5d731e..5b75d76fbe 100644
      ASSERT_LOG_GROUP(DEV_VIRTIO);
      ASSERT_LOG_GROUP(DEV_VIRTIO_NET);
 diff --git a/src/VBox/VMM/VMMR3/GIMHv.cpp b/src/VBox/VMM/VMMR3/GIMHv.cpp
-index 1da9065120..116045bb2f 100644
+index 1da906512..116045bb2 100644
 --- a/src/VBox/VMM/VMMR3/GIMHv.cpp
 +++ b/src/VBox/VMM/VMMR3/GIMHv.cpp
 @@ -239,7 +239,8 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
@@ -5283,5 +5283,5 @@ index 1da9065120..116045bb2f 100644
  #ifdef VBOX_WITH_KVM
          /* Extended hypercalls require KVM_EXIT_HYPER_HCALL exits to be forwarded gimHvHypercall.
 -- 
-2.43.0
+2.44.0
 

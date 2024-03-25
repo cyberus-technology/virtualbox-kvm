@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Fri, 15 Mar 2024 14:12:42 +0000
+Subject: [PATCH] NEM/KVM: save/restore IA32_ARCH_CAPABILITIES and
+ IA32_SPEC_CTRL
+
+---
+ src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+index 94fdb9de5..043dc5322 100644
+--- a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
++++ b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+@@ -2186,6 +2186,8 @@ static int nemHCLnxImportState(PVMCPUCC pVCpu, uint64_t fWhat, PCPUMCTX pCtx, st
+         if (fWhat & CPUMCTX_EXTRN_OTHER_MSRS)
+         {
+             ADD_MSR(MSR_IA32_CR_PAT, pCtx->msrPAT);
++            ADD_MSR(MSR_IA32_ARCH_CAPABILITIES, pCtxMsrs->msr.ArchCaps);
++            ADD_MSR(MSR_IA32_SPEC_CTRL, pCtxMsrs->msr.SpecCtrl);
+             /** @todo What do we _have_ to add here?
+              * We also have: Mttr*, MiscEnable, FeatureControl. */
+         }
+@@ -2569,6 +2571,8 @@ static int nemHCLnxExportState(PVM pVM, PVMCPU pVCpu, PCPUMCTX pCtx, struct kvm_
+         if (fExtrn & CPUMCTX_EXTRN_OTHER_MSRS)
+         {
+             ADD_MSR(MSR_IA32_CR_PAT, pCtx->msrPAT);
++            ADD_MSR(MSR_IA32_ARCH_CAPABILITIES, pCtxMsrs->msr.ArchCaps);
++            ADD_MSR(MSR_IA32_SPEC_CTRL, pCtxMsrs->msr.SpecCtrl);
+             /** @todo What do we _have_ to add here?
+              * We also have: Mttr*, MiscEnable, FeatureControl. */
+         }
+-- 
+2.44.0
+

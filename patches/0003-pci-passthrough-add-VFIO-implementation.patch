@@ -1,7 +1,7 @@
-From 41bd920f88c30daeff49f6f60de963bf2d460975 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Messer <martin.messer@cyberus-technology.de>
 Date: Tue, 5 Oct 2021 13:57:43 +0000
-Subject: [PATCH 03/17] pci-passthrough: add VFIO implementation
+Subject: [PATCH] pci-passthrough: add VFIO implementation
 
 The VFIO device is added an can be configured via VBoxManage to
 pass-through arbitrary PCI devices from the host system. The user is
@@ -39,7 +39,7 @@ license: vfio
  create mode 100644 vboxsrc/src/VBox/Devices/Bus/VfioDevice.cpp
 
 diff --git a/include/VBox/log.h b/include/VBox/log.h
-index af00cf901a..aaec2b54bd 100644
+index af00cf901..aaec2b54b 100644
 --- a/include/VBox/log.h
 +++ b/include/VBox/log.h
 @@ -178,6 +178,8 @@ typedef enum VBOXLOGGROUP
@@ -60,7 +60,7 @@ index af00cf901a..aaec2b54bd 100644
      "DEV_VIRTIO", \
      "DEV_VIRTIO_NET", \
 diff --git a/include/VBox/pci.h b/include/VBox/pci.h
-index cd28b08375..41124406c5 100644
+index cd28b0837..41124406c 100644
 --- a/include/VBox/pci.h
 +++ b/include/VBox/pci.h
 @@ -631,6 +631,8 @@ typedef enum PCIADDRTYPE
@@ -73,7 +73,7 @@ index cd28b08375..41124406c5 100644
  #define PCI_ROM_SLOT         VBOX_PCI_ROM_SLOT    /**< deprecated */
  #define PCI_NUM_REGIONS      VBOX_PCI_NUM_REGIONS /**< deprecated */
 diff --git a/include/VBox/settings.h b/include/VBox/settings.h
-index 674e169f9b..78bcbf6bc6 100644
+index 674e169f9..78bcbf6bc 100644
 --- a/include/VBox/settings.h
 +++ b/include/VBox/settings.h
 @@ -1116,6 +1116,22 @@ struct HostPCIDeviceAttachment
@@ -110,7 +110,7 @@ index 674e169f9b..78bcbf6bc6 100644
  };
 diff --git a/include/svp/pci.h b/include/svp/pci.h
 new file mode 100644
-index 0000000000..9a020b6803
+index 000000000..9a020b680
 --- /dev/null
 +++ b/include/svp/pci.h
 @@ -0,0 +1,444 @@
@@ -560,7 +560,7 @@ index 0000000000..9a020b6803
 +}
 diff --git a/src/VBox/Devices/Bus/DevVfio.cpp b/src/VBox/Devices/Bus/DevVfio.cpp
 new file mode 100644
-index 0000000000..f93fcd7381
+index 000000000..f93fcd738
 --- /dev/null
 +++ b/src/VBox/Devices/Bus/DevVfio.cpp
 @@ -0,0 +1,154 @@
@@ -720,7 +720,7 @@ index 0000000000..f93fcd7381
 +};
 diff --git a/src/VBox/Devices/Bus/DevVfio.h b/src/VBox/Devices/Bus/DevVfio.h
 new file mode 100644
-index 0000000000..cfe384d7a1
+index 000000000..cfe384d7a
 --- /dev/null
 +++ b/src/VBox/Devices/Bus/DevVfio.h
 @@ -0,0 +1,412 @@
@@ -1138,7 +1138,7 @@ index 0000000000..cfe384d7a1
 +typedef VFIODEV *PVFIODEV;
 diff --git a/src/VBox/Devices/Bus/VfioDevice.cpp b/src/VBox/Devices/Bus/VfioDevice.cpp
 new file mode 100644
-index 0000000000..d8cf3ef1b0
+index 000000000..d8cf3ef1b
 --- /dev/null
 +++ b/src/VBox/Devices/Bus/VfioDevice.cpp
 @@ -0,0 +1,910 @@
@@ -2053,7 +2053,7 @@ index 0000000000..d8cf3ef1b0
 +    return {barValue & std::numeric_limits<uint32_t>::max()};
 +}
 diff --git a/src/VBox/Devices/Makefile.kmk b/src/VBox/Devices/Makefile.kmk
-index a17e655fa7..d2bef9129d 100644
+index a17e655fa..d2bef9129 100644
 --- a/src/VBox/Devices/Makefile.kmk
 +++ b/src/VBox/Devices/Makefile.kmk
 @@ -187,6 +187,8 @@ if !defined(VBOX_ONLY_EXTPACKS) && "$(intersects $(KBUILD_TARGET_ARCH),$(VBOX_SU
@@ -2077,7 +2077,7 @@ index a17e655fa7..d2bef9129d 100644
   ifn1of ($(KBUILD_TARGET), darwin)
    VBoxDD_SOURCES += Storage/HBDMgmt-generic.cpp
 diff --git a/src/VBox/Devices/build/VBoxDD.cpp b/src/VBox/Devices/build/VBoxDD.cpp
-index 36b12c694f..d601e45546 100644
+index 36b12c694..d601e4554 100644
 --- a/src/VBox/Devices/build/VBoxDD.cpp
 +++ b/src/VBox/Devices/build/VBoxDD.cpp
 @@ -218,6 +218,9 @@ extern "C" DECLEXPORT(int) VBoxDevicesRegister(PPDMDEVREGCB pCallbacks, uint32_t
@@ -2091,7 +2091,7 @@ index 36b12c694f..d601e45546 100644
      if (RT_FAILURE(rc))
          return rc;
 diff --git a/src/VBox/Devices/build/VBoxDD.h b/src/VBox/Devices/build/VBoxDD.h
-index 9350f42885..d208ea1e7f 100644
+index 9350f4288..d208ea1e7 100644
 --- a/src/VBox/Devices/build/VBoxDD.h
 +++ b/src/VBox/Devices/build/VBoxDD.h
 @@ -107,6 +107,7 @@ extern const PDMDEVREG g_DeviceEFI;
@@ -2103,7 +2103,7 @@ index 9350f42885..d208ea1e7f 100644
  extern const PDMDEVREG g_DeviceLPC;
  #ifdef VBOX_WITH_VIRTUALKD
 diff --git a/src/VBox/Frontends/VBoxManage/VBoxManageInfo.cpp b/src/VBox/Frontends/VBoxManage/VBoxManageInfo.cpp
-index 524c1be284..fffa353734 100644
+index 524c1be28..fffa35373 100644
 --- a/src/VBox/Frontends/VBoxManage/VBoxManageInfo.cpp
 +++ b/src/VBox/Frontends/VBoxManage/VBoxManageInfo.cpp
 @@ -2685,6 +2685,30 @@ HRESULT showVMInfo(ComPtr<IVirtualBox> pVirtualBox,
@@ -2138,7 +2138,7 @@ index 524c1be284..fffa353734 100644
       * Bandwidth groups
       */
 diff --git a/src/VBox/Frontends/VBoxManage/VBoxManageModifyVM.cpp b/src/VBox/Frontends/VBoxManage/VBoxManageModifyVM.cpp
-index 4a3607250a..aa3ecf7986 100644
+index 4a3607250..aa3ecf798 100644
 --- a/src/VBox/Frontends/VBoxManage/VBoxManageModifyVM.cpp
 +++ b/src/VBox/Frontends/VBoxManage/VBoxManageModifyVM.cpp
 @@ -234,6 +234,8 @@ enum
@@ -2178,7 +2178,7 @@ index 4a3607250a..aa3ecf7986 100644
  #ifdef VBOX_WITH_USB_CARDREADER
              case MODIFYVM_USBCARDREADER:
 diff --git a/src/VBox/Main/idl/VirtualBox.xidl b/src/VBox/Main/idl/VirtualBox.xidl
-index 8654afec6d..26e9d94aa0 100644
+index 8654afec6..26e9d94aa 100644
 --- a/src/VBox/Main/idl/VirtualBox.xidl
 +++ b/src/VBox/Main/idl/VirtualBox.xidl
 @@ -7336,6 +7336,12 @@
@@ -2220,7 +2220,7 @@ index 8654afec6d..26e9d94aa0 100644
        <rest request="get" path="/vms/{vmid}/configuration/"/>
        <desc>
 diff --git a/src/VBox/Main/include/ConsoleImpl.h b/src/VBox/Main/include/ConsoleImpl.h
-index fdea838fc0..e1fc1f9b4d 100644
+index fdea838fc..e1fc1f9b4 100644
 --- a/src/VBox/Main/include/ConsoleImpl.h
 +++ b/src/VBox/Main/include/ConsoleImpl.h
 @@ -807,6 +807,7 @@ private:
@@ -2232,7 +2232,7 @@ index fdea838fc0..e1fc1f9b4d 100644
      typedef struct LEDSET *PLEDSET;
      PPDMLED volatile *i_getLedSet(uint32_t iLedSet);
 diff --git a/src/VBox/Main/include/MachineImpl.h b/src/VBox/Main/include/MachineImpl.h
-index 311a80bdc2..5a90896947 100644
+index 311a80bdc..5a9089694 100644
 --- a/src/VBox/Main/include/MachineImpl.h
 +++ b/src/VBox/Main/include/MachineImpl.h
 @@ -364,6 +364,8 @@ public:
@@ -2262,7 +2262,7 @@ index 311a80bdc2..5a90896947 100644
                                ComPtr<INetworkAdapter> &aAdapter);
      HRESULT addStorageController(const com::Utf8Str &aName,
 diff --git a/src/VBox/Main/src-client/BusAssignmentManager.cpp b/src/VBox/Main/src-client/BusAssignmentManager.cpp
-index a8d36d0717..b4665d696c 100644
+index a8d36d071..b4665d696 100644
 --- a/src/VBox/Main/src-client/BusAssignmentManager.cpp
 +++ b/src/VBox/Main/src-client/BusAssignmentManager.cpp
 @@ -109,17 +109,18 @@ static const DeviceAssignmentRule g_aGenericRules[] =
@@ -2292,7 +2292,7 @@ index a8d36d0717..b4665d696c 100644
      /* ISA/LPC controller */
      {"lpc",           0, 31,  0, 0},
 diff --git a/src/VBox/Main/src-client/ConsoleImpl2.cpp b/src/VBox/Main/src-client/ConsoleImpl2.cpp
-index 3576c49354..7a4ee5db5f 100644
+index 3576c4935..7a4ee5db5 100644
 --- a/src/VBox/Main/src-client/ConsoleImpl2.cpp
 +++ b/src/VBox/Main/src-client/ConsoleImpl2.cpp
 @@ -674,6 +674,66 @@ HRESULT Console::i_attachRawPCIDevices(PUVM pUVM, BusAssignmentManager *pBusMgr,
@@ -2372,7 +2372,7 @@ index 3576c49354..7a4ee5db5f 100644
           * Enable the following devices: HPET, SMC and LPC on MacOS X guests or on ICH9 chipset
           */
 diff --git a/src/VBox/Main/src-server/MachineImpl.cpp b/src/VBox/Main/src-server/MachineImpl.cpp
-index c3c63d5989..e3d3287a7d 100644
+index c3c63d598..e3d3287a7 100644
 --- a/src/VBox/Main/src-server/MachineImpl.cpp
 +++ b/src/VBox/Main/src-server/MachineImpl.cpp
 @@ -7064,6 +7064,80 @@ HRESULT Machine::getPCIDeviceAssignments(std::vector<ComPtr<IPCIDeviceAttachment
@@ -2488,7 +2488,7 @@ index c3c63d5989..e3d3287a7d 100644
          data.llGuestProperties.clear();
  #ifdef VBOX_WITH_GUEST_PROPS
 diff --git a/src/VBox/Main/xml/Settings.cpp b/src/VBox/Main/xml/Settings.cpp
-index fa1c1d82a8..e818eeb23f 100644
+index fa1c1d82a..e818eeb23 100644
 --- a/src/VBox/Main/xml/Settings.cpp
 +++ b/src/VBox/Main/xml/Settings.cpp
 @@ -3902,6 +3902,21 @@ bool HostPCIDeviceAttachment::operator==(const HostPCIDeviceAttachment &a) const
@@ -2583,7 +2583,7 @@ index fa1c1d82a8..e818eeb23f 100644
  
      if (m->sv < SettingsVersion_v1_16)
 diff --git a/src/VBox/Runtime/VBox/log-vbox.cpp b/src/VBox/Runtime/VBox/log-vbox.cpp
-index 2e82f859f7..9d9c5d731e 100644
+index 2e82f859f..9d9c5d731 100644
 --- a/src/VBox/Runtime/VBox/log-vbox.cpp
 +++ b/src/VBox/Runtime/VBox/log-vbox.cpp
 @@ -272,6 +272,7 @@ RTDECL(PRTLOGGER) RTLogDefaultInit(void)
@@ -2595,5 +2595,5 @@ index 2e82f859f7..9d9c5d731e 100644
      ASSERT_LOG_GROUP(DEV_VIRTIO);
      ASSERT_LOG_GROUP(DEV_VIRTIO_NET);
 -- 
-2.43.0
+2.44.0
 

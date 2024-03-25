@@ -1,0 +1,140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Markus=20Partheym=C3=BCller?=
+ <markus.partheymueller@cyberus-technology.de>
+Date: Thu, 7 Mar 2024 15:58:12 +0100
+Subject: [PATCH] doc: Clarify KVM backend name
+
+---
+ README.intel-sriov-graphics.md |  9 ++++----
+ README.md                      | 39 +++++++++++++++++-----------------
+ 2 files changed, 24 insertions(+), 24 deletions(-)
+
+diff --git a/README.intel-sriov-graphics.md b/README.intel-sriov-graphics.md
+index 0b287c483..6e5332150 100644
+--- a/README.intel-sriov-graphics.md
++++ b/README.intel-sriov-graphics.md
+@@ -1,8 +1,9 @@
+ # Introduction
+ 
+-This document describes how to setup and use Intel SR-IOV graphics virtualization with VirtualBox KVM.
+-The hardware graphics acceleration is not integrated in the GUI yet and requires manual setup.
+-Yet, we deem it good enough for people to try this.
++This document describes how to setup and use Intel SR-IOV graphics
++virtualization with the KVM backend for VirtualBox. The hardware graphics
++acceleration is not integrated in the GUI yet and requires manual setup. Yet, we
++deem it good enough for people to try this.
+ 
+ This is a feature which is currently under active development, everything noted here should be
+ considered experimental.
+@@ -79,7 +80,7 @@ i915 0000:00:02.0: [drm] VT-d active for gfx access
+     - `lspci -v -s 0:2.1`, verify vfio-pci driver is in use
+     - `chmod 0666 /dev/vfio/*`
+ 
+-# Setting up VirtualBox to use vGPUs
++# Configuring vGPUs
+ 
+ - Configure ICH9 Chipset: `VBoxManage modifyvm <vm name> --chipset=ICH9`
+ - Attach the vGPU: `VBoxManage modifyvm <vm name> --attachvfio /sys/bus/pci/devices/0000\:00\:02.1` (no trailing slash)
+diff --git a/README.md b/README.md
+index 6fafd2ed0..9f832c7fb 100644
+--- a/README.md
++++ b/README.md
+@@ -1,19 +1,18 @@
+-# VirtualBox KVM
++# KVM Backend for VirtualBox
+ 
+-This repository contains an adapted version of the open source virtualization
+-tool VirtualBox called VirtualBox KVM.
+-VirtualBox KVM uses Linux KVM as the underlying hypervisor.
++This repository contains a KVM backend for the open source virtualization
++tool VirtualBox. With this backend, Linux KVM is used as the underlying hypervisor.
++
++*Note:* VirtualBox is a trademark owned by Oracle. This project has no affiliation with Oracle.
+ 
+ ## What to expect
+ 
+-The basic look and feel of VirtualBox KVM will be the same as with upstream
+-VirtualBox. The user is able to boot the same guest VMs as in their existing
+-VirtualBox configuration.
++The basic look and feel will be largely unchanged. The user is able to
++boot the same guest VMs as in their existing configuration.
+ 
+-Nonetheless, there are the following benefits of using VirtualBox KVM compared
+-to the upstream VirtualBox:
++Nonetheless, there are the following benefits of using the KVM backend:
+ 
+-* VirtualBox can run in parallel to QEMU/KVM
++* VirtualBox VMs can run in parallel to QEMU/KVM
+ * VirtualBox kernel driver (`vboxdrv`) is not required
+ * Modern virtualization features supported by KVM are automatically used (e.g.
+   APICv)
+@@ -26,10 +25,10 @@ workload.
+ 
+ ## How to use
+ 
+-There are no prebuilt packages of VirtualBox KVM and it needs to be built from
++There are no prebuilt packages of the resulting program and it needs to be built from
+ source. The process of building VirtualBox from source can be found
+ [on virtualbox.org](https://www.virtualbox.org/wiki/Linux%20build%20instructions) and only
+-minor adjustments are required to build VirtualBox with KVM as a backend.
++minor adjustments are required to integrate the KVM backend.
+ 
+ On a fresh install of Ubuntu 22.04, you can use the following command to install
+ all prerequisites via `apt`:
+@@ -57,14 +56,13 @@ to the following steps:
+ $ ./configure --with-kvm --disable-kmods --disable-docs --disable-hardening --disable-java
+ $ source ./env.sh
+ $ kmk
+-$ out/linux.amd64/release/bin/VirtualBox
+ ```
+ 
+ The noticeable difference to the official build process is the addition of
+ `--with-kvm` when calling `./configure`.
+ 
+ **Note:** These instructions are intended for local building and testing
+-purposes only. There are more considerations when packaging VirtualBox for a
++purposes only. There are more considerations when packaging for a
+ distribution. We do not advise or recommend instructions for packaging at this
+ time.
+ 
+@@ -74,8 +72,8 @@ time.
+   * AMD will most likely work too but is considered experimental at the moment.
+   * Processor support for the `XSAVE` instruction is required. This implies a
+     2nd Gen Core processor or newer.
+-* Linux is required as a host operating system for building and running
+-  VirtualBox KVM.
++* Linux is required as a host operating system for building and running the KVM
++  backend.
+ * Starting with Intel Tiger Lake (11th Gen Core processors) or newer, split lock
+   detection must be turned off in the host system. This can be achieved using
+   the Linux kernel command line parameter `split_lock_detect=off` or using the
+@@ -94,7 +92,7 @@ manual configuration, e.g., using `tun`/`tap` devices.
+ USB device pass-through is supported. Some `udev` rules are required to
+ trigger the creation of fitting device nodes, though. VirtualBox provides the
+ `out/linux.amd64/bin/VBoxCreateUSBNode.sh` script to create the right nodes.
+-Distribution-provided packages of VirtualBox will usually take care of the
++Distribution-provided packages will usually take care of the
+ required setup. The following is a short summary of the additional configuration
+ steps, which might differ based on the distribution. Be sure to know what you
+ are doing when following these steps. This can potentially interfere with
+@@ -134,7 +132,7 @@ If you want to use the graphics virtualization features of modern Intel processo
+ 
+ ## How to engage
+ 
+-If you would like to use VirtualBox with KVM or if you have a need for custom
++If you would like to use our KVM backend or if you have a need for custom
+ virtualization solutions, we are happy to provide guidance and engineering
+ services. Please reach out to us via our
+ [support form](https://cyberus-technology.de/contact) or via e-mail at
+@@ -146,5 +144,6 @@ your problem as detailed as possible.
+ ## Licensing
+ 
+ This source code is released under the same license terms as the original
+-VirtualBox Open Source release it is derived from. See the `COPYING` file
+-for details.
++VirtualBox Open Source release it is derived from. See the upstream `COPYING` file
++for details. Make sure to follow [licensing conditions](https://www.virtualbox.org/wiki/Licensing_FAQ)
++when redistributing.
+-- 
+2.44.0
+

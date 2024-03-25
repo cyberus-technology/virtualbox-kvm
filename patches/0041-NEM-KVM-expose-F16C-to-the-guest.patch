@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Mon, 18 Mar 2024 19:50:08 +0000
+Subject: [PATCH] NEM/KVM: expose F16C to the guest
+
+---
+ src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+index bc756ceb7..d3df15578 100644
+--- a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
++++ b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+@@ -1414,7 +1414,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+                            | PASSTHRU_FEATURE(pConfig->enmXSave, pHstFeat->fXSaveRstor, X86_CPUID_FEATURE_ECX_XSAVE)
+                            //| X86_CPUID_FEATURE_ECX_OSXSAVE - mirrors CR4.OSXSAVE state, set dynamically.
+                            | PASSTHRU_FEATURE(pConfig->enmAvx, pHstFeat->fAvx, X86_CPUID_FEATURE_ECX_AVX)
+-                           //| X86_CPUID_FEATURE_ECX_F16C  - not implemented yet.
++                           | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_FEATURE_ECX_F16C)
+                            | PASSTHRU_FEATURE_TODO(pConfig->enmRdRand, X86_CPUID_FEATURE_ECX_RDRAND)
+                            //| X86_CPUID_FEATURE_ECX_HVP   - Set explicitly later.
+                            ;
+-- 
+2.44.0
+

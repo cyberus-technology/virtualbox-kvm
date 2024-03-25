@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Julian Stecklina <julian.stecklina@cyberus-technology.de>
+Date: Thu, 22 Feb 2024 16:27:56 +0100
+Subject: [PATCH] vbox: workaround resume failing with
+ VERR_CPUM_INVALID_XSAVE_HDR
+
+---
+ src/VBox/VMM/VMMR3/CPUM.cpp | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/src/VBox/VMM/VMMR3/CPUM.cpp b/src/VBox/VMM/VMMR3/CPUM.cpp
+index 7e0fbd32f..408102f8d 100644
+--- a/src/VBox/VMM/VMMR3/CPUM.cpp
++++ b/src/VBox/VMM/VMMR3/CPUM.cpp
+@@ -2845,10 +2845,21 @@ static DECLCALLBACK(int) cpumR3LoadExec(PVM pVM, PSSMHANDLE pSSM, uint32_t uVers
+                     rc = SSMR3GetStructEx(pSSM, &pGstCtx->XState.Hdr, sizeof(pGstCtx->XState.Hdr),
+                                           0, g_aCpumXSaveHdrFields, NULL);
+                     AssertRCReturn(rc, rc);
++#ifndef VBOX_WITH_KVM
++                    /*
++                     * This assertion triggers on resume when the guest was
++                     * suspended early during boot. The hypothesis is that this
++                     * happens when XSAVE is not enabled yet. Seems harmless for
++                     * now.
++                     *
++                     * See: virtualbox#69
++                     */
++
+                     AssertLogRelMsgReturn(!(pGstCtx->XState.Hdr.bmXState & ~pGstCtx->fXStateMask),
+                                           ("bmXState=%#RX64 fXStateMask=%#RX64\n",
+                                            pGstCtx->XState.Hdr.bmXState, pGstCtx->fXStateMask),
+                                           VERR_CPUM_INVALID_XSAVE_HDR);
++#endif
+                 }
+                 if (pGstCtx->fXStateMask & XSAVE_C_YMM)
+                 {
+-- 
+2.44.0
+

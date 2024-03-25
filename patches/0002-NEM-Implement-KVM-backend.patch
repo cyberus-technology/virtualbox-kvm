@@ -1,7 +1,7 @@
-From e1b953abdcc0f7c5270ea75e191d10a1633ef239 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Messer <martin.messer@cyberus-technology.de>
 Date: Wed, 5 Apr 2023 13:49:04 +0000
-Subject: [PATCH 02/17] NEM: Implement KVM backend
+Subject: [PATCH] NEM: Implement KVM backend
 
 NEM: Log A20 changes everytime.
 
@@ -288,7 +288,7 @@ account for the CPUID values VBox wants to offer to the guest.
  26 files changed, 1895 insertions(+), 98 deletions(-)
 
 diff --git a/include/VBox/vmm/nem.h b/include/VBox/vmm/nem.h
-index 0d960a7eee..26d055fcd0 100644
+index 0d960a7ee..26d055fcd 100644
 --- a/include/VBox/vmm/nem.h
 +++ b/include/VBox/vmm/nem.h
 @@ -43,6 +43,14 @@
@@ -503,7 +503,7 @@ index 0d960a7eee..26d055fcd0 100644
   * @{ */
  /** Set if the range is replacing RAM rather that unused space. */
 diff --git a/include/VBox/vmm/pdmdev.h b/include/VBox/vmm/pdmdev.h
-index f895eb86f5..525d82e030 100644
+index f895eb86f..525d82e03 100644
 --- a/include/VBox/vmm/pdmdev.h
 +++ b/include/VBox/vmm/pdmdev.h
 @@ -64,6 +64,49 @@
@@ -649,7 +649,7 @@ index f895eb86f5..525d82e030 100644
      uint32_t                u32TheEnd;
  } PDMIOAPICHLP;
 diff --git a/include/iprt/mangling.h b/include/iprt/mangling.h
-index 0c8c027f1b..7b27bba35d 100644
+index 0c8c027f1..7b27bba35 100644
 --- a/include/iprt/mangling.h
 +++ b/include/iprt/mangling.h
 @@ -2555,6 +2555,7 @@
@@ -661,7 +661,7 @@ index 0c8c027f1b..7b27bba35d 100644
  # define RTThreadPreemptDisable                         RT_MANGLER(RTThreadPreemptDisable)     /* r0drv */
  # define RTThreadPreemptIsEnabled                       RT_MANGLER(RTThreadPreemptIsEnabled)   /* r0drv */
 diff --git a/include/iprt/thread.h b/include/iprt/thread.h
-index 7d9257ec4c..243d76de75 100644
+index 7d9257ec4..243d76de7 100644
 --- a/include/iprt/thread.h
 +++ b/include/iprt/thread.h
 @@ -555,6 +555,12 @@ RTDECL(int) RTThreadPoke(RTTHREAD hThread);
@@ -678,7 +678,7 @@ index 7d9257ec4c..243d76de75 100644
  # ifdef IN_RING0
  
 diff --git a/src/VBox/Devices/PC/DevACPI.cpp b/src/VBox/Devices/PC/DevACPI.cpp
-index abf2ba5e25..672b9afae0 100644
+index abf2ba5e2..672b9afae 100644
 --- a/src/VBox/Devices/PC/DevACPI.cpp
 +++ b/src/VBox/Devices/PC/DevACPI.cpp
 @@ -812,7 +812,11 @@ struct ACPITBLISO
@@ -769,7 +769,7 @@ index abf2ba5e25..672b9afae0 100644
      madt.header_addr()->u8Checksum = acpiR3Checksum(madt.data(), madt.size());
      acpiR3PhysCopy(pDevIns, addr, madt.data(), madt.size());
 diff --git a/src/VBox/Devices/PC/DevIoApic.cpp b/src/VBox/Devices/PC/DevIoApic.cpp
-index a69d8e3f02..f56c66725d 100644
+index a69d8e3f0..f56c66725 100644
 --- a/src/VBox/Devices/PC/DevIoApic.cpp
 +++ b/src/VBox/Devices/PC/DevIoApic.cpp
 @@ -32,6 +32,14 @@
@@ -1102,7 +1102,7 @@ index a69d8e3f02..f56c66725d 100644
       * Validate and read the configuration.
       */
 diff --git a/src/VBox/Devices/PC/DevPIC.cpp b/src/VBox/Devices/PC/DevPIC.cpp
-index b4e195952e..f44e2c6f73 100644
+index b4e195952..f44e2c6f7 100644
 --- a/src/VBox/Devices/PC/DevPIC.cpp
 +++ b/src/VBox/Devices/PC/DevPIC.cpp
 @@ -366,6 +366,16 @@ static DECLCALLBACK(void) picSetIrq(PPDMDEVINS pDevIns, int iIrq, int iLevel, ui
@@ -1199,7 +1199,7 @@ index b4e195952e..f44e2c6f73 100644
      return VINF_SUCCESS;
  }
 diff --git a/src/VBox/HostDrivers/Support/Makefile.kmk b/src/VBox/HostDrivers/Support/Makefile.kmk
-index 6543b624f6..205c66e930 100644
+index 6543b624f..205c66e93 100644
 --- a/src/VBox/HostDrivers/Support/Makefile.kmk
 +++ b/src/VBox/HostDrivers/Support/Makefile.kmk
 @@ -191,6 +191,7 @@ SUPR3_DEFS          = \
@@ -1211,7 +1211,7 @@ index 6543b624f6..205c66e930 100644
  	VBOX_PERMIT_EVEN_MORE
  SUPR3_INCS         := $(PATH_SUB_CURRENT)
 diff --git a/src/VBox/HostDrivers/Support/linux/SUPLib-linux.cpp b/src/VBox/HostDrivers/Support/linux/SUPLib-linux.cpp
-index 5bdcda63c4..61ffb906da 100644
+index 5bdcda63c..61ffb906d 100644
 --- a/src/VBox/HostDrivers/Support/linux/SUPLib-linux.cpp
 +++ b/src/VBox/HostDrivers/Support/linux/SUPLib-linux.cpp
 @@ -255,6 +255,10 @@ DECLHIDDEN(int) suplibOsPageAlloc(PSUPLIBDATA pThis, size_t cPages, uint32_t fFl
@@ -1226,7 +1226,7 @@ index 5bdcda63c4..61ffb906da 100644
      if (   !pThis->fSysMadviseWorks
          && (fFlags & (SUP_PAGE_ALLOC_F_FOR_LOCKING | SUP_PAGE_ALLOC_F_LARGE_PAGES)) == SUP_PAGE_ALLOC_F_FOR_LOCKING)
 diff --git a/src/VBox/Main/Makefile.kmk b/src/VBox/Main/Makefile.kmk
-index 5711816d74..6f5d1a7071 100644
+index 5711816d7..6f5d1a707 100644
 --- a/src/VBox/Main/Makefile.kmk
 +++ b/src/VBox/Main/Makefile.kmk
 @@ -1088,7 +1088,9 @@ if !defined(VBOX_ONLY_SDK) && !defined(VBOX_ONLY_EXTPACKS) # Note this goes on f
@@ -1241,7 +1241,7 @@ index 5711816d74..6f5d1a7071 100644
   	$(PATH_SDK_$(VBOX_WINPSDK)_LIB)/psapi.lib \
   	$(PATH_TOOL_$(VBOX_VCC_TOOL)_LIB)/delayimp.lib
 diff --git a/src/VBox/Runtime/r3/posix/thread-posix.cpp b/src/VBox/Runtime/r3/posix/thread-posix.cpp
-index cd621ce0a1..c89c600e46 100644
+index cd621ce0a..c89c600e4 100644
 --- a/src/VBox/Runtime/r3/posix/thread-posix.cpp
 +++ b/src/VBox/Runtime/r3/posix/thread-posix.cpp
 @@ -727,6 +727,10 @@ RTDECL(int) RTThreadControlPokeSignal(RTTHREAD hThread, bool fEnable)
@@ -1256,7 +1256,7 @@ index cd621ce0a1..c89c600e46 100644
  #endif
  
 diff --git a/src/VBox/Runtime/testcase/Makefile.kmk b/src/VBox/Runtime/testcase/Makefile.kmk
-index c3a097b821..4ecc3e535a 100644
+index c3a097b82..4ecc3e535 100644
 --- a/src/VBox/Runtime/testcase/Makefile.kmk
 +++ b/src/VBox/Runtime/testcase/Makefile.kmk
 @@ -559,6 +559,7 @@ ifdef VBOX_WITH_TESTCASES # The whole file
@@ -1268,7 +1268,7 @@ index c3a097b821..4ecc3e535a 100644
  	$(QUIET)$(SED) -n -e 's/^ *LOG_GROUP_\([A-Z0-9_]*\),.*$(DOLLAR)/{ LOG_GROUP_\1, "\1" },/p' --output "$@" "$<"
   endif # !VBOX_ONLY_VALIDATIONKIT
 diff --git a/src/VBox/VMM/VMMAll/APICAll.cpp b/src/VBox/VMM/VMMAll/APICAll.cpp
-index 6041a8433a..e2df2ec202 100644
+index 6041a8433..e2df2ec20 100644
 --- a/src/VBox/VMM/VMMAll/APICAll.cpp
 +++ b/src/VBox/VMM/VMMAll/APICAll.cpp
 @@ -2726,6 +2726,16 @@ VMM_INT_DECL(VBOXSTRICTRC) APICLocalInterrupt(PVMCPUCC pVCpu, uint8_t u8Pin, uin
@@ -1289,7 +1289,7 @@ index 6041a8433a..e2df2ec202 100644
      /* If the APIC is enabled, the interrupt is subject to LVT programming. */
      if (APICIsEnabled(pVCpu))
 diff --git a/src/VBox/VMM/VMMAll/PGMAllBth.h b/src/VBox/VMM/VMMAll/PGMAllBth.h
-index 50b7a30e84..9d4bd8ca62 100644
+index 50b7a30e8..9d4bd8ca6 100644
 --- a/src/VBox/VMM/VMMAll/PGMAllBth.h
 +++ b/src/VBox/VMM/VMMAll/PGMAllBth.h
 @@ -5046,7 +5046,10 @@ PGM_BTH_DECL(int, MapCR3)(PVMCPUCC pVCpu, RTGCPHYS GCPhysCR3)
@@ -1304,7 +1304,7 @@ index 50b7a30e84..9d4bd8ca62 100644
  # if PGM_GST_TYPE == PGM_TYPE_PAE
      if (   !pVCpu->pgm.s.CTX_SUFF(fPaePdpesAndCr3Mapped)
 diff --git a/src/VBox/VMM/VMMAll/TMAll.cpp b/src/VBox/VMM/VMMAll/TMAll.cpp
-index 677decdd81..8edc178af1 100644
+index 677decdd8..8edc178af 100644
 --- a/src/VBox/VMM/VMMAll/TMAll.cpp
 +++ b/src/VBox/VMM/VMMAll/TMAll.cpp
 @@ -208,7 +208,10 @@ VMMDECL(void) TMNotifyEndOfExecution(PVMCC pVM, PVMCPUCC pVCpu, uint64_t uTsc)
@@ -1320,7 +1320,7 @@ index 677decdd81..8edc178af1 100644
      uint64_t cNsExecutingDelta;
      if (uCpuHz < _4G)
 diff --git a/src/VBox/VMM/VMMAll/TMAllVirtual.cpp b/src/VBox/VMM/VMMAll/TMAllVirtual.cpp
-index 9244bd850b..2e34aeaf6d 100644
+index 9244bd850..2e34aeaf6 100644
 --- a/src/VBox/VMM/VMMAll/TMAllVirtual.cpp
 +++ b/src/VBox/VMM/VMMAll/TMAllVirtual.cpp
 @@ -952,7 +952,11 @@ VMM_INT_DECL(uint64_t) TMVirtualSyncGetWithDeadlineNoCheck(PVMCC pVM, uint64_t *
@@ -1336,7 +1336,7 @@ index 9244bd850b..2e34aeaf6d 100644
  }
  
 diff --git a/src/VBox/VMM/VMMR3/APIC.cpp b/src/VBox/VMM/VMMR3/APIC.cpp
-index 6753ac6080..b5ff86cc7f 100644
+index 6753ac608..b5ff86cc7 100644
 --- a/src/VBox/VMM/VMMR3/APIC.cpp
 +++ b/src/VBox/VMM/VMMR3/APIC.cpp
 @@ -36,6 +36,7 @@
@@ -1403,7 +1403,7 @@ index 6753ac6080..b5ff86cc7f 100644
          APIC_REG_COUNTER(&pApicCpu->StatPostIntrCnt,   "%u",  "APIC/VCPU stats / number of apicPostInterrupt calls.");
          for (size_t i = 0; i < RT_ELEMENTS(pApicCpu->aStatVectors); i++)
 diff --git a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
-index a22882500f..c448c9ecd8 100644
+index a22882500..c448c9ecd 100644
 --- a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
 +++ b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
 @@ -1419,6 +1419,51 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
@@ -1475,7 +1475,7 @@ index a22882500f..c448c9ecd8 100644
  
          /*
 diff --git a/src/VBox/VMM/VMMR3/EM.cpp b/src/VBox/VMM/VMMR3/EM.cpp
-index bd15b8872c..5e52065aab 100644
+index bd15b8872..5e52065aa 100644
 --- a/src/VBox/VMM/VMMR3/EM.cpp
 +++ b/src/VBox/VMM/VMMR3/EM.cpp
 @@ -219,7 +219,11 @@ VMMR3_INT_DECL(int) EMR3Init(PVM pVM)
@@ -1506,7 +1506,7 @@ index bd15b8872c..5e52065aab 100644
                      break;
                  }
 diff --git a/src/VBox/VMM/VMMR3/GIMHv.cpp b/src/VBox/VMM/VMMR3/GIMHv.cpp
-index 0452facbe3..1da9065120 100644
+index 0452facbe..1da906512 100644
 --- a/src/VBox/VMM/VMMR3/GIMHv.cpp
 +++ b/src/VBox/VMM/VMMR3/GIMHv.cpp
 @@ -34,6 +34,9 @@
@@ -1631,7 +1631,7 @@ index 0452facbe3..1da9065120 100644
  
      /*
 diff --git a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
-index fa73141590..38251a5568 100644
+index fa7314159..38251a556 100644
 --- a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
 +++ b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
 @@ -38,20 +38,29 @@
@@ -3020,7 +3020,7 @@ index fa73141590..38251a5568 100644
   */
 -
 diff --git a/src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp b/src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp
-index f11f0b2151..d723f54531 100644
+index f11f0b215..d723f5453 100644
 --- a/src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp
 +++ b/src/VBox/VMM/VMMR3/PDMDevMiscHlp.cpp
 @@ -34,6 +34,7 @@
@@ -3162,7 +3162,7 @@ index f11f0b2151..d723f54531 100644
  };
  
 diff --git a/src/VBox/VMM/VMMR3/PGMPhys.cpp b/src/VBox/VMM/VMMR3/PGMPhys.cpp
-index fb9fd66828..b54be52089 100644
+index fb9fd6682..b54be5208 100644
 --- a/src/VBox/VMM/VMMR3/PGMPhys.cpp
 +++ b/src/VBox/VMM/VMMR3/PGMPhys.cpp
 @@ -1862,7 +1862,12 @@ int pgmR3PhysRamPreAllocate(PVM pVM)
@@ -3179,7 +3179,7 @@ index fb9fd66828..b54be52089 100644
  
      /*
 diff --git a/src/VBox/VMM/VMMR3/VMM.cpp b/src/VBox/VMM/VMMR3/VMM.cpp
-index e235184c56..787df961f1 100644
+index e235184c5..787df961f 100644
 --- a/src/VBox/VMM/VMMR3/VMM.cpp
 +++ b/src/VBox/VMM/VMMR3/VMM.cpp
 @@ -1092,6 +1092,11 @@ static DECLCALLBACK(int) vmmR3Load(PVM pVM, PSSMHANDLE pSSM, uint32_t uVersion,
@@ -3195,7 +3195,7 @@ index e235184c56..787df961f1 100644
  }
  
 diff --git a/src/VBox/VMM/include/GIMHvInternal.h b/src/VBox/VMM/include/GIMHvInternal.h
-index 960dc36c6c..14b00b7394 100644
+index 960dc36c6..14b00b739 100644
 --- a/src/VBox/VMM/include/GIMHvInternal.h
 +++ b/src/VBox/VMM/include/GIMHvInternal.h
 @@ -202,6 +202,8 @@
@@ -3208,7 +3208,7 @@ index 960dc36c6c..14b00b7394 100644
  
  
 diff --git a/src/VBox/VMM/include/NEMInternal.h b/src/VBox/VMM/include/NEMInternal.h
-index e0817e219c..35a7665f4f 100644
+index e0817e219..35a7665f4 100644
 --- a/src/VBox/VMM/include/NEMInternal.h
 +++ b/src/VBox/VMM/include/NEMInternal.h
 @@ -35,13 +35,24 @@
@@ -3276,5 +3276,5 @@ index e0817e219c..35a7665f4f 100644
  #endif /* !VMM_INCLUDED_SRC_include_NEMInternal_h */
 -
 -- 
-2.43.0
+2.44.0
 

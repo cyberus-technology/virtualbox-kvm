@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Fri, 15 Mar 2024 12:34:43 +0000
+Subject: [PATCH] NEM/KVM: let KVM handle MSR_IA32_ARCH_CAPABILITIES and
+ MSR_IA32_SPEC_CTRL
+
+---
+ src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+index 82ebed65e..94fdb9de5 100644
+--- a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
++++ b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+@@ -1031,8 +1031,17 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+     {
+         for (VMCPUID idCpu = 0; idCpu < pVM->cCpus; idCpu++)
+         {
++            PCPUMCTXMSRS const  pCtxMsrs    = CPUMQueryGuestCtxMsrsPtr(pVM->apCpusR3[idCpu]);
++
+             int rc = nemR3LnxUpdateCpuIdsLeaves(pVM, pVM->apCpusR3[idCpu]);
+             AssertRCReturn(rc, rc);
++
++            uint64_t val {0};
++            NEMR3KvmGetMsr(pVM->apCpusR3[idCpu], MSR_IA32_ARCH_CAPABILITIES, &val);
++            pCtxMsrs->msr.ArchCaps = val;
++
++            NEMR3KvmGetMsr(pVM->apCpusR3[idCpu], MSR_IA32_SPEC_CTRL, &val);
++            pCtxMsrs->msr.SpecCtrl = val;
+         }
+     }
+ 
+@@ -1089,6 +1098,8 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+         MSR_RANGE_ADD(MSR_IA32_SYSENTER_ESP);
+         MSR_RANGE_ADD(MSR_IA32_SYSENTER_EIP);
+         MSR_RANGE_ADD(MSR_IA32_CR_PAT);
++        MSR_RANGE_ADD(MSR_IA32_ARCH_CAPABILITIES);
++        MSR_RANGE_ADD(MSR_IA32_SPEC_CTRL);
+         /** @todo more? */
+         MSR_RANGE_END(64);
+ 
+-- 
+2.44.0
+

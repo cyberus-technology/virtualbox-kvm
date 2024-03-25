@@ -1,0 +1,114 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Stefan Nuernberger <stefan.nuernberger@cyberus-technology.de>
+Date: Mon, 19 Feb 2024 18:48:20 +0100
+Subject: [PATCH] doc: readme additions
+
+---
+ README.md | 67 +++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 63 insertions(+), 4 deletions(-)
+
+diff --git a/README.md b/README.md
+index b143e2e15..bdc3021f4 100644
+--- a/README.md
++++ b/README.md
+@@ -6,12 +6,12 @@ VirtualBox KVM uses Linux KVM as the underlying hypervisor.
+ 
+ ## What to expect
+ 
+-The basic look and feel of VirtualBox KVM will be the same as with an
+-conventional VirtualBox. The user is able to boot the same guest VMs in their
+-existing VirtualBox configuration.
++The basic look and feel of VirtualBox KVM will be the same as with upstream
++VirtualBox. The user is able to boot the same guest VMs as in their existing
++VirtualBox configuration.
+ 
+ Nonetheless, there are the following benefits of using VirtualBox KVM compared
+-to the conventional VirtualBox:
++to the upstream VirtualBox:
+ 
+ * VirtualBox can run in parallel to QEMU/KVM
+ * VirtualBox kernel driver (`vboxdrv`) is not required
+@@ -63,10 +63,17 @@ $ out/linux.amd64/release/bin/VirtualBox
+ The noticeable difference to the official build process is the addition of
+ `--with-kvm` when calling `./configure`.
+ 
++**Note:** These instructions are intended for local building and testing
++purposes only. There are more considerations when packaging VirtualBox for a
++distribution. We do not advise or recommend instructions for packaging at this
++time.
++
+ ## Known issues and limitations
+ 
+ * Currently, Intel x86_64 is the only supported host platform.
+   * AMD will most likely work too but is considered experimental at the moment.
++  * Processor support for the `XSAVE` instruction is required. This implies a
++    2nd Gen Core processor or newer.
+ * Linux is required as a host operating system for building and running
+   VirtualBox KVM.
+ * Starting with Intel Tiger Lake (11th Gen Core processors) or newer, split lock
+@@ -74,6 +81,52 @@ The noticeable difference to the official build process is the addition of
+   the Linux kernel command line parameter `split_lock_detect=off` or using the
+   `split_lock_mitigate` sysctl.
+ 
++## Networking
++
++The new KVM backend utilizes the `--driverless` mode of VirtualBox. Some setups
++that require kernel module support will not work in this mode and prevent the
++VM from starting. Specifically, the Bridged adapter and "NAT Network" modes do
++not work. Only regular NAT is easily supported. More complex setups will need
++manual configuration, e.g., using `tun`/`tap` devices.
++
++## USB pass-through
++
++USB device pass-through is supported. Some `udev` rules are required to
++trigger the creation of fitting device nodes, though. VirtualBox provides the
++`out/linux.amd64/bin/VBoxCreateUSBNode.sh` script to create the right nodes.
++Distribution-provided packages of VirtualBox will usually take care of the
++required setup. The following is a short summary of the additional configuration
++steps, which might differ based on the distribution. Be sure to know what you
++are doing when following these steps. This can potentially interfere with
++existing installations.
++
++* Create a group `vboxusers` and add your user to the group. Remember group
++  changes need a re-login or `newgrp` to take effect.
++```shell
++sudo groupadd -r vboxusers -U <username>
++```
++
++* Place the `VBoxCreateUSBNode.sh` script in a system accessible folder
++```shell
++sudo mkdir /usr/lib/virtualbox
++sudo cp out/release/linux.amd64/bin/VBoxCreateUSBNode.sh /usr/lib/virtualbox
++sudo chown -R root:vboxusers /usr/lib/virtualbox
++```
++
++* Create a `udev` rule file (e.g. `60-vboxusb.rules`) in `/etc/udev/rules.d/`
++  with the following entries:
++```shell
++SUBSYSTEM=="usb_device", ACTION=="add", RUN+="/usr/lib/virtualbox/VBoxCreateUSBNode.sh $major $minor $attr{bDeviceClass}"
++SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", RUN+="/usr/lib/virtualbox/VBoxCreateUSBNode.sh $major $minor $attr{bDeviceClass}"
++SUBSYSTEM=="usb_device", ACTION=="remove", RUN+="/usr/lib/virtualbox/VBoxCreateUSBNode.sh --remove $major $minor"
++SUBSYSTEM=="usb", ACTION=="remove", ENV{DEVTYPE}=="usb_device", RUN+="/usr/lib/virtualbox/VBoxCreateUSBNode.sh --remove $major $minor"
++```
++
++* Reload the udev rules
++```shell
++sudo systemctl reload systemd-udevd
++```
++
+ ## How to engage
+ 
+ If you would like to use VirtualBox with KVM or if you have a need for custom
+@@ -84,3 +137,9 @@ services. Please reach out to us via our
+ 
+ If you encounter any issues please use the provided issue template and describe
+ your problem as detailed as possible.
++
++## Licensing
++
++This source code is released under the same license terms as the original
++VirtualBox Open Source release it is derived from. See the `COPYING` file
++for details.
+-- 
+2.44.0
+

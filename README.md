@@ -55,11 +55,12 @@ to the following steps:
 ```shell
 $ # Download the VirtualBox 7.0.14 source package from Oracle.
 $ tar xf VirtualBox-7.0.14.tar.bz2
-$ git clone https://github.com/cyberus-technology/virtualbox-kvm vbox-patches
+$ git clone https://github.com/cyberus-technology/virtualbox-kvm vbox-kvm
 $ cd VirtualBox-7.0.14
+$ git init
 $ git add *
 $ git commit -m "VirtualBox vanilla code"
-$ git am ../vbox-patches/patches/*.patch
+$ git am ../vbox-kvm/patches/*.patch
 $ ./configure --with-kvm --disable-kmods --disable-docs --disable-hardening --disable-java
 $ source ./env.sh
 $ kmk

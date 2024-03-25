@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Mon, 18 Mar 2024 19:45:47 +0000
+Subject: [PATCH] NEM/KVM: expose GFNI to the guest
+
+---
+ include/iprt/x86.h                 | 2 ++
+ src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/include/iprt/x86.h b/include/iprt/x86.h
+index b9dffccf1..96c7d1b01 100644
+--- a/include/iprt/x86.h
++++ b/include/iprt/x86.h
+@@ -688,6 +688,8 @@ typedef const X86CPUIDFEATEDX *PCX86CPUIDFEATEDX;
+ #define X86_CPUID_STEXT_FEATURE_ECX_PKU               RT_BIT_32(3)
+ /** ECX Bit 4 - OSPKE - Protection keys for user mode pages enabled. */
+ #define X86_CPUID_STEXT_FEATURE_ECX_OSPKE             RT_BIT_32(4)
++/** ECX Bit 8 - GFNI - Supports Galois Field instructions . */
++#define X86_CPUID_STEXT_FEATURE_ECX_GFNI              RT_BIT_32(8)
+ /** ECX Bits 17-21 - MAWAU - Value used by BNDLDX and BNDSTX. */
+ #define X86_CPUID_STEXT_FEATURE_ECX_MAWAU             UINT32_C(0x003e0000)
+ /** ECX Bit 22 - RDPID - Support pread process ID. */
+diff --git a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+index ab44cf161..bc756ceb7 100644
+--- a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
++++ b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+@@ -1887,6 +1887,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+                                ;
+                 pCurLeaf->uEcx &= 0
+                                //| X86_CPUID_STEXT_FEATURE_ECX_PREFETCHWT1 - we do not do vector functions yet.
++                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_ECX_GFNI)
+                                ;
+                 pCurLeaf->uEdx &= 0
+                                | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_FSRM)
+-- 
+2.44.0
+

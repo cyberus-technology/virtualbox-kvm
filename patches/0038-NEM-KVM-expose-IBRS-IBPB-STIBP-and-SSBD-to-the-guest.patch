@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Prescher <thomas.prescher@cyberus-technology.de>
+Date: Mon, 18 Mar 2024 12:30:15 +0000
+Subject: [PATCH] NEM/KVM: expose IBRS, IBPB, STIBP and SSBD to the guest
+
+---
+ src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp       | 5 +++--
+ src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp | 1 +
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+index b4e84c63d..42d8a00f5 100644
+--- a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
++++ b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
+@@ -1891,10 +1891,11 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+                 pCurLeaf->uEdx &= 0
+                                | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_FSRM)
+                                | PASSTHRU_FEATURE(pConfig->enmMdsClear,   pHstFeat->fMdsClear, X86_CPUID_STEXT_FEATURE_EDX_MD_CLEAR)
+-                               //| X86_CPUID_STEXT_FEATURE_EDX_IBRS_IBPB         RT_BIT(26)
+-                               //| X86_CPUID_STEXT_FEATURE_EDX_STIBP             RT_BIT(27)
++                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_IBRS_IBPB)
++                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_STIBP)
+                                | PASSTHRU_FEATURE(pConfig->enmFlushCmdMsr, pHstFeat->fFlushCmd, X86_CPUID_STEXT_FEATURE_EDX_FLUSH_CMD)
+                                | PASSTHRU_FEATURE(pConfig->enmArchCapMsr,  pHstFeat->fArchCap,  X86_CPUID_STEXT_FEATURE_EDX_ARCHCAP)
++                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_SSBD)
+                                ;
+ 
+                 /* Mask out INVPCID unless FSGSBASE is exposed due to a bug in Windows 10 SMP guests, see @bugref{9089#c15}. */
+diff --git a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+index 043dc5322..1807c8174 100644
+--- a/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
++++ b/src/VBox/VMM/VMMR3/NEMR3Native-linux.cpp
+@@ -1100,6 +1100,7 @@ int nemR3NativeInitCompleted(PVM pVM, VMINITCOMPLETED enmWhat)
+         MSR_RANGE_ADD(MSR_IA32_CR_PAT);
+         MSR_RANGE_ADD(MSR_IA32_ARCH_CAPABILITIES);
+         MSR_RANGE_ADD(MSR_IA32_SPEC_CTRL);
++        MSR_RANGE_ADD(MSR_IA32_PRED_CMD);
+         /** @todo more? */
+         MSR_RANGE_END(64);
+ 
+-- 
+2.44.0
+
