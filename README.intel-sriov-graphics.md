@@ -28,8 +28,10 @@ options in order for SR-IOV graphics to function properly.
 
 ## Installation with pre-built kernel packages
 
-If you don't want to compile your own kernel, check the [the latest release](https://github.com/cyberus-technology/virtualbox-kvm/releases) for pre-built packages.
-Note that these packages are built for Ubuntu 22.04 and have not been tested with any
+We currently don't provide binary kernel packages. You may find older versions
+for quick testing in [previous
+releases](https://github.com/cyberus-technology/virtualbox-kvm/releases). Note
+that these packages are built for Ubuntu 22.04 and have not been tested with any
 other Linux distribution. These images are not signed.
 
 ## Installation with self-compiled kernel
