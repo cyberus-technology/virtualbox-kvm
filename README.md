@@ -152,7 +152,7 @@ Please note that nested virtualization is only supported for Intel CPUs. Nested 
 If you would like to use our KVM backend or if you have a need for custom
 virtualization solutions, we are happy to provide guidance and engineering
 services. Please reach out to us via our
-[support form](https://cyberus-technology.de/contact) or via e-mail at
+[support form](https://cyberus-technology.de/en/contact) or via e-mail at
 <service@cyberus-technology.de>.
 
 If you encounter any issues please use the provided issue template and describe
