@@ -53,10 +53,10 @@ After having all the prerequisites installed, the build process can be condensed
 to the following steps:
 
 ```shell
-$ # Download the VirtualBox 7.0.20 source package from Oracle.
-$ tar xf VirtualBox-7.0.20.tar.bz2
+$ # Download the VirtualBox 7.1.4 source package from Oracle.
+$ tar xf VirtualBox-7.1.4.tar.bz2
 $ git clone https://github.com/cyberus-technology/virtualbox-kvm vbox-kvm
-$ cd VirtualBox-7.0.20
+$ cd VirtualBox-7.1.4
 $ git init
 $ git add *
 $ git commit -m "VirtualBox vanilla code"
