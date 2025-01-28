@@ -790,14 +790,19 @@ index 31d73ace18..54a411b925 100644
  /** ECX Bits 17-21 - MAWAU - Value used by BNDLDX and BNDSTX. */
  #define X86_CPUID_STEXT_FEATURE_ECX_MAWAU             UINT32_C(0x003e0000)
  /** ECX Bit 22 - RDPID - Support pread process ID. */
-@@ -710,8 +714,12 @@ typedef const X86CPUIDFEATEDX *PCX86CPUIDFEATEDX;
+@@ -710,6 +710,8 @@
  /** ECX Bit 30 - SGX_LC - Supports SGX launch configuration. */
  #define X86_CPUID_STEXT_FEATURE_ECX_SGX_LC            RT_BIT_32(30)
  
 +/** EDX Bit 4 - FSRM - Supports Fast Short REP MOVSB */
 +#define X86_CPUID_STEXT_FEATURE_EDX_FSRM              RT_BIT(4)
- /** EDX Bit 10 - MD_CLEAR - Supports flushing MDS related buffers. */
+ /** EDX bit 9 - SRBDS_CTRL - (Special Register Buffer Data Sample Control)
+  *  Supports IA32_MCU_OPT_CTRL and IA32_MCU_OPT_CTRL.RNGDS_MITG_DIS. */
+ #define X86_CPUID_STEXT_FEATURE_EDX_SRBDS_CTRL        RT_BIT_32(9)
+@@ -717,6 +719,8 @@
  #define X86_CPUID_STEXT_FEATURE_EDX_MD_CLEAR          RT_BIT_32(10)
+ /** EDX Bit 11 - TSX_FORCE_ABORT - Supports for IA32_TSX_FORCE_ABORT MSR. */
+ #define X86_CPUID_STEXT_FEATURE_EDX_TSX_FORCE_ABORT   RT_BIT_32(11)
 +/** EDX Bit 14 - SERIALIZE - Supports the SERIALIZE CPU instruction. */
 +#define X86_CPUID_STEXT_FEATURE_EDX_SERIALIZE         RT_BIT_32(14)
  /** EDX Bit 20 - CET_IBT - Supports CET indirect branch tracking features. */
@@ -1826,22 +1831,27 @@ index 455f55c70c..884247ee96 100644
                                 //| X86_CPUID_STEXT_FEATURE_EBX_INTEL_PT          RT_BIT(25)
                                 //| X86_CPUID_STEXT_FEATURE_EBX_AVX512PF          RT_BIT(26)
                                 //| X86_CPUID_STEXT_FEATURE_EBX_AVX512ER          RT_BIT(27)
-@@ -1890,13 +1898,17 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+@@ -1893,18 +1893,17 @@
                                 ;
                  pCurLeaf->uEcx &= 0
                                 //| X86_CPUID_STEXT_FEATURE_ECX_PREFETCHWT1 - we do not do vector functions yet.
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_ECX_GFNI)
                                 ;
                  pCurLeaf->uEdx &= 0
+-                               //| X86_CPUID_STEXT_FEATURE_EDX_SRBDS_CTRL        RT_BIT(9)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_FSRM)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_SERIALIZE)
                                 | PASSTHRU_FEATURE(pConfig->enmMdsClear,   pHstFeat->fMdsClear, X86_CPUID_STEXT_FEATURE_EDX_MD_CLEAR)
+-                               //| X86_CPUID_STEXT_FEATURE_EDX_TSX_FORCE_ABORT   RT_BIT_32(11)
+-                               //| X86_CPUID_STEXT_FEATURE_EDX_CET_IBT           RT_BIT(20)
 -                               //| X86_CPUID_STEXT_FEATURE_EDX_IBRS_IBPB         RT_BIT(26)
 -                               //| X86_CPUID_STEXT_FEATURE_EDX_STIBP             RT_BIT(27)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_IBRS_IBPB)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_STIBP)
                                 | PASSTHRU_FEATURE(pConfig->enmFlushCmdMsr, pHstFeat->fFlushCmd, X86_CPUID_STEXT_FEATURE_EDX_FLUSH_CMD)
                                 | PASSTHRU_FEATURE(pConfig->enmArchCapMsr,  pHstFeat->fArchCap,  X86_CPUID_STEXT_FEATURE_EDX_ARCHCAP)
+-                               //| X86_CPUID_STEXT_FEATURE_EDX_CORECAP           RT_BIT_32(30)
+-                               //| X86_CPUID_STEXT_FEATURE_EDX_SSBD              RT_BIT_32(31)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_SSBD)
                                 ;
  
@@ -4912,4 +4922,3 @@ index 18aecd8c02..3d77505b29 100644
 -
 -- 
 2.45.0
-
