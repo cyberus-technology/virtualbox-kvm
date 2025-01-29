@@ -11,7 +11,7 @@ considered experimental.
 
 # Requirements
 
-- Intel Alder Lake (12th Gen Core) or newer
+- Intel Alder Lake or Raptor Lake (12th-13th Gen Core) (See: https://github.com/cyberus-technology/virtualbox-kvm/issues/48)
 - Ubuntu 22.04 as host OS
 - VT-d must be enabled in BIOS.
 - IOMMU must be enabled in the host Linux kernel.
@@ -19,6 +19,9 @@ considered experimental.
 - Make sure the SR-IOV capability is present:
     - `lspci | grep VGA`, remember the BDF for the device, we use 0:2.0 in this tutorial
     - `sudo lspci -s 0:2.0 -v | grep SR-IOV`
+
+Note that the current `dev-20241220` release does not have a required patch for the virtiogpu implementation.
+Use the `dev-20240828` release instead. (See: https://github.com/cyberus-technology/virtualbox-kvm/issues/47)
 
 # Host Setup
 
