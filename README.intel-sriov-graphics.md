@@ -8,10 +8,13 @@ deem it good enough for people to try this.
 This is a feature which is currently under active development, everything noted here should be
 considered experimental.
 
+**Note**: [dev-20240828](https://github.com/cyberus-technology/virtualbox-kvm/releases/tag/dev-20240828) was the last
+release of our KVM backend supporting SR-IOV graphics. Make sure to use that for SR-IOV graphics experiments.
 
 # Requirements
 
-- Intel Alder Lake (12th Gen Core) or newer
+- Intel CPU with SR-IOV graphics support
+   - [Intel Knowledge Base Article]( https://www.intel.com/content/www/us/en/support/articles/000093216/graphics/processor-graphics.html#primary-content)
 - Ubuntu 22.04 as host OS
 - VT-d must be enabled in BIOS.
 - IOMMU must be enabled in the host Linux kernel.

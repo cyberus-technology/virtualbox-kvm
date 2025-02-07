@@ -322,7 +322,7 @@ NEM/KVM: fix hardened builds with KVM
  src/VBox/VMM/VMMAll/TMAllVirtual.cpp          |    4 +
  src/VBox/VMM/VMMR3/APIC.cpp                   |   21 +
  src/VBox/VMM/VMMR3/CPUM.cpp                   |   15 +
- src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp            |   28 +-
+ src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp            |   29 +-
  src/VBox/VMM/VMMR3/EM.cpp                     |   11 +
  src/VBox/VMM/VMMR3/GIMHv.cpp                  |   77 +-
  src/VBox/VMM/VMMR3/GIMHvOnKvm.cpp             |  640 ++++++++
@@ -333,12 +333,12 @@ NEM/KVM: fix hardened builds with KVM
  src/VBox/VMM/VMMR3/VMM.cpp                    |    5 +
  src/VBox/VMM/include/GIMHvInternal.h          |   11 +
  src/VBox/VMM/include/NEMInternal.h            |   34 +-
- 36 files changed, 3089 insertions(+), 175 deletions(-)
+ 36 files changed, 3089 insertions(+), 176 deletions(-)
  create mode 100644 vboxsrc/src/VBox/VMM/VMMAll/GIMAllHvOnKvm.cpp
  create mode 100644 vboxsrc/src/VBox/VMM/VMMR3/GIMHvOnKvm.cpp
 
 diff --git a/Config.kmk b/Config.kmk
-index bdcbd3987c..6ac1d9baee 100644
+index 22bf3414b1..2203ef9923 100644
 --- a/Config.kmk
 +++ b/Config.kmk
 @@ -1677,6 +1677,19 @@ ifdef VBOX_HEADLESS
@@ -376,7 +376,7 @@ index bdcbd3987c..6ac1d9baee 100644
  
  # Don't flood CDEFS, old MASMs doesn't like too many defines.
  ifdef VBOX_WITH_DEBUGGER
-@@ -3683,6 +3704,8 @@ ifndef VBOX_GCC_std
+@@ -3682,6 +3703,8 @@ ifndef VBOX_GCC_std
    VBOX_GCC_std := -std=c++17
    # else if "$(VBOX_CLANG_VERSION_CXX)" vge 60000 # Most language features complete by v6. Lib stuff was less complete in v6, but hopefully acceptable for out purposes.
    #VBOX_GCC_std := -std=c++17
@@ -769,7 +769,7 @@ index 9a3d42fdf3..3540374de3 100644
  # ifdef IN_RING0
  
 diff --git a/include/iprt/x86.h b/include/iprt/x86.h
-index 31d73ace18..54a411b925 100644
+index 9515abb958..d5a2923047 100644
 --- a/include/iprt/x86.h
 +++ b/include/iprt/x86.h
 @@ -682,6 +682,8 @@ typedef const X86CPUIDFEATEDX *PCX86CPUIDFEATEDX;
@@ -790,14 +790,19 @@ index 31d73ace18..54a411b925 100644
  /** ECX Bits 17-21 - MAWAU - Value used by BNDLDX and BNDSTX. */
  #define X86_CPUID_STEXT_FEATURE_ECX_MAWAU             UINT32_C(0x003e0000)
  /** ECX Bit 22 - RDPID - Support pread process ID. */
-@@ -710,8 +714,12 @@ typedef const X86CPUIDFEATEDX *PCX86CPUIDFEATEDX;
+@@ -710,6 +714,8 @@ typedef const X86CPUIDFEATEDX *PCX86CPUIDFEATEDX;
  /** ECX Bit 30 - SGX_LC - Supports SGX launch configuration. */
  #define X86_CPUID_STEXT_FEATURE_ECX_SGX_LC            RT_BIT_32(30)
  
 +/** EDX Bit 4 - FSRM - Supports Fast Short REP MOVSB */
 +#define X86_CPUID_STEXT_FEATURE_EDX_FSRM              RT_BIT(4)
- /** EDX Bit 10 - MD_CLEAR - Supports flushing MDS related buffers. */
+ /** EDX bit 9 - SRBDS_CTRL - (Special Register Buffer Data Sample Control)
+  *  Supports IA32_MCU_OPT_CTRL and IA32_MCU_OPT_CTRL.RNGDS_MITG_DIS. */
+ #define X86_CPUID_STEXT_FEATURE_EDX_SRBDS_CTRL        RT_BIT_32(9)
+@@ -717,6 +723,8 @@ typedef const X86CPUIDFEATEDX *PCX86CPUIDFEATEDX;
  #define X86_CPUID_STEXT_FEATURE_EDX_MD_CLEAR          RT_BIT_32(10)
+ /** EDX Bit 11 - TSX_FORCE_ABORT - Supports for IA32_TSX_FORCE_ABORT MSR. */
+ #define X86_CPUID_STEXT_FEATURE_EDX_TSX_FORCE_ABORT   RT_BIT_32(11)
 +/** EDX Bit 14 - SERIALIZE - Supports the SERIALIZE CPU instruction. */
 +#define X86_CPUID_STEXT_FEATURE_EDX_SERIALIZE         RT_BIT_32(14)
  /** EDX Bit 20 - CET_IBT - Supports CET indirect branch tracking features. */
@@ -1325,10 +1330,10 @@ index 495322dc04..7358b5a965 100644
      return VINF_SUCCESS;
  }
 diff --git a/src/VBox/HostDrivers/Support/Makefile.kmk b/src/VBox/HostDrivers/Support/Makefile.kmk
-index b3902ab751..1f5b64414b 100644
+index 39586e172c..322c0e9997 100644
 --- a/src/VBox/HostDrivers/Support/Makefile.kmk
 +++ b/src/VBox/HostDrivers/Support/Makefile.kmk
-@@ -195,6 +195,7 @@ SUPR3_DEFS          = \
+@@ -197,6 +197,7 @@ SUPR3_DEFS          = \
  	$(if $(VBOX_WITH_MAIN),VBOX_WITH_MAIN,) \
  	$(if $(VBOX_WITH_RAW_MODE),VBOX_WITH_RAW_MODE,) \
  	$(if $(VBOX_WITH_DRIVERLESS_NEM_FALLBACK),VBOX_WITH_DRIVERLESS_NEM_FALLBACK,) \
@@ -1434,10 +1439,10 @@ index 66e4101a85..bc71af791c 100644
  	$(QUIET)$(SED) -n -e 's/^ *LOG_GROUP_\([A-Z0-9_]*\),.*$(DOLLAR)/{ LOG_GROUP_\1, "\1" },/p' --output "$@" "$<"
   endif # !VBOX_ONLY_VALIDATIONKIT
 diff --git a/src/VBox/VMM/Makefile.kmk b/src/VBox/VMM/Makefile.kmk
-index 60279b52d3..4f6cfdb33b 100644
+index 569175ccdf..98991ed01f 100644
 --- a/src/VBox/VMM/Makefile.kmk
 +++ b/src/VBox/VMM/Makefile.kmk
-@@ -137,7 +137,8 @@ VBoxVMM_SOURCES  = \
+@@ -140,7 +140,8 @@ VBoxVMM_SOURCES  = \
  	VMMR3/EMR3Nem.cpp \
  	VMMR3/GCM.cpp \
  	VMMR3/GIM.cpp \
@@ -1447,7 +1452,7 @@ index 60279b52d3..4f6cfdb33b 100644
  	VMMR3/GIMKvm.cpp \
  	VMMR3/GIMMinimal.cpp \
  	VMMR3/IEMR3.cpp \
-@@ -219,7 +220,8 @@ VBoxVMM_SOURCES  = \
+@@ -222,7 +223,8 @@ VBoxVMM_SOURCES  = \
  	VMMAll/EMAll.cpp \
  	VMMAll/GCMAll.cpp \
  	VMMAll/GIMAll.cpp \
@@ -1735,7 +1740,7 @@ index 14964921f2..bcdbe9d83b 100644
          APIC_REG_COUNTER(&pApicCpu->StatPostIntrCnt,   "%u",  "APIC/VCPU stats / number of apicPostInterrupt calls.");
          for (size_t i = 0; i < RT_ELEMENTS(pApicCpu->aStatVectors); i++)
 diff --git a/src/VBox/VMM/VMMR3/CPUM.cpp b/src/VBox/VMM/VMMR3/CPUM.cpp
-index a3aecdefd7..12c1c3b792 100644
+index a05721b1ea..6238eb0718 100644
 --- a/src/VBox/VMM/VMMR3/CPUM.cpp
 +++ b/src/VBox/VMM/VMMR3/CPUM.cpp
 @@ -1842,9 +1842,13 @@ void cpumR3InitVmxGuestFeaturesAndMsrs(PVM pVM, PCFGMNODE pCpumCfg, PCVMXMSRS pH
@@ -1775,10 +1780,10 @@ index a3aecdefd7..12c1c3b792 100644
                  if (pGstCtx->fXStateMask & XSAVE_C_YMM)
                  {
 diff --git a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
-index 455f55c70c..884247ee96 100644
+index 3e49b9c822..e2a5136f1a 100644
 --- a/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
 +++ b/src/VBox/VMM/VMMR3/CPUMR3CpuId.cpp
-@@ -1341,6 +1341,13 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+@@ -1344,6 +1344,13 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
      ((enmConfig) && ((enmConfig) == CPUMISAEXTCFG_ENABLED_ALWAYS || (fHostFeature)) && (fAndExpr) ? (fConst) : 0)
  #define PASSTHRU_FEATURE_TODO(enmConfig, fConst) ((enmConfig) ? (fConst) : 0)
  
@@ -1792,7 +1797,7 @@ index 455f55c70c..884247ee96 100644
      /* Cpuid 1:
       * EAX: CPU model, family and stepping.
       *
-@@ -1600,7 +1607,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+@@ -1603,7 +1610,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
                                 | X86_CPUID_AMD_FEATURE_EDX_MMX
                                 | X86_CPUID_AMD_FEATURE_EDX_FXSR
                                 | X86_CPUID_AMD_FEATURE_EDX_FFXSR
@@ -1801,7 +1806,7 @@ index 455f55c70c..884247ee96 100644
                                 | X86_CPUID_EXT_FEATURE_EDX_RDTSCP
                                 //| RT_BIT_32(28)                    - reserved
                                 //| X86_CPUID_EXT_FEATURE_EDX_LONG_MODE - turned on when necessary
-@@ -1862,9 +1869,9 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+@@ -1865,9 +1872,9 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
                                 //| X86_CPUID_STEXT_FEATURE_EBX_HLE               RT_BIT(4)
                                 | PASSTHRU_FEATURE(pConfig->enmAvx2, pHstFeat->fAvx2, X86_CPUID_STEXT_FEATURE_EBX_AVX2)
                                 | X86_CPUID_STEXT_FEATURE_EBX_FDP_EXCPTN_ONLY
@@ -1813,7 +1818,7 @@ index 455f55c70c..884247ee96 100644
                                 | PASSTHRU_FEATURE(pConfig->enmInvpcid, pHstFeat->fInvpcid, X86_CPUID_STEXT_FEATURE_EBX_INVPCID)
                                 //| X86_CPUID_STEXT_FEATURE_EBX_RTM               RT_BIT(11)
                                 //| X86_CPUID_STEXT_FEATURE_EBX_PQM               RT_BIT(12)
-@@ -1876,10 +1883,11 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+@@ -1879,10 +1886,11 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
                                 | PASSTHRU_FEATURE_TODO(pConfig->enmRdSeed, X86_CPUID_STEXT_FEATURE_EBX_RDSEED)
                                 | PASSTHRU_FEATURE(pConfig->enmAdx, pHstFeat->fAdx, X86_CPUID_STEXT_FEATURE_EBX_ADX)
                                 //| X86_CPUID_STEXT_FEATURE_EBX_SMAP              RT_BIT(20)
@@ -1826,7 +1831,7 @@ index 455f55c70c..884247ee96 100644
                                 //| X86_CPUID_STEXT_FEATURE_EBX_INTEL_PT          RT_BIT(25)
                                 //| X86_CPUID_STEXT_FEATURE_EBX_AVX512PF          RT_BIT(26)
                                 //| X86_CPUID_STEXT_FEATURE_EBX_AVX512ER          RT_BIT(27)
-@@ -1890,13 +1898,17 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
+@@ -1893,18 +1901,21 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
                                 ;
                  pCurLeaf->uEcx &= 0
                                 //| X86_CPUID_STEXT_FEATURE_ECX_PREFETCHWT1 - we do not do vector functions yet.
@@ -1835,18 +1840,23 @@ index 455f55c70c..884247ee96 100644
                  pCurLeaf->uEdx &= 0
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_FSRM)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_SERIALIZE)
+                                //| X86_CPUID_STEXT_FEATURE_EDX_SRBDS_CTRL        RT_BIT(9)
                                 | PASSTHRU_FEATURE(pConfig->enmMdsClear,   pHstFeat->fMdsClear, X86_CPUID_STEXT_FEATURE_EDX_MD_CLEAR)
+                                //| X86_CPUID_STEXT_FEATURE_EDX_TSX_FORCE_ABORT   RT_BIT_32(11)
+                                //| X86_CPUID_STEXT_FEATURE_EDX_CET_IBT           RT_BIT(20)
 -                               //| X86_CPUID_STEXT_FEATURE_EDX_IBRS_IBPB         RT_BIT(26)
 -                               //| X86_CPUID_STEXT_FEATURE_EDX_STIBP             RT_BIT(27)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_IBRS_IBPB)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_STIBP)
                                 | PASSTHRU_FEATURE(pConfig->enmFlushCmdMsr, pHstFeat->fFlushCmd, X86_CPUID_STEXT_FEATURE_EDX_FLUSH_CMD)
                                 | PASSTHRU_FEATURE(pConfig->enmArchCapMsr,  pHstFeat->fArchCap,  X86_CPUID_STEXT_FEATURE_EDX_ARCHCAP)
+                                //| X86_CPUID_STEXT_FEATURE_EDX_CORECAP           RT_BIT_32(30)
+-                               //| X86_CPUID_STEXT_FEATURE_EDX_SSBD              RT_BIT_32(31)
 +                               | PASSTHRU_FEATURE_KVM_ONLY(X86_CPUID_STEXT_FEATURE_EDX_SSBD)
                                 ;
  
                  /* Mask out INVPCID unless FSGSBASE is exposed due to a bug in Windows 10 SMP guests, see @bugref{9089#c15}. */
-@@ -2811,6 +2823,7 @@ static int cpumR3CpuIdReadConfig(PVM pVM, PCPUMCPUIDCONFIG pConfig, PCFGMNODE pC
+@@ -2933,6 +2944,7 @@ static int cpumR3CpuIdReadConfig(PVM pVM, PCPUMCPUIDCONFIG pConfig, PCFGMNODE pC
          AssertLogRelRCReturn(rc, rc);
          if (pConfig->fNestedHWVirt)
          {
@@ -1854,7 +1864,7 @@ index 455f55c70c..884247ee96 100644
              /** @todo Think about enabling this later with NEM/KVM. */
              if (VM_IS_NEM_ENABLED(pVM))
              {
-@@ -2820,6 +2833,7 @@ static int cpumR3CpuIdReadConfig(PVM pVM, PCPUMCPUIDCONFIG pConfig, PCFGMNODE pC
+@@ -2942,6 +2954,7 @@ static int cpumR3CpuIdReadConfig(PVM pVM, PCPUMCPUIDCONFIG pConfig, PCFGMNODE pC
              else if (!fNestedPagingAndFullGuestExec)
                  return VMSetError(pVM, VERR_CPUM_INVALID_HWVIRT_CONFIG, RT_SRC_POS,
                                    "Cannot enable nested VT-x/AMD-V without nested-paging and unrestricted guest execution!\n");
@@ -1862,7 +1872,7 @@ index 455f55c70c..884247ee96 100644
          }
      }
  
-@@ -3736,6 +3750,7 @@ VMMR3_INT_DECL(void) CPUMR3SetGuestCpuIdFeature(PVM pVM, CPUMCPUIDFEATURE enmFea
+@@ -3888,6 +3901,7 @@ VMMR3_INT_DECL(void) CPUMR3SetGuestCpuIdFeature(PVM pVM, CPUMCPUIDFEATURE enmFea
           * Note! ASSUMES CPUMCPUIDFEATURE_APIC is called first.
           */
          case CPUMCPUIDFEATURE_X2APIC:
@@ -1870,7 +1880,7 @@ index 455f55c70c..884247ee96 100644
              pLeaf = cpumCpuIdGetLeaf(pVM, UINT32_C(0x00000001));
              if (pLeaf)
                  pVM->cpum.s.aGuestCpuIdPatmStd[1].uEcx = pLeaf->uEcx |= X86_CPUID_FEATURE_ECX_X2APIC;
-@@ -3750,6 +3765,7 @@ VMMR3_INT_DECL(void) CPUMR3SetGuestCpuIdFeature(PVM pVM, CPUMCPUIDFEATURE enmFea
+@@ -3902,6 +3916,7 @@ VMMR3_INT_DECL(void) CPUMR3SetGuestCpuIdFeature(PVM pVM, CPUMCPUIDFEATURE enmFea
              }
  
              LogRel(("CPUM: SetGuestCpuIdFeature: Enabled x2APIC\n"));
@@ -4832,7 +4842,7 @@ index 29522e02be..9216ebb1d4 100644
   * MMIO2 region indices.
   */
 diff --git a/src/VBox/VMM/include/NEMInternal.h b/src/VBox/VMM/include/NEMInternal.h
-index 18aecd8c02..3d77505b29 100644
+index e6cffe55ca..3a5022e755 100644
 --- a/src/VBox/VMM/include/NEMInternal.h
 +++ b/src/VBox/VMM/include/NEMInternal.h
 @@ -35,8 +35,17 @@
@@ -4872,8 +4882,8 @@ index 18aecd8c02..3d77505b29 100644
  
  #elif defined(RT_OS_WINDOWS)
      /** Set if we've created the EMTs. */
-@@ -417,7 +431,9 @@ typedef struct NEMCPU
-     bool                        fGCMTrapXcptDE : 1;
+@@ -433,7 +447,9 @@ typedef struct NEMCPU
+ #endif
  
  #if defined(RT_OS_LINUX)
 -    uint8_t                     abPadding[3];
@@ -4883,7 +4893,7 @@ index 18aecd8c02..3d77505b29 100644
      /** The KVM VCpu file descriptor. */
      int32_t                     fdVCpu;
      /** Pointer to the KVM_RUN data exchange region. */
-@@ -430,6 +446,21 @@ typedef struct NEMCPU
+@@ -446,6 +462,21 @@ typedef struct NEMCPU
      /** Status of the FIQ line when last seen. */
      bool                        fFiqLastSeen;
  # else
@@ -4905,7 +4915,7 @@ index 18aecd8c02..3d77505b29 100644
      /** The MSR_IA32_APICBASE value known to KVM. */
      uint64_t                    uKvmApicBase;
  #endif
-@@ -760,4 +791,3 @@ int     nemHCNativeNotifyPhysPageAllocated(PVMCC pVM, RTGCPHYS GCPhys, RTHCPHYS
+@@ -776,4 +807,3 @@ int     nemHCNativeNotifyPhysPageAllocated(PVMCC pVM, RTGCPHYS GCPhys, RTHCPHYS
  RT_C_DECLS_END
  
  #endif /* !VMM_INCLUDED_SRC_include_NEMInternal_h */
