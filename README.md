@@ -25,6 +25,32 @@ workload.
 
 ## How to use
 
+### NixOS package
+
+If you are using NixOS, switching to our KVM backend is super easy. Just include the
+relevant settings to the `virtualisation.virtualbox.host` section of your configuration
+and rebuild the system:
+
+```nix
+virtualisation.virtualbox.host = {
+  enable = true;
+  enableKvm = true;
+  addNetworkInterface = false;
+};
+```
+
+![Enabling KVM backend for VirtualBox in NixOS](vbox-kvm-nixos.gif)
+
+### Other distribution packages
+
+We don't provide any packaging for Linux distributions ourselves. However, there are some
+enthusiasts out there who create packages, e.g., for Debian and Arch. Keep an eye on our
+issue tracker for more details.
+
+### Manual Compilation
+
+**Note: This section might be outdated and need further adjustment for newer versions of VirtualBox.**
+
 There are no prebuilt packages of the resulting program and it needs to be built from
 source. The process of building VirtualBox from source can be found
 [on virtualbox.org](https://www.virtualbox.org/wiki/Linux%20build%20instructions) and only
