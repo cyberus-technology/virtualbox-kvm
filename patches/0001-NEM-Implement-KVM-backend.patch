@@ -1,4 +1,4 @@
-From d41179caa73b266f1736c7e041d9a583df260bde Mon Sep 17 00:00:00 2001
+From a1578c442b112850616d26551fa2126a7ceec761 Mon Sep 17 00:00:00 2001
 From: Martin Messer <martin.messer@cyberus-technology.de>
 Date: Wed, 5 Apr 2023 11:22:27 +0200
 Subject: [PATCH] NEM: Implement KVM backend
@@ -338,10 +338,10 @@ NEM/KVM: fix hardened builds with KVM
  create mode 100644 src/VBox/VMM/VMMR3/GIMHvOnKvm.cpp
 
 diff --git a/Config.kmk b/Config.kmk
-index e4bc4beb029..50fe819056e 100644
+index 43505f3d374..bb52d7a6712 100644
 --- a/Config.kmk
 +++ b/Config.kmk
-@@ -566,7 +566,7 @@ endif
+@@ -575,7 +575,7 @@ endif
  # Enables the new breakpoint handling code, see @bugref{8650}
  VBOX_WITH_DBGF_FLOW_TRACING = 1
  # Enables ARMv8 API support and if possible virtualization, see @bugref{10383}
@@ -350,7 +350,7 @@ index e4bc4beb029..50fe819056e 100644
  # Makes x86 emulation on ARM hosts available in the GUI.
  if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), empty-set)
   VBOX_WITH_X86_ON_ARM_ENABLED = 1
-@@ -1669,6 +1669,19 @@ ifdef VBOX_HEADLESS
+@@ -1682,6 +1682,19 @@ ifdef VBOX_HEADLESS
   VBOX_WITH_VBOXSDL =
  endif
  
@@ -370,7 +370,7 @@ index e4bc4beb029..50fe819056e 100644
  #
  # Undefined VBOX_WITH_MAIN implies exclusion of a few more items.
  #
-@@ -2080,6 +2093,14 @@ endif
+@@ -2094,6 +2107,14 @@ endif
  ifdef VBOX_WITH_STATIC_ARM64_PAGE_SHIFT
   DEFS.linux.arm64 += IPRT_STATIC_ARM64_PAGE_SHIFT=$(VBOX_WITH_STATIC_ARM64_PAGE_SHIFT)
  endif
@@ -385,7 +385,7 @@ index e4bc4beb029..50fe819056e 100644
  
  # Don't flood CDEFS, old MASMs doesn't like too many defines.
  ifdef VBOX_WITH_HARDENING
-@@ -3601,6 +3622,8 @@ ifndef VBOX_GCC_std
+@@ -3643,6 +3664,8 @@ ifndef VBOX_GCC_std
    VBOX_GCC_std := -std=c++17
    # else if "$(VBOX_CLANG_VERSION_CXX)" vge 60000 # Most language features complete by v6. Lib stuff was less complete in v6, but hopefully acceptable for out purposes.
    #VBOX_GCC_std := -std=c++17
@@ -395,7 +395,7 @@ index e4bc4beb029..50fe819056e 100644
    VBOX_GCC_std := -std=c++11
    # else if "$(VBOX_GCC_VERSION_CXX)" vge 70000 # Language feature P0512R0 was v8, rest v7 or earlier. Most lib stuff present in 7, complete in v12.
 diff --git a/configure b/configure
-index bd6a3b0d983..ecdcbdcf087 100755
+index 299950c5c80..23cb8a20e01 100755
 --- a/configure
 +++ b/configure
 @@ -86,6 +86,7 @@ SETUP_WINE=
@@ -406,15 +406,15 @@ index bd6a3b0d983..ecdcbdcf087 100755
  WITH_XPCOM=1
  WITH_PYTHON=1
  WITH_JAVA=1
-@@ -2506,6 +2507,7 @@ cat << EOF
-   --build-libssl           build openssl from sources
+@@ -2570,6 +2571,7 @@ cat << EOF
    --build-libtpms          build libtpms from sources
+   --build-libjpeg          build libjpeg from sources
    --build-liblzma          build liblzma from sources
 +  --with-kvm               build with kvm backend
  EOF
  [ $OSE -eq 0 ] && cat << EOF
    --build-libcurl          build libcurl from sources
-@@ -2661,6 +2663,9 @@ for option in "$@"; do
+@@ -2730,6 +2732,9 @@ for option in "$@"; do
      --with-linux=*)
        LINUX=`echo $option | cut -d'=' -f2`
        ;;
@@ -424,7 +424,7 @@ index bd6a3b0d983..ecdcbdcf087 100755
      --with-makeself=*)
        MAKESELF=`echo $option | cut -d'=' -f2`
        ;;
-@@ -2943,6 +2948,7 @@ fi
+@@ -3015,6 +3020,7 @@ fi
  [ $WITH_JAVA      -eq 0 ] && cnf_append "VBOX_WITH_JWS" ""
  [ $WITH_HARDENING -eq 0 ] && cnf_append "VBOX_WITHOUT_HARDENING" "1"
  [ $WITH_HARDENING -eq 2 ] && cnf_append "VBOX_WITH_HARDENING" "2"
@@ -603,7 +603,7 @@ index 91e08d4bc09..aef2d97f764 100644
   * @{ */
  /** Set if the range is replacing RAM rather that unused space. */
 diff --git a/include/VBox/vmm/pdmdev.h b/include/VBox/vmm/pdmdev.h
-index b18b36ae03e..e1c9537aad2 100644
+index c5d02f6f386..7647e59febe 100644
 --- a/include/VBox/vmm/pdmdev.h
 +++ b/include/VBox/vmm/pdmdev.h
 @@ -65,6 +65,49 @@
@@ -749,10 +749,10 @@ index b18b36ae03e..e1c9537aad2 100644
      uint32_t                u32TheEnd;
  } PDMIOAPICHLP;
 diff --git a/include/iprt/mangling.h b/include/iprt/mangling.h
-index 599cb907d1f..ad9b3c009fc 100644
+index a17603e5ff2..3da87109eb9 100644
 --- a/include/iprt/mangling.h
 +++ b/include/iprt/mangling.h
-@@ -2714,6 +2714,7 @@
+@@ -2717,6 +2717,7 @@
  # define RTThreadIsSelfKnown                            RT_MANGLER(RTThreadIsSelfKnown)
  # define RTThreadNativeSelf                             RT_MANGLER(RTThreadNativeSelf)
  # define RTThreadControlPokeSignal                      RT_MANGLER(RTThreadControlPokeSignal) /* not-win not-os2 */
@@ -761,10 +761,10 @@ index 599cb907d1f..ad9b3c009fc 100644
  # define RTThreadPreemptDisable                         RT_MANGLER(RTThreadPreemptDisable)     /* r0drv */
  # define RTThreadPreemptIsEnabled                       RT_MANGLER(RTThreadPreemptIsEnabled)   /* r0drv */
 diff --git a/include/iprt/thread.h b/include/iprt/thread.h
-index d4d504c2eef..49013eb2dd2 100644
+index 714d24c46d3..82f028eb2b5 100644
 --- a/include/iprt/thread.h
 +++ b/include/iprt/thread.h
-@@ -555,6 +555,12 @@ RTDECL(int) RTThreadPoke(RTTHREAD hThread);
+@@ -558,6 +558,12 @@ RTDECL(int) RTThreadPoke(RTTHREAD hThread);
   */
  RTDECL(int) RTThreadControlPokeSignal(RTTHREAD hThread, bool fEnable);
  
@@ -778,7 +778,7 @@ index d4d504c2eef..49013eb2dd2 100644
  # ifdef IN_RING0
  
 diff --git a/include/iprt/x86.h b/include/iprt/x86.h
-index 091a34d4d7c..a48016b1e0a 100644
+index c75049f8d6d..d6eb0b036d9 100644
 --- a/include/iprt/x86.h
 +++ b/include/iprt/x86.h
 @@ -682,6 +682,8 @@ typedef const X86CPUIDFEATEDX *PCX86CPUIDFEATEDX;
@@ -1339,10 +1339,10 @@ index d0239782ec5..abc24f68ab5 100644
      return VINF_SUCCESS;
  }
 diff --git a/src/VBox/HostDrivers/Support/Makefile.kmk b/src/VBox/HostDrivers/Support/Makefile.kmk
-index 9c436e11b64..d03fcfe7bef 100644
+index 3f316bfa63b..4451a0fcfb7 100644
 --- a/src/VBox/HostDrivers/Support/Makefile.kmk
 +++ b/src/VBox/HostDrivers/Support/Makefile.kmk
-@@ -197,6 +197,7 @@ SUPR3_DEFS          = \
+@@ -198,6 +198,7 @@ SUPR3_DEFS          = \
  	$(if $(VBOX_WITH_DRIVERLESS_NEM_FALLBACK),VBOX_WITH_DRIVERLESS_NEM_FALLBACK,) \
  	$(if $(VBOX_WITH_R0_MODULES),VBOX_WITH_R0_MODULES,) \
  	$(if $(VBOX_WITH_DRIVERLESS_FORCED),VBOX_WITH_DRIVERLESS_FORCED,) \
@@ -1383,10 +1383,10 @@ index 9ff87b051bf..7a781a28da6 100644
          && (fFlags & (SUP_PAGE_ALLOC_F_FOR_LOCKING | SUP_PAGE_ALLOC_F_LARGE_PAGES)) == SUP_PAGE_ALLOC_F_FOR_LOCKING)
          cbMmap += cbPage * 2;
 diff --git a/src/VBox/Main/Makefile.kmk b/src/VBox/Main/Makefile.kmk
-index 7f543a3345c..f039336fd5a 100644
+index aef8b166ac2..68295a7e3e2 100644
 --- a/src/VBox/Main/Makefile.kmk
 +++ b/src/VBox/Main/Makefile.kmk
-@@ -1136,7 +1136,8 @@ if !defined(VBOX_ONLY_SDK) && !defined(VBOX_ONLY_EXTPACKS) # Note this goes on f
+@@ -1139,7 +1139,8 @@ if !defined(VBOX_ONLY_SDK) && !defined(VBOX_ONLY_EXTPACKS) # Note this goes on f
  
  
   VBoxC_LIBS += \
@@ -1397,7 +1397,7 @@ index 7f543a3345c..f039336fd5a 100644
   	$(PATH_SDK_$(VBOX_WINPSDK)_LIB)/psapi.lib \
   	$(PATH_TOOL_$(VBOX_VCC_TOOL)_LIB)/delayimp.lib
 diff --git a/src/VBox/Main/src-server/HostImpl.cpp b/src/VBox/Main/src-server/HostImpl.cpp
-index c5374138cd3..0dd2f4626a8 100644
+index f1df6dc49bf..caec1579a6d 100644
 --- a/src/VBox/Main/src-server/HostImpl.cpp
 +++ b/src/VBox/Main/src-server/HostImpl.cpp
 @@ -82,6 +82,8 @@
@@ -1410,10 +1410,10 @@ index c5374138cd3..0dd2f4626a8 100644
  
  #ifdef RT_OS_SOLARIS
 diff --git a/src/VBox/Runtime/Makefile.kmk b/src/VBox/Runtime/Makefile.kmk
-index 6aafe8c5add..6d5551918d2 100644
+index ff6b78d5f07..2321799468c 100644
 --- a/src/VBox/Runtime/Makefile.kmk
 +++ b/src/VBox/Runtime/Makefile.kmk
-@@ -3333,8 +3333,8 @@ if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), win.x86 win.amd64 linux.amd64 dar
+@@ -3335,8 +3335,8 @@ if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), win.x86 win.amd64 linux.amd64 dar
  		$(if-expr "$(KBUILD_TARGET_ARCH)" == "arm64",-e "/not-arm64/d",-e "/only-arm64/d") \
  		$(if-expr defined(VBOX_WITH_R0_MODULES)     ,-e "/no-gip/d",   -e "/with-gip/d") \
  		$(if-expr "$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)" == "darwin.arm64",, -e "/only-darwin.arm64/d") \
@@ -1440,7 +1440,7 @@ index 5e24500266c..d14c1052b20 100644
  #endif
  
 diff --git a/src/VBox/Runtime/testcase/Makefile.kmk b/src/VBox/Runtime/testcase/Makefile.kmk
-index 74f97c5c081..2b46510bc9b 100644
+index aac594e3bd6..5ac3ca6558f 100644
 --- a/src/VBox/Runtime/testcase/Makefile.kmk
 +++ b/src/VBox/Runtime/testcase/Makefile.kmk
 @@ -612,6 +612,7 @@ ifdef VBOX_WITH_TESTCASES # The whole file
@@ -1452,7 +1452,7 @@ index 74f97c5c081..2b46510bc9b 100644
  	$(QUIET)$(SED) -n -e 's/^ *LOG_GROUP_\([A-Z0-9_]*\),.*$(DOLLAR)/{ LOG_GROUP_\1, "\1" },/p' --output "$@" "$<"
   endif # !VBOX_ONLY_VALIDATIONKIT
 diff --git a/src/VBox/VMM/Makefile.kmk b/src/VBox/VMM/Makefile.kmk
-index 51c6d9995da..06052bc6dbc 100644
+index 68c54b4959c..b597d4d288e 100644
 --- a/src/VBox/VMM/Makefile.kmk
 +++ b/src/VBox/VMM/Makefile.kmk
 @@ -147,7 +147,8 @@ VBoxVMM_SOURCES  = \
@@ -2487,7 +2487,7 @@ index 634513ca5c5..2588f8e07f2 100644
  
      /*
 diff --git a/src/VBox/VMM/VMMR3/NEMR3NativeTemplate-linux.cpp.h b/src/VBox/VMM/VMMR3/NEMR3NativeTemplate-linux.cpp.h
-index 0a470f160e9..27cb5c9ad13 100644
+index c44ea7132c3..0c847eb7c63 100644
 --- a/src/VBox/VMM/VMMR3/NEMR3NativeTemplate-linux.cpp.h
 +++ b/src/VBox/VMM/VMMR3/NEMR3NativeTemplate-linux.cpp.h
 @@ -431,6 +431,7 @@ static int nemR3LnxInitCheckCapabilities(PVM pVM, PRTERRINFO pErrInfo)
@@ -2782,10 +2782,10 @@ index 36f9e4a11e4..06b09e8ce5e 100644
  };
  
 diff --git a/src/VBox/VMM/VMMR3/PGMR3Phys.cpp b/src/VBox/VMM/VMMR3/PGMR3Phys.cpp
-index 5cfd761a490..9fbad9a04bb 100644
+index 1adab08b48a..4472e86ac14 100644
 --- a/src/VBox/VMM/VMMR3/PGMR3Phys.cpp
 +++ b/src/VBox/VMM/VMMR3/PGMR3Phys.cpp
-@@ -2124,11 +2124,16 @@ int pgmR3PhysRamPreAllocate(PVM pVM)
+@@ -2125,11 +2125,16 @@ int pgmR3PhysRamPreAllocate(PVM pVM)
      Assert(pVM->pgm.s.fRamPreAlloc);
      Log(("pgmR3PhysRamPreAllocate: enter\n"));
  # ifdef VBOX_WITH_PGM_NEM_MODE
@@ -2886,7 +2886,7 @@ index 2fd99726bad..9e99863bf16 100644
          APIC_REG_COUNTER(&pApicCpu->StatPostIntrCnt,   "%u",  "APIC/VCPU stats / number of apicPostInterrupt calls.");
          for (size_t i = 0; i < RT_ELEMENTS(pApicCpu->aStatVectors); i++)
 diff --git a/src/VBox/VMM/VMMR3/target-x86/CPUMR3-x86.cpp b/src/VBox/VMM/VMMR3/target-x86/CPUMR3-x86.cpp
-index 74375ceb042..7d4bf4b7a3c 100644
+index ec9da8a84d3..6b148480c9c 100644
 --- a/src/VBox/VMM/VMMR3/target-x86/CPUMR3-x86.cpp
 +++ b/src/VBox/VMM/VMMR3/target-x86/CPUMR3-x86.cpp
 @@ -1569,6 +1569,7 @@ DECLHIDDEN(void) cpumR3InitVmxGuestFeaturesAndMsrs(PVM pVM, PCFGMNODE pCpumCfg,
@@ -2907,7 +2907,7 @@ index 74375ceb042..7d4bf4b7a3c 100644
  #endif
          if (pszWhy)
          {
-@@ -2453,10 +2457,20 @@ DECLCALLBACK(int) cpumR3LoadExecTarget(PVM pVM, PSSMHANDLE pSSM, uint32_t uVersi
+@@ -2492,10 +2496,20 @@ DECLCALLBACK(int) cpumR3LoadExecTarget(PVM pVM, PSSMHANDLE pSSM, uint32_t uVersi
                      rc = SSMR3GetStructEx(pSSM, &pGstCtx->XState.Hdr, sizeof(pGstCtx->XState.Hdr),
                                            0, g_aCpumXSaveHdrFields, NULL);
                      AssertRCReturn(rc, rc);
