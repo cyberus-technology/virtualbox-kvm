@@ -1,4 +1,4 @@
-From a1578c442b112850616d26551fa2126a7ceec761 Mon Sep 17 00:00:00 2001
+From 2940e10c2cc5281478e3dfaa071e8f8f638df3ba Mon Sep 17 00:00:00 2001
 From: Martin Messer <martin.messer@cyberus-technology.de>
 Date: Wed, 5 Apr 2023 11:22:27 +0200
 Subject: [PATCH] NEM: Implement KVM backend
@@ -338,7 +338,7 @@ NEM/KVM: fix hardened builds with KVM
  create mode 100644 src/VBox/VMM/VMMR3/GIMHvOnKvm.cpp
 
 diff --git a/Config.kmk b/Config.kmk
-index 43505f3d374..bb52d7a6712 100644
+index d9208411b88..35deb1a595e 100644
 --- a/Config.kmk
 +++ b/Config.kmk
 @@ -575,7 +575,7 @@ endif
@@ -749,10 +749,10 @@ index c5d02f6f386..7647e59febe 100644
      uint32_t                u32TheEnd;
  } PDMIOAPICHLP;
 diff --git a/include/iprt/mangling.h b/include/iprt/mangling.h
-index a17603e5ff2..3da87109eb9 100644
+index 27267e4cfd9..a22f374fd34 100644
 --- a/include/iprt/mangling.h
 +++ b/include/iprt/mangling.h
-@@ -2717,6 +2717,7 @@
+@@ -2718,6 +2718,7 @@
  # define RTThreadIsSelfKnown                            RT_MANGLER(RTThreadIsSelfKnown)
  # define RTThreadNativeSelf                             RT_MANGLER(RTThreadNativeSelf)
  # define RTThreadControlPokeSignal                      RT_MANGLER(RTThreadControlPokeSignal) /* not-win not-os2 */
@@ -1410,16 +1410,16 @@ index f1df6dc49bf..caec1579a6d 100644
  
  #ifdef RT_OS_SOLARIS
 diff --git a/src/VBox/Runtime/Makefile.kmk b/src/VBox/Runtime/Makefile.kmk
-index ff6b78d5f07..2321799468c 100644
+index 23ce5d89d8a..0132865edd8 100644
 --- a/src/VBox/Runtime/Makefile.kmk
 +++ b/src/VBox/Runtime/Makefile.kmk
-@@ -3335,8 +3335,8 @@ if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), win.x86 win.amd64 linux.amd64 dar
+@@ -3345,8 +3345,8 @@ if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), win.x86 win.amd64 linux.amd64 dar
  		$(if-expr "$(KBUILD_TARGET_ARCH)" == "arm64",-e "/not-arm64/d",-e "/only-arm64/d") \
  		$(if-expr defined(VBOX_WITH_R0_MODULES)     ,-e "/no-gip/d",   -e "/with-gip/d") \
  		$(if-expr "$(KBUILD_TARGET).$(KBUILD_TARGET_ARCH)" == "darwin.arm64",, -e "/only-darwin.arm64/d") \
--		$(if-expr "$(substr $(if-expr $(KBUILD_TARGET) != 'win',$(VBOX_GCC_std), $(VBOX_VCC_std)),-2)" >= "17" \
+-		$(if-expr "$(substr $(if-expr $(KBUILD_TARGET) != 'win',$(VBOX_GCC_std),$(VBOX_VCC_std)),-2)" >= "17" \
 -			,-e "/before-noexcept/d", -e "/after-noexcept/d") \
-+		$(if-expr "$(VBOX_WITH_KVM)" != "1", $(if-expr "$(substr $(if-expr $(KBUILD_TARGET) != 'win',$(VBOX_GCC_std), $(VBOX_VCC_std)),-2)" >= "17" \
++		$(if-expr "$(VBOX_WITH_KVM)" != "1", $(if-expr "$(substr $(if-expr $(KBUILD_TARGET) != 'win',$(VBOX_GCC_std),$(VBOX_VCC_std)),-2)" >= "17" \
 +			,-e "/before-noexcept/d", -e "/after-noexcept/d"), -e "/after-noexcept/d") \
  		$(if-expr $(intersects $(KBUILD_TARGET), linux) && $(intersects $(KBUILD_TARGET_ARCH), amd64 arm64) \
  			,-e "/int64=llong/d", -e "/int64=long/d") \
@@ -1664,10 +1664,10 @@ index 48416b5123e..0d3d0297060 100644
  }
  
 diff --git a/src/VBox/VMM/VMMAll/target-x86/APICAll-x86.cpp b/src/VBox/VMM/VMMAll/target-x86/APICAll-x86.cpp
-index 8fc220e8696..3d06f1b78da 100644
+index eb2b12516b2..6f41e4868c6 100644
 --- a/src/VBox/VMM/VMMAll/target-x86/APICAll-x86.cpp
 +++ b/src/VBox/VMM/VMMAll/target-x86/APICAll-x86.cpp
-@@ -2227,6 +2227,16 @@ static DECLCALLBACK(VBOXSTRICTRC) apicSetLocalInterrupt(PVMCPUCC pVCpu, uint8_t
+@@ -2311,6 +2311,16 @@ static DECLCALLBACK(VBOXSTRICTRC) apicSetLocalInterrupt(PVMCPUCC pVCpu, uint8_t
      AssertReturn(u8Level <= 1, VERR_INVALID_PARAMETER);
  
      VBOXSTRICTRC rcStrict = VINF_SUCCESS;
@@ -1717,7 +1717,7 @@ index 53554bdbf49..69885cd861b 100644
                      break;
 diff --git a/src/VBox/VMM/VMMR3/GIMHvOnKvm.cpp b/src/VBox/VMM/VMMR3/GIMHvOnKvm.cpp
 new file mode 100644
-index 00000000000..362cc690f14
+index 00000000000..1338a8f7e2d
 --- /dev/null
 +++ b/src/VBox/VMM/VMMR3/GIMHvOnKvm.cpp
 @@ -0,0 +1,640 @@
@@ -2222,12 +2222,12 @@ index 00000000000..362cc690f14
 +        pHvCpu->uSControlMsr = 0;
 +        pHvCpu->uSimpMsr  = 0;
 +        pHvCpu->uSiefpMsr = 0;
-+        pHvCpu->uApicAssistPageMsr = 0;
++        pHvCpu->uVpAssistMsr = 0;
 +
 +        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_SCONTROL, pHvCpu->uSControlMsr);
 +        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_SIMP, pHvCpu->uSimpMsr);
 +        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_SIEFP, pHvCpu->uSiefpMsr);
-+        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_APIC_ASSIST_PAGE, pHvCpu->uApicAssistPageMsr);
++        NEMR3KvmSetMsr(pVCpu, MSR_GIM_HV_VP_ASSIST, pHvCpu->uVpAssistMsr);
 +
 +        for (uint8_t idxSint = 0; idxSint < RT_ELEMENTS(pHvCpu->auSintMsrs); idxSint++) {
 +            pHvCpu->auSintMsrs[idxSint] = MSR_GIM_HV_SINT_MASKED;
@@ -2362,7 +2362,7 @@ index 00000000000..362cc690f14
 +    return VERR_GIM_NO_DEBUG_CONNECTION;
 +}
 diff --git a/src/VBox/VMM/VMMR3/GIMR3Hv.cpp b/src/VBox/VMM/VMMR3/GIMR3Hv.cpp
-index 634513ca5c5..2588f8e07f2 100644
+index 6073d8f07be..5646794cd38 100644
 --- a/src/VBox/VMM/VMMR3/GIMR3Hv.cpp
 +++ b/src/VBox/VMM/VMMR3/GIMR3Hv.cpp
 @@ -34,6 +34,9 @@
@@ -2439,9 +2439,9 @@ index 634513ca5c5..2588f8e07f2 100644
                         | GIM_HV_BASE_FEAT_PART_TIME_REF_COUNT_MSR
                       //| GIM_HV_BASE_FEAT_BASIC_SYNIC_MSRS          // Both required for synethetic timers
                       //| GIM_HV_BASE_FEAT_STIMER_MSRS               // Both required for synethetic timers
-@@ -300,15 +352,29 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
-                          | GIM_HV_MISC_FEAT_GUEST_CRASH_MSRS
+@@ -301,15 +353,29 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
                         //| GIM_HV_MISC_FEAT_DEBUG_MSRS
+                        //| GIM_HV_MISC_FEAT_USE_DIRECT_SYNTH_MSRS
                           ;
 -
 +#ifdef VBOX_WITH_KVM
@@ -2470,7 +2470,7 @@ index 634513ca5c5..2588f8e07f2 100644
  
          /* Expose more if we're posing as Microsoft. We can, if needed, force MSR-based Hv
             debugging by not exposing these bits while exposing the VS interface. The better
-@@ -320,6 +386,15 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
+@@ -321,6 +387,15 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
  
              pHv->uPartFlags |= GIM_HV_PART_FLAGS_DEBUGGING;
          }
@@ -2782,7 +2782,7 @@ index 36f9e4a11e4..06b09e8ce5e 100644
  };
  
 diff --git a/src/VBox/VMM/VMMR3/PGMR3Phys.cpp b/src/VBox/VMM/VMMR3/PGMR3Phys.cpp
-index 1adab08b48a..4472e86ac14 100644
+index 5da9111fae1..28ead774520 100644
 --- a/src/VBox/VMM/VMMR3/PGMR3Phys.cpp
 +++ b/src/VBox/VMM/VMMR3/PGMR3Phys.cpp
 @@ -2125,11 +2125,16 @@ int pgmR3PhysRamPreAllocate(PVM pVM)
@@ -2819,7 +2819,7 @@ index 98be5b5e222..2d0cc7bec52 100644
  }
  
 diff --git a/src/VBox/VMM/VMMR3/target-x86/APICR3-x86.cpp b/src/VBox/VMM/VMMR3/target-x86/APICR3-x86.cpp
-index 2fd99726bad..9e99863bf16 100644
+index 9a16635ecb1..bcdfe0c86cf 100644
 --- a/src/VBox/VMM/VMMR3/target-x86/APICR3-x86.cpp
 +++ b/src/VBox/VMM/VMMR3/target-x86/APICR3-x86.cpp
 @@ -35,6 +35,7 @@
@@ -2830,7 +2830,7 @@ index 2fd99726bad..9e99863bf16 100644
  #include <VBox/vmm/pdmdev.h>
  #include <VBox/vmm/ssm.h>
  #ifndef VBOX_DEVICE_STRUCT_TESTCASE
-@@ -251,6 +252,10 @@ static DECLCALLBACK(void) apicR3Info(PVM pVM, PCDBGFINFOHLP pHlp, const char *ps
+@@ -312,6 +313,10 @@ static DECLCALLBACK(void) apicR3Info(PVM pVM, PCDBGFINFOHLP pHlp, const char *ps
      if (!pVCpu)
          pVCpu = pVM->apCpusR3[0];
  
@@ -2841,7 +2841,7 @@ index 2fd99726bad..9e99863bf16 100644
      PCAPICCPU pApicCpu = VMCPU_TO_APICCPU(pVCpu);
      apicR3CommonDbgInfo(pVCpu, pHlp, pApicCpu->uApicBaseMsr);
      pHlp->pfnPrintf(pHlp, "  ESR Internal                  = %#x\n", pApicCpu->uEsrInternal);
-@@ -602,6 +607,10 @@ static DECLCALLBACK(int) apicR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
+@@ -663,6 +668,10 @@ static DECLCALLBACK(int) apicR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
          PVMCPU pVCpu = pVM->apCpusR3[idCpu];
          PCAPICCPU pApicCpu = VMCPU_TO_APICCPU(pVCpu);
  
@@ -2852,7 +2852,7 @@ index 2fd99726bad..9e99863bf16 100644
          /* Update interrupts from the pending-interrupts bitmaps to the IRR. */
          PDMApicUpdatePendingInterrupts(pVCpu);
  
-@@ -695,6 +704,10 @@ static DECLCALLBACK(int) apicR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uin
+@@ -756,6 +765,10 @@ static DECLCALLBACK(int) apicR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uin
              else
                  pHlp->pfnSSMGetStruct(pSSM, pApicCpu->pvApicPageR3, &g_aXApicPageFields[0]);
  
@@ -2863,7 +2863,7 @@ index 2fd99726bad..9e99863bf16 100644
              /* Load the timer. */
              rc = pHlp->pfnSSMGetU64(pSSM, &pApicCpu->u64TimerInitial);     AssertRCReturn(rc, rc);
              rc = PDMDevHlpTimerLoad(pDevIns, pApicCpu->hTimer, pSSM);      AssertRCReturn(rc, rc);
-@@ -823,6 +836,11 @@ DECLCALLBACK(void) apicR3Reset(PPDMDEVINS pDevIns)
+@@ -884,6 +897,11 @@ DECLCALLBACK(void) apicR3Reset(PPDMDEVINS pDevIns)
  
          /* Clear the interrupt pending force flag. */
          apicClearInterruptFF(pVCpuDest, PDMAPICIRQ_HARDWARE);
@@ -2875,7 +2875,7 @@ index 2fd99726bad..9e99863bf16 100644
      }
  }
  
-@@ -1180,6 +1198,9 @@ DECLCALLBACK(int) apicR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFGMNODE p
+@@ -1241,6 +1259,9 @@ DECLCALLBACK(int) apicR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFGMNODE p
      {
          PVMCPU   pVCpu     = pVM->apCpusR3[idCpu];
          PAPICCPU pApicCpu  = VMCPU_TO_APICCPU(pVCpu);
@@ -4821,7 +4821,7 @@ index 80f89069bec..a98c83ad021 100644
   */
 -
 diff --git a/src/VBox/VMM/include/GIMHvInternal.h b/src/VBox/VMM/include/GIMHvInternal.h
-index bae4e771a31..f20f9f96753 100644
+index 432d31754cf..8f3a2286aa3 100644
 --- a/src/VBox/VMM/include/GIMHvInternal.h
 +++ b/src/VBox/VMM/include/GIMHvInternal.h
 @@ -202,6 +202,8 @@
@@ -4833,7 +4833,7 @@ index bae4e771a31..f20f9f96753 100644
  /** @}  */
  
  
-@@ -1117,6 +1119,15 @@ AssertCompile(sizeof(GIMHVEXTGETBOOTZEROMEM) <= GIM_HV_PAGE_SIZE);
+@@ -1145,6 +1147,15 @@ AssertCompile(sizeof(GIMHVEXTGETBOOTZEROMEM) <= GIM_HV_PAGE_SIZE);
  /** @} */
  
  
